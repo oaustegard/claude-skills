@@ -8,10 +8,10 @@
 <script type="importmap">
   {
     "imports": {
-      "preact": "https://esm.sh/preact@10.23.1",
-      "preact/": "https://esm.sh/preact@10.23.1/",
-      "@preact/signals": "https://esm.sh/@preact/signals@1.3.0?external=preact",
-      "htm/preact": "https://esm.sh/htm@3.1.1/preact?external=preact"
+      "preact": "https://esm.sh/*preact@10.23.1",
+      "preact/": "https://esm.sh/*preact@10.23.1/",
+      "@preact/signals": "https://esm.sh/*@preact/signals@1.3.0",
+      "htm/preact": "https://esm.sh/*htm@3.1.1/preact"
     }
   }
 </script>
@@ -23,19 +23,19 @@
 <script type="importmap">
   {
     "imports": {
-      "preact": "https://esm.sh/preact@10.23.1",
-      "preact/": "https://esm.sh/preact@10.23.1/",
-      "react": "https://esm.sh/preact@10.23.1/compat",
-      "react/": "https://esm.sh/preact@10.23.1/compat/",
-      "react-dom": "https://esm.sh/preact@10.23.1/compat",
-      "@preact/signals": "https://esm.sh/@preact/signals@1.3.0?external=preact",
-      "htm/preact": "https://esm.sh/htm@3.1.1/preact?external=preact"
+      "preact": "https://esm.sh/*preact@10.23.1",
+      "preact/": "https://esm.sh/*preact@10.23.1/",
+      "react": "https://esm.sh/*preact@10.23.1/compat",
+      "react/": "https://esm.sh/*preact@10.23.1/compat/",
+      "react-dom": "https://esm.sh/*preact@10.23.1/compat",
+      "@preact/signals": "https://esm.sh/*@preact/signals@1.3.0",
+      "htm/preact": "https://esm.sh/*htm@3.1.1/preact"
     }
   }
 </script>
 ```
 
-**Critical Note**: Always use `?external=preact` for packages that depend on Preact to avoid duplicate instances.
+**Critical Note**: Always use the `*` prefix in esm.sh URLs to mark all dependencies as external, preventing duplicate Preact instances.
 
 ## HTM Syntax (Default Preference)
 
