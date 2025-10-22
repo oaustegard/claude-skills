@@ -84,16 +84,16 @@ Always use this exact import map structure for standalone examples:
 <script type="importmap">
   {
     "imports": {
-      "preact": "https://esm.sh/preact@10.23.1",
-      "preact/": "https://esm.sh/preact@10.23.1/",
-      "@preact/signals": "https://esm.sh/@preact/signals@1.3.0?external=preact",
-      "htm/preact": "https://esm.sh/htm@3.1.1/preact?external=preact"
+      "preact": "https://esm.sh/*preact@10.23.1",
+      "preact/": "https://esm.sh/*preact@10.23.1/",
+      "@preact/signals": "https://esm.sh/*@preact/signals@1.3.0",
+      "htm/preact": "https://esm.sh/*htm@3.1.1/preact"
     }
   }
 </script>
 ```
 
-**Critical**: Always use `?external=preact` for packages depending on Preact to avoid duplicate instances.
+**Critical**: Always use the `*` prefix in esm.sh URLs to mark all dependencies as external, preventing duplicate Preact instances.
 
 ### Syntax Preference
 
@@ -311,9 +311,9 @@ import { users, isAuthenticated } from './state.js';
   <script type="importmap">
     {
       "imports": {
-        "preact": "https://esm.sh/preact@10.23.1",
-        "@preact/signals": "https://esm.sh/@preact/signals@1.3.0?external=preact",
-        "htm/preact": "https://esm.sh/htm@3.1.1/preact?external=preact"
+        "preact": "https://esm.sh/*preact@10.23.1",
+        "@preact/signals": "https://esm.sh/*@preact/signals@1.3.0",
+        "htm/preact": "https://esm.sh/*htm@3.1.1/preact"
       }
     }
   </script>
@@ -363,7 +363,7 @@ For mathematical visualizations using WebGL shaders, create a canvas element, in
 
 Before delivering code, verify:
 
-- [ ] Import map is correct with `?external=preact`
+- [ ] Import map uses `*` prefix for all esm.sh URLs
 - [ ] HTM syntax is used (unless JSX explicitly requested)
 - [ ] Keys provided for all mapped elements
 - [ ] Signals used for reactive state
