@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+body { font-family: system-ui; max-width: 600px; margin: 40px auto; padding: 0 20px; }
+h1 { color: #1976D2; }
+.bookmarklet { 
+  background: #e3f2fd; 
+  padding: 12px 20px; 
+  border: 2px solid #2196F3; 
+  border-radius: 6px; 
+  text-decoration: none; 
+  display: inline-block; 
+  font-weight: bold; 
+  color: #1976D2; 
+  cursor: move;
+  margin: 20px 0;
+}
+.bookmarklet:hover { background: #bbdefb; }
+.instruction { color: #666; font-size: 14px; }
+</style>
+</head>
+<body>
+<h1>Hello World Demo</h1>
+<p>This page demonstrates token-efficient artifact delivery.</p>
+
+<h2>Try the Demo Bookmarklet</h2>
+<p class="instruction">Drag this link to your bookmarks bar (Ctrl+Shift+B to show it):</p>
+
+<a href="javascript:(function(){alert('Hello from bookmarklet!\n\nPage: '+document.title+'\nURL: '+location.href);})();" class="bookmarklet">
+  👋 Hello World
+</a>
+
+<h3>How it works</h3>
+<ol>
+  <li>Drag the link above to your bookmarks bar</li>
+  <li>Navigate to any webpage</li>
+  <li>Click the bookmark</li>
+  <li>See page info displayed</li>
+</ol>
+
+<h3>Token Efficiency</h3>
+<p>This HTML is stored in the skill and output only when requested. The skill detects trigger phrases and outputs this ~1KB artifact instead of generating explanatory text.</p>
+</body>
+</html>
