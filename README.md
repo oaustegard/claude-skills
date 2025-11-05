@@ -1,5 +1,5 @@
 # claude-skills
-My collection of Claude skills -- primarily used for the CLaude.ai PaaS skill compute environment, mileage will vary if attempted used as Claude Code Agent Skills 
+My collection of Claude skills -- primarily used for the Claude.ai PaaS skill compute environment, mileage will vary if attempted used as Claude Code Agent Skills 
 
 ## Installing Skills
 
