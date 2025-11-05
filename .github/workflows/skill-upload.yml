@@ -24,6 +24,7 @@ jobs:
       - name: Process All Skill Uploads
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
         run: |
           # Find all zip files in uploads directory
           ZIP_FILES=$(find uploads -name "*.zip" -type f 2>/dev/null || true)
@@ -139,8 +140,8 @@ jobs:
             SKILL_DIR_NAME=$(echo "$SKILL_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/ /-/g')
             echo "Skill directory: $SKILL_DIR_NAME"
 
-            # Create branch for this skill
-            BRANCH_NAME="skill-upload/$SKILL_DIR_NAME-$(echo $ZIP_FILE | md5sum | cut -d' ' -f1)"
+            # Create unique branch name for this skill (includes run ID to avoid conflicts)
+            BRANCH_NAME="skill-upload/$SKILL_DIR_NAME-$RUN_ID"
             echo "Creating branch: $BRANCH_NAME"
 
             git checkout -b "$BRANCH_NAME"
