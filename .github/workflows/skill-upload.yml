@@ -159,8 +159,9 @@ jobs:
 
             git checkout -b "$BRANCH_NAME"
 
-            # Copy skill files (exclude VCS directories)
-            rsync -av --delete --exclude='.git' --exclude='.svn' --exclude='.hg' "$EXTRACTED_PATH/" "$SKILL_DIR_NAME/"
+            # Copy skill files (exclude VCS directories and VERSION file)
+            # VERSION files are workflow metadata, not part of the skill content
+            rsync -av --delete --exclude='.git' --exclude='.svn' --exclude='.hg' --exclude='VERSION' "$EXTRACTED_PATH/" "$SKILL_DIR_NAME/"
 
             # Add the new skill files and remove the original zip file
             git add "$SKILL_DIR_NAME"
