@@ -110,7 +110,7 @@ jobs:
             fi
 
             # File Type Check
-            ALLOWED_EXTENSIONS=("md" "json" "yml" "yaml" "png" "jpg" "jpeg" "svg" "html" "js" "css" "txt")
+            ALLOWED_EXTENSIONS=("md" "json" "yml" "yaml" "png" "jpg" "jpeg" "svg" "html" "js" "css" "txt" "sh")
             for file in $(find "$EXTRACTED_PATH" -type f); do
               extension="${file##*.}"
               if [[ ! " ${ALLOWED_EXTENSIONS[@]} " =~ " ${extension} " ]]; then
