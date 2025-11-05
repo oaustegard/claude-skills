@@ -20,8 +20,8 @@ jobs:
       - name: Find and Extract Zip
         id: extract
         run: |
-          # Find the zip file from the commit
-          ZIP_FILE=$(git diff-tree --no-commit-id --name-only -r ${{ github.sha }} | grep '^uploads/.*\.zip$' | head -n 1)
+          # Find the zip file from the commit (handles both regular and merge commits)
+          ZIP_FILE=$(git show --pretty="" --name-only ${{ github.sha }} | grep '^uploads/.*\.zip$' | head -n 1)
           if [ -z "$ZIP_FILE" ]; then
             echo "Error: No .zip file found in the push."
             exit 1
