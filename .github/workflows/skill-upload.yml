@@ -21,6 +21,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_ID: ${{ github.run_id }}
         run: |
+          # Skip if this was triggered by our own automated PR merge
+          if [[ "${{ github.event.head_commit.author.name }}" == "github-actions[bot]" ]]; then
+            echo "========================================="
+            echo "Skipping: This push was from github-actions[bot]"
+            echo "Prevents infinite loop from PR merges"
+            echo "========================================="
+            exit 0
+          fi
+
           # Find all zip files in uploads directory
           ZIP_FILES=$(find uploads -name "*.zip" -type f 2>/dev/null || true)
 
