@@ -1,14 +1,16 @@
 # claude-skills
-My collection of Claude skills
+My collection of Claude skills -- primarily used for the CLaude.ai PaaS skill compute environment, mileage will vary if attempted used as Claude Code Agent Skills 
 
 ## Installing Skills
 
 - To install a skill in Claude.ai you first need a paid account (Claude Pro or Team)
 - Download the skill ZIP from the [Releases page](../../releases)
-- Upload to Claude.ai Skills
+- Upload to Claude.ai at https://claude.ai/settings/capabilities 
 - See [official documentation](https://support.claude.com/en/articles/12512198-how-to-create-custom-skills)
 
 ## Contributing Skills
+
+(Not actually sure the workflow for a forked repo back to mine -- someone will have to test and report...)
 
 ### Via ZIP Upload (Easiest)
 
