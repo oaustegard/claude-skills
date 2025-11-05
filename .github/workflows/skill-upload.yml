@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 2  # Fetch current commit and parent to enable diff
 
       - name: Process All Skill Uploads
         env:
@@ -22,7 +24,13 @@ jobs:
           RUN_ID: ${{ github.run_id }}
         run: |
           # Check if any zip files were actually added or modified (not just deleted)
-          ADDED_OR_MODIFIED=$(git diff --name-status ${{ github.event.before }}..${{ github.sha }} | grep -E '^(A|M)\s+uploads/.*\.zip$' || true)
+          # Use HEAD~1 as fallback if before commit is not available
+          BEFORE_COMMIT="${{ github.event.before }}"
+          if [ -z "$BEFORE_COMMIT" ] || ! git rev-parse --verify "$BEFORE_COMMIT" >/dev/null 2>&1; then
+            BEFORE_COMMIT="HEAD~1"
+          fi
+
+          ADDED_OR_MODIFIED=$(git diff --name-status "$BEFORE_COMMIT" HEAD 2>/dev/null | grep -E '^(A|M)\s+uploads/.*\.zip$' || true)
 
           if [ -z "$ADDED_OR_MODIFIED" ]; then
             echo "========================================="
