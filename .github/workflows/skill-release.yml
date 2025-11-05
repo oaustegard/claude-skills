@@ -118,6 +118,9 @@ jobs:
 
             echo "✓ Skill structure validated"
 
+            # Save repository root before changing directories
+            REPO_ROOT=$(pwd)
+
             # Create ZIP with correct structure
             # The ZIP should contain the skill folder as its root
             TEMP_DIR=$(mktemp -d)
@@ -133,6 +136,9 @@ jobs:
             echo "✓ Created $SKILL_DIR.zip"
             echo "ZIP contents:"
             unzip -l "$SKILL_DIR.zip" | head -20
+
+            # Return to repository root for git operations
+            cd "$REPO_ROOT"
 
             # Generate release notes
             # Try to get last tag for this skill
@@ -165,7 +171,7 @@ jobs:
             # Create GitHub release
             echo "Creating GitHub release..."
             gh release create "$TAG_NAME" \
-              "$SKILL_DIR.zip" \
+              "$TEMP_DIR/$SKILL_DIR.zip" \
               --title "$RELEASE_TITLE" \
               --notes "$RELEASE_NOTES"
 
