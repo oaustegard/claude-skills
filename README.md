@@ -11,7 +11,7 @@ My collection of Claude skills -- primarily used for the Claude.ai PaaS skill co
 
 ## Contributing Skills
 
-(Not actually sure the workflow for a forked repo back to mine -- someone will have to test and report...)
+(Not actually sure about the workflow for a forked repo back to mine -- someone will have to test and report, but within your _own_ fork:...)
 
 ### Via ZIP Upload (Easiest)
 
