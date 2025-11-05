@@ -21,6 +21,22 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_ID: ${{ github.run_id }}
         run: |
+          # Check if any zip files were actually added or modified (not just deleted)
+          ADDED_OR_MODIFIED=$(git diff --name-status ${{ github.event.before }}..${{ github.sha }} | grep -E '^(A|M)\s+uploads/.*\.zip$' || true)
+
+          if [ -z "$ADDED_OR_MODIFIED" ]; then
+            echo "========================================="
+            echo "No zip files were added or modified in this push."
+            echo "Only deletions or non-zip changes detected."
+            echo "Exiting gracefully."
+            echo "========================================="
+            exit 0
+          fi
+
+          echo "Detected zip file changes:"
+          echo "$ADDED_OR_MODIFIED"
+          echo ""
+
           # Find all zip files in uploads directory
           ZIP_FILES=$(find uploads -name "*.zip" -type f 2>/dev/null || true)
 
