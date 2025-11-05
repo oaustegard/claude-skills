@@ -114,8 +114,9 @@ jobs:
               exit 1
             fi
 
-            # File Type Check - Block dangerous executables and archives
-            BLOCKED_EXTENSIONS=("exe" "dll" "so" "dylib" "bin" "app" "bat" "cmd" "vbs" "ps1" "jar" "zip" "tar" "gz" "7z" "rar" "dmg" "iso" "msi" "deb" "rpm")
+            # File Type Check - Block compiled executables, binaries, and nested archives
+            # Scripts (.sh, .py, .bat, etc.) are allowed since they're reviewable text files
+            BLOCKED_EXTENSIONS=("exe" "dll" "so" "dylib" "bin" "app" "jar" "zip" "tar" "gz" "7z" "rar" "dmg" "iso" "msi" "deb" "rpm")
             for file in $(find "$EXTRACTED_PATH" -type f); do
               extension="${file##*.}"
               # Convert to lowercase for comparison
