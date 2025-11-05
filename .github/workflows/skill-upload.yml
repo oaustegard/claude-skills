@@ -17,109 +17,142 @@ jobs:
           sudo wget https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 -O /usr/bin/yq
           sudo chmod +x /usr/bin/yq
 
-      - name: Find and Extract Zip
-        id: extract
-        run: |
-          # Find the most recently modified zip file in uploads directory
-          ZIP_FILE=$(find uploads -name "*.zip" -type f -printf '%T@ %p\n' | sort -rn | head -n 1 | cut -d' ' -f2-)
-          if [ -z "$ZIP_FILE" ]; then
-            echo "Error: No .zip file found in uploads directory."
-            exit 1
-          fi
-          echo "Processing file: $ZIP_FILE"
-
-          TEMP_DIR=$(mktemp -d)
-          unzip "$ZIP_FILE" -d $TEMP_DIR/extracted_skill
-          echo "Extracted files:"
-          ls -R $TEMP_DIR/extracted_skill
-
-          echo "path=$TEMP_DIR/extracted_skill" >> $GITHUB_OUTPUT
-          echo "zip_path=$ZIP_FILE" >> $GITHUB_OUTPUT
-
-      - name: Validate Skill
-        id: validate
-        run: |
-          EXTRACTED_PATH="${{ steps.extract.outputs.path }}"
-          SKILL_MD_PATH="$EXTRACTED_PATH/SKILL.md"
-          if [ ! -f "$SKILL_MD_PATH" ]; then
-            echo "Error: SKILL.md not found!"
-            exit 1
-          fi
-          # Extract YAML frontmatter using sed and pass to yq
-          FRONTMATTER=$(sed -n '/^---$/,/^---$/p' $SKILL_MD_PATH | sed '1d;$d')
-          SKILL_NAME=$(echo "$FRONTMATTER" | yq eval '.name' -)
-          SKILL_DESCRIPTION=$(echo "$FRONTMATTER" | yq eval '.description' -)
-          if [ -z "$SKILL_NAME" ] || [ "$SKILL_NAME" == "null" ]; then
-            echo "Error: Skill name not found in SKILL.md frontmatter."
-            exit 1
-          fi
-          echo "skill_name=$SKILL_NAME" >> $GITHUB_OUTPUT
-          echo "skill_description=$SKILL_DESCRIPTION" >> $GITHUB_OUTPUT
-
-      - name: Security Validations
-        run: |
-          EXTRACTED_PATH="${{ steps.extract.outputs.path }}"
-          # Path Traversal Check - check if any file path contains '../'
-          if find "$EXTRACTED_PATH" -type f | grep -q '/\.\./'; then
-            echo "Error: Path traversal detected in zip file."
-            exit 1
-          fi
-          # File Type Check
-          ALLOWED_EXTENSIONS=("md" "json" "yml" "yaml" "png" "jpg" "jpeg" "svg" "html" "js" "css" "txt")
-          for file in $(find "$EXTRACTED_PATH" -type f); do
-            extension="${file##*.}"
-            if [[ ! " ${ALLOWED_EXTENSIONS[@]} " =~ " ${extension} " ]]; then
-              echo "Error: Disallowed file type found: $file"
-              exit 1
-            fi
-          done
-          # Zip Bomb check
-          MAX_FILES=1000
-          FILE_COUNT=$(find "$EXTRACTED_PATH" -type f | wc -l)
-          if [ "$FILE_COUNT" -gt "$MAX_FILES" ]; then
-            echo "Error: Too many files in zip archive (max $MAX_FILES)."
-            exit 1
-          fi
-
-      - name: Prepare skill directory
-        id: prepare-dir
-        run: |
-          SKILL_NAME="${{ steps.validate.outputs.skill_name }}"
-          # Convert to lowercase and replace spaces with hyphens
-          SKILL_DIR_NAME=$(echo "$SKILL_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/ /-/g')
-          echo "skill_dir_name=$SKILL_DIR_NAME" >> $GITHUB_OUTPUT
-
-      - name: Create Pull Request
+      - name: Process All Skill Uploads
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SKILL_DESCRIPTION: ${{ steps.validate.outputs.skill_description }}
         run: |
-          SKILL_DIR_NAME="${{ steps.prepare-dir.outputs.skill_dir_name }}"
-          SKILL_NAME="${{ steps.validate.outputs.skill_name }}"
-          ZIP_FILE="${{ steps.extract.outputs.zip_path }}"
-          BRANCH_NAME="skill-upload/$SKILL_DIR_NAME-$(echo $ZIP_FILE | md5sum | cut -d' ' -f1)"
+          # Find all zip files in uploads directory
+          ZIP_FILES=$(find uploads -name "*.zip" -type f)
 
+          if [ -z "$ZIP_FILES" ]; then
+            echo "Error: No .zip files found in uploads directory."
+            exit 1
+          fi
+
+          # Count how many files we're processing
+          FILE_COUNT=$(echo "$ZIP_FILES" | wc -l)
+          echo "Found $FILE_COUNT skill(s) to process"
+
+          # Configure git once for all operations
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
-          git checkout -b $BRANCH_NAME
+          # Store the main branch name
+          MAIN_BRANCH=$(git branch --show-current)
 
-          # Copy skill files
-          rsync -av --delete "${{ steps.extract.outputs.path }}/" "$SKILL_DIR_NAME/"
+          # Process each zip file
+          COUNTER=1
+          echo "$ZIP_FILES" | while IFS= read -r ZIP_FILE; do
+            echo ""
+            echo "========================================="
+            echo "Processing skill $COUNTER of $FILE_COUNT: $ZIP_FILE"
+            echo "========================================="
 
-          # Add the new skill files and remove the original zip file in the same commit
-          git add "$SKILL_DIR_NAME"
-          git rm "$ZIP_FILE"
+            # Extract the zip file
+            TEMP_DIR=$(mktemp -d)
+            unzip "$ZIP_FILE" -d "$TEMP_DIR/extracted_skill"
+            echo "Extracted files:"
+            ls -R "$TEMP_DIR/extracted_skill"
 
-          git commit -m "feat(skills): Add/Update skill: $SKILL_NAME"
-          git push origin $BRANCH_NAME
+            EXTRACTED_PATH="$TEMP_DIR/extracted_skill"
 
-          gh pr create \
-            --title "feat(skills): Add/Update skill: $SKILL_NAME" \
-            --body-file - <<-EOF
+            # Validate: Check for SKILL.md and extract metadata
+            SKILL_MD_PATH="$EXTRACTED_PATH/SKILL.md"
+            if [ ! -f "$SKILL_MD_PATH" ]; then
+              echo "Error: SKILL.md not found in $ZIP_FILE!"
+              rm -rf "$TEMP_DIR"
+              exit 1
+            fi
+
+            # Extract YAML frontmatter
+            FRONTMATTER=$(sed -n '/^---$/,/^---$/p' "$SKILL_MD_PATH" | sed '1d;$d')
+            SKILL_NAME=$(echo "$FRONTMATTER" | yq eval '.name' -)
+            SKILL_DESCRIPTION=$(echo "$FRONTMATTER" | yq eval '.description' -)
+
+            if [ -z "$SKILL_NAME" ] || [ "$SKILL_NAME" == "null" ]; then
+              echo "Error: Skill name not found in SKILL.md frontmatter for $ZIP_FILE"
+              rm -rf "$TEMP_DIR"
+              exit 1
+            fi
+
+            echo "Skill name: $SKILL_NAME"
+            echo "Description: $SKILL_DESCRIPTION"
+
+            # Security Validations
+            echo "Running security checks..."
+
+            # Path Traversal Check
+            if find "$EXTRACTED_PATH" -type f | grep -q '/\.\./'; then
+              echo "Error: Path traversal detected in $ZIP_FILE"
+              rm -rf "$TEMP_DIR"
+              exit 1
+            fi
+
+            # File Type Check
+            ALLOWED_EXTENSIONS=("md" "json" "yml" "yaml" "png" "jpg" "jpeg" "svg" "html" "js" "css" "txt")
+            for file in $(find "$EXTRACTED_PATH" -type f); do
+              extension="${file##*.}"
+              if [[ ! " ${ALLOWED_EXTENSIONS[@]} " =~ " ${extension} " ]]; then
+                echo "Error: Disallowed file type found in $ZIP_FILE: $file"
+                rm -rf "$TEMP_DIR"
+                exit 1
+              fi
+            done
+
+            # Zip Bomb check
+            MAX_FILES=1000
+            EXTRACTED_FILE_COUNT=$(find "$EXTRACTED_PATH" -type f | wc -l)
+            if [ "$EXTRACTED_FILE_COUNT" -gt "$MAX_FILES" ]; then
+              echo "Error: Too many files in $ZIP_FILE (max $MAX_FILES)"
+              rm -rf "$TEMP_DIR"
+              exit 1
+            fi
+
+            echo "Security checks passed!"
+
+            # Prepare skill directory name
+            SKILL_DIR_NAME=$(echo "$SKILL_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/ /-/g')
+            echo "Skill directory: $SKILL_DIR_NAME"
+
+            # Create branch for this skill
+            BRANCH_NAME="skill-upload/$SKILL_DIR_NAME-$(echo $ZIP_FILE | md5sum | cut -d' ' -f1)"
+            echo "Creating branch: $BRANCH_NAME"
+
+            git checkout -b "$BRANCH_NAME"
+
+            # Copy skill files
+            rsync -av --delete "$EXTRACTED_PATH/" "$SKILL_DIR_NAME/"
+
+            # Add the new skill files and remove the original zip file
+            git add "$SKILL_DIR_NAME"
+            git rm "$ZIP_FILE"
+
+            git commit -m "feat(skills): Add/Update skill: $SKILL_NAME"
+            git push origin "$BRANCH_NAME"
+
+            # Create Pull Request
+            gh pr create \
+              --title "feat(skills): Add/Update skill: $SKILL_NAME" \
+              --body-file - <<-EOF
             Automated skill upload for **$SKILL_NAME**.
 
             **Description:** $SKILL_DESCRIPTION
 
             *This PR was generated automatically from the file \`$ZIP_FILE\`.*
           EOF
+
+            echo "✓ Successfully created PR for $SKILL_NAME"
+
+            # Clean up temp directory
+            rm -rf "$TEMP_DIR"
+
+            # Return to main branch for next iteration
+            git checkout "$MAIN_BRANCH"
+
+            COUNTER=$((COUNTER + 1))
+          done
+
+          echo ""
+          echo "========================================="
+          echo "All skills processed successfully!"
+          echo "========================================="
