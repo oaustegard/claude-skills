@@ -1,8 +1,77 @@
 # claude-skills
 My collection of Claude skills
 
-- To install a skill in Claude.ai you first need a paid account
-- Download the skill you want to use and create a ZIP file that includes exactly one SKILL.md file at the root level
+## Installing Skills
 
-- https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills  
+- To install a skill in Claude.ai you first need a paid account (Claude Pro or Team)
+- Download the skill ZIP from the [Releases page](../../releases)
+- Upload to Claude.ai Skills
+- See [official documentation](https://support.claude.com/en/articles/12512198-how-to-create-custom-skills)
+
+## Contributing Skills
+
+### Via ZIP Upload (Easiest)
+
+1. Create your skill folder with `SKILL.md` at the root
+2. Package your skill:
+   ```bash
+   # Correct structure:
+   your-skill.zip
+     └── your-skill/
+         ├── SKILL.md
+         └── resources/  (optional)
+   ```
+3. Upload the ZIP to the `uploads/` directory
+4. The workflow will automatically create a PR with your skill
+
+### Via Direct Development
+
+1. Create a new branch
+2. Add your skill folder at the repository root
+3. Include a `VERSION` file (e.g., `1.0.0`)
+4. Submit a PR
+
+## Releasing Skills
+
+Skills are automatically released when VERSION files are updated on the main branch.
+
+### Creating a New Release
+
+1. Update the `VERSION` file in your skill folder:
+   ```bash
+   echo "1.1.0" > your-skill/VERSION
+   ```
+
+2. Commit and push (or merge PR):
+   ```bash
+   git add your-skill/VERSION
+   git commit -m "chore: bump your-skill to v1.1.0"
+   git push
+   ```
+
+3. The workflow will automatically:
+   - Create a properly structured ZIP file
+   - Generate a GitHub release with tag `your-skill-v1.1.0`
+   - Attach the ZIP as a release asset
+   - Generate release notes from recent commits
+
+### Manual Release
+
+You can also trigger a release manually via GitHub Actions:
+
+1. Go to Actions → Release Skill → Run workflow
+2. Enter the skill folder name
+3. Optionally specify a version (otherwise uses VERSION file)
+
+### Version Format
+
+Use [semantic versioning](https://semver.org/):
+- `1.0.0` - Initial release
+- `1.0.1` - Patch (bug fixes)
+- `1.1.0` - Minor (new features, backward compatible)
+- `2.0.0` - Major (breaking changes)
+
+## Resources
+
+- https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills
 - https://support.claude.com/en/articles/12512198-how-to-create-custom-skills
