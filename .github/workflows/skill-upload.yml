@@ -122,4 +122,4 @@ jobs:
             **Description:** $SKILL_DESCRIPTION
 
             *This PR was generated automatically from the file \`$ZIP_FILE\`.*
-EOF
+          EOF
