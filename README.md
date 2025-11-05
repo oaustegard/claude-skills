@@ -23,20 +23,33 @@ My collection of Claude skills -- primarily used for the CLaude.ai PaaS skill co
      └── your-skill/
          ├── SKILL.md
          └── resources/  (optional)
+
+   # NOTE: Do NOT include a VERSION file in your ZIP
+   # VERSION files are workflow metadata and will be ignored
    ```
 3. Upload the ZIP to the `uploads/` directory
-4. The workflow will automatically create a PR with your skill
+4. The workflow will automatically create a PR with your skill content
+5. When ready to release, update the VERSION file separately (see "Releasing Skills" below)
 
 ### Via Direct Development
 
 1. Create a new branch
-2. Add your skill folder at the repository root
-3. Include a `VERSION` file (e.g., `1.0.0`)
-4. Submit a PR
+2. Add your skill folder at the repository root (SKILL.md and resources)
+3. Submit a PR with your skill content
+4. When ready to release, update the VERSION file separately (see "Releasing Skills" below)
 
 ## Releasing Skills
 
-Skills are automatically released when VERSION files are updated on the main branch.
+**Important:** VERSION files are workflow metadata, separate from skill content.
+
+- Releases are triggered **explicitly** by updating VERSION files on main branch
+- Simply changing skill content does NOT trigger a release
+- This separation allows you to iterate on skills without creating releases for every change
+
+### How It Works
+
+1. **Develop & Update:** Upload ZIPs or edit skill files directly → PRs update skill content in repo
+2. **Release When Ready:** Update VERSION file → Automatic release created with downloadable ZIP
 
 ### Creating a New Release
 
@@ -53,10 +66,11 @@ Skills are automatically released when VERSION files are updated on the main bra
    ```
 
 3. The workflow will automatically:
-   - Create a properly structured ZIP file
+   - Create a properly structured ZIP file (VERSION excluded - it's not part of the skill)
    - Generate a GitHub release with tag `your-skill-v1.1.0`
    - Attach the ZIP as a release asset
    - Generate release notes from recent commits
+   - Users download this ZIP to install the skill
 
 ### Manual Release
 

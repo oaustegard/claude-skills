@@ -129,9 +129,9 @@ jobs:
             # Copy skill folder to temp directory
             cp -r "$SKILL_DIR" "$TEMP_DIR/"
 
-            # Create ZIP from temp directory
+            # Create ZIP from temp directory (exclude VERSION - it's workflow metadata)
             cd "$TEMP_DIR"
-            zip -r "$SKILL_DIR.zip" "$SKILL_DIR/"
+            zip -r "$SKILL_DIR.zip" "$SKILL_DIR/" -x "$SKILL_DIR/VERSION"
 
             echo "✓ Created $SKILL_DIR.zip"
             echo "ZIP contents:"
