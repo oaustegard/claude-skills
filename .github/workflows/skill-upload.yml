@@ -22,11 +22,18 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Find all zip files in uploads directory
-          ZIP_FILES=$(find uploads -name "*.zip" -type f)
+          ZIP_FILES=$(find uploads -name "*.zip" -type f 2>/dev/null || true)
 
           if [ -z "$ZIP_FILES" ]; then
-            echo "Error: No .zip files found in uploads directory."
-            exit 1
+            echo "========================================="
+            echo "No .zip files found in uploads directory."
+            echo "This is normal if:"
+            echo "  - Zip files were already processed"
+            echo "  - Zip files were manually deleted"
+            echo "  - Only non-zip files were modified"
+            echo "Exiting gracefully."
+            echo "========================================="
+            exit 0
           fi
 
           # Count how many files we're processing
@@ -56,10 +63,24 @@ jobs:
 
             EXTRACTED_PATH="$TEMP_DIR/extracted_skill"
 
+            # Handle case where zip contains a single root directory
+            # Count items in extracted path
+            ITEM_COUNT=$(find "$EXTRACTED_PATH" -mindepth 1 -maxdepth 1 | wc -l)
+            if [ "$ITEM_COUNT" -eq 1 ]; then
+              SINGLE_ITEM=$(find "$EXTRACTED_PATH" -mindepth 1 -maxdepth 1)
+              if [ -d "$SINGLE_ITEM" ]; then
+                echo "Zip contains single root directory, using it as base path"
+                EXTRACTED_PATH="$SINGLE_ITEM"
+              fi
+            fi
+
+            echo "Using path: $EXTRACTED_PATH"
+
             # Validate: Check for SKILL.md and extract metadata
             SKILL_MD_PATH="$EXTRACTED_PATH/SKILL.md"
             if [ ! -f "$SKILL_MD_PATH" ]; then
               echo "Error: SKILL.md not found in $ZIP_FILE!"
+              echo "Expected at: $SKILL_MD_PATH"
               rm -rf "$TEMP_DIR"
               exit 1
             fi
