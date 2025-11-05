@@ -116,8 +116,10 @@ jobs:
 
           gh pr create \
             --title "feat(skills): Add/Update skill: $SKILL_NAME" \
-            --body "Automated skill upload for **$SKILL_NAME**.
+            --body-file - <<-EOF
+            Automated skill upload for **$SKILL_NAME**.
 
-**Description:** $SKILL_DESCRIPTION
+            **Description:** $SKILL_DESCRIPTION
 
-*This PR was generated automatically from the file \`$ZIP_FILE\`.*"
+            *This PR was generated automatically from the file \`$ZIP_FILE\`.*
+EOF
