@@ -1,0 +1,123 @@
+name: Upload Skill
+
+on:
+  push:
+    paths:
+      - 'uploads/**.zip'
+
+jobs:
+  upload-skill:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install yq
+        run: |
+          sudo wget https://github.com/mikefarah/yq/releases/download/v4.27.2/yq_linux_amd64 -O /usr/bin/yq
+          sudo chmod +x /usr/bin/yq
+
+      - name: Find and Extract Zip
+        id: extract
+        run: |
+          # Find the zip file from the commit
+          ZIP_FILE=$(git diff-tree --no-commit-id --name-only -r ${{ github.sha }} | grep '^uploads/.*\.zip$' | head -n 1)
+          if [ -z "$ZIP_FILE" ]; then
+            echo "Error: No .zip file found in the push."
+            exit 1
+          fi
+          echo "Processing file: $ZIP_FILE"
+
+          TEMP_DIR=$(mktemp -d)
+          unzip "$ZIP_FILE" -d $TEMP_DIR/extracted_skill
+          echo "Extracted files:"
+          ls -R $TEMP_DIR/extracted_skill
+
+          echo "path=$TEMP_DIR/extracted_skill" >> $GITHUB_OUTPUT
+          echo "zip_path=$ZIP_FILE" >> $GITHUB_OUTPUT
+
+      - name: Validate Skill
+        id: validate
+        run: |
+          EXTRACTED_PATH="${{ steps.extract.outputs.path }}"
+          SKILL_MD_PATH="$EXTRACTED_PATH/SKILL.md"
+          if [ ! -f "$SKILL_MD_PATH" ]; then
+            echo "Error: SKILL.md not found!"
+            exit 1
+          fi
+          # Extract YAML frontmatter using sed and pass to yq
+          FRONTMATTER=$(sed -n '/^---$/,/^---$/p' $SKILL_MD_PATH | sed '1d;$d')
+          SKILL_NAME=$(echo "$FRONTMATTER" | yq eval '.name' -)
+          SKILL_DESCRIPTION=$(echo "$FRONTMATTER" | yq eval '.description' -)
+          if [ -z "$SKILL_NAME" ] || [ "$SKILL_NAME" == "null" ]; then
+            echo "Error: Skill name not found in SKILL.md frontmatter."
+            exit 1
+          fi
+          echo "skill_name=$SKILL_NAME" >> $GITHUB_OUTPUT
+          echo "skill_description=$SKILL_DESCRIPTION" >> $GITHUB_OUTPUT
+
+      - name: Security Validations
+        run: |
+          EXTRACTED_PATH="${{ steps.extract.outputs.path }}"
+          # Path Traversal Check - check if any file path contains '../'
+          if find "$EXTRACTED_PATH" -type f | grep -q '/\.\./'; then
+            echo "Error: Path traversal detected in zip file."
+            exit 1
+          fi
+          # File Type Check
+          ALLOWED_EXTENSIONS=("md" "json" "yml" "yaml" "png" "jpg" "jpeg" "svg" "html" "js" "css" "txt")
+          for file in $(find "$EXTRACTED_PATH" -type f); do
+            extension="${file##*.}"
+            if [[ ! " ${ALLOWED_EXTENSIONS[@]} " =~ " ${extension} " ]]; then
+              echo "Error: Disallowed file type found: $file"
+              exit 1
+            fi
+          done
+          # Zip Bomb check
+          MAX_FILES=1000
+          FILE_COUNT=$(find "$EXTRACTED_PATH" -type f | wc -l)
+          if [ "$FILE_COUNT" -gt "$MAX_FILES" ]; then
+            echo "Error: Too many files in zip archive (max $MAX_FILES)."
+            exit 1
+          fi
+
+      - name: Prepare skill directory
+        id: prepare-dir
+        run: |
+          SKILL_NAME="${{ steps.validate.outputs.skill_name }}"
+          # Convert to lowercase and replace spaces with hyphens
+          SKILL_DIR_NAME=$(echo "$SKILL_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/ /-/g')
+          echo "skill_dir_name=$SKILL_DIR_NAME" >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SKILL_DESCRIPTION: ${{ steps.validate.outputs.skill_description }}
+        run: |
+          SKILL_DIR_NAME="${{ steps.prepare-dir.outputs.skill_dir_name }}"
+          SKILL_NAME="${{ steps.validate.outputs.skill_name }}"
+          ZIP_FILE="${{ steps.extract.outputs.zip_path }}"
+          BRANCH_NAME="skill-upload/$SKILL_DIR_NAME-$(echo $ZIP_FILE | md5sum | cut -d' ' -f1)"
+
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+          git checkout -b $BRANCH_NAME
+
+          # Copy skill files
+          rsync -av --delete "${{ steps.extract.outputs.path }}/" "$SKILL_DIR_NAME/"
+
+          # Add the new skill files and remove the original zip file in the same commit
+          git add "$SKILL_DIR_NAME"
+          git rm "$ZIP_FILE"
+
+          git commit -m "feat(skills): Add/Update skill: $SKILL_NAME"
+          git push origin $BRANCH_NAME
+
+          gh pr create \
+            --title "feat(skills): Add/Update skill: $SKILL_NAME" \
+            --body "Automated skill upload for **$SKILL_NAME**.
+
+**Description:** $SKILL_DESCRIPTION
+
+*This PR was generated automatically from the file \`$ZIP_FILE\`.*"
