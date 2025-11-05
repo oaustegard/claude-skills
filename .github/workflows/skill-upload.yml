@@ -22,11 +22,18 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Find all zip files in uploads directory
-          ZIP_FILES=$(find uploads -name "*.zip" -type f)
+          ZIP_FILES=$(find uploads -name "*.zip" -type f 2>/dev/null || true)
 
           if [ -z "$ZIP_FILES" ]; then
-            echo "Error: No .zip files found in uploads directory."
-            exit 1
+            echo "========================================="
+            echo "No .zip files found in uploads directory."
+            echo "This is normal if:"
+            echo "  - Zip files were already processed"
+            echo "  - Zip files were manually deleted"
+            echo "  - Only non-zip files were modified"
+            echo "Exiting gracefully."
+            echo "========================================="
+            exit 0
           fi
 
           # Count how many files we're processing
