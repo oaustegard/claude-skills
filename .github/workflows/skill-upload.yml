@@ -114,12 +114,15 @@ jobs:
               exit 1
             fi
 
-            # File Type Check
-            ALLOWED_EXTENSIONS=("md" "json" "yml" "yaml" "png" "jpg" "jpeg" "svg" "html" "css" "txt" "sh" "bash" "zsh" "py" "js" "ts" "jsx" "tsx" "mjs" "cjs")
+            # File Type Check - Block dangerous executables and archives
+            BLOCKED_EXTENSIONS=("exe" "dll" "so" "dylib" "bin" "app" "bat" "cmd" "vbs" "ps1" "jar" "zip" "tar" "gz" "7z" "rar" "dmg" "iso" "msi" "deb" "rpm")
             for file in $(find "$EXTRACTED_PATH" -type f); do
               extension="${file##*.}"
-              if [[ ! " ${ALLOWED_EXTENSIONS[@]} " =~ " ${extension} " ]]; then
-                echo "Error: Disallowed file type found in $ZIP_FILE: $file"
+              # Convert to lowercase for comparison
+              extension_lower=$(echo "$extension" | tr '[:upper:]' '[:lower:]')
+              if [[ " ${BLOCKED_EXTENSIONS[@]} " =~ " ${extension_lower} " ]]; then
+                echo "Error: Blocked file type found in $ZIP_FILE: $file"
+                echo "Blocked extensions: executables, binaries, archives, and system scripts"
                 rm -rf "$TEMP_DIR"
                 exit 1
               fi
