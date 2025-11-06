@@ -1,24 +1,32 @@
 ---
 name: api-credentials
-description: Securely manages API credentials for Anthropic Claude API. Use when skills need to access stored API keys or when user wants to configure credentials for Claude API invocations.
+description: Securely manages API credentials for multiple providers (Anthropic Claude, Google Gemini). Use when skills need to access stored API keys for external service invocations.
 ---
 
 # API Credentials Management
 
 **⚠️ WARNING: This is a PERSONAL skill - DO NOT share or commit with actual credentials!**
 
-This skill provides secure storage and retrieval of API credentials, specifically for the Anthropic Claude API. It serves as a dependency for other skills that need to invoke Claude programmatically.
+This skill provides secure storage and retrieval of API credentials for multiple providers. It serves as a dependency for other skills that need to invoke external APIs programmatically.
+
+## Supported Providers
+
+- **Anthropic** (Claude API)
+- **Google** (Gemini API, Vertex AI, etc.)
+- Extensible for additional providers
 
 ## Purpose
 
-- Centralized credential storage for API keys
+- Centralized credential storage for multiple API providers
 - Secure retrieval methods for dependent skills
 - Clear error messages when credentials are missing
 - Support for multiple credential sources (config file, environment variables)
 
 ## Usage by Other Skills
 
-Skills that need to invoke Claude API should reference this skill:
+Skills that need to invoke APIs should reference this skill:
+
+### Anthropic Claude API
 
 ```python
 import sys
@@ -27,7 +35,21 @@ from credentials import get_anthropic_api_key
 
 try:
     api_key = get_anthropic_api_key()
-    # Use api_key for API calls
+    # Use api_key for Claude API calls
+except ValueError as e:
+    print(f"Error: {e}")
+```
+
+### Google Gemini API
+
+```python
+import sys
+sys.path.append('/home/user/claude-skills/api-credentials/scripts')
+from credentials import get_google_api_key
+
+try:
+    api_key = get_google_api_key()
+    # Use api_key for Gemini API calls
 except ValueError as e:
     print(f"Error: {e}")
 ```
@@ -42,30 +64,36 @@ cp /home/user/claude-skills/api-credentials/assets/config.json.example \
    /home/user/claude-skills/api-credentials/config.json
 ```
 
-2. Edit `config.json` and add your Anthropic API key:
+2. Edit `config.json` and add your API keys:
 ```json
 {
-  "anthropic_api_key": "sk-ant-api03-..."
+  "anthropic_api_key": "sk-ant-api03-...",
+  "google_api_key": "AIzaSy..."
 }
 ```
 
 3. Ensure the config file is in `.gitignore` (already configured)
 
-### Option 2: Environment Variable
+### Option 2: Environment Variables
 
-Set the environment variable:
+Set environment variables for the providers you need:
+
 ```bash
+# Anthropic Claude
 export ANTHROPIC_API_KEY="sk-ant-api03-..."
+
+# Google Gemini
+export GOOGLE_API_KEY="AIzaSy..."
 ```
 
 Add to your shell profile (~/.bashrc, ~/.zshrc) to persist.
 
 ## Priority
 
-The credential retrieval follows this priority:
+Credential retrieval follows this priority for each provider:
 1. `config.json` in the skill directory (highest priority)
-2. `ANTHROPIC_API_KEY` environment variable
-3. Error if neither is available
+2. Environment variable (ANTHROPIC_API_KEY or GOOGLE_API_KEY)
+3. ValueError raised if neither is available
 
 ## Security Notes
 
@@ -74,6 +102,7 @@ The credential retrieval follows this priority:
 - Only config.json.example should be version controlled
 - Consider using environment variables in shared/production environments
 - Rotate API keys regularly
+- Skills should never log or display full API keys
 
 ## File Structure
 
@@ -89,11 +118,46 @@ api-credentials/
 
 ## Error Handling
 
-When credentials are not found, the module provides clear guidance:
+When credentials are not found, the module raises `ValueError` with clear guidance:
 - Where to place config.json
-- How to set environment variable
-- Link to Anthropic Console for key generation
+- How to set environment variables
+- Links to provider consoles for key generation
+
+Skills should catch `ValueError` exceptions and handle appropriately.
+
+## Available Functions
+
+**get_anthropic_api_key()** → str
+- Returns Anthropic API key
+- Raises ValueError if not configured
+
+**get_google_api_key()** → str
+- Returns Google API key
+- Raises ValueError if not configured
+
+**get_api_key_masked(api_key)** → str
+- Returns masked version for safe logging
+- Example: "sk-ant-...xyz"
+
+**verify_credential(provider)** → bool
+- Checks if provider is configured
+- Returns True/False without raising exceptions
+- Providers: 'anthropic', 'google'
+
+## Adding New Providers
+
+To support additional providers:
+
+1. Add field to `assets/config.json.example`
+2. Add getter function to `scripts/credentials.py`:
+   ```python
+   def get_provider_api_key() -> str:
+       # Follow existing pattern with config file + env var
+       pass
+   ```
+3. Add to `verify_credential()` mapping
+4. Update this documentation
 
 ## Token Efficiency
 
-This skill uses ~200 tokens when loaded but saves repeated credential management code across multiple skills that invoke Claude.
+This skill uses ~300 tokens when loaded but saves repeated credential management code across multiple skills that invoke external APIs. It provides a single, consistent pattern for all credential handling.
