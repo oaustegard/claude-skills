@@ -1,0 +1,4 @@
+{
+  "anthropic_api_key": "sk-ant-api03-your-api-key-here",
+  "_comment": "Copy this file to ../config.json and replace with your actual API key from https://console.anthropic.com/settings/keys"
+}
