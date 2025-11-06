@@ -1,0 +1,13 @@
+# Never commit actual credentials
+config.json
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+env/
