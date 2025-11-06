@@ -13,7 +13,7 @@ from pathlib import Path
 import json
 
 # Import credentials module
-sys.path.append('/mnt/skills/api-credentials/scripts')
+sys.path.append('/home/user/claude-skills/api-credentials/scripts')
 from credentials import get_google_api_key
 
 try:
@@ -43,15 +43,13 @@ def _initialize_client() -> bool:
     Returns:
         True if initialization successful, False otherwise
     """
-    api_key = get_google_api_key()
-    if not api_key:
-        print("Error: Google API key not configured")
-        print("Create /home/claude/config.json with 'google_api_key' field")
-        print("See api-credentials skill for details")
+    try:
+        api_key = get_google_api_key()
+        genai.configure(api_key=api_key)
+        return True
+    except ValueError as e:
+        print(f"Error: {e}")
         return False
-
-    genai.configure(api_key=api_key)
-    return True
 
 
 def invoke_gemini(

@@ -1,90 +1,163 @@
 ---
 name: api-credentials
-description: Manages API credentials for external services (Google/Gemini, etc). Use when skills need to authenticate with third-party APIs.
+description: Securely manages API credentials for multiple providers (Anthropic Claude, Google Gemini). Use when skills need to access stored API keys for external service invocations.
 ---
 
 # API Credentials Management
 
-When skills need to call external APIs, use this skill to manage credentials securely.
+**⚠️ WARNING: This is a PERSONAL skill - DO NOT share or commit with actual credentials!**
+
+This skill provides secure storage and retrieval of API credentials for multiple providers. It serves as a dependency for other skills that need to invoke external APIs programmatically.
 
 ## Supported Providers
 
-- Google (Gemini API, Vertex AI, etc.)
+- **Anthropic** (Claude API)
+- **Google** (Gemini API, Vertex AI, etc.)
 - Extensible for additional providers
 
-## Configuration
+## Purpose
 
-Credentials are stored in `/home/claude/config.json`:
+- Centralized credential storage for multiple API providers
+- Secure retrieval methods for dependent skills
+- Clear error messages when credentials are missing
+- Support for multiple credential sources (config file, environment variables)
 
-```json
-{
-  "google_api_key": "your-api-key-here",
-  "anthropic_api_key": "your-anthropic-key-here"
-}
-```
+## Usage by Other Skills
 
-**Setup:**
+Skills that need to invoke APIs should reference this skill:
 
-1. User creates `/home/claude/config.json` with their credentials
-2. Skills import and use credential functions from `scripts/credentials.py`
-
-**Example config.json:**
-
-See `scripts/config.json.example` for template.
-
-## Usage in Skills
-
-Import the credentials module:
+### Anthropic Claude API
 
 ```python
 import sys
-sys.path.append('/mnt/skills/api-credentials/scripts')
-from credentials import get_google_api_key, get_anthropic_api_key
+sys.path.append('/home/user/claude-skills/api-credentials/scripts')
+from credentials import get_anthropic_api_key
 
-# Get API key
-api_key = get_google_api_key()
-if not api_key:
-    print("Error: Google API key not configured")
-    print("Create /home/claude/config.json with 'google_api_key' field")
-    sys.exit(1)
+try:
+    api_key = get_anthropic_api_key()
+    # Use api_key for Claude API calls
+except ValueError as e:
+    print(f"Error: {e}")
+```
 
-# Use the API key
-# ... your API calls here ...
+### Google Gemini API
+
+```python
+import sys
+sys.path.append('/home/user/claude-skills/api-credentials/scripts')
+from credentials import get_google_api_key
+
+try:
+    api_key = get_google_api_key()
+    # Use api_key for Gemini API calls
+except ValueError as e:
+    print(f"Error: {e}")
+```
+
+## Setup Instructions
+
+### Option 1: Configuration File (Recommended)
+
+1. Copy the example config:
+```bash
+cp /home/user/claude-skills/api-credentials/assets/config.json.example \
+   /home/user/claude-skills/api-credentials/config.json
+```
+
+2. Edit `config.json` and add your API keys:
+```json
+{
+  "anthropic_api_key": "sk-ant-api03-...",
+  "google_api_key": "AIzaSy..."
+}
+```
+
+3. Ensure the config file is in `.gitignore` (already configured)
+
+### Option 2: Environment Variables
+
+Set environment variables for the providers you need:
+
+```bash
+# Anthropic Claude
+export ANTHROPIC_API_KEY="sk-ant-api03-..."
+
+# Google Gemini
+export GOOGLE_API_KEY="AIzaSy..."
+```
+
+Add to your shell profile (~/.bashrc, ~/.zshrc) to persist.
+
+## Priority
+
+Credential retrieval follows this priority for each provider:
+1. `config.json` in the skill directory (highest priority)
+2. Environment variable (ANTHROPIC_API_KEY or GOOGLE_API_KEY)
+3. ValueError raised if neither is available
+
+## Security Notes
+
+- **Never commit config.json with real credentials**
+- The config.json file should be in .gitignore
+- Only config.json.example should be version controlled
+- Consider using environment variables in shared/production environments
+- Rotate API keys regularly
+- Skills should never log or display full API keys
+
+## File Structure
+
+```
+api-credentials/
+├── SKILL.md              # This file
+├── config.json           # YOUR credentials (gitignored)
+├── scripts/
+│   └── credentials.py    # Credential retrieval module
+└── assets/
+    └── config.json.example  # Template for users
 ```
 
 ## Error Handling
 
-Functions return `None` if:
-- Config file doesn't exist
-- Required field is missing
-- Field value is empty
+When credentials are not found, the module raises `ValueError` with clear guidance:
+- Where to place config.json
+- How to set environment variables
+- Links to provider consoles for key generation
 
-Skills should check for `None` and provide clear user instructions.
+Skills should catch `ValueError` exceptions and handle appropriately.
+
+## Available Functions
+
+**get_anthropic_api_key()** → str
+- Returns Anthropic API key
+- Raises ValueError if not configured
+
+**get_google_api_key()** → str
+- Returns Google API key
+- Raises ValueError if not configured
+
+**get_api_key_masked(api_key)** → str
+- Returns masked version for safe logging
+- Example: "sk-ant-...xyz"
+
+**verify_credential(provider)** → bool
+- Checks if provider is configured
+- Returns True/False without raising exceptions
+- Providers: 'anthropic', 'google'
 
 ## Adding New Providers
 
 To support additional providers:
 
-1. Add field to `config.json.example`
-2. Add getter function to `credentials.py`:
+1. Add field to `assets/config.json.example`
+2. Add getter function to `scripts/credentials.py`:
    ```python
-   def get_provider_api_key():
-       return _get_credential('provider_api_key')
+   def get_provider_api_key() -> str:
+       # Follow existing pattern with config file + env var
+       pass
    ```
-3. Update this documentation
-
-## Security Notes
-
-- Config file stays in `/home/claude/` (ephemeral work directory)
-- Never commit actual credentials to git
-- Skills should never log or display API keys
-- Use environment-specific paths (not hardcoded)
+3. Add to `verify_credential()` mapping
+4. Update this documentation
 
 ## Token Efficiency
 
-This pattern avoids:
-- Repeated credential handling code in every skill
-- Long documentation about config files in each skill
-- User confusion about where to put credentials
-
-Instead: One central pattern, reusable across all skills.
+This skill uses ~300 tokens when loaded but saves repeated credential management code across multiple skills that invoke external APIs. It provides a single, consistent pattern for all credential handling.

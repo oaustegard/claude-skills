@@ -1,73 +1,139 @@
 #!/usr/bin/env python3
 """
-API Credentials Management
+API Credentials Management Module
 
-Central module for retrieving API credentials from config file.
-Skills should import this module to access external service credentials.
+Provides secure retrieval of API keys for multiple providers (Anthropic, Google)
+from config files or environment variables.
 """
 
 import json
 import os
 from pathlib import Path
-from typing import Optional
-
-CONFIG_PATH = Path.home() / "claude" / "config.json"
 
 
-def _get_credential(key: str) -> Optional[str]:
+def get_anthropic_api_key() -> str:
     """
-    Internal helper to retrieve a credential from config.json
+    Retrieves the Anthropic API key from available sources.
+
+    Priority order:
+    1. config.json in the api-credentials skill directory
+    2. ANTHROPIC_API_KEY environment variable
+
+    Returns:
+        str: The Anthropic API key
+
+    Raises:
+        ValueError: If no API key is found in any source
+    """
+    # Determine the skill directory (parent of scripts/)
+    skill_dir = Path(__file__).parent.parent
+    config_path = skill_dir / "config.json"
+
+    # Try config.json first
+    if config_path.exists():
+        try:
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+                api_key = config.get('anthropic_api_key', '').strip()
+                if api_key:
+                    return api_key
+        except (json.JSONDecodeError, IOError) as e:
+            # If config exists but is malformed, we should know about it
+            raise ValueError(
+                f"Error reading config.json: {e}\n"
+                f"Please check the file at: {config_path}"
+            )
+
+    # Try environment variable
+    api_key = os.environ.get('ANTHROPIC_API_KEY', '').strip()
+    if api_key:
+        return api_key
+
+    # No key found - provide helpful error message
+    raise ValueError(
+        "No Anthropic API key found!\n\n"
+        "Please configure your API key using one of these methods:\n\n"
+        "Option 1: Create config.json\n"
+        f"  1. Copy: cp {skill_dir}/assets/config.json.example {skill_dir}/config.json\n"
+        f"  2. Edit {skill_dir}/config.json and add your API key\n\n"
+        "Option 2: Set environment variable\n"
+        "  export ANTHROPIC_API_KEY='sk-ant-api03-...'\n\n"
+        "Get your API key from: https://console.anthropic.com/settings/keys"
+    )
+
+
+def get_google_api_key() -> str:
+    """
+    Retrieves the Google API key for Gemini and other Google services.
+
+    Priority order:
+    1. config.json in the api-credentials skill directory
+    2. GOOGLE_API_KEY environment variable
+
+    Returns:
+        str: The Google API key
+
+    Raises:
+        ValueError: If no API key is found in any source
+    """
+    # Determine the skill directory (parent of scripts/)
+    skill_dir = Path(__file__).parent.parent
+    config_path = skill_dir / "config.json"
+
+    # Try config.json first
+    if config_path.exists():
+        try:
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+                api_key = config.get('google_api_key', '').strip()
+                if api_key:
+                    return api_key
+        except (json.JSONDecodeError, IOError) as e:
+            # If config exists but is malformed, we should know about it
+            raise ValueError(
+                f"Error reading config.json: {e}\n"
+                f"Please check the file at: {config_path}"
+            )
+
+    # Try environment variable
+    api_key = os.environ.get('GOOGLE_API_KEY', '').strip()
+    if api_key:
+        return api_key
+
+    # No key found - provide helpful error message
+    raise ValueError(
+        "No Google API key found!\n\n"
+        "Please configure your API key using one of these methods:\n\n"
+        "Option 1: Create config.json\n"
+        f"  1. Copy: cp {skill_dir}/assets/config.json.example {skill_dir}/config.json\n"
+        f"  2. Edit {skill_dir}/config.json and add your API key\n\n"
+        "Option 2: Set environment variable\n"
+        "  export GOOGLE_API_KEY='AIzaSy...'\n\n"
+        "Get your API key from: https://console.cloud.google.com/apis/credentials"
+    )
+
+
+def get_api_key_masked(api_key: str) -> str:
+    """
+    Returns a masked version of an API key for logging/display purposes.
 
     Args:
-        key: The credential key to retrieve
+        api_key: The API key to mask
 
     Returns:
-        The credential value if found, None otherwise
+        str: Masked API key (e.g., "sk-ant-...xyz" or "AIzaSy...xyz")
     """
-    try:
-        if not CONFIG_PATH.exists():
-            return None
-
-        with open(CONFIG_PATH, 'r') as f:
-            config = json.load(f)
-
-        value = config.get(key)
-
-        # Return None for empty strings
-        if value and isinstance(value, str) and value.strip():
-            return value.strip()
-        return None
-
-    except (json.JSONDecodeError, OSError, KeyError):
-        return None
-
-
-def get_google_api_key() -> Optional[str]:
-    """
-    Retrieve Google API key for Gemini and other Google services.
-
-    Returns:
-        The API key if configured, None otherwise
-    """
-    return _get_credential('google_api_key')
-
-
-def get_anthropic_api_key() -> Optional[str]:
-    """
-    Retrieve Anthropic API key for Claude API.
-
-    Returns:
-        The API key if configured, None otherwise
-    """
-    return _get_credential('anthropic_api_key')
+    if len(api_key) > 16:
+        return f"{api_key[:10]}...{api_key[-4:]}"
+    return "***"
 
 
 def verify_credential(provider: str) -> bool:
     """
-    Verify that a credential is configured.
+    Verify that a credential is configured for a provider.
 
     Args:
-        provider: Provider name ('google', 'anthropic', etc.)
+        provider: Provider name ('google' or 'anthropic')
 
     Returns:
         True if credential exists and is non-empty, False otherwise
@@ -81,25 +147,37 @@ def verify_credential(provider: str) -> bool:
     if not getter:
         return False
 
-    return getter() is not None
-
-
-def get_config_path() -> Path:
-    """
-    Get the path to the config.json file.
-
-    Returns:
-        Path object for config.json location
-    """
-    return CONFIG_PATH
+    try:
+        key = getter()
+        return bool(key)
+    except ValueError:
+        return False
 
 
 if __name__ == "__main__":
-    # Self-test
-    print(f"Config path: {CONFIG_PATH}")
-    print(f"Config exists: {CONFIG_PATH.exists()}")
+    # Self-test for both providers
+    print("API Credentials Self-Test")
+    print("=" * 50)
 
-    providers = ['google', 'anthropic']
-    for provider in providers:
+    providers = {
+        'anthropic': get_anthropic_api_key,
+        'google': get_google_api_key
+    }
+
+    for provider_name, getter_func in providers.items():
+        try:
+            key = getter_func()
+            masked = get_api_key_masked(key)
+            print(f"✓ {provider_name.capitalize()} API key found: {masked}")
+            print(f"  Key length: {len(key)} characters")
+        except ValueError as e:
+            print(f"✗ {provider_name.capitalize()} API key not configured")
+            # Don't print full error in summary
+        print()
+
+    print("=" * 50)
+    print("Configuration status:")
+    for provider in ['anthropic', 'google']:
         configured = verify_credential(provider)
-        print(f"{provider.capitalize()} API configured: {configured}")
+        status = "✓ Configured" if configured else "✗ Not configured"
+        print(f"  {provider.capitalize()}: {status}")
