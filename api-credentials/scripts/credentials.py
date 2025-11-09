@@ -128,12 +128,69 @@ def get_api_key_masked(api_key: str) -> str:
     return "***"
 
 
+def get_github_api_key() -> str:
+    """
+    Retrieves the GitHub API token (Personal Access Token).
+
+    Priority order:
+    1. config.json in the api-credentials skill directory
+    2. GITHUB_TOKEN environment variable
+    3. GITHUB_API_KEY environment variable
+
+    Returns:
+        str: The GitHub API token
+
+    Raises:
+        ValueError: If no API key is found in any source
+    """
+    # Determine the skill directory (parent of scripts/)
+    skill_dir = Path(__file__).parent.parent
+    config_path = skill_dir / "config.json"
+
+    # Try config.json first
+    if config_path.exists():
+        try:
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+                api_key = config.get('github_api_key', '').strip()
+                if api_key:
+                    return api_key
+        except (json.JSONDecodeError, IOError) as e:
+            # If config exists but is malformed, we should know about it
+            raise ValueError(
+                f"Error reading config.json: {e}\n"
+                f"Please check the file at: {config_path}"
+            )
+
+    # Try environment variables (GitHub Actions uses GITHUB_TOKEN)
+    api_key = os.environ.get('GITHUB_TOKEN', '').strip()
+    if api_key:
+        return api_key
+
+    api_key = os.environ.get('GITHUB_API_KEY', '').strip()
+    if api_key:
+        return api_key
+
+    # No key found - provide helpful error message
+    raise ValueError(
+        "No GitHub API token found!\n\n"
+        "Please configure your API token using one of these methods:\n\n"
+        "Option 1: Create config.json\n"
+        f"  1. Copy: cp {skill_dir}/assets/config.json.example {skill_dir}/config.json\n"
+        f"  2. Edit {skill_dir}/config.json and add your GitHub token\n\n"
+        "Option 2: Set environment variable\n"
+        "  export GITHUB_TOKEN='ghp_...'\n\n"
+        "Get your token from: https://github.com/settings/tokens\n"
+        "Required scopes: repo (for private repos) or public_repo (for public repos only)"
+    )
+
+
 def verify_credential(provider: str) -> bool:
     """
     Verify that a credential is configured for a provider.
 
     Args:
-        provider: Provider name ('google' or 'anthropic')
+        provider: Provider name ('google', 'anthropic', or 'github')
 
     Returns:
         True if credential exists and is non-empty, False otherwise
@@ -141,6 +198,7 @@ def verify_credential(provider: str) -> bool:
     credential_map = {
         'google': get_google_api_key,
         'anthropic': get_anthropic_api_key,
+        'github': get_github_api_key,
     }
 
     getter = credential_map.get(provider.lower())
@@ -155,13 +213,14 @@ def verify_credential(provider: str) -> bool:
 
 
 if __name__ == "__main__":
-    # Self-test for both providers
+    # Self-test for all providers
     print("API Credentials Self-Test")
     print("=" * 50)
 
     providers = {
         'anthropic': get_anthropic_api_key,
-        'google': get_google_api_key
+        'google': get_google_api_key,
+        'github': get_github_api_key
     }
 
     for provider_name, getter_func in providers.items():
@@ -177,7 +236,7 @@ if __name__ == "__main__":
 
     print("=" * 50)
     print("Configuration status:")
-    for provider in ['anthropic', 'google']:
+    for provider in ['anthropic', 'google', 'github']:
         configured = verify_credential(provider)
         status = "✓ Configured" if configured else "✗ Not configured"
         print(f"  {provider.capitalize()}: {status}")

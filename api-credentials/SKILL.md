@@ -1,6 +1,6 @@
 ---
 name: api-credentials
-description: Securely manages API credentials for multiple providers (Anthropic Claude, Google Gemini). Use when skills need to access stored API keys for external service invocations.
+description: Securely manages API credentials for multiple providers (Anthropic Claude, Google Gemini, GitHub). Use when skills need to access stored API keys for external service invocations.
 ---
 
 # API Credentials Management
@@ -13,6 +13,7 @@ This skill provides secure storage and retrieval of API credentials for multiple
 
 - **Anthropic** (Claude API)
 - **Google** (Gemini API, Vertex AI, etc.)
+- **GitHub** (GitHub API, Personal Access Tokens)
 - Extensible for additional providers
 
 ## Purpose
@@ -54,6 +55,20 @@ except ValueError as e:
     print(f"Error: {e}")
 ```
 
+### GitHub API
+
+```python
+import sys
+sys.path.append('/home/user/claude-skills/api-credentials/scripts')
+from credentials import get_github_api_key
+
+try:
+    api_key = get_github_api_key()
+    # Use api_key for GitHub API calls
+except ValueError as e:
+    print(f"Error: {e}")
+```
+
 ## Setup Instructions
 
 ### Option 1: Configuration File (Recommended)
@@ -68,7 +83,8 @@ cp /home/user/claude-skills/api-credentials/assets/config.json.example \
 ```json
 {
   "anthropic_api_key": "sk-ant-api03-...",
-  "google_api_key": "AIzaSy..."
+  "google_api_key": "AIzaSy...",
+  "github_api_key": "ghp_..."
 }
 ```
 
@@ -84,6 +100,11 @@ export ANTHROPIC_API_KEY="sk-ant-api03-..."
 
 # Google Gemini
 export GOOGLE_API_KEY="AIzaSy..."
+
+# GitHub
+export GITHUB_TOKEN="ghp_..."
+# or
+export GITHUB_API_KEY="ghp_..."
 ```
 
 Add to your shell profile (~/.bashrc, ~/.zshrc) to persist.
@@ -135,6 +156,10 @@ Skills should catch `ValueError` exceptions and handle appropriately.
 - Returns Google API key
 - Raises ValueError if not configured
 
+**get_github_api_key()** → str
+- Returns GitHub API token (Personal Access Token)
+- Raises ValueError if not configured
+
 **get_api_key_masked(api_key)** → str
 - Returns masked version for safe logging
 - Example: "sk-ant-...xyz"
@@ -142,7 +167,7 @@ Skills should catch `ValueError` exceptions and handle appropriately.
 **verify_credential(provider)** → bool
 - Checks if provider is configured
 - Returns True/False without raising exceptions
-- Providers: 'anthropic', 'google'
+- Providers: 'anthropic', 'google', 'github'
 
 ## Adding New Providers
 
