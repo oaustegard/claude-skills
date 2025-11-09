@@ -2,11 +2,12 @@
 
 ## Executive Summary
 
-Create an `invoking-github` skill that enables Claude.ai web environment (and other Claude environments) to read from and write to GitHub repositories programmatically. This skill will:
+Create an `invoking-github` skill that enables all Claude environments (Web, Desktop, CLI) to read from and write to GitHub repositories programmatically. This skill will:
 
-1. **Enable web-based development** with GitHub as the persistent storage layer
+1. **Enable seamless GitHub operations** across all Claude Code environments
 2. **Augment the iterating skill** by auto-persisting DEVLOG.md to a GitHub branch
-3. **Homogenize development workspace** across all Claude modes (Web, Desktop, CLI) using GitHub branches as the unified state store
+3. **Homogenize development workspace** across all Claude modes using GitHub branches as the unified state store
+4. **Leverage existing authentication** through Claude Code's git proxy (zero configuration)
 
 ## Vision: Unified Development Workspace
 
@@ -23,10 +24,10 @@ Currently, the iterating skill uses different storage strategies per environment
 
 ## Core Use Cases
 
-### Use Case 1: Web-Based Repository Development
-**Current limitation**: Claude.ai web can read repos via GitHub integration but cannot write back directly.
+### Use Case 1: Seamless Repository Operations
+**Current capability**: Claude Code has GitHub access but requires manual git commands.
 
-**Solution**: Skill enables Claude to:
+**Enhancement**: Skill provides high-level API for common operations:
 1. Read files from any branch in connected repositories
 2. Create/update files in a working branch
 3. Commit changes with descriptive messages
@@ -37,7 +38,7 @@ Currently, the iterating skill uses different storage strategies per environment
 User: "Update the README and commit to feature-branch"
 Claude: [Uses invoking-github to read current README]
 Claude: [Modifies content]
-Claude: [Commits changes to feature-branch via GitHub API]
+Claude: [Commits changes to feature-branch via git proxy or API]
 ```
 
 ### Use Case 2: Automatic DEVLOG Persistence (Iterating Skill Integration)
@@ -87,32 +88,88 @@ Session 2:
 
 ## Technical Architecture
 
-### Credential Management (Three-Tier Fallback)
+### Credential Management (Four-Tier Fallback)
 
 **Priority order**:
 
-1. **Claude Web GitHub Integration (Primary)**
-   - OAuth token automatically available when user connects GitHub to claude.ai
-   - Detection: Check for environment variable `CLAUDE_GITHUB_TOKEN` or similar
-   - Scope: Limited to repositories user has granted access to
-   - **Advantage**: No manual configuration, most secure
+1. **Claude Code Git Proxy (Primary - Desktop/CLI/Web)**
+   - Uses existing authenticated git proxy at `http://127.0.0.1:16313/git/`
+   - Already integrated with Claude Code's GitHub connection
+   - Detection: Check if proxy port is accessible
+   - **Advantage**: Zero configuration, works out-of-the-box in all Claude Code environments
+   - **Implementation**: Use git commands through proxy instead of REST API for this tier
 
-2. **Project Knowledge: GITHUB_API_KEY (Secondary)**
+2. **Claude Web GitHub OAuth (Secondary - Web only)**
+   - OAuth token automatically available when user connects GitHub to claude.ai
+   - Detection: Check for environment variable `CLAUDE_GITHUB_TOKEN` or `GITHUB_TOKEN`
+   - Scope: Limited to repositories user has granted access to
+   - **Advantage**: No manual token management, secure OAuth flow
+
+3. **Project Knowledge: GITHUB_API_KEY (Tertiary - Web primarily)**
    - User creates a Project Knowledge document named "GITHUB_API_KEY"
    - Content: Just the token (e.g., `ghp_abc123...`)
    - Scope: Classic or fine-grained PAT with repo permissions
    - **Use case**: When OAuth isn't available or needs broader scope
 
-3. **API Credentials Skill (Tertiary)**
+4. **API Credentials Skill (Fallback - All environments)**
    - Leverages existing `api-credentials` skill pattern
    - Add `github_api_key` to config.json
-   - **Use case**: Desktop/CLI environments or fallback
+   - **Use case**: Desktop/CLI environments without proxy, or manual override
 
-**Implementation**:
+**Implementation Strategy**:
+
+The skill will support TWO operation modes:
+
+#### Mode 1: Git Proxy Mode (Preferred)
+When the Claude Code git proxy is available, use git commands through the proxy:
+
+```python
+import subprocess
+import os
+
+def is_git_proxy_available() -> bool:
+    """Check if Claude Code git proxy is accessible"""
+    try:
+        # Test proxy connectivity
+        result = subprocess.run(
+            ['git', 'ls-remote', '--heads', 'http://127.0.0.1:16313/git/user/repo'],
+            capture_output=True,
+            timeout=5
+        )
+        return result.returncode == 0
+    except:
+        return False
+
+def commit_via_git_proxy(repo: str, files: dict, branch: str, message: str):
+    """Commit files using git proxy - most reliable method"""
+    # Clone or use existing repo through proxy
+    proxy_url = f"http://127.0.0.1:16313/git/{repo}"
+
+    # Use temporary directory for operations
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Clone shallow
+        subprocess.run(['git', 'clone', '--depth=1', '--branch', branch, proxy_url, tmpdir])
+
+        # Write files
+        for path, content in files.items():
+            file_path = Path(tmpdir) / path
+            file_path.parent.mkdir(parents=True, exist_ok=True)
+            file_path.write_text(content)
+
+        # Commit and push
+        os.chdir(tmpdir)
+        subprocess.run(['git', 'add', '.'])
+        subprocess.run(['git', 'commit', '-m', message])
+        subprocess.run(['git', 'push'])
+```
+
+#### Mode 2: REST API Mode (Fallback)
+When git proxy isn't available, fall back to GitHub REST API:
+
 ```python
 def get_github_token() -> str:
     """
-    Get GitHub token with three-tier fallback.
+    Get GitHub token with fallback chain (for REST API mode).
 
     Returns:
         str: GitHub API token
@@ -120,14 +177,13 @@ def get_github_token() -> str:
     Raises:
         ValueError: If no token found in any source
     """
-    # 1. Check Claude Web GitHub Integration
-    token = os.environ.get('CLAUDE_GITHUB_TOKEN')
-    if token:
-        return token.strip()
+    # 1. Check Claude Web/Code OAuth environment variables
+    for env_var in ['GITHUB_TOKEN', 'CLAUDE_GITHUB_TOKEN', 'GH_TOKEN']:
+        token = os.environ.get(env_var, '').strip()
+        if token:
+            return token
 
     # 2. Check Project Knowledge (Web environment)
-    # In Web, Project Knowledge would be accessible via special path
-    # This is environment-specific - may need adaptation
     pk_path = Path("/mnt/project-knowledge/GITHUB_API_KEY")
     if pk_path.exists():
         token = pk_path.read_text().strip()
@@ -146,12 +202,40 @@ def get_github_token() -> str:
     raise ValueError(
         "No GitHub API token found!\n\n"
         "Configure using one of these methods:\n\n"
-        "1. Claude Web: Connect GitHub at claude.ai/settings\n"
-        "2. Project Knowledge: Create document named 'GITHUB_API_KEY' with your token\n"
-        "3. api-credentials skill: Add github_api_key to config.json\n\n"
+        "1. Claude Code: Already integrated (git proxy should work)\n"
+        "2. Claude Web: Connect GitHub at claude.ai/settings\n"
+        "3. Project Knowledge: Create document named 'GITHUB_API_KEY' with your token\n"
+        "4. api-credentials skill: Add github_api_key to config.json\n\n"
         "Generate token at: https://github.com/settings/tokens"
     )
+
+def commit_via_rest_api(repo: str, files: dict, branch: str, message: str):
+    """Commit files using GitHub REST API"""
+    token = get_github_token()
+    # Use GitHub API as documented in original plan
+    # ... REST API implementation ...
 ```
+
+#### Unified Interface
+
+```python
+def commit_file(repo: str, path: str, content: str, branch: str, message: str):
+    """
+    Commit a file using best available method.
+    Automatically selects git proxy or REST API.
+    """
+    if is_git_proxy_available():
+        return commit_via_git_proxy(repo, {path: content}, branch, message)
+    else:
+        return commit_via_rest_api(repo, {path: content}, branch, message)
+```
+
+**Why Git Proxy is Better:**
+1. **Reliability**: Uses standard git operations, battle-tested
+2. **No credential management**: Already authenticated
+3. **Handles conflicts**: Git's built-in merge conflict handling
+4. **Atomic operations**: Full transaction support
+5. **Works everywhere**: Desktop, CLI, and Web environments
 
 ### Core GitHub Operations
 
@@ -250,7 +334,28 @@ def create_pull_request(
     pass
 ```
 
-### GitHub API Implementation Details
+### Implementation Details
+
+#### Git Proxy Mode (Primary)
+
+**Proxy URL**: `http://127.0.0.1:16313/git/{owner}/{repo}`
+
+**Advantages**:
+- Already authenticated (no token management)
+- Standard git operations (well-tested, reliable)
+- Handles all git features (branches, merges, conflicts)
+- Works in all Claude Code environments
+
+**Operations**:
+- Clone: `git clone http://127.0.0.1:16313/git/owner/repo`
+- Read: Clone shallow, read file from working directory
+- Write: Clone, modify files, commit, push
+- Branch: Standard git branch operations
+- PR: Use GitHub CLI (`gh pr create`) or fall back to REST API
+
+**Optimization**: Cache cloned repos in `/tmp/invoking-github-cache/` to avoid repeated clones
+
+#### REST API Mode (Fallback)
 
 **Library**: Use `requests` or `httpx` for HTTP calls (PyGitHub adds unnecessary weight)
 
@@ -262,7 +367,9 @@ def create_pull_request(
 - Update ref: `PATCH /repos/{owner}/{repo}/git/refs/heads/{branch}`
 - Create PR: `POST /repos/{owner}/{repo}/pulls`
 
-**Error Handling**:
+**When to use**: Only when git proxy is unavailable (non-Claude-Code environments)
+
+#### Error Handling (Both Modes):
 - 404: File/branch not found → Clear message about what's missing
 - 401/403: Auth failure → Guide to credential configuration
 - 409: Conflict → File changed since last read (provide resolution steps)
@@ -521,26 +628,34 @@ Enable automatic DEVLOG persistence to GitHub:
 
 ## Open Questions
 
-1. **Environment variable naming**: What env var does Claude Web use for GitHub OAuth token?
-   - Need to test in actual Web environment
-   - May need to adapt based on Claude team's implementation
+1. **Git proxy port**: Is 16313 always the port, or does it vary?
+   - Current assumption: Fixed port 16313
+   - May need dynamic detection if port can vary
+   - Test across different Claude Code environments (Web/Desktop/CLI)
 
 2. **Project Knowledge access**: How to programmatically read Project Knowledge documents in Web?
    - Current assumption: Special mount point like `/mnt/project-knowledge/`
    - May need different approach based on actual implementation
+   - Less critical now that git proxy is primary method
 
 3. **Concurrency**: What if multiple Claude sessions try to commit to same branch simultaneously?
-   - GitHub handles this with conflict detection
+   - Git proxy handles this naturally (git's conflict detection)
    - Need user guidance on branch naming strategy
 
 4. **Scope boundaries**: Should skill handle GitHub Actions, Issues, Projects?
    - Phase 1: Focus on file operations only
    - Phase 5: Expand to other GitHub features
 
-5. **Permissions**: What minimum permissions are needed for fine-grained PAT?
+5. **Permissions**: What minimum permissions are needed for fine-grained PAT (REST API fallback)?
    - Required: `contents:write` (read/write files)
    - Optional: `pull_requests:write` (create PRs)
    - Document clearly in credential setup guide
+   - Git proxy mode: Uses whatever permissions the Claude Code connection has
+
+6. **Cache management**: How long to keep cached repos in /tmp/?
+   - Session-based cleanup (clear on skill unload)?
+   - Size-based LRU eviction?
+   - Time-based expiration (1 hour)?
 
 ## Dependencies
 
@@ -601,10 +716,13 @@ Total: **4 weeks to MVP**
 
 The `invoking-github` skill will transform how Claude interacts with code repositories, enabling:
 
-1. **Seamless web-based development** with automatic GitHub persistence
-2. **Cross-session continuity** through DEVLOG auto-sync
+1. **Zero-config GitHub operations** via Claude Code's git proxy
+2. **Cross-session continuity** through automatic DEVLOG persistence
 3. **Unified development workspace** across all Claude environments
+4. **Seamless fallback** to REST API when git proxy unavailable
 
-By building on proven patterns from existing skills (api-credentials, invoking-claude) and integrating tightly with the iterating skill, we'll create a powerful foundation for AI-assisted development workflows.
+By leveraging Claude Code's existing git proxy infrastructure as the primary method, we eliminate credential management complexity for 95% of use cases. The four-tier credential fallback ensures the skill works in all environments, from Claude Code Web/Desktop/CLI to standalone API integrations.
 
-The three-tier credential fallback ensures security and flexibility, while the phased implementation allows for early feedback and iteration. The result will be a robust, user-friendly skill that fundamentally enhances Claude's ability to work with code repositories.
+Building on proven patterns from existing skills (api-credentials, invoking-claude) and integrating tightly with the iterating skill, we'll create a powerful foundation for AI-assisted development workflows.
+
+The dual-mode approach (git proxy + REST API) provides both simplicity and flexibility, while the phased implementation allows for early feedback and iteration. The result will be a robust, user-friendly skill that fundamentally enhances Claude's ability to work with code repositories.
