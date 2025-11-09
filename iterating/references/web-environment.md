@@ -2,6 +2,11 @@
 
 This guide covers using the iterating skill in Claude Code on the web environment, where state is persisted via DEVLOG.md in the repository.
 
+## User Acknowledgment
+
+At session start, tell the user:
+> "I'll track our progress in DEVLOG.md in the repository. Each session, I'll document key decisions, findings, and next steps."
+
 ## Environment Detection
 
 In the web environment, the `CLAUDE_CODE_REMOTE` environment variable is set to `'true'`:

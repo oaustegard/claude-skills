@@ -1,6 +1,11 @@
 # Desktop Environment (Claude Desktop App)
 
-This guide covers using the iterating skill in Claude Desktop (Windows/Mac), where state is persisted via local files in your working directory.
+This guide covers using the iterating skill in Claude Desktop (Windows/Mac), where state is persisted via DEVLOG.md in your working directory.
+
+## User Acknowledgment
+
+At session start, tell the user:
+> "I'll track our progress in DEVLOG.md. Each session, I'll document key decisions, findings, and next steps."
 
 ## Environment Detection
 
@@ -25,33 +30,28 @@ is_windows = sys.platform == 'win32'
 is_mac = sys.platform == 'darwin'
 ```
 
-## State Persistence: Local Progress File
+## State Persistence: DEVLOG.md
 
-In Claude Desktop, maintain state using a local file in your working directory. Since sessions don't automatically share state, use a persistent file that Claude can read at the start of each session.
+Use DEVLOG.md in your working directory (same as web environment). Since sessions don't automatically share state, maintain this file and read it at the start of each session.
 
-### Recommended File Locations
+### File Location Options
 
-**Option 1: Root of working directory** (simple, visible)
+**Option 1: Root of working directory** (recommended)
 ```
-DEVLOG.md  or  PROGRESS.md
-```
-
-**Option 2: .claude directory** (organized, hidden from clutter)
-```
-.claude/PROGRESS.md
+DEVLOG.md
 ```
 
-**Option 3: User's designated project folder**
+**Option 2: .claude directory** (organized)
 ```
-C:\Users\YourName\Documents\Projects\MyProject\PROGRESS.md
+.claude/DEVLOG.md
 ```
 
-### Progress File Format
+### Format
 
-Use the same format as web environment for consistency:
+Same unified format as web environment:
 
 ```markdown
-# Progress Log - [Project Name]
+# Development Log - [Project Name]
 
 This log tracks progress, decisions, and learnings across development sessions.
 
@@ -105,7 +105,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-def setup_progress_file(location='working_dir'):
+def setup_devlog_file(location='working_dir'):
     """
     Set up the progress file in the specified location
 
@@ -113,24 +113,24 @@ def setup_progress_file(location='working_dir'):
         location: 'working_dir', 'claude_dir', or custom path
     """
     if location == 'working_dir':
-        progress_path = Path('PROGRESS.md')
+        devlog_path = Path('DEVLOG.md')
     elif location == 'claude_dir':
         claude_dir = Path('.claude')
         claude_dir.mkdir(exist_ok=True)
-        progress_path = claude_dir / 'PROGRESS.md'
+        devlog_path = claude_dir / 'DEVLOG.md'
     else:
-        progress_path = Path(location)
+        devlog_path = Path(location)
 
     # Create file if it doesn't exist
-    if not progress_path.exists():
-        with open(progress_path, 'w') as f:
-            f.write("# Progress Log\n\n")
+    if not devlog_path.exists():
+        with open(devlog_path, 'w') as f:
+            f.write("# Development Log\n\n")
             f.write("This log tracks progress, decisions, and learnings across development sessions.\n\n")
             f.write("---\n\n")
 
-    return progress_path
+    return devlog_path
 
-def update_progress_file(progress_path, content_dict):
+def update_devlog_file(devlog_path, content_dict):
     """Update progress file with new session entry"""
 
     # Prepare entry
@@ -177,41 +177,41 @@ def update_progress_file(progress_path, content_dict):
     entry += "---\n"
 
     # Append to progress file
-    with open(progress_path, 'a') as f:
+    with open(devlog_path, 'a') as f:
         f.write(entry)
 
-    return progress_path
+    return devlog_path
 ```
 
 ### Reading Past Context
 
 ```python
-def read_progress_file(progress_path=None):
+def read_devlog_file(devlog_path=None):
     """Read progress file to get past context"""
 
     # Try common locations if no path specified
-    if progress_path is None:
+    if devlog_path is None:
         possible_paths = [
-            Path('PROGRESS.md'),
-            Path('.claude/PROGRESS.md'),
+            Path('DEVLOG.md'),
+            Path('.claude/DEVLOG.md'),
             Path('DEVLOG.md'),
             Path('.claude/DEVLOG.md')
         ]
 
         for path in possible_paths:
             if path.exists():
-                progress_path = path
+                devlog_path = path
                 break
 
-    if progress_path and Path(progress_path).exists():
-        with open(progress_path, 'r') as f:
+    if devlog_path and Path(devlog_path).exists():
+        with open(devlog_path, 'r') as f:
             content = f.read()
         return content
 
     return None
 
 # At session start
-progress_content = read_progress_file()
+progress_content = read_devlog_file()
 if progress_content:
     # Parse recent entries (last 3-5 sessions typically most relevant)
     # Extract key context, decisions, next steps
@@ -226,16 +226,16 @@ else:
 
 **Advantages of each location:**
 
-**Working Directory Root** (`PROGRESS.md`):
+**Working Directory Root** (`DEVLOG.md`):
 - ✅ Easy to find and edit
 - ✅ Visible in file explorers
 - ✅ Easy to share with team
 - ❌ Can clutter root directory
 
-**Hidden .claude Directory** (`.claude/PROGRESS.md`):
+**Hidden .claude Directory** (`.claude/DEVLOG.md`):
 - ✅ Keeps root clean
 - ✅ Standard hidden config pattern
-- ✅ Can store multiple files (.claude/PROGRESS.md, .claude/NOTES.md)
+- ✅ Can store multiple files (.claude/DEVLOG.md, .claude/NOTES.md)
 - ❌ Hidden by default (may forget it exists)
 
 **Custom Location** (e.g., Documents folder):
@@ -258,27 +258,27 @@ Since Desktop files are local (not in git):
 For working on multiple projects:
 
 ```python
-def get_project_progress_file(project_name):
+def get_project_devlog_file(project_name):
     """Get or create progress file for specific project"""
 
     # Option 1: Use project-specific subdirectories
     project_dir = Path('.claude') / project_name
     project_dir.mkdir(parents=True, exist_ok=True)
-    progress_path = project_dir / 'PROGRESS.md'
+    devlog_path = project_dir / 'DEVLOG.md'
 
     # Option 2: Use single file with project sections
-    # progress_path = Path('.claude') / f'{project_name}_PROGRESS.md'
+    # devlog_path = Path('.claude') / f'{project_name}_DEVLOG.md'
 
-    if not progress_path.exists():
-        with open(progress_path, 'w') as f:
-            f.write(f"# Progress Log - {project_name}\n\n")
+    if not devlog_path.exists():
+        with open(devlog_path, 'w') as f:
+            f.write(f"# Development Log - {project_name}\n\n")
             f.write("---\n\n")
 
-    return progress_path
+    return devlog_path
 
 # Usage
-auth_progress = get_project_progress_file('authentication')
-api_progress = get_project_progress_file('api_redesign')
+auth_progress = get_project_devlog_file('authentication')
+api_progress = get_project_devlog_file('api_redesign')
 ```
 
 ## Session Workflow
@@ -289,11 +289,11 @@ At the beginning of each Claude Desktop session:
 
 ```python
 # 1. Check for progress file
-progress_path = Path('PROGRESS.md')  # or .claude/PROGRESS.md
+devlog_path = Path('DEVLOG.md')  # or .claude/DEVLOG.md
 
-if progress_path.exists():
+if devlog_path.exists():
     # 2. Read previous context
-    with open(progress_path, 'r') as f:
+    with open(devlog_path, 'r') as f:
         previous_work = f.read()
 
     # 3. Summarize recent sessions
@@ -322,24 +322,24 @@ session_summary = {
 }
 
 # 2. Update progress file
-progress_path = Path('PROGRESS.md')
-update_progress_file(progress_path, session_summary)
+devlog_path = Path('DEVLOG.md')
+update_devlog_file(devlog_path, session_summary)
 
 # 3. Inform user
-print(f"Updated {progress_path} with session progress")
+print(f"Updated {devlog_path} with session progress")
 print("Next session: Continue with password reset implementation")
 ```
 
 ## User Communication
 
 **At session start:**
-> "I'll track our progress in PROGRESS.md in your working directory. This file will persist across sessions so we can build on previous work. Each session, I'll read the file to understand where we left off."
+> "I'll track our progress in DEVLOG.md in your working directory. This file will persist across sessions so we can build on previous work. Each session, I'll read the file to understand where we left off."
 
 **After first update:**
-> "I've created PROGRESS.md with this session's work. The file is located at [path]. In your next session, I'll read this file to continue from where we left off."
+> "I've created DEVLOG.md with this session's work. The file is located at [path]. In your next session, I'll read this file to continue from where we left off."
 
 **At start of new session:**
-> "From PROGRESS.md, I can see we previously [summary of past work]. Let me continue from where we left off..."
+> "From DEVLOG.md, I can see we previously [summary of past work]. Let me continue from where we left off..."
 
 ## Example Session
 
@@ -349,11 +349,11 @@ print("Next session: Continue with password reset implementation")
 
 **Claude:**
 ```
-I'll track our progress in PROGRESS.md in your working directory. This will help us maintain context across sessions.
+I'll track our progress in DEVLOG.md in your working directory. This will help us maintain context across sessions.
 
 [Works on initial API setup]
 
-I've created PROGRESS.md and documented our work:
+I've created DEVLOG.md and documented our work:
 - Project structure setup (src/, tests/, config/)
 - Express.js server configuration
 - Basic routing skeleton
@@ -361,7 +361,7 @@ I've created PROGRESS.md and documented our work:
 
 Next session: Implement first endpoints and error handling
 
-The progress file is in: C:\Users\You\Projects\my-api\PROGRESS.md
+The progress file is in: C:\Users\You\Projects\my-api\DEVLOG.md
 ```
 
 ### Session 2: Continuing Work
@@ -370,7 +370,7 @@ The progress file is in: C:\Users\You\Projects\my-api\PROGRESS.md
 
 **Claude:**
 ```
-Reading PROGRESS.md...
+Reading DEVLOG.md...
 
 From our previous session, I can see we:
 - Set up project structure with Express and TypeScript
@@ -382,13 +382,13 @@ I'll continue by implementing the endpoints now...
 
 [Implements endpoints]
 
-Updated PROGRESS.md with this session:
+Updated DEVLOG.md with this session:
 - Implemented GET /users and POST /users endpoints
 - Added request validation with Zod
 - Set up error handling middleware
 - Next: Add database integration
 
-Progress file updated at: C:\Users\You\Projects\my-api\PROGRESS.md
+Progress file updated at: C:\Users\You\Projects\my-api\DEVLOG.md
 ```
 
 ## Integration with MCP Memory Servers (Optional)
@@ -412,11 +412,11 @@ See: https://github.com/modelcontextprotocol/servers
 # Use pathlib for cross-platform compatibility
 from pathlib import Path
 
-progress_path = Path('PROGRESS.md')  # Works on Windows and Mac
+devlog_path = Path('DEVLOG.md')  # Works on Windows and Mac
 
 # Or use os.path
 import os
-progress_path = os.path.join(os.getcwd(), 'PROGRESS.md')
+devlog_path = os.path.join(os.getcwd(), 'DEVLOG.md')
 ```
 
 ### Windows Path Handling
@@ -426,19 +426,19 @@ import os
 from pathlib import Path
 
 # Pathlib handles this automatically
-progress_path = Path('C:/Users/YourName/Projects/PROGRESS.md')
+devlog_path = Path('C:/Users/YourName/Projects/DEVLOG.md')
 
 # Or normalize paths
-progress_path = os.path.normpath('C:\\Users\\YourName\\Projects\\PROGRESS.md')
+devlog_path = os.path.normpath('C:\\Users\\YourName\\Projects\\DEVLOG.md')
 ```
 
 ### File Permissions
 ```python
 # Check if file is writable
-progress_path = Path('PROGRESS.md')
+devlog_path = Path('DEVLOG.md')
 
-if progress_path.exists():
-    if os.access(progress_path, os.W_OK):
+if devlog_path.exists():
+    if os.access(devlog_path, os.W_OK):
         print("Can write to progress file")
     else:
         print("Progress file is read-only - check permissions")
@@ -463,11 +463,11 @@ for root, dirs, files in os.walk('.'):
 
 ```python
 # Always specify encoding on Windows
-with open('PROGRESS.md', 'a', encoding='utf-8') as f:
+with open('DEVLOG.md', 'a', encoding='utf-8') as f:
     f.write(entry)
 
 # Reading with encoding
-with open('PROGRESS.md', 'r', encoding='utf-8') as f:
+with open('DEVLOG.md', 'r', encoding='utf-8') as f:
     content = f.read()
 ```
 
@@ -475,7 +475,7 @@ with open('PROGRESS.md', 'r', encoding='utf-8') as f:
 
 If multiple people use Claude Desktop on the same project:
 
-1. **Commit to git**: Track PROGRESS.md in version control
+1. **Commit to git**: Track DEVLOG.md in version control
 2. **Use shared drive**: Place in OneDrive/Dropbox
 3. **Merge strategy**: Use timestamps to merge multiple people's entries
 4. **Separate files**: Each person has their own PROGRESS_[name].md

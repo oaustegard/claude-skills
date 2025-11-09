@@ -2,6 +2,11 @@
 
 This guide covers using the iterating skill in the CLI environment, where state is persisted via user-curated Project Knowledge files.
 
+## User Acknowledgment
+
+At session start, tell the user:
+> "I'll create a structured document for you to curate into Project Knowledge. In future sessions, I'll automatically retrieve relevant context."
+
 ## Environment Detection
 
 In the CLI environment, the `CLAUDE_CODE_REMOTE` environment variable is not set or is not `'true'`:

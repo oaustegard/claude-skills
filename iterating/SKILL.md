@@ -9,89 +9,30 @@ A methodology for conducting iterative stateful work across multiple conversatio
 
 ## Core Concept
 
-This skill enables you to maintain context and build on previous work across multiple sessions by:
-- **Web environment** (Claude Code on web): Using DEVLOG.md in the repository for state persistence
-- **Desktop environment** (Claude Desktop app): Using local PROGRESS.md file for state persistence
-- **CLI environment** (Claude.ai): Creating documents for user-curated Project Knowledge
-
-## When to Use This Skill
-
-**Trigger patterns:**
-- "Let's continue working on X across multiple sessions"
-- "Build on our previous work about..."
-- "Track progress iteratively over time"
-- "I'll add findings/decisions to project knowledge"
-- User explicitly references Project Knowledge or development logs
-
-**Task characteristics:**
-- Multi-session development or research effort
-- Accumulating knowledge/progress over time
-- Need to avoid repeating unsuccessful approaches
-- Complex debugging spanning multiple sessions
-- Incremental feature development with learnings
+Maintain context across multiple sessions by persisting state:
+- **Web/Desktop** (Claude Code): DEVLOG.md in working directory
+- **CLI** (Claude.ai): Documents for user-curated Project Knowledge
 
 ## Quick Start
 
-### 1. Detect Environment
+Detect environment (`CLAUDE_CODE_REMOTE`) and choose persistence:
 
-```python
-import os
-from pathlib import Path
-
-# Check for web environment
-is_web = os.environ.get('CLAUDE_CODE_REMOTE') == 'true'
-
-# Check for desktop environment (has filesystem, not web, no Project Knowledge)
-has_filesystem = Path('.').exists()
-is_desktop = has_filesystem and not is_web  # Simplified detection
-
-# CLI environment has Project Knowledge (RAG-injected context)
-# Desktop has filesystem but no automatic Project Knowledge
-```
-
-### 2. Choose Persistence Method
-
-- **Web (CLAUDE_CODE_REMOTE='true')**: Use DEVLOG.md in repository
-  - See [references/web-environment.md](references/web-environment.md) for details
-- **Desktop (filesystem access, no Project Knowledge)**: Use local PROGRESS.md file
-  - See [references/desktop-environment.md](references/desktop-environment.md) for details
-- **CLI (Project Knowledge available)**: Create documents for Project Knowledge
-  - See [references/cli-environment.md](references/cli-environment.md) for details
-
-### 3. Acknowledge to User
-
-**Web:**
-> "I'll track our progress in DEVLOG.md in the repository. Each session, I'll document key decisions, findings, and next steps so we can build on this work in future conversations."
-
-**Desktop:**
-> "I'll track our progress in PROGRESS.md in your working directory. This local file will persist across sessions so we can build on previous work. Each session, I'll read this file to understand where we left off."
-
-**CLI:**
-> "I'll structure my output so you can curate the best insights into Project Knowledge. In future sessions, I'll automatically retrieve relevant past work to build on what we've learned."
+- **Web/Desktop**: DEVLOG.md (see [references/web-environment.md](references/web-environment.md) and [references/desktop-environment.md](references/desktop-environment.md))
+- **CLI**: Curated documents (see [references/cli-environment.md](references/cli-environment.md))
 
 ## Core Workflow
 
-### Session N: Initial Work
+**Session N:**
+1. Detect environment and explain approach
+2. Perform the work
+3. Document learnings (append to DEVLOG.md or create curated document)
+4. Inform user what was documented
 
-1. **Detect environment** and explain approach to user
-2. **Perform the work** (research, coding, debugging, etc.)
-3. **Document learnings**:
-   - **Web**: Append entry to DEVLOG.md with context, decisions, approaches, next steps
-   - **Desktop**: Append entry to local PROGRESS.md with same format as web
-   - **CLI**: Create structured document for user to curate
-4. **Capture state** before ending session
-5. **Inform user** about what was documented and next steps
-
-### Session N+1: Continuing Work
-
-1. **Retrieve past context**:
-   - **Web**: Read DEVLOG.md and parse recent entries
-   - **Desktop**: Read local PROGRESS.md and parse recent entries
-   - **CLI**: Leverage automatically-injected Project Knowledge
-2. **Acknowledge past work** explicitly to user
-3. **Address open items** from previous sessions
-4. **Build on previous decisions** and learnings
-5. **Continue documentation** in same format
+**Session N+1:**
+1. Retrieve past context (read DEVLOG.md or leverage Project Knowledge)
+2. Acknowledge past work explicitly
+3. Address open items from previous sessions
+4. Continue documentation
 
 ## What to Document
 
@@ -148,22 +89,11 @@ is_desktop = has_filesystem and not is_web  # Simplified detection
 - [ ] [Follow-up task]
 ```
 
-### Environment-Specific Workflows
+**Workflow differences:**
+- **Web/Desktop**: Append to running log continuously
+- **CLI**: Create polished, curated documents for user to save
 
-**Web/Desktop** (Running log):
-- I append entries to the file continuously
-- File grows over time, archive when needed
-- You read the complete history
-
-**CLI** (Curated artifacts):
-- I create polished session documents
-- You choose what to save to Project Knowledge
-- Slightly more narrative/polished presentation
-
-See environment-specific references for implementation details:
-- [references/web-environment.md](references/web-environment.md) - Git-tracked DEVLOG.md
-- [references/desktop-environment.md](references/desktop-environment.md) - Local PROGRESS.md
-- [references/cli-environment.md](references/cli-environment.md) - Project Knowledge documents
+**See reference files for implementation details.**
 
 ## Common Patterns
 
@@ -281,40 +211,32 @@ Updated DEVLOG.md:
 
 **Claude:**
 ```
-I'll track our progress in PROGRESS.md in your working directory.
+I'll track our progress in DEVLOG.md.
 
 [Works on API setup]
 
-I've created PROGRESS.md with this session's work:
-- Project structure setup (src/, tests/, config/)
+Created DEVLOG.md with this session's work:
+- Project structure setup
 - Express.js server configuration
-- Basic routing skeleton
 - Decision: Use TypeScript for type safety
-
-Next session: Implement first endpoints and error handling
-
-File location: C:\Users\You\Projects\my-api\PROGRESS.md
+- Next: Implement first endpoints
 ```
 
 **User (Session 2):** "Let's continue building the API."
 
 **Claude:**
 ```
-Reading PROGRESS.md...
-
-From our previous session:
+From DEVLOG.md:
 - Set up project with Express and TypeScript
-- Created routing skeleton
 - Next: Implement endpoints
 
 I'll implement the endpoints now...
 
 [Implements]
 
-Updated PROGRESS.md:
+Updated DEVLOG.md:
 - Implemented GET /users and POST /users endpoints
 - Added request validation with Zod
-- Set up error handling middleware
 - Next: Add database integration
 ```
 
@@ -366,30 +288,7 @@ Iterative work is successful when:
 
 ## Reference Documentation
 
-For detailed information on specific topics:
-
-- **[references/web-environment.md](references/web-environment.md)** - Complete guide to using DEVLOG.md in Claude Code on the web
-  - DEVLOG.md format and structure
-  - Implementation code (update_devlog, read_devlog)
-  - Development log management and maintenance
-  - Detailed examples
-
-- **[references/desktop-environment.md](references/desktop-environment.md)** - Complete guide to local files in Claude Desktop
-  - PROGRESS.md format and file location options
-  - Implementation code for local file management
-  - Windows/Mac-specific considerations
-  - Backup and multi-project strategies
-  - Detailed examples
-
-- **[references/cli-environment.md](references/cli-environment.md)** - Complete guide to Project Knowledge in CLI
-  - Document format templates
-  - RAG optimization techniques
-  - Project Knowledge integration
-  - Detailed examples
-
-- **[references/advanced-patterns.md](references/advanced-patterns.md)** - Advanced patterns for complex work
-  - Multi-session feature development
-  - Debugging across sessions
-  - Architecture evolution tracking
-  - Cross-session synthesis
-  - Multi-session project templates
+- **[references/web-environment.md](references/web-environment.md)** - Web environment (git-tracked DEVLOG.md)
+- **[references/desktop-environment.md](references/desktop-environment.md)** - Desktop environment (local DEVLOG.md)
+- **[references/cli-environment.md](references/cli-environment.md)** - CLI environment (Project Knowledge)
+- **[references/advanced-patterns.md](references/advanced-patterns.md)** - Multi-session patterns
