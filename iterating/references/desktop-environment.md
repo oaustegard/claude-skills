@@ -48,50 +48,31 @@ DEVLOG.md
 
 ### Format
 
-Same unified format as web environment:
+Compressed for AI parsing - same as web environment:
 
 ```markdown
-# Development Log - [Project Name]
-
-This log tracks progress, decisions, and learnings across development sessions.
+# Development Log
 
 ---
 
-## [YYYY-MM-DD HH:MM] - Session: [Brief Title]
+## YYYY-MM-DD HH:MM | Title
 
-### Context
-[What we're working on and why]
+**Prev:** [previous session context]
+**Now:** [current goal]
 
-### Work Completed
-**Added:**
-- [New features, code, or insights]
+**Work:**
++: [additions with file:line]
+~: [changes with file:line]
+!: [fixes with file:line]
 
-**Changed:**
-- [Modifications to existing work]
+**Decisions:**
+- [what]: [why] (vs [alternatives])
 
-**Fixed:**
-- [Bugs resolved, issues addressed]
+**Works:** [effective approaches]
+**Fails:** [ineffective, why]
 
-### Key Decisions
-- **Decision:** [What was decided]
-  **Rationale:** [Why this approach]
-  **Alternatives considered:** [What else was evaluated]
-
-### Effective Approaches
-- [What strategies/techniques worked well]
-- [Patterns to reuse]
-
-### Ineffective Approaches
-- [What didn't work and why]
-- [Pitfalls to avoid]
-
-### Open Questions
-- [Unresolved issues]
-- [Areas needing investigation]
-
-### Next Steps
-- [ ] [Specific next action]
-- [ ] [Follow-up task]
+**Open:** [questions]
+**Next:** [actions]
 
 ---
 ```
@@ -133,50 +114,47 @@ def setup_devlog_file(location='working_dir'):
 def update_devlog_file(devlog_path, content_dict):
     """Update progress file with new session entry"""
 
-    # Prepare entry
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    entry = f"\n## [{timestamp}] - Session: {content_dict['title']}\n\n"
+    entry = f"\n## {timestamp} | {content_dict['title']}\n\n"
 
-    if content_dict.get('context'):
-        entry += f"### Context\n{content_dict['context']}\n\n"
+    if content_dict.get('prev'):
+        entry += f"**Prev:** {content_dict['prev']}\n"
+    if content_dict.get('now'):
+        entry += f"**Now:** {content_dict['now']}\n\n"
 
     if content_dict.get('added') or content_dict.get('changed') or content_dict.get('fixed'):
-        entry += "### Work Completed\n"
+        entry += "**Work:**\n"
         if content_dict.get('added'):
-            entry += "**Added:**\n" + "\n".join(f"- {item}" for item in content_dict['added']) + "\n\n"
+            entry += "+: " + ", ".join(content_dict['added']) + "\n"
         if content_dict.get('changed'):
-            entry += "**Changed:**\n" + "\n".join(f"- {item}" for item in content_dict['changed']) + "\n\n"
+            entry += "~: " + ", ".join(content_dict['changed']) + "\n"
         if content_dict.get('fixed'):
-            entry += "**Fixed:**\n" + "\n".join(f"- {item}" for item in content_dict['fixed']) + "\n\n"
-
-    if content_dict.get('decisions'):
-        entry += "### Key Decisions\n"
-        for decision in content_dict['decisions']:
-            entry += f"- **Decision:** {decision['what']}\n"
-            entry += f"  **Rationale:** {decision['why']}\n"
-            if decision.get('alternatives'):
-                entry += f"  **Alternatives considered:** {decision['alternatives']}\n"
+            entry += "!: " + ", ".join(content_dict['fixed']) + "\n"
         entry += "\n"
 
-    if content_dict.get('effective'):
-        entry += "### Effective Approaches\n"
-        entry += "\n".join(f"- {item}" for item in content_dict['effective']) + "\n\n"
+    if content_dict.get('decisions'):
+        entry += "**Decisions:**\n"
+        for d in content_dict['decisions']:
+            alt = f" (vs {d.get('alt', '')})" if d.get('alt') else ""
+            entry += f"- {d['what']}: {d['why']}{alt}\n"
+        entry += "\n"
 
-    if content_dict.get('ineffective'):
-        entry += "### Ineffective Approaches\n"
-        entry += "\n".join(f"- {item}" for item in content_dict['ineffective']) + "\n\n"
+    if content_dict.get('works'):
+        entry += "**Works:** " + ", ".join(content_dict['works']) + "\n"
+    if content_dict.get('fails'):
+        entry += "**Fails:** " + ", ".join(content_dict['fails']) + "\n"
+    if content_dict.get('works') or content_dict.get('fails'):
+        entry += "\n"
 
-    if content_dict.get('questions'):
-        entry += "### Open Questions\n"
-        entry += "\n".join(f"- {q}" for q in content_dict['questions']) + "\n\n"
-
-    if content_dict.get('next_steps'):
-        entry += "### Next Steps\n"
-        entry += "\n".join(f"- [ ] {step}" for step in content_dict['next_steps']) + "\n\n"
+    if content_dict.get('open'):
+        entry += "**Open:** " + ", ".join(content_dict['open']) + "\n"
+    if content_dict.get('next'):
+        entry += "**Next:** " + ", ".join(content_dict['next']) + "\n"
+    if content_dict.get('open') or content_dict.get('next'):
+        entry += "\n"
 
     entry += "---\n"
 
-    # Append to progress file
     with open(devlog_path, 'a') as f:
         f.write(entry)
 

@@ -26,52 +26,36 @@ In the CLI environment, create structured documents that users curate into their
 
 ## Document Format
 
-CLI uses the **same unified format** as Web/Desktop, adapted as a curated artifact with frontmatter:
+Compressed format for AI parsing - curated artifact for Project Knowledge:
 
 ```markdown
 ---
-title: [Descriptive Session Title]
-date: [YYYY-MM-DD]
-task: [Type: Research/Development/Debugging/etc]
+title: [Descriptive Title]
+date: YYYY-MM-DD
+task: Research|Development|Debugging|etc
 ---
 
-## [YYYY-MM-DD HH:MM] - Session: [Descriptive Title]
+## YYYY-MM-DD HH:MM | Title
 
-### Context
-[What we're working on and why - slightly more narrative for standalone reading]
+**Prev:** [previous context]
+**Now:** [current goal]
 
-### Work Completed
-**Added:**
-- [New features, code, or insights]
+**Work:**
++: [additions with file:line]
+~: [changes with file:line]
+!: [fixes with file:line]
 
-**Changed:**
-- [Modifications to existing work]
+**Decisions:**
+- [what]: [why] (vs [alternatives])
 
-**Fixed:**
-- [Bugs resolved, issues addressed]
+**Works:** [effective approaches]
+**Fails:** [ineffective, why]
 
-### Key Decisions
-- **Decision:** [What was decided]
-  **Rationale:** [Why this approach]
-  **Alternatives considered:** [What else was evaluated]
-
-### Effective Approaches
-- [What strategies/techniques worked well]
-- [Patterns to reuse in future sessions]
-
-### Ineffective Approaches
-- [What didn't work and why]
-- [Pitfalls to avoid in future sessions]
-
-### Open Questions
-- [Unresolved issues or areas needing investigation]
-
-### Next Steps
-- [ ] [Specific next action]
-- [ ] [Follow-up task]
+**Open:** [questions]
+**Next:** [actions]
 ```
 
-**Key difference from Web/Desktop**: This is a **curated artifact** rather than a running log entry. The content is slightly more polished and narrative since the user is the gatekeeper deciding what to save to Project Knowledge.
+**Key difference from Web/Desktop**: Curated artifact (user chooses what to save to Project Knowledge) vs running log (appended automatically)
 
 ## Project Knowledge Integration
 
@@ -197,147 +181,63 @@ Adding this to a document you can curate into Project Knowledge for future refer
 
 ```markdown
 ---
-title: Microservice Communication Patterns - Session 1
+title: Microservice Communication Patterns
 date: 2025-11-09
 task: Research
 ---
 
-## [2025-11-09 14:30] - Session: Microservice Communication Patterns Research
+## 2025-11-09 14:30 | Microservice Communication Patterns
 
-### Context
-Researching communication patterns for our microservices architecture. Need to choose patterns that support loose coupling and reliability for our distributed system with async processing requirements.
+**Prev:** None (initial research)
+**Now:** Choose communication pattern for microservices - need loose coupling + reliability + async
 
-### Work Completed
-**Added:**
-- Research on event-driven architecture patterns
-- Analysis of message queue options (RabbitMQ vs Kafka)
-- Documentation of synchronous HTTP anti-patterns
+**Work:**
++: Event-driven architecture research, message queue analysis (RabbitMQ vs Kafka), HTTP anti-patterns
+~: Initial HTTP assumption → event-driven based on findings
 
-**Changed:**
-- Initial assumption was to use HTTP; shifted to event-driven based on research
+**Decisions:**
+- Event-driven + message queues: loose coupling, async, prevents cascading failures (vs sync HTTP: tight coupling; vs service mesh: premature complexity)
+- RabbitMQ: simpler ops, handles 10k+ msg/sec (vs Kafka: overkill for scale; vs AWS SQS: vendor lock-in)
 
-**Fixed:**
-- N/A (research session)
+**Works:** Official docs (Fowler, Microsoft), cross-ref multiple sources, pattern-matched to requirements
+**Fails:** Generic "best practices" articles (vague), contradicting blog posts (time waste)
 
-### Key Decisions
-- **Decision:** Use event-driven architecture with message queues
-  **Rationale:** Provides loose coupling between services, enables async processing, prevents cascading failures
-  **Alternatives considered:** Synchronous HTTP (rejected - tight coupling), Service mesh (deferred - adds complexity)
-
-- **Decision:** Start with RabbitMQ for message queue
-  **Rationale:** Simpler operations than Kafka, handles 10k+ msg/sec which exceeds our current needs
-  **Alternatives considered:** Kafka (overkill for our scale), AWS SQS (vendor lock-in concern)
-
-### Effective Approaches
-- Started with official architecture documentation (Martin Fowler, Microsoft Architecture) - provided solid foundations
-- Cross-referenced multiple authoritative sources for validation
-- Focused research on patterns matching our specific requirements (loose coupling, async)
-
-### Ineffective Approaches
-- Generic "best practices" articles were too vague and not actionable
-- Blog posts often contradicted each other without clear rationale - wasted time
-
-### Open Questions
-- What are our exact throughput requirements? (Need to validate with load testing)
-- How should we handle message schema versioning from the start?
-- What retry and dead-letter queue policies should we implement?
-
-### Next Steps
-- [ ] Design event schemas for our domain (users, orders, inventory)
-- [ ] Set up RabbitMQ in development environment
-- [ ] Implement first event publisher/subscriber pair as proof of concept
-- [ ] Conduct load testing to validate throughput assumptions
+**Open:** Exact throughput needs? Schema versioning strategy? Retry/DLQ policies?
+**Next:** Design event schemas (users/orders/inventory), setup RabbitMQ dev env, POC publisher/subscriber, load testing
 ```
 
 ## Example Document: Feature Development
 
 ```markdown
 ---
-title: Authentication Implementation - Session 2
+title: JWT Authentication
 date: 2025-11-09
 task: Feature Development
 ---
 
-## [2025-11-09 16:45] - Session: JWT Authentication Implementation
+## 2025-11-09 16:45 | JWT Authentication
 
-### Context
-Building JWT-based authentication for the API. Previous session (Session 1) established the database schema and User model. Today focusing on the core auth flows: login, token validation, and protected routes.
+**Prev:** DB schema + User model complete (Session 1)
+**Now:** JWT auth flows - login, token validation, protected routes
 
-### Work Completed
-**Added:**
-- JWT token generation and validation middleware (src/middleware/auth.ts)
-- Login endpoint with email/password verification (src/routes/auth.ts:45)
-- Protected route decorator for securing endpoints
-- Refresh token mechanism for long-lived sessions
+**Work:**
++: JWT middleware (src/middleware/auth.ts), Login endpoint (src/routes/auth.ts:45), Protected route decorator, Refresh token mechanism
+~: User model - add bcrypt password hash, API errors - return 401 for auth
+!: Password comparison case-sensitive → constant-time, Token expiration not validated
 
-**Changed:**
-- Updated User model to include password hashing with bcrypt
-- Modified API error handling to return proper 401 responses for auth failures
+**Decisions:**
+- JWT 24h + 30d refresh: security/UX balance, industry standard (vs long-lived: security risk; vs session-based: breaks stateless req; vs shorter: poor UX)
+- bcrypt cost=12: industry standard, 250ms/hash perf ok (vs Argon2: unnecessary complexity; vs PBKDF2: less GPU-resistant)
 
-**Fixed:**
-- Password comparison was case-sensitive (now uses constant-time comparison)
-- Token expiration not being validated properly in middleware
+**Works:** Middleware pattern (DRY), real API testing via Postman (caught edge cases), OWASP cheat sheet (prevented timing attacks/storage issues)
+**Fails:** Custom token format (complex, switched to JWT), httpOnly cookies (mobile incompatible, switched to Bearer tokens)
 
-### Key Decisions
-- **Decision:** Use JWT with 24-hour access tokens + 30-day refresh tokens
-  **Rationale:** Balances security (short-lived access tokens) with UX (refresh tokens prevent frequent re-login). Industry standard approach.
-  **Alternatives considered:** Longer-lived access tokens (rejected - security risk), session-based auth (rejected - breaks statelessness requirement), shorter expiration (rejected - poor UX)
+**Open:** Rate limiting now or later? Account lockout strategy? Password reset flow (email/SMS/TOTP)?
+**Next:** Password reset, rate limiting (5/min/IP), integration tests, API docs
 
-- **Decision:** Store passwords with bcrypt, cost factor 12
-  **Rationale:** Industry standard, proven security, good performance tradeoff (250ms per hash on our hardware)
-  **Alternatives considered:** Argon2 (rejected - unnecessary complexity for our scale), PBKDF2 (rejected - bcrypt more resistant to GPU attacks)
-
-### Effective Approaches
-- Middleware pattern kept auth logic DRY across all protected routes
-- Testing with actual API requests (via Postman) caught edge cases early
-- Reviewing OWASP authentication cheat sheet prevented common vulnerabilities (timing attacks, improper password storage, etc.)
-
-### Ineffective Approaches
-- Initially tried custom token format (unnecessarily complex, switched to standard JWT)
-- Attempted to use httpOnly cookies for API (problematic for mobile clients, switched to Bearer tokens in Authorization header)
-
-### Open Questions
-- Should we implement rate limiting on the login endpoint now or later? (Prevents brute force attacks)
-- Do we need account lockout after N failed attempts? (Security vs UX tradeoff)
-- How to handle password reset flow securely? (Email token-based? SMS? TOTP?)
-
-### Next Steps
-- [ ] Implement password reset functionality (next critical security feature)
-- [ ] Add rate limiting to login endpoint (5 attempts per minute per IP)
-- [ ] Write integration tests for auth flows (login, token refresh, protected routes)
-- [ ] Document API authentication in README for API consumers
-```
-
-## Advanced: Hypothesis Tracking (Research)
-
-For research spanning multiple sessions:
-
-```markdown
 ## Hypothesis Tracking
 
-### H1: Event-driven architecture reduces coupling
-**Status:** Confirmed
-**Evidence:** Services can be deployed independently, no direct dependencies, demonstrated in prototype
-**Session:** Session 2
-
-### H2: RabbitMQ sufficient for our throughput
-**Status:** In Progress
-**Evidence:** Handles test load (1000 msg/sec) easily, need to test at 10k msg/sec
-**Session:** Session 3 (planned)
-**Next test:** Load testing with realistic message sizes and patterns
-
-### H3: Schema versioning needed from day one
-**Status:** Inconclusive
-**Evidence:** Best practices recommend it, but adds complexity for our small team
-**Session:** Session 2
-**Next test:** Prototype with and without versioning to assess complexity/benefit
+H1: Event-driven reduces coupling | Confirmed | Independent deploy, no dependencies, prototype proven (S2)
+H2: RabbitMQ sufficient | In Progress | Handles 1k msg/sec, need 10k test (S3 planned)
+H3: Schema versioning day-one | Inconclusive | Best practice but adds complexity for small team (S2) - prototype both to assess
 ```
-
-## Tips for Effective Documentation
-
-1. **Write for future you**: Assume you'll forget the context
-2. **Be specific**: Include file paths, line numbers, exact error messages
-3. **Explain why**: Decisions are more valuable than actions
-4. **Track alternatives**: Document what you didn't choose and why
-5. **Note confidence levels**: Help future you know what to validate
-6. **Link to sources**: URLs, docs, commits for traceability

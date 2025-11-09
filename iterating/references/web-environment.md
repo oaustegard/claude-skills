@@ -23,48 +23,31 @@ In the web environment, maintain state across sessions using a development log i
 
 ### DEVLOG.md Format
 
+Optimized for AI parsing - maximize information density:
+
 ```markdown
 # Development Log
 
-This log tracks progress, decisions, and learnings across development sessions.
-
 ---
 
-## [YYYY-MM-DD HH:MM] - Session: [Brief Title]
+## YYYY-MM-DD HH:MM | Title
 
-### Context
-[What we're working on and why]
+**Prev:** [Context from previous session]
+**Now:** [Current session goal]
 
-### Work Completed
-**Added:**
-- [New features, code, or insights]
+**Work:**
++: [additions with file:line]
+~: [changes with file:line]
+!: [fixes with file:line]
 
-**Changed:**
-- [Modifications to existing work]
+**Decisions:**
+- [what]: [why] (vs [alternatives])
 
-**Fixed:**
-- [Bugs resolved, issues addressed]
+**Works:** [effective approaches]
+**Fails:** [ineffective approaches, why]
 
-### Key Decisions
-- **Decision:** [What was decided]
-  **Rationale:** [Why this approach]
-  **Alternatives considered:** [What else was evaluated]
-
-### Effective Approaches
-- [What strategies/techniques worked well]
-- [Patterns to reuse]
-
-### Ineffective Approaches
-- [What didn't work and why]
-- [Pitfalls to avoid]
-
-### Open Questions
-- [Unresolved issues]
-- [Areas needing investigation]
-
-### Next Steps
-- [ ] [Specific next action]
-- [ ] [Follow-up task]
+**Open:** [unresolved questions]
+**Next:** [action items]
 
 ---
 ```
@@ -78,60 +61,60 @@ from datetime import datetime
 import os
 
 def update_devlog(content_dict):
-    """Update DEVLOG.md with new session entry"""
+    """Update DEVLOG.md with compressed entry"""
     devlog_path = "DEVLOG.md"
 
-    # Create DEVLOG.md if it doesn't exist
+    # Create if doesn't exist
     if not os.path.exists(devlog_path):
         with open(devlog_path, 'w') as f:
-            f.write("# Development Log\n\n")
-            f.write("This log tracks progress, decisions, and learnings across development sessions.\n\n")
-            f.write("---\n\n")
+            f.write("# Development Log\n\n---\n\n")
 
-    # Prepare entry
+    # Prepare compressed entry
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    entry = f"\n## [{timestamp}] - Session: {content_dict['title']}\n\n"
+    entry = f"\n## {timestamp} | {content_dict['title']}\n\n"
 
-    if content_dict.get('context'):
-        entry += f"### Context\n{content_dict['context']}\n\n"
+    if content_dict.get('prev'):
+        entry += f"**Prev:** {content_dict['prev']}\n"
+    if content_dict.get('now'):
+        entry += f"**Now:** {content_dict['now']}\n\n"
 
+    # Work section with symbols
     if content_dict.get('added') or content_dict.get('changed') or content_dict.get('fixed'):
-        entry += "### Work Completed\n"
+        entry += "**Work:**\n"
         if content_dict.get('added'):
-            entry += "**Added:**\n" + "\n".join(f"- {item}" for item in content_dict['added']) + "\n\n"
+            entry += "+: " + ", ".join(content_dict['added']) + "\n"
         if content_dict.get('changed'):
-            entry += "**Changed:**\n" + "\n".join(f"- {item}" for item in content_dict['changed']) + "\n\n"
+            entry += "~: " + ", ".join(content_dict['changed']) + "\n"
         if content_dict.get('fixed'):
-            entry += "**Fixed:**\n" + "\n".join(f"- {item}" for item in content_dict['fixed']) + "\n\n"
-
-    if content_dict.get('decisions'):
-        entry += "### Key Decisions\n"
-        for decision in content_dict['decisions']:
-            entry += f"- **Decision:** {decision['what']}\n"
-            entry += f"  **Rationale:** {decision['why']}\n"
-            if decision.get('alternatives'):
-                entry += f"  **Alternatives considered:** {decision['alternatives']}\n"
+            entry += "!: " + ", ".join(content_dict['fixed']) + "\n"
         entry += "\n"
 
-    if content_dict.get('effective'):
-        entry += "### Effective Approaches\n"
-        entry += "\n".join(f"- {item}" for item in content_dict['effective']) + "\n\n"
+    # Decisions - compact format
+    if content_dict.get('decisions'):
+        entry += "**Decisions:**\n"
+        for d in content_dict['decisions']:
+            alt = f" (vs {d.get('alt', '')})" if d.get('alt') else ""
+            entry += f"- {d['what']}: {d['why']}{alt}\n"
+        entry += "\n"
 
-    if content_dict.get('ineffective'):
-        entry += "### Ineffective Approaches\n"
-        entry += "\n".join(f"- {item}" for item in content_dict['ineffective']) + "\n\n"
+    # Works/Fails - single line each
+    if content_dict.get('works'):
+        entry += "**Works:** " + ", ".join(content_dict['works']) + "\n"
+    if content_dict.get('fails'):
+        entry += "**Fails:** " + ", ".join(content_dict['fails']) + "\n"
+    if content_dict.get('works') or content_dict.get('fails'):
+        entry += "\n"
 
-    if content_dict.get('questions'):
-        entry += "### Open Questions\n"
-        entry += "\n".join(f"- {q}" for q in content_dict['questions']) + "\n\n"
-
-    if content_dict.get('next_steps'):
-        entry += "### Next Steps\n"
-        entry += "\n".join(f"- [ ] {step}" for step in content_dict['next_steps']) + "\n\n"
+    # Open/Next - compact
+    if content_dict.get('open'):
+        entry += "**Open:** " + ", ".join(content_dict['open']) + "\n"
+    if content_dict.get('next'):
+        entry += "**Next:** " + ", ".join(content_dict['next']) + "\n"
+    if content_dict.get('open') or content_dict.get('next'):
+        entry += "\n"
 
     entry += "---\n"
 
-    # Append to DEVLOG.md
     with open(devlog_path, 'a') as f:
         f.write(entry)
 
@@ -169,21 +152,11 @@ Update DEVLOG.md:
 - **After learning something**: Discoveries about the codebase, effective/ineffective approaches
 - **Before ending session**: Capture state and next steps for continuity
 
-### What to Include
+### Content Guidelines
 
-**Do include:**
-- Key decisions and their rationale
-- Effective and ineffective approaches
-- Important discoveries or insights
-- Architectural choices
-- Next steps and open questions
-- Links to relevant code/files (e.g., "See src/auth/middleware.ts:45")
+Include: Key decisions (with alternatives), effective/ineffective approaches, discoveries, file:line refs, open questions, next steps
 
-**Don't include:**
-- Every minor code change (that's what git commits are for)
-- Obvious or trivial information
-- Raw dumps of data or logs
-- Implementation details (document those in code comments)
+Skip: Minor changes (use git), obvious info, raw data dumps, implementation details (use code comments)
 
 ### Log Maintenance
 
@@ -234,100 +207,48 @@ def maintain_devlog():
 
 ## Example Session
 
-### Session 1: Initial Work
+### Session Examples
 
-**User:** "Help me debug this performance issue with the data processing pipeline."
-
-**Claude:**
+**Session 1:**
 ```
-I'll track our debugging progress in DEVLOG.md so we can build on this work across sessions.
+I'll track progress in DEVLOG.md.
 
-[Investigates issue with profiling, testing different approaches]
+[Profiles, tests approaches]
 
-I've updated DEVLOG.md with our findings:
-- Identified bottleneck in the serialization step (900ms average)
-- Tested 3 approaches:
-  * Caching (ineffective - no repeated data)
-  * Batching (moderate improvement to 650ms)
-  * Streaming (needs implementation)
-- Key decision: Switch to streaming approach based on profiling data
-- Next steps: Implement streaming serialization, measure impact
-
-In the next session, we can continue with the streaming implementation.
+Updated DEVLOG with: serialization bottleneck (900ms), tested caching (no effect), batching (650ms), decided on streaming approach. Next: implement streaming.
 ```
 
-### Session 2: Continuing Work
-
-**User:** "Let's continue the performance work."
-
-**Claude:**
+**Session 2:**
 ```
-From DEVLOG.md, I can see we:
-- Identified serialization as bottleneck (900ms avg)
-- Tested batching (moderate improvement to 650ms)
-- Decided to implement streaming approach for better performance
+From DEVLOG: serialization bottleneck, tested batching (650ms), streaming planned.
 
-I'll now implement the streaming serialization we planned...
+[Implements streaming]
 
-[Implements streaming approach, measures performance]
-
-Updated DEVLOG.md with results:
-- Implemented streaming serialization (see src/processor.py:145)
-- Performance improved from 900ms to 120ms (87% reduction!)
-- Trade-off: slight increase in memory usage (+15MB, acceptable)
-- Next: Add monitoring to track performance in production
+Updated: streaming impl (src/processor.py:145), 900ms→120ms (87% faster), +15MB memory (ok), next: monitoring.
 ```
 
 ## Example DEVLOG Entry
 
 ```markdown
-## [2025-11-09 14:30] - Session: Implementing User Authentication
+## 2025-11-09 14:30 | JWT Authentication
 
-### Context
-Working on adding JWT-based authentication to the API. Previous session established the database schema and User model.
+**Prev:** User model + DB schema complete
+**Now:** JWT auth flow implementation
 
-### Work Completed
-**Added:**
-- JWT token generation and validation middleware (src/middleware/auth.ts)
-- Login endpoint with email/password verification (src/routes/auth.ts:45)
-- Protected route decorator for securing endpoints
+**Work:**
++: JWT middleware (src/middleware/auth.ts), Login endpoint (src/routes/auth.ts:45), Protected route decorator
+~: User model - add bcrypt password hash, API errors - return 401 for auth
+!: Password comparison case-sensitive → constant-time, Token expiration not validated
 
-**Changed:**
-- Updated User model to include password hashing with bcrypt
-- Modified API error handling to return 401 for auth failures
+**Decisions:**
+- JWT 24h + refresh tokens: security/UX balance (vs session-based: breaks stateless req; vs long-lived: security risk)
+- bcrypt cost=12: industry standard, proven (vs Argon2: unnecessary complexity)
 
-**Fixed:**
-- Password comparison was case-sensitive (now uses constant-time comparison)
-- Token expiration not being checked properly
+**Works:** Middleware pattern (DRY), testing with real requests (caught edge cases), OWASP review (prevented vulns)
+**Fails:** Custom token format (complex, switched to JWT), httpOnly cookies (mobile issue, switched to Bearer)
 
-### Key Decisions
-- **Decision:** Use JWT with 24-hour expiration and refresh tokens
-  **Rationale:** Balance between security and user convenience; refresh tokens prevent frequent re-login while limiting access token exposure window
-  **Alternatives considered:** Session-based auth (rejected - statelessness requirement), longer-lived tokens (rejected - security risk)
-
-- **Decision:** Store passwords with bcrypt, cost factor 12
-  **Rationale:** Industry standard, proven security, good performance tradeoff for our scale
-  **Alternatives considered:** Argon2 (unnecessary complexity for our current needs)
-
-### Effective Approaches
-- Using middleware pattern kept auth logic DRY across routes
-- Testing with actual API requests helped catch edge cases early
-- Reviewing OWASP auth guidelines prevented common vulnerabilities
-
-### Ineffective Approaches
-- Initially tried custom token format (unnecessarily complex, switched to JWT standard)
-- Attempted to use httpOnly cookies for API (problematic for mobile clients, switched to Bearer tokens)
-
-### Open Questions
-- Should we implement rate limiting on login endpoint?
-- Do we need account lockout after failed attempts?
-- How to handle password reset flow securely?
-
-### Next Steps
-- [ ] Implement password reset functionality
-- [ ] Add rate limiting to prevent brute force attacks
-- [ ] Write integration tests for auth flows
-- [ ] Document API authentication in README
+**Open:** Rate limiting on login? Account lockout strategy? Password reset flow?
+**Next:** Password reset, rate limiting, integration tests, API docs
 
 ---
 ```
