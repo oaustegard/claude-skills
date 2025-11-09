@@ -9,194 +9,20 @@ At session start, tell the user:
 
 ## Environment Detection
 
-Claude Desktop runs in a code execution environment with filesystem access but no automatic Project Knowledge. Detect it by checking available features:
-
-```python
-import os
-import sys
-
-# Check if we're in Claude Code on the web
-is_web = os.environ.get('CLAUDE_CODE_REMOTE') == 'true'
-
-# Check if we have filesystem access (both web and desktop do)
-has_filesystem = os.path.exists('.')
-
-# Desktop environment: has filesystem but not web environment
-# Also lacks automatic Project Knowledge like CLI
-is_desktop = has_filesystem and not is_web
-
-# Alternative: Check platform
-is_windows = sys.platform == 'win32'
-is_mac = sys.platform == 'darwin'
-```
+Detect via `CLAUDE_CODE_REMOTE != 'true'` (has filesystem but not web). Can also check `sys.platform` for Windows/Mac.
 
 ## State Persistence: DEVLOG.md
 
-Use DEVLOG.md in your working directory (same as web environment). Since sessions don't automatically share state, maintain this file and read it at the start of each session.
+Use DEVLOG.md in working directory (root or `.claude/` subdirectory). See SKILL.md for format template.
 
 ### File Location Options
 
-**Option 1: Root of working directory** (recommended)
-```
-DEVLOG.md
-```
-
-**Option 2: .claude directory** (organized)
-```
-.claude/DEVLOG.md
-```
-
-### Format
-
-Compressed for AI parsing - same as web environment:
-
-```markdown
-# Development Log
-
----
-
-## YYYY-MM-DD HH:MM | Title
-
-**Prev:** [previous session context]
-**Now:** [current goal]
-
-**Work:**
-+: [additions with file:line]
-~: [changes with file:line]
-!: [fixes with file:line]
-
-**Decisions:**
-- [what]: [why] (vs [alternatives])
-
-**Works:** [effective approaches]
-**Fails:** [ineffective, why]
-
-**Open:** [questions]
-**Next:** [actions]
-
----
-```
+**Root** (`DEVLOG.md`): Visible, easy to find
+**.claude/** (`.claude/DEVLOG.md`): Hidden, organized
 
 ## Implementation
 
-### Setting Up the Progress File
-
-```python
-import os
-from datetime import datetime
-from pathlib import Path
-
-def setup_devlog_file(location='working_dir'):
-    """
-    Set up the progress file in the specified location
-
-    Args:
-        location: 'working_dir', 'claude_dir', or custom path
-    """
-    if location == 'working_dir':
-        devlog_path = Path('DEVLOG.md')
-    elif location == 'claude_dir':
-        claude_dir = Path('.claude')
-        claude_dir.mkdir(exist_ok=True)
-        devlog_path = claude_dir / 'DEVLOG.md'
-    else:
-        devlog_path = Path(location)
-
-    # Create file if it doesn't exist
-    if not devlog_path.exists():
-        with open(devlog_path, 'w') as f:
-            f.write("# Development Log\n\n")
-            f.write("This log tracks progress, decisions, and learnings across development sessions.\n\n")
-            f.write("---\n\n")
-
-    return devlog_path
-
-def update_devlog_file(devlog_path, content_dict):
-    """Update progress file with new session entry"""
-
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    entry = f"\n## {timestamp} | {content_dict['title']}\n\n"
-
-    if content_dict.get('prev'):
-        entry += f"**Prev:** {content_dict['prev']}\n"
-    if content_dict.get('now'):
-        entry += f"**Now:** {content_dict['now']}\n\n"
-
-    if content_dict.get('added') or content_dict.get('changed') or content_dict.get('fixed'):
-        entry += "**Work:**\n"
-        if content_dict.get('added'):
-            entry += "+: " + ", ".join(content_dict['added']) + "\n"
-        if content_dict.get('changed'):
-            entry += "~: " + ", ".join(content_dict['changed']) + "\n"
-        if content_dict.get('fixed'):
-            entry += "!: " + ", ".join(content_dict['fixed']) + "\n"
-        entry += "\n"
-
-    if content_dict.get('decisions'):
-        entry += "**Decisions:**\n"
-        for d in content_dict['decisions']:
-            alt = f" (vs {d.get('alt', '')})" if d.get('alt') else ""
-            entry += f"- {d['what']}: {d['why']}{alt}\n"
-        entry += "\n"
-
-    if content_dict.get('works'):
-        entry += "**Works:** " + ", ".join(content_dict['works']) + "\n"
-    if content_dict.get('fails'):
-        entry += "**Fails:** " + ", ".join(content_dict['fails']) + "\n"
-    if content_dict.get('works') or content_dict.get('fails'):
-        entry += "\n"
-
-    if content_dict.get('open'):
-        entry += "**Open:** " + ", ".join(content_dict['open']) + "\n"
-    if content_dict.get('next'):
-        entry += "**Next:** " + ", ".join(content_dict['next']) + "\n"
-    if content_dict.get('open') or content_dict.get('next'):
-        entry += "\n"
-
-    entry += "---\n"
-
-    with open(devlog_path, 'a') as f:
-        f.write(entry)
-
-    return devlog_path
-```
-
-### Reading Past Context
-
-```python
-def read_devlog_file(devlog_path=None):
-    """Read progress file to get past context"""
-
-    # Try common locations if no path specified
-    if devlog_path is None:
-        possible_paths = [
-            Path('DEVLOG.md'),
-            Path('.claude/DEVLOG.md'),
-            Path('DEVLOG.md'),
-            Path('.claude/DEVLOG.md')
-        ]
-
-        for path in possible_paths:
-            if path.exists():
-                devlog_path = path
-                break
-
-    if devlog_path and Path(devlog_path).exists():
-        with open(devlog_path, 'r') as f:
-            content = f.read()
-        return content
-
-    return None
-
-# At session start
-progress_content = read_devlog_file()
-if progress_content:
-    # Parse recent entries (last 3-5 sessions typically most relevant)
-    # Extract key context, decisions, next steps
-    print(f"Found progress file with {len(progress_content)} characters of history")
-else:
-    print("No progress file found - starting fresh")
-```
+Same as web-environment.md with path parameter. Use `Path('DEVLOG.md')` or `Path('.claude/DEVLOG.md')`.
 
 ## Desktop-Specific Considerations
 
@@ -319,55 +145,11 @@ print("Next session: Continue with password reset implementation")
 **At start of new session:**
 > "From DEVLOG.md, I can see we previously [summary of past work]. Let me continue from where we left off..."
 
-## Example Session
+## Example
 
-### Session 1: Initial Setup
+**Session 1:** "I'll track progress in DEVLOG.md. [Setup API] Updated: Express setup, TypeScript decision, next: endpoints."
 
-**User:** "Help me build a REST API. I'm using Claude Desktop."
-
-**Claude:**
-```
-I'll track our progress in DEVLOG.md in your working directory. This will help us maintain context across sessions.
-
-[Works on initial API setup]
-
-I've created DEVLOG.md and documented our work:
-- Project structure setup (src/, tests/, config/)
-- Express.js server configuration
-- Basic routing skeleton
-- Decision: Use TypeScript for type safety
-
-Next session: Implement first endpoints and error handling
-
-The progress file is in: C:\Users\You\Projects\my-api\DEVLOG.md
-```
-
-### Session 2: Continuing Work
-
-**User:** "Let's continue building the API."
-
-**Claude:**
-```
-Reading DEVLOG.md...
-
-From our previous session, I can see we:
-- Set up project structure with Express and TypeScript
-- Created basic routing skeleton
-- Decided on TypeScript for type safety
-- Next step: Implement first endpoints
-
-I'll continue by implementing the endpoints now...
-
-[Implements endpoints]
-
-Updated DEVLOG.md with this session:
-- Implemented GET /users and POST /users endpoints
-- Added request validation with Zod
-- Set up error handling middleware
-- Next: Add database integration
-
-Progress file updated at: C:\Users\You\Projects\my-api\DEVLOG.md
-```
+**Session 2:** "From DEVLOG: setup complete. [Implements] Updated: GET/POST endpoints, validation, next: database."
 
 ## Integration with MCP Memory Servers (Optional)
 

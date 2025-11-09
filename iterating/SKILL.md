@@ -20,6 +20,31 @@ Detect environment (`CLAUDE_CODE_REMOTE`) and see appropriate reference:
 - **Desktop**: [references/desktop-environment.md](references/desktop-environment.md)
 - **CLI**: [references/cli-environment.md](references/cli-environment.md)
 
+## DEVLOG Format
+
+Compressed for AI parsing - maximize information density:
+
+```markdown
+## YYYY-MM-DD HH:MM | Title
+
+**Prev:** [previous context]
+**Now:** [current goal]
+
+**Work:**
++: [additions with file:line]
+~: [changes with file:line]
+!: [fixes with file:line]
+
+**Decisions:**
+- [what]: [why] (vs [alternatives])
+
+**Works:** [effective approaches]
+**Fails:** [ineffective, why]
+
+**Open:** [questions]
+**Next:** [actions]
+```
+
 ## Core Workflow
 
 **Session N:**

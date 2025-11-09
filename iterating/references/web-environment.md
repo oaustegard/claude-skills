@@ -9,137 +9,61 @@ At session start, tell the user:
 
 ## Environment Detection
 
-In the web environment, the `CLAUDE_CODE_REMOTE` environment variable is set to `'true'`:
-
-```python
-import os
-
-is_web_environment = os.environ.get('CLAUDE_CODE_REMOTE') == 'true'
-```
+Detect via `CLAUDE_CODE_REMOTE='true'` environment variable.
 
 ## State Persistence: DEVLOG.md
 
-In the web environment, maintain state across sessions using a development log in the repository.
-
-### DEVLOG.md Format
-
-Optimized for AI parsing - maximize information density:
-
-```markdown
-# Development Log
-
----
-
-## YYYY-MM-DD HH:MM | Title
-
-**Prev:** [Context from previous session]
-**Now:** [Current session goal]
-
-**Work:**
-+: [additions with file:line]
-~: [changes with file:line]
-!: [fixes with file:line]
-
-**Decisions:**
-- [what]: [why] (vs [alternatives])
-
-**Works:** [effective approaches]
-**Fails:** [ineffective approaches, why]
-
-**Open:** [unresolved questions]
-**Next:** [action items]
-
----
-```
+Maintain state across sessions using DEVLOG.md in the repository. See SKILL.md for format template.
 
 ## Implementation
 
-### Updating the Development Log
+### Updating DEVLOG
 
 ```python
 from datetime import datetime
-import os
 
-def update_devlog(content_dict):
-    """Update DEVLOG.md with compressed entry"""
-    devlog_path = "DEVLOG.md"
+def update_devlog(data):
+    ts = datetime.now().strftime("%Y-%m-%d %H:%M")
+    entry = f"\n## {ts} | {data['title']}\n\n"
 
-    # Create if doesn't exist
-    if not os.path.exists(devlog_path):
-        with open(devlog_path, 'w') as f:
-            f.write("# Development Log\n\n---\n\n")
+    if data.get('prev'): entry += f"**Prev:** {data['prev']}\n"
+    if data.get('now'): entry += f"**Now:** {data['now']}\n\n"
 
-    # Prepare compressed entry
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-    entry = f"\n## {timestamp} | {content_dict['title']}\n\n"
-
-    if content_dict.get('prev'):
-        entry += f"**Prev:** {content_dict['prev']}\n"
-    if content_dict.get('now'):
-        entry += f"**Now:** {content_dict['now']}\n\n"
-
-    # Work section with symbols
-    if content_dict.get('added') or content_dict.get('changed') or content_dict.get('fixed'):
+    if work := [data.get(k) for k in ['added','changed','fixed'] if data.get(k)]:
         entry += "**Work:**\n"
-        if content_dict.get('added'):
-            entry += "+: " + ", ".join(content_dict['added']) + "\n"
-        if content_dict.get('changed'):
-            entry += "~: " + ", ".join(content_dict['changed']) + "\n"
-        if content_dict.get('fixed'):
-            entry += "!: " + ", ".join(content_dict['fixed']) + "\n"
+        if data.get('added'): entry += f"+: {', '.join(data['added'])}\n"
+        if data.get('changed'): entry += f"~: {', '.join(data['changed'])}\n"
+        if data.get('fixed'): entry += f"!: {', '.join(data['fixed'])}\n"
         entry += "\n"
 
-    # Decisions - compact format
-    if content_dict.get('decisions'):
-        entry += "**Decisions:**\n"
-        for d in content_dict['decisions']:
-            alt = f" (vs {d.get('alt', '')})" if d.get('alt') else ""
-            entry += f"- {d['what']}: {d['why']}{alt}\n"
-        entry += "\n"
+    if data.get('decisions'):
+        entry += "**Decisions:**\n" + "\n".join(
+            f"- {d['what']}: {d['why']}" + (f" (vs {d['alt']})" if d.get('alt') else "")
+            for d in data['decisions']) + "\n\n"
 
-    # Works/Fails - single line each
-    if content_dict.get('works'):
-        entry += "**Works:** " + ", ".join(content_dict['works']) + "\n"
-    if content_dict.get('fails'):
-        entry += "**Fails:** " + ", ".join(content_dict['fails']) + "\n"
-    if content_dict.get('works') or content_dict.get('fails'):
-        entry += "\n"
+    if data.get('works'): entry += f"**Works:** {', '.join(data['works'])}\n"
+    if data.get('fails'): entry += f"**Fails:** {', '.join(data['fails'])}\n"
+    if data.get('works') or data.get('fails'): entry += "\n"
 
-    # Open/Next - compact
-    if content_dict.get('open'):
-        entry += "**Open:** " + ", ".join(content_dict['open']) + "\n"
-    if content_dict.get('next'):
-        entry += "**Next:** " + ", ".join(content_dict['next']) + "\n"
-    if content_dict.get('open') or content_dict.get('next'):
-        entry += "\n"
+    if data.get('open'): entry += f"**Open:** {', '.join(data['open'])}\n"
+    if data.get('next'): entry += f"**Next:** {', '.join(data['next'])}\n\n"
 
     entry += "---\n"
 
-    with open(devlog_path, 'a') as f:
+    with open("DEVLOG.md", 'a') as f:
         f.write(entry)
-
-    return devlog_path
 ```
 
 ### Reading Past Context
 
 ```python
-def read_devlog():
-    """Read DEVLOG.md to get past context"""
-    devlog_path = "DEVLOG.md"
+from pathlib import Path
 
-    if os.path.exists(devlog_path):
-        with open(devlog_path, 'r') as f:
-            content = f.read()
-        return content
-    return None
-
-# At session start
-devlog_content = read_devlog()
-if devlog_content:
-    # Parse recent entries (last 3-5 sessions typically most relevant)
-    # Extract key context, decisions, next steps
-    pass
+# At session start, read DEVLOG.md
+devlog = Path("DEVLOG.md")
+if devlog.exists():
+    context = devlog.read_text()
+    # Focus on last 3-5 entries for recent context
 ```
 
 ## Development Log Management
@@ -205,60 +129,12 @@ def maintain_devlog():
         print("DEVLOG.md is getting large (>1000 lines). Consider archiving old entries.")
 ```
 
-## Example Session
+## Example
 
-### Session Examples
+**Session 1:** "I'll track progress in DEVLOG.md. [Works] Updated: tested batching (650ms), streaming planned."
 
-**Session 1:**
-```
-I'll track progress in DEVLOG.md.
+**Session 2:** "From DEVLOG: batching tested. [Implements] Updated: streaming impl (src/processor.py:145), 900ms→120ms."
 
-[Profiles, tests approaches]
-
-Updated DEVLOG with: serialization bottleneck (900ms), tested caching (no effect), batching (650ms), decided on streaming approach. Next: implement streaming.
-```
-
-**Session 2:**
-```
-From DEVLOG: serialization bottleneck, tested batching (650ms), streaming planned.
-
-[Implements streaming]
-
-Updated: streaming impl (src/processor.py:145), 900ms→120ms (87% faster), +15MB memory (ok), next: monitoring.
-```
-
-## Example DEVLOG Entry
-
-```markdown
-## 2025-11-09 14:30 | JWT Authentication
-
-**Prev:** User model + DB schema complete
-**Now:** JWT auth flow implementation
-
-**Work:**
-+: JWT middleware (src/middleware/auth.ts), Login endpoint (src/routes/auth.ts:45), Protected route decorator
-~: User model - add bcrypt password hash, API errors - return 401 for auth
-!: Password comparison case-sensitive → constant-time, Token expiration not validated
-
-**Decisions:**
-- JWT 24h + refresh tokens: security/UX balance (vs session-based: breaks stateless req; vs long-lived: security risk)
-- bcrypt cost=12: industry standard, proven (vs Argon2: unnecessary complexity)
-
-**Works:** Middleware pattern (DRY), testing with real requests (caught edge cases), OWASP review (prevented vulns)
-**Fails:** Custom token format (complex, switched to JWT), httpOnly cookies (mobile issue, switched to Bearer)
-
-**Open:** Rate limiting on login? Account lockout strategy? Password reset flow?
-**Next:** Password reset, rate limiting, integration tests, API docs
-
----
-```
-
-## User Communication
-
-After updating DEVLOG.md, inform the user:
-
-> "I've updated DEVLOG.md with this session's progress. The log now includes [brief summary of what was added]. In your next session, I'll read the log to continue from where we left off."
-
-At the start of a new session, acknowledge past context:
-
-> "From DEVLOG.md, I can see we previously [summary of past work]. I'll build on that work by [current session plan]..."
+**User Communication:**
+- After update: "Updated DEVLOG.md with [summary]"
+- New session: "From DEVLOG: [past work]. Continuing with [plan]"
