@@ -109,96 +109,61 @@ is_desktop = has_filesystem and not is_web  # Simplified detection
 - Raw dumps of data or logs
 - Implementation details (document in code comments)
 
-## Documentation Format
+## Unified Documentation Format
 
-### Web Environment (DEVLOG.md)
+**All environments use the same structure** (optimized for RAG retrieval):
 
 ```markdown
-## [YYYY-MM-DD HH:MM] - Session: [Brief Title]
+## [YYYY-MM-DD HH:MM] - Session: [Descriptive Title]
 
 ### Context
 [What we're working on and why]
 
 ### Work Completed
-**Added:** [New features, code, insights]
-**Changed:** [Modifications]
-**Fixed:** [Bugs resolved]
+**Added:**
+- [New features, code, or insights]
+
+**Changed:**
+- [Modifications to existing work]
+
+**Fixed:**
+- [Bugs resolved, issues addressed]
 
 ### Key Decisions
-- **Decision:** [What]
-  **Rationale:** [Why]
-  **Alternatives considered:** [What else]
+- **Decision:** [What was decided]
+  **Rationale:** [Why this approach]
+  **Alternatives considered:** [What else was evaluated]
 
 ### Effective Approaches
-- [What worked well]
+- [What strategies/techniques worked well]
 
 ### Ineffective Approaches
 - [What didn't work and why]
 
 ### Open Questions
-- [Unresolved issues]
+- [Unresolved issues or areas needing investigation]
 
 ### Next Steps
-- [ ] [Specific next actions]
+- [ ] [Specific next action]
+- [ ] [Follow-up task]
 ```
 
-See [references/web-environment.md](references/web-environment.md) for complete format and implementation.
+### Environment-Specific Workflows
 
-### Desktop Environment (PROGRESS.md)
+**Web/Desktop** (Running log):
+- I append entries to the file continuously
+- File grows over time, archive when needed
+- You read the complete history
 
-Uses same format as web environment, stored in local working directory:
+**CLI** (Curated artifacts):
+- I create polished session documents
+- You choose what to save to Project Knowledge
+- Slightly more narrative/polished presentation
 
-```markdown
-## [YYYY-MM-DD HH:MM] - Session: [Brief Title]
-
-### Context
-[What we're working on and why]
-
-### Work Completed
-**Added:** [New features, code, insights]
-**Changed:** [Modifications]
-**Fixed:** [Bugs resolved]
-
-### Key Decisions
-- **Decision:** [What]
-  **Rationale:** [Why]
-
-### Next Steps
-- [ ] [Specific next actions]
-```
-
-See [references/desktop-environment.md](references/desktop-environment.md) for complete format, file location options, and backup strategies.
-
-### CLI Environment (Project Knowledge)
-
-```markdown
-# [Topic/Task] - Session [N]
-
-## Quick Summary
-[2-3 sentences capturing essence]
-
-## Methodology Notes
-**Effective strategies:** [What worked]
-**Ineffective approaches:** [What didn't]
-
-## Key Progress
-### [Area]
-**What was done:** [Description]
-**Key insight:** [Takeaway]
-**Confidence:** [High/Medium/Low]
-
-## Decisions Made
-- **Decision:** [What]
-  **Rationale:** [Why]
-
-## Open Items
-- [Unfinished work]
-
-## Recommended Next Steps
-- [Next actions]
-```
-
-See [references/cli-environment.md](references/cli-environment.md) for complete format and RAG optimization.
+See environment-specific references for implementation details:
+- [references/web-environment.md](references/web-environment.md) - Git-tracked DEVLOG.md
+- [references/desktop-environment.md](references/desktop-environment.md) - Local PROGRESS.md
+- [references/cli-environment.md](references/cli-environment.md) - Project Knowledge documents
 
 ## Common Patterns
 
