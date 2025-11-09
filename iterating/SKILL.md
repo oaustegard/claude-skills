@@ -10,8 +10,9 @@ A methodology for conducting iterative stateful work across multiple conversatio
 ## Core Concept
 
 This skill enables you to maintain context and build on previous work across multiple sessions by:
-- **Web environment**: Using DEVLOG.md in the repository for state persistence
-- **CLI environment**: Creating documents for user-curated Project Knowledge
+- **Web environment** (Claude Code on web): Using DEVLOG.md in the repository for state persistence
+- **Desktop environment** (Claude Desktop app): Using local PROGRESS.md file for state persistence
+- **CLI environment** (Claude.ai): Creating documents for user-curated Project Knowledge
 
 ## When to Use This Skill
 
@@ -35,20 +36,35 @@ This skill enables you to maintain context and build on previous work across mul
 
 ```python
 import os
-is_web_environment = os.environ.get('CLAUDE_CODE_REMOTE') == 'true'
+from pathlib import Path
+
+# Check for web environment
+is_web = os.environ.get('CLAUDE_CODE_REMOTE') == 'true'
+
+# Check for desktop environment (has filesystem, not web, no Project Knowledge)
+has_filesystem = Path('.').exists()
+is_desktop = has_filesystem and not is_web  # Simplified detection
+
+# CLI environment has Project Knowledge (RAG-injected context)
+# Desktop has filesystem but no automatic Project Knowledge
 ```
 
 ### 2. Choose Persistence Method
 
 - **Web (CLAUDE_CODE_REMOTE='true')**: Use DEVLOG.md in repository
   - See [references/web-environment.md](references/web-environment.md) for details
-- **CLI (no CLAUDE_CODE_REMOTE)**: Create documents for Project Knowledge
+- **Desktop (filesystem access, no Project Knowledge)**: Use local PROGRESS.md file
+  - See [references/desktop-environment.md](references/desktop-environment.md) for details
+- **CLI (Project Knowledge available)**: Create documents for Project Knowledge
   - See [references/cli-environment.md](references/cli-environment.md) for details
 
 ### 3. Acknowledge to User
 
 **Web:**
 > "I'll track our progress in DEVLOG.md in the repository. Each session, I'll document key decisions, findings, and next steps so we can build on this work in future conversations."
+
+**Desktop:**
+> "I'll track our progress in PROGRESS.md in your working directory. This local file will persist across sessions so we can build on previous work. Each session, I'll read this file to understand where we left off."
 
 **CLI:**
 > "I'll structure my output so you can curate the best insights into Project Knowledge. In future sessions, I'll automatically retrieve relevant past work to build on what we've learned."
@@ -61,6 +77,7 @@ is_web_environment = os.environ.get('CLAUDE_CODE_REMOTE') == 'true'
 2. **Perform the work** (research, coding, debugging, etc.)
 3. **Document learnings**:
    - **Web**: Append entry to DEVLOG.md with context, decisions, approaches, next steps
+   - **Desktop**: Append entry to local PROGRESS.md with same format as web
    - **CLI**: Create structured document for user to curate
 4. **Capture state** before ending session
 5. **Inform user** about what was documented and next steps
@@ -69,6 +86,7 @@ is_web_environment = os.environ.get('CLAUDE_CODE_REMOTE') == 'true'
 
 1. **Retrieve past context**:
    - **Web**: Read DEVLOG.md and parse recent entries
+   - **Desktop**: Read local PROGRESS.md and parse recent entries
    - **CLI**: Leverage automatically-injected Project Knowledge
 2. **Acknowledge past work** explicitly to user
 3. **Address open items** from previous sessions
@@ -125,6 +143,31 @@ is_web_environment = os.environ.get('CLAUDE_CODE_REMOTE') == 'true'
 ```
 
 See [references/web-environment.md](references/web-environment.md) for complete format and implementation.
+
+### Desktop Environment (PROGRESS.md)
+
+Uses same format as web environment, stored in local working directory:
+
+```markdown
+## [YYYY-MM-DD HH:MM] - Session: [Brief Title]
+
+### Context
+[What we're working on and why]
+
+### Work Completed
+**Added:** [New features, code, insights]
+**Changed:** [Modifications]
+**Fixed:** [Bugs resolved]
+
+### Key Decisions
+- **Decision:** [What]
+  **Rationale:** [Why]
+
+### Next Steps
+- [ ] [Specific next actions]
+```
+
+See [references/desktop-environment.md](references/desktop-environment.md) for complete format, file location options, and backup strategies.
 
 ### CLI Environment (Project Knowledge)
 
@@ -267,6 +310,49 @@ Updated DEVLOG.md:
 - Next: Add monitoring
 ```
 
+### Desktop Environment
+
+**User (Session 1):** "Help me build a REST API. I'm using Claude Desktop."
+
+**Claude:**
+```
+I'll track our progress in PROGRESS.md in your working directory.
+
+[Works on API setup]
+
+I've created PROGRESS.md with this session's work:
+- Project structure setup (src/, tests/, config/)
+- Express.js server configuration
+- Basic routing skeleton
+- Decision: Use TypeScript for type safety
+
+Next session: Implement first endpoints and error handling
+
+File location: C:\Users\You\Projects\my-api\PROGRESS.md
+```
+
+**User (Session 2):** "Let's continue building the API."
+
+**Claude:**
+```
+Reading PROGRESS.md...
+
+From our previous session:
+- Set up project with Express and TypeScript
+- Created routing skeleton
+- Next: Implement endpoints
+
+I'll implement the endpoints now...
+
+[Implements]
+
+Updated PROGRESS.md:
+- Implemented GET /users and POST /users endpoints
+- Added request validation with Zod
+- Set up error handling middleware
+- Next: Add database integration
+```
+
 ### CLI Environment
 
 **User (Session 1):** "Research microservice patterns. I'll add findings to project knowledge."
@@ -321,6 +407,13 @@ For detailed information on specific topics:
   - DEVLOG.md format and structure
   - Implementation code (update_devlog, read_devlog)
   - Development log management and maintenance
+  - Detailed examples
+
+- **[references/desktop-environment.md](references/desktop-environment.md)** - Complete guide to local files in Claude Desktop
+  - PROGRESS.md format and file location options
+  - Implementation code for local file management
+  - Windows/Mac-specific considerations
+  - Backup and multi-project strategies
   - Detailed examples
 
 - **[references/cli-environment.md](references/cli-environment.md)** - Complete guide to Project Knowledge in CLI
