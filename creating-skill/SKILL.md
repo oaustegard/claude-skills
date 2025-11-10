@@ -65,19 +65,7 @@ Delete unused directories.
 
 ### Step 4: Write SKILL.md
 
-**CRITICAL: Use `create_file` to write complete SKILL.md content.**
-
-Never use `str_replace` to replace entire file contents - this wastes tokens and is error-prone. After init_skill.sh creates templates, overwrite them with `create_file`, not `str_replace`.
-
-**Wrong:**
-```bash
-init_skill.sh → str_replace entire SKILL.md (wasteful)
-```
-
-**Right:**
-```bash
-init_skill.sh → create_file to overwrite SKILL.md (efficient)
-```
+**Use `create_file` to write complete files.** Never use `str_replace` to replace entire file contents - this wastes tokens. After init_skill.sh creates templates, use `create_file` to overwrite them efficiently.
 
 #### Required Frontmatter
 
@@ -140,65 +128,7 @@ For [different condition]:
 - Keep SKILL.md under 500 lines
 - Progressive disclosure: move detailed content to references/
 
-**Computational workflows:**
-
-Skills involving computation should reference this environment knowledge to avoid exploratory bash commands.
-
-**File Structure:**
-```
-/home/claude/              # Work directory (4.6GB, resets each session)
-/mnt/user-data/uploads/    # User uploads (read-only)
-/mnt/user-data/outputs/    # Final deliverables (user visible)
-/mnt/project/              # Project context (read-only)
-/mnt/skills/               # Skill files (read-only)
-```
-
-**Pre-installed packages (Python 3.12.3):**
-- Data: numpy 2.3.3, pandas 2.3.3, scipy 1.16.2, scikit-learn 1.7.2, jax 0.7.2
-- Documents: python-docx 1.2.0, python-pptx 1.0.2, openpyxl 3.1.5
-- PDFs: pypdf 5.9.0, pypdfium2 4.30.0
-- Images: opencv-python 4.11.0, Pillow, imageio 2.37.0, scikit-image 0.25.2
-- Web: beautifulsoup4 4.14.2, lxml 6.0.2, Flask 3.1.2
-- Other: Jinja2 3.1.6, networkx 3.5, matplotlib 3.10.7
-- Tools: pandoc 3.1.3, ImageMagick 6.9.12, ffmpeg 6.1.1, git 2.43.0, node 22.20.0, npm 10.9.3
-
-**NOT available (common requests):**
-- `anthropic` SDK (no auto-auth for Claude API in bash)
-- `requests` (use httplib2 or curl instead)
-- `tensorflow`, `pytorch` (use JAX or scikit-learn)
-- `nltk`, `spacy` (use basic string operations)
-- `selenium`, `playwright` (no browser automation)
-
-**Package installation:**
-```bash
-pip install <pkg> --break-system-packages  # Required flag
-npm install -g <pkg>
-```
-
-**Network access:**
-- ✓ api.anthropic.com (requires API key), github.com, npmjs.com, pypi.org
-- ✗ Most other domains (check network configuration in system prompt)
-
-**Capabilities:**
-- ✓ Process uploaded files, computational analysis, generate documents (docx/pptx/xlsx/pdf), image/media processing
-- ✗ Claude API calls (no auto-auth), access user's local filesystem (must upload), persist across sessions, GUI apps, MCP servers (need Claude Code CLI)
-
-**Example skill pattern:**
-```markdown
-## Data Processing
-
-Uses pandas 2.3.3 and numpy 2.3.3 (pre-installed).
-
-Process uploaded files:
-```python
-import pandas as pd
-df = pd.read_csv('/mnt/user-data/uploads/data.csv')
-# ... processing ...
-df.to_csv('/mnt/user-data/outputs/result.csv')
-```
-```
-
-For additional patterns and details, see [references/environment-reference.md](references/environment-reference.md).
+For computational workflows, see [references/environment-reference.md](references/environment-reference.md) for file structure, pre-installed packages, and common patterns.
 
 ### Step 5: Version Control Integration
 
@@ -230,90 +160,12 @@ This enables rollback, change comparison, and experimental branching. See versio
 
 ### Step 6: Add Bundled Resources
 
-**Package Dependencies**
+Add scripts/, references/, or assets/ as needed:
+- **scripts/**: Executable code for validation/transformation (see [references/bundled-resources.md](references/bundled-resources.md))
+- **references/**: Detailed docs for specific use cases (group by domain, keep one level deep)
+- **assets/**: Templates and files for output (not loaded into context)
 
-Reference the environment knowledge above for pre-installed packages. For additional patterns, see [references/environment-reference.md](references/environment-reference.md).
-
-If package is already installed:
-- Reference version directly: "Uses pandas 2.3.3 (pre-installed)"
-- Skip installation instructions
-
-If package is NOT installed:
-- Include installation: "Install: `pip install <pkg> --break-system-packages`"
-
-**Bad:** "Use the pdf library"  
-**Good:** "Uses pypdf 5.9.0 (pre-installed)"  
-**Good:** "Install: `pip install pdfplumber --break-system-packages`"
-
-Note: claude.ai supports package installation (npm, PyPI, GitHub). API environments may not.
-
-**MCP Tools**
-
-Use fully qualified names: `ServerName:tool_name`
-
-Examples:
-- `BigQuery:bigquery_schema`
-- `GitHub:create_issue`
-
-Without prefixes, tools may not be found.
-
-#### scripts/
-Executable code for deterministic operations. Claude executes these without loading into context.
-
-**When to add scripts:**
-- Validation logic (check form fields, validate schema)
-- Transformation logic (convert formats, process data)
-- Complex operations Claude would repeatedly write
-
-**Example:**
-```python
-#!/usr/bin/env python3
-# scripts/validate_form.py
-# Validates PDF form field mapping
-
-import json, sys
-
-def validate_fields(fields_json):
-    # Validation logic here
-    pass
-
-if __name__ == "__main__":
-    validate_fields(sys.argv[1])
-```
-
-#### references/
-Documentation loaded as needed. Use for content that:
-- Is detailed (>100 lines)
-- Applies to specific use cases only
-- Would clutter SKILL.md if inline
-
-**Examples:**
-- API documentation (references/api.md)
-- Database schemas (references/schema.md)
-- Domain-specific patterns (references/finance.md, references/sales.md)
-
-**Organization:** Group by domain/use case, not topic. User asks about sales → load references/sales.md only.
-
-**Navigation in SKILL.md:**
-```markdown
-## Advanced Features
-
-**API Integration:** See [references/api.md](references/api.md)
-**Database Queries:** See [references/schema.md](references/schema.md)
-```
-
-Keep references one level deep - don't nest (references/file1.md → references/file2.md).
-
-#### assets/
-Files used in output, not loaded into context.
-
-**Examples:**
-- Templates (PowerPoint templates, HTML boilerplate)
-- Images/logos
-- Fonts
-- Sample data files
-
-Claude copies or uses these files in output.
+Delete unused directories. For detailed guidance, MCP tool patterns, and examples, see [references/bundled-resources.md](references/bundled-resources.md).
 
 ### Step 6: Package Skill
 
