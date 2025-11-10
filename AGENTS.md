@@ -8,6 +8,30 @@ This is a collection of Claude Skills - custom extensions that enhance Claude's 
 
 **Important Context**: This repository is deprecated and read-only. Skills shown here demonstrate patterns but may reference environments/features that differ from the current Claude Code CLI environment you're running in. When working on skills, verify current environment capabilities rather than assuming the patterns shown here still apply.
 
+## Skills Availability in This Repository
+
+This repository has project skills available via `.claude/skills/` symlinks. However:
+
+**Environment-Specific Skills**: Many skills are designed for specific Claude environments and may not be appropriate for all contexts. For example:
+- **invoking-github**: Designed for Claude.ai chat (iOS/Android/Web) where native git access isn't available. NOT needed in Claude Code which has native git proxy access.
+- Skills targeting specific file formats, APIs, or workflows may only be relevant in certain contexts
+- Some skills assume environments with features that may not be present in Claude Code
+
+**Before Invoking a Skill**:
+1. **Check with the user first** before invoking any skill in this repository
+2. Verify the skill is appropriate for the current environment (Claude Code vs Claude.ai chat)
+3. Confirm the user wants to use the skill rather than native capabilities
+4. Example: "I see you want to commit to GitHub. Should I use the invoking-github skill, or would you prefer I use native git commands since we're in Claude Code?"
+
+**Why Check First**:
+- Avoid redundant operations (using a skill when native tools work better)
+- Prevent environment mismatches (claude.ai-only skills in Claude Code)
+- Give users choice of approach
+- Skills are for development/testing, not automatic invocation
+
+**Available Project Skills**:
+Check `.claude/skills/` for currently available skills in this session.
+
 ## Repository Structure
 
 ```
