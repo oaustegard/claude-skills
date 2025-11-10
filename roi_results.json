@@ -1,34 +1,34 @@
 {
   "code": {
     "lines": 2592,
-    "days": 129.6,
-    "hours": 1036.8,
+    "days": 32.4,
+    "hours": 259.2,
     "breakdown": {}
   },
   "markdown": {
     "lines": 12286,
-    "days": 142.67333333333335,
-    "hours": 1141.3866666666668,
+    "days": 57.06933333333334,
+    "hours": 456.5546666666667,
     "breakdown": {
       "skill_definitions": {
         "lines": 2972,
-        "days": 49.53333333333333,
-        "hours": 396.26666666666665
+        "days": 19.813333333333333,
+        "hours": 158.50666666666666
       },
       "documentation": {
         "lines": 272,
-        "days": 2.72,
-        "hours": 21.76
+        "days": 1.088,
+        "hours": 8.704
       },
       "references": {
         "lines": 7200,
-        "days": 72.0,
-        "hours": 576.0
+        "days": 28.8,
+        "hours": 230.4
       },
       "other": {
         "lines": 1842,
-        "days": 18.42,
-        "hours": 147.36
+        "days": 7.368,
+        "hours": 58.944
       }
     }
   },
@@ -37,11 +37,11 @@
     "days": 0,
     "hours": 0.0
   },
-  "base_days": 272.2733333333333,
-  "planning_overhead_days": 81.68199999999999,
-  "total_days": 353.95533333333333,
-  "total_hours": 2831.6426666666666,
-  "total_weeks": 70.79106666666667,
-  "total_months": 17.697766666666666,
+  "base_days": 89.46933333333334,
+  "planning_overhead_days": 13.4204,
+  "total_days": 102.88973333333334,
+  "total_hours": 823.1178666666667,
+  "total_weeks": 20.57794666666667,
+  "total_months": 5.144486666666667,
   "skills_count": 15
 }

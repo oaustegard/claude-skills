@@ -9,31 +9,33 @@ from typing import Dict
 
 @dataclass
 class ProductivityBenchmarks:
-    """Industry productivity benchmarks from research."""
+    """Industry productivity benchmarks adjusted for POC/alpha development."""
 
-    # Lines of code per day (conservative estimate from research)
-    # Source: US projects mean 26.4, median 17.6 LOC/day
-    # Using conservative estimate for quality code with testing
-    code_loc_per_day: float = 20.0
+    # Lines of code per day (POC/prototype without extensive testing)
+    # Source: Solo developers reported 54-80 LOC/day for substantial codebases
+    # POC work without full testing/polish: using upper range
+    code_loc_per_day: float = 80.0
 
-    # Technical documentation lines per day
-    # Source: 2 pages/day for technical docs (research + editing)
-    # Assuming ~50 lines per page of markdown
-    doc_lines_per_day: float = 100.0
+    # Technical documentation lines per day (rough drafts, POC-level)
+    # For alpha/beta documentation without heavy editing or formal review
+    # Faster than production docs: 4-5 pages/day (~50 lines per page)
+    doc_lines_per_day: float = 250.0
 
-    # Architecture/planning documentation (slower, more thought required)
-    # Using 60% of general doc speed for architectural planning
-    architecture_lines_per_day: float = 60.0
+    # Architecture/planning documentation (POC-level planning)
+    # Less formal than production architecture, more rapid iteration
+    # Still requires thought but less rigor than production
+    architecture_lines_per_day: float = 150.0
 
-    # Workflow/CI automation lines per day
-    # Similar to code but less complexity
-    workflow_lines_per_day: float = 25.0
+    # Workflow/CI automation lines per day (basic automation)
+    # Simple workflows without extensive error handling
+    workflow_lines_per_day: float = 60.0
 
     # Hours per working day
     hours_per_day: float = 8.0
 
-    # Planning overhead (30% of total time per research)
-    planning_overhead_factor: float = 0.30
+    # Planning overhead (reduced for POC work)
+    # POCs have less formal planning, more "figure it out as you go"
+    planning_overhead_factor: float = 0.15
 
 
 class ROICalculator:
@@ -129,7 +131,7 @@ class ROICalculator:
             workflow_time['days']
         )
 
-        # Add planning overhead (30% additional time)
+        # Add planning overhead (15% for POC work)
         planning_days = base_days * self.benchmarks.planning_overhead_factor
         total_days = base_days + planning_days
 
@@ -164,17 +166,18 @@ class ROICalculator:
         report.append("METHODOLOGY:")
         report.append("-------------")
         report.append("This analysis estimates the time required to manually develop")
-        report.append("the claude-skills repository using industry productivity benchmarks.")
+        report.append("the claude-skills repository using POC/alpha development benchmarks.")
+        report.append("NOTE: Skills are alpha/beta releases without extensive testing.")
         report.append("")
-        report.append("INDUSTRY BENCHMARKS USED:")
+        report.append("POC/ALPHA BENCHMARKS USED:")
         report.append(f"  • Code: {self.benchmarks.code_loc_per_day} LOC/day")
-        report.append("    (Source: US projects mean 26.4, median 17.6 LOC/day)")
+        report.append("    (POC code without extensive testing; solo devs: 54-80 LOC/day)")
         report.append(f"  • Technical Documentation: {self.benchmarks.doc_lines_per_day} lines/day")
-        report.append("    (Source: 2 pages/day standard, ~50 lines per page)")
+        report.append("    (Rough drafts without heavy editing: 4-5 pages/day)")
         report.append(f"  • Architecture/Planning: {self.benchmarks.architecture_lines_per_day} lines/day")
-        report.append("    (More thought required than general docs)")
+        report.append("    (POC-level planning, less formal than production)")
         report.append(f"  • Planning Overhead: +{int(self.benchmarks.planning_overhead_factor * 100)}%")
-        report.append("    (Source: 30% of project time on planning/design)")
+        report.append("    (Reduced for POC work - more iterative discovery)")
         report.append("")
 
         report.append("REPOSITORY COMPOSITION:")
