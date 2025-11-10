@@ -337,7 +337,11 @@ Use `check_required_tool` for core tools, `check_optional_tool` for others.
 
 ## Reference Files
 
-- **`assets/check-tools.sh`**: Complete reference implementation of the environment validation script
+- **`assets/check-tools.sh`**: Focused development tool validation script (exit codes, quick checks)
+- **`assets/environment-diagnostic.sh`**: Comprehensive system and tool diagnostic with three modes:
+  - `tools` - Development tools only (fast validation)
+  - `system` - System info, hardware, mounts, processes
+  - `full` - Complete diagnostic with package inventories
 - **`references/tool-categories.md`**: Detailed breakdown of tools by category with installation instructions
 
 ## Validation Checklist
@@ -403,8 +407,25 @@ Before delivering, verify:
 
 ## Getting Started
 
-1. **Run validation**: `bash assets/check-tools.sh` (reports all tools, fails on missing core tools)
-2. **Customize**: Edit `check_required_tool` and `check_optional_tool` calls for your project
-3. **Integrate**: Add to CI/CD or reference `references/tool-categories.md` for installation commands
+### Quick Validation
+```bash
+# Fast tool check (exit code validation)
+bash assets/check-tools.sh
 
-The script provides flexible validation suitable for minimal PaaS environments or full development setups.
+# Development tools only
+bash assets/environment-diagnostic.sh tools
+
+# System diagnostics only
+bash assets/environment-diagnostic.sh system
+
+# Complete diagnostic with report
+bash assets/environment-diagnostic.sh full /path/to/report.txt
+```
+
+### Customization
+1. **For CI/CD**: Use `check-tools.sh` (fast, exit code based)
+2. **For debugging**: Use `environment-diagnostic.sh full` (comprehensive)
+3. **For onboarding**: Use `environment-diagnostic.sh tools` with package lists
+4. **Modify required/optional**: Edit `check_required_tool` and `check_optional_tool` calls
+
+Both scripts support minimal PaaS environments and full development setups.
