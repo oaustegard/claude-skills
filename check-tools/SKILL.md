@@ -1,19 +1,22 @@
 ---
 name: check-tools
-description: Development environment validation skill for verifying tool installations across Python, Node.js, Java, Go, Rust, C/C++, and common utilities. Use when validating development environments, troubleshooting missing dependencies, documenting system requirements, setting up CI/CD pipelines, or creating environment health checks.
+description: Validates development tool installations across Python, Node.js, Java, Go, Rust, C/C++, Git, and system utilities. Use when verifying environments or troubleshooting dependencies.
 ---
 
 # Check Tools - Development Environment Validator
 
-## Overview
-
-Transform Claude into a specialized development environment validation expert capable of systematically checking for required development tools, reporting their versions, and validating complete toolchains across multiple programming language ecosystems.
-
 ## Core Philosophy
 
-**Comprehensive Validation**: Systematically verify the presence and versions of development tools across all major programming language ecosystems. Provide clear, actionable feedback about what's installed, what's missing, and what versions are available.
+Systematically verify tool presence and versions across major programming ecosystems. Provide actionable feedback about availability and validate complete toolchains with awareness of interdependencies (e.g., Node.js requires npm).
 
-**Ecosystem Awareness**: Understand the interdependencies between tools (e.g., Node.js requires npm, Python projects may need both pip and poetry) and validate complete toolchains rather than isolated tools.
+## Environment Compatibility
+
+This skill supports flexible validation modes:
+- **Strict mode**: Fail on missing core tools (python3, node, git, gcc)
+- **Lenient mode**: Report all tools but only warn on optional ones
+- **Custom mode**: Define required vs optional tools per project
+
+Default behavior reports all tools without failing validation, suitable for diverse PaaS environments.
 
 ## When to Use This Skill
 
@@ -31,13 +34,13 @@ Trigger this skill when working on:
 
 ### 1. Python Ecosystem
 
-**Core Tools**:
-- `python3`, `python` - Python interpreters
-- `pip` - Package installer
+**Core Tools** (typically available):
+- `python3`, `python` - Python interpreters ✅
+- `pip` - Package installer ✅
+- `uv` - Fast Python package installer ✅
 
-**Development Tools**:
+**Development Tools** (install as needed):
 - `poetry` - Dependency management and packaging
-- `uv` - Fast Python package installer
 - `black` - Code formatter
 - `mypy` - Static type checker
 - `pytest` - Testing framework
@@ -52,16 +55,14 @@ fi
 
 ### 2. Node.js Ecosystem
 
-**Core Tools**:
-- `node` - Node.js runtime
-- `npm` - Package manager
-- `nvm` - Node version manager
+**Core Tools** (typically available):
+- `node` - Node.js runtime ✅
+- `npm` - Package manager ✅
 
-**Alternative Package Managers**:
+**Development Tools** (install as needed):
+- `nvm` - Node version manager
 - `yarn` - Fast, reliable package manager
 - `pnpm` - Efficient disk space package manager
-
-**Development Tools**:
 - `eslint` - JavaScript linter
 - `prettier` - Code formatter
 - `chromedriver` - Browser automation
@@ -80,8 +81,10 @@ fi
 
 ### 3. Java Ecosystem
 
-**Core Tools**:
-- `java` - Java runtime and compiler
+**Core Tools** (typically available):
+- `java` - Java runtime and compiler ✅
+
+**Build Tools** (install as needed):
 - `mvn` - Maven build tool
 - `gradle` - Gradle build tool
 
@@ -94,7 +97,7 @@ fi
 
 ### 4. Go Ecosystem
 
-**Core Tools**:
+**Development Tools** (install as needed):
 - `go` - Go compiler and toolchain
 
 **Validation Pattern**:
@@ -106,7 +109,7 @@ fi
 
 ### 5. Rust Ecosystem
 
-**Core Tools**:
+**Development Tools** (install as needed):
 - `rustc` - Rust compiler
 - `cargo` - Rust package manager and build tool
 
@@ -120,11 +123,11 @@ fi
 
 ### 6. C/C++ Ecosystem
 
-**Compilers**:
-- `gcc` - GNU Compiler Collection
-- `clang` - LLVM C/C++ compiler
+**Core Tools** (typically available):
+- `gcc` - GNU Compiler Collection ✅
 
-**Build Tools**:
+**Build Tools** (install as needed):
+- `clang` - LLVM C/C++ compiler
 - `cmake` - Cross-platform build system
 - `ninja` - Small build system with focus on speed
 - `conan` - C/C++ package manager
@@ -138,86 +141,66 @@ fi
 
 ### 7. System Utilities
 
-**Essential Tools**:
-- `git` - Version control
-- `curl` - Data transfer tool
+**Core Tools** (typically available):
+- `git` - Version control ✅
+- `curl` - Data transfer tool ✅
+- `awk` - Pattern scanning and processing ✅
+- `sed` - Stream editor ✅
+- `grep` - Pattern matching ✅
+- `gzip` - File compression ✅
+- `tar` - Archive utility ✅
+- `make` - Build automation ✅
+
+**Development Tools** (install as needed):
 - `jq` - JSON processor
 - `rg` (ripgrep) - Fast text search
 - `tmux` - Terminal multiplexer
-
-**Text Processing**:
-- `awk` - Pattern scanning and processing
-- `sed` - Stream editor
-- `grep` - Pattern matching
-
-**Compression**:
-- `gzip` - File compression
-- `tar` - Archive utility
-
-**Editors**:
+- `yq` - YAML processor
 - `vim` - Vi improved
 - `nano` - Simple text editor
 
 ## Validation Strategies
 
-### 1. Basic Tool Presence Check
+### Basic Presence & Version Check
+
+Combine tool detection with version extraction:
 
 ```bash
-if command -v tool_name &> /dev/null; then
-    echo "✅ tool_name: installed"
-else
-    echo "❌ tool_name: not found"
-fi
+check_tool() {
+    local tool=$1
+    local required=${2:-false}
+
+    if command -v "$tool" &> /dev/null; then
+        echo "✅ $tool: $($tool --version 2>&1 | head -1)"
+        return 0
+    else
+        if [[ "$required" == "true" ]]; then
+            echo "❌ $tool: not found (REQUIRED)"
+            return 1
+        else
+            echo "⚠️  $tool: not found (optional)"
+            return 0
+        fi
+    fi
+}
+
+# Usage
+check_tool python3 true   # Required
+check_tool poetry false   # Optional
 ```
 
-### 2. Version Extraction
+### Environment-Specific Loading
 
-Different tools output version information differently:
-
-```bash
-# Standard --version flag
-tool_name --version
-
-# Java-style version to stderr
-java -version 2>&1
-
-# Extract specific version numbers
-eslint --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+'
-```
-
-### 3. Environment-Specific Tool Loading
+Some tools require environment setup before detection:
 
 ```bash
-# NVM for Node.js
-if [[ -s "/opt/nvm/nvm.sh" ]]; then
-    source "/opt/nvm/nvm.sh"
-fi
+# Load version managers if present
+[[ -f "$HOME/.nvm/nvm.sh" ]] && source "$HOME/.nvm/nvm.sh"
+[[ -f "$HOME/.cargo/env" ]] && source "$HOME/.cargo/env"
 
-# Cargo for Rust
-if [[ -f "$HOME/.cargo/env" ]]; then
-    source "$HOME/.cargo/env"
-fi
-```
-
-### 4. Required vs Optional Tools
-
-Track validation failures for required tools:
-
-```bash
-VALIDATION_FAILED=0
-
-if ! command -v required_tool &> /dev/null; then
-    echo "❌ required_tool: not found"
-    VALIDATION_FAILED=1
-fi
-
-if ! command -v optional_tool &> /dev/null; then
-    echo "⚠️  optional_tool: not found (optional)"
-fi
-
-if [[ $VALIDATION_FAILED -eq 1 ]]; then
-    exit 1
-fi
+# Then check tools
+check_tool node true
+check_tool cargo false
 ```
 
 ## Output Formatting
@@ -295,37 +278,6 @@ steps:
       fi
 ```
 
-### 3. Multi-Language Project Setup
-
-For polyglot projects, validate all required language toolchains:
-
-```bash
-# Check Python tools
-validate_python_environment
-
-# Check Node.js tools
-validate_nodejs_environment
-
-# Check system utilities
-validate_system_utilities
-```
-
-### 4. Developer Onboarding Scripts
-
-Create interactive setup validation:
-
-```bash
-echo "Validating your development environment..."
-./check-tools.sh
-
-if [ $? -eq 0 ]; then
-    echo "✅ Your environment is ready for development!"
-else
-    echo "❌ Please install missing tools before proceeding"
-    echo "Refer to SETUP.md for installation instructions"
-fi
-```
-
 ## Implementation Patterns
 
 ### Modular Validation Functions
@@ -347,84 +299,59 @@ validate_python_tools() {
 }
 ```
 
-### JSON Output for Programmatic Use
+### Cross-Platform Considerations
 
 ```bash
-# Generate JSON report
-{
-    echo '{'
-    echo '  "timestamp": "'$(date -Iseconds)'",'
-    echo '  "tools": {'
-
-    if command -v python3 &> /dev/null; then
-        echo '    "python3": "'$(python3 --version)'",'
-    fi
-
-    echo '  }'
-    echo '}'
-} > environment-report.json
-```
-
-### Cross-Platform Compatibility
-
-```bash
-# Handle differences between Linux and macOS
 case "$(uname -s)" in
-    Linux*)
-        check_linux_specific_tools
-        ;;
-    Darwin*)
-        check_macos_specific_tools
-        ;;
-    MINGW*|MSYS*|CYGWIN*)
-        check_windows_specific_tools
-        ;;
+    Linux*) check_linux_tools ;;
+    Darwin*) check_macos_tools ;;
 esac
 ```
 
 ## Best Practices
 
-1. **Fail Fast**: Exit immediately when critical tools are missing
-2. **Clear Messaging**: Use visual indicators and categorical organization
-3. **Version Reporting**: Always show versions, not just presence
-4. **Environment Sourcing**: Load tool-specific environments (nvm, cargo) before checking
-5. **Stderr Handling**: Many tools output version info to stderr, redirect appropriately
-6. **Exit Codes**: Return non-zero exit codes when validation fails
-7. **Categorization**: Group related tools together for clarity
-8. **Optional vs Required**: Clearly distinguish between required and optional tools
+1. **Fail on missing core tools only** - python3, node, git, gcc must be present
+2. **Source environments first** - Load nvm, cargo before checking tools
+3. **Show versions, not just presence** - Use `tool --version 2>&1 | head -1`
+4. **Use visual indicators** - ✅ (available), ❌ (required missing), ⚠️ (optional missing)
+5. **Return proper exit codes** - 0 for success, 1 for missing required tools
+
+## Quick Reference: Tool Availability
+
+| Ecosystem | Core (typically present) | Optional (install as needed) |
+|-----------|-------------------------|------------------------------|
+| Python    | python3, pip, uv        | poetry, black, mypy, pytest, ruff |
+| Node.js   | node, npm               | nvm, yarn, pnpm, eslint, prettier |
+| Java      | java                    | maven, gradle |
+| Go        | -                       | go |
+| Rust      | -                       | rustc, cargo |
+| C/C++     | gcc                     | clang, cmake, ninja, conan |
+| Utils     | git, curl, awk, grep, sed, tar, make, gzip | jq, rg, tmux, yq, vim, nano |
+
+Use `check_required_tool` for core tools, `check_optional_tool` for others.
 
 ## Constraints
 
-**DO NOT**:
-- Assume tool locations - always use `command -v`
-- Ignore stderr - many tools output versions to stderr
-- Skip environment sourcing for version managers (nvm, cargo, etc.)
-- Use hardcoded paths instead of PATH lookup
-
-**DO**:
-- Check for tool presence before attempting to run it
-- Handle tool output variations gracefully
-- Provide clear feedback about what's missing
-- Group tools by ecosystem or purpose
-- Return appropriate exit codes
+**DO**: Use `command -v` for detection, source environments (nvm, cargo) first, handle stderr for versions, group by ecosystem, return proper exit codes
+**DON'T**: Assume paths, hardcode locations, ignore stderr, mark all tools as required
 
 ## Reference Files
 
-- **`assets/check-tools.sh`**: Complete reference implementation of the environment validation script
+- **`assets/check-tools.sh`**: Focused development tool validation script (exit codes, quick checks)
+- **`assets/environment-diagnostic.sh`**: Comprehensive system and tool diagnostic with three modes:
+  - `tools` - Development tools only (fast validation)
+  - `system` - System info, hardware, mounts, processes
+  - `full` - Complete diagnostic with package inventories
 - **`references/tool-categories.md`**: Detailed breakdown of tools by category with installation instructions
 
 ## Validation Checklist
 
-Before delivering an environment validation script, verify:
-
-- [ ] All required tools are checked
-- [ ] Version information is extracted correctly
-- [ ] Environment-specific loaders are sourced (nvm, cargo)
-- [ ] Output is well-formatted and categorized
-- [ ] Exit codes properly reflect validation status
-- [ ] Both stdout and stderr are handled correctly
-- [ ] Visual indicators (✅/❌) are used consistently
-- [ ] Required vs optional tools are clearly distinguished
+Before delivering, verify:
+- [ ] Core tools marked required, others optional
+- [ ] Environments sourced (nvm, cargo) before checking
+- [ ] Versions extracted correctly (handle stderr)
+- [ ] Visual indicators consistent (✅/❌/⚠️)
+- [ ] Exit code 0 for success, 1 only for missing core tools
 
 ## Example Output
 
@@ -440,34 +367,65 @@ Before delivering an environment validation script, verify:
       =====================================
 
 =================== Python ===================
-✅ python3: Python 3.11.4
-✅ pip: pip 23.1.2 from /usr/local/lib/python3.11/site-packages/pip (python 3.11)
-✅ poetry: Poetry (version 1.5.1)
-✅ pytest: pytest 7.4.0
-✅ black: black, 23.7.0 (compiled: yes)
-❌ mypy: not found
+✅ python3: Python 3.12.3
+✅ pip: pip 24.0
+✅ uv: uv 0.9.2
+⚠️  poetry: not found (optional)
+⚠️  black: not found (optional)
+⚠️  mypy: not found (optional)
+⚠️  pytest: not found (optional)
+⚠️  ruff: not found (optional)
 
 =================== NodeJS ===================
-✅ node: v20.5.0
-✅ npm: 9.8.0
-✅ yarn: 1.22.19
+✅ node: v22.20.0
+✅ npm: 10.9.3
+⚠️  nvm: not found (optional)
+⚠️  yarn: not found (optional)
 ⚠️  pnpm: not found (optional)
 
-=================== System Utilities ===================
-✅ git: git version 2.41.0
-✅ curl: curl 8.1.2
-✅ jq: jq-1.6
-✅ rg: ripgrep 13.0.0
+=================== Java ===================
+✅ java: openjdk 11.0.25 2024-10-15
+⚠️  mvn: not found (optional)
+⚠️  gradle: not found (optional)
 
-✅ All required tool validations passed
+=================== C/C++ ===================
+✅ gcc: gcc (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0
+
+=================== System Utilities ===================
+✅ git: git version 2.34.1
+✅ curl: curl 7.81.0
+✅ awk: GNU Awk 5.1.0
+✅ sed: sed (GNU sed) 4.8
+✅ grep: grep (GNU grep) 3.7
+⚠️  jq: not found (optional)
+⚠️  rg: not found (optional)
+
+=================== Summary ===================
+✅ All required tools present
+   (Optional tools marked with ⚠️ can be installed as needed)
 ```
 
 ## Getting Started
 
-1. Copy `assets/check-tools.sh` as your starting point
-2. Customize the tool list based on your project requirements
-3. Add project-specific tools or remove unnecessary ones
-4. Integrate into your CI/CD pipeline or onboarding documentation
-5. Reference `references/tool-categories.md` for comprehensive tool lists
+### Quick Validation
+```bash
+# Fast tool check (exit code validation)
+bash assets/check-tools.sh
 
-This skill enables rapid validation of development environments with clear, actionable feedback about tool availability and versions across all major programming ecosystems.
+# Development tools only
+bash assets/environment-diagnostic.sh tools
+
+# System diagnostics only
+bash assets/environment-diagnostic.sh system
+
+# Complete diagnostic with report
+bash assets/environment-diagnostic.sh full /path/to/report.txt
+```
+
+### Customization
+1. **For CI/CD**: Use `check-tools.sh` (fast, exit code based)
+2. **For debugging**: Use `environment-diagnostic.sh full` (comprehensive)
+3. **For onboarding**: Use `environment-diagnostic.sh tools` with package lists
+4. **Modify required/optional**: Edit `check_required_tool` and `check_optional_tool` calls
+
+Both scripts support minimal PaaS environments and full development setups.

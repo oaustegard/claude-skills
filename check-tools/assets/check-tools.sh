@@ -7,6 +7,31 @@
 # Track validation failures
 VALIDATION_FAILED=0
 
+# Helper function to check required tools (fail validation if missing)
+check_required_tool() {
+    local tool=$1
+    if command -v "$tool" &> /dev/null; then
+        echo "✅ $tool: $($tool --version 2>&1 | head -1)"
+        return 0
+    else
+        echo "❌ $tool: not found (REQUIRED)"
+        VALIDATION_FAILED=1
+        return 1
+    fi
+}
+
+# Helper function to check optional tools (warn only if missing)
+check_optional_tool() {
+    local tool=$1
+    if command -v "$tool" &> /dev/null; then
+        echo "✅ $tool: $($tool --version 2>&1 | head -1)"
+        return 0
+    else
+        echo "⚠️  $tool: not found (optional)"
+        return 1
+    fi
+}
+
 cat << 'EOF'
 
    _____ _                 _        _____           _
@@ -22,318 +47,96 @@ cat << 'EOF'
 EOF
 
 echo "=================== Python ==================="
-if command -v python3 &> /dev/null; then
-    echo "✅ python3: $(python3 --version)"
-else
-    echo "❌ python3: not found"
-    VALIDATION_FAILED=1
-fi
-
-if command -v python &> /dev/null; then
-    echo "✅ python: $(python --version 2>&1)"
-else
-    echo "❌ python: not found"
-    VALIDATION_FAILED=1
-fi
-
-if command -v pip &> /dev/null; then
-    echo "✅ pip: $(pip --version)"
-else
-    echo "❌ pip: not found"
-    VALIDATION_FAILED=1
-fi
-
-if command -v poetry &> /dev/null; then
-    echo "✅ poetry: $(poetry --version)"
-else
-    echo "❌ poetry: not found"
-    VALIDATION_FAILED=1
-fi
-
-if command -v uv &> /dev/null; then
-    echo "✅ uv: $(uv --version)"
-else
-    echo "❌ uv: not found"
-    VALIDATION_FAILED=1
-fi
-
-if command -v black &> /dev/null; then
-    echo "✅ black: $(black --version 2>&1 | head -1)"
-else
-    echo "❌ black: not found"
-    VALIDATION_FAILED=1
-fi
-
-if command -v mypy &> /dev/null; then
-    echo "✅ mypy: $(mypy --version | head -1)"
-else
-    echo "❌ mypy: not found"
-    VALIDATION_FAILED=1
-fi
-
-if command -v pytest &> /dev/null; then
-    echo "✅ pytest: $(pytest --version 2>&1 | head -1)"
-else
-    echo "❌ pytest: not found"
-    VALIDATION_FAILED=1
-fi
-
-if command -v ruff &> /dev/null; then
-    echo "✅ ruff: $(ruff --version)"
-else
-    echo "❌ ruff: not found"
-    VALIDATION_FAILED=1
-fi
+check_required_tool python3
+check_required_tool pip
+check_optional_tool python
+check_optional_tool uv
+check_optional_tool poetry
+check_optional_tool black
+check_optional_tool mypy
+check_optional_tool pytest
+check_optional_tool ruff
 
 echo ""
 echo "=================== NodeJS ==================="
-if command -v node &> /dev/null; then
-    echo "✅ node: $(node --version)"
-    # List available Node versions if nvm is installed
-    if [[ -s "/opt/nvm/nvm.sh" ]]; then
-        # shellcheck source=/dev/null
-        source "/opt/nvm/nvm.sh"
-        nvm list 2>/dev/null | head -5 || true
-    fi
-else
-    echo "❌ node: not found"
-    VALIDATION_FAILED=1
-fi
+check_required_tool node
 
+# Check for nvm in common locations
 if [[ -s "/opt/nvm/nvm.sh" ]]; then
-    echo "✅ nvm: available"
+    echo "✅ nvm: available at /opt/nvm/nvm.sh"
+    source "/opt/nvm/nvm.sh"
+    nvm list 2>/dev/null | head -5 || true
+elif [[ -s "$HOME/.nvm/nvm.sh" ]]; then
+    echo "✅ nvm: available at $HOME/.nvm/nvm.sh"
+elif command -v nvm &> /dev/null; then
+    echo "✅ nvm: $(nvm --version 2>/dev/null || echo 'available')"
 else
-    echo "❌ nvm: not found"
+    echo "⚠️  nvm: not found (optional)"
 fi
 
-if command -v npm &> /dev/null; then
-    echo "✅ npm: $(npm --version)"
-else
-    echo "❌ npm: not found"
-    VALIDATION_FAILED=1
-fi
-
-if command -v yarn &> /dev/null; then
-    echo "✅ yarn: $(yarn --version 2>/dev/null)"
-else
-    echo "❌ yarn: not found"
-fi
-
-if command -v pnpm &> /dev/null; then
-    echo "✅ pnpm: $(pnpm --version)"
-else
-    echo "❌ pnpm: not found"
-fi
-
-if command -v eslint &> /dev/null; then
-    echo "✅ eslint: v$(eslint --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')"
-else
-    echo "❌ eslint: not found"
-fi
-
-if command -v prettier &> /dev/null; then
-    echo "✅ prettier: $(prettier --version)"
-else
-    echo "❌ prettier: not found"
-fi
-
-if command -v chromedriver &> /dev/null; then
-    chromedriver --version 2>&1 | while IFS= read -r line; do
-        echo "✅ chromedriver: $line"
-    done
-else
-    echo "❌ chromedriver: not found"
-fi
+check_required_tool npm
+check_optional_tool yarn
+check_optional_tool pnpm
+check_optional_tool eslint
+check_optional_tool prettier
+check_optional_tool chromedriver
 
 echo ""
 echo "=================== Java ==================="
-if command -v java &> /dev/null; then
-    java -version 2>&1 | head -3 | while IFS= read -r line; do
-        if [[ "$line" == *"openjdk"* ]] || [[ "$line" == *"java"* ]]; then
-            echo "✅ java: $line"
-        else
-            echo "  $line"
-        fi
-    done
-else
-    echo "❌ java: not found"
-    VALIDATION_FAILED=1
-fi
+check_required_tool java
+check_optional_tool mvn
 
-if command -v mvn &> /dev/null; then
-    echo "✅ maven: $(mvn --version 2>/dev/null | head -1)"
-else
-    echo "❌ maven: not found"
-fi
-
-if command -v gradle &> /dev/null; then
-    echo "✅ gradle: $(gradle --version 2>/dev/null | grep -E '^Gradle' || echo 'Gradle installed')"
-else
-    echo "❌ gradle: not found"
-fi
+check_optional_tool gradle
 
 echo ""
 echo "=================== Go ==================="
-if command -v go &> /dev/null; then
-    echo "✅ go: $(go version)"
-else
-    echo "❌ go: not found"
-    VALIDATION_FAILED=1
-fi
+check_optional_tool go
 
 echo ""
 echo "=================== Rust ==================="
 # Source cargo environment if it exists
 if [[ -f "$HOME/.cargo/env" ]]; then
-    # shellcheck source=/dev/null
     source "$HOME/.cargo/env"
 fi
 
-if command -v rustc &> /dev/null; then
-    echo "✅ rustc: $(rustc --version 2>/dev/null || echo 'installed')"
-else
-    echo "❌ rustc: not found"
-    VALIDATION_FAILED=1
-fi
-
-if command -v cargo &> /dev/null; then
-    echo "✅ cargo: $(cargo --version 2>/dev/null || echo 'installed')"
-else
-    echo "❌ cargo: not found"
-    VALIDATION_FAILED=1
-fi
+check_optional_tool rustc
+check_optional_tool cargo
 
 echo ""
 echo "=================== C/C++ Compilers ==================="
-if command -v clang &> /dev/null; then
-    echo "✅ clang: $(clang --version 2>&1 | head -1)"
-else
-    echo "❌ clang: not found"
-fi
-
-if command -v gcc &> /dev/null; then
-    echo "✅ gcc: $(gcc --version | head -1)"
-else
-    echo "❌ gcc: not found"
-    VALIDATION_FAILED=1
-fi
-
-if command -v cmake &> /dev/null; then
-    echo "✅ cmake: $(cmake --version | head -1)"
-else
-    echo "❌ cmake: not found"
-    VALIDATION_FAILED=1
-fi
-
-if command -v ninja &> /dev/null; then
-    echo "✅ ninja: $(ninja --version)"
-else
-    echo "❌ ninja: not found"
-fi
-
-if command -v conan &> /dev/null; then
-    echo "✅ conan: $(conan --version 2>/dev/null || echo 'Conan installed')"
-else
-    echo "❌ conan: not found"
-fi
+check_required_tool gcc
+check_optional_tool clang
+check_optional_tool cmake
+check_optional_tool ninja
+check_optional_tool conan
 
 echo ""
 echo "=================== Other Utilities ==================="
-if command -v awk &> /dev/null; then
-    echo "✅ awk: $(awk --version | head -1)"
-else
-    echo "❌ awk: not found"
-fi
-
-if command -v curl &> /dev/null; then
-    echo "✅ curl: $(curl --version | head -1)"
-else
-    echo "❌ curl: not found"
-fi
-
-if command -v git &> /dev/null; then
-    echo "✅ git: $(git --version)"
-else
-    echo "❌ git: not found"
-    VALIDATION_FAILED=1
-fi
-
-if command -v grep &> /dev/null; then
-    echo "✅ grep: $(grep --version | head -1)"
-else
-    echo "❌ grep: not found"
-fi
-
-if command -v gzip &> /dev/null; then
-    echo "✅ gzip: $(gzip --version | head -1)"
-else
-    echo "❌ gzip: not found"
-fi
-
-if command -v jq &> /dev/null; then
-    echo "✅ jq: $(jq --version)"
-else
-    echo "❌ jq: not found"
-    VALIDATION_FAILED=1
-fi
-
-if command -v make &> /dev/null; then
-    echo "✅ make: $(make --version | head -1)"
-else
-    echo "❌ make: not found"
-fi
-
-if command -v rg &> /dev/null; then
-    echo "✅ rg: $(rg --version | head -1)"
-else
-    echo "❌ rg: not found"
-    VALIDATION_FAILED=1
-fi
-
-if command -v sed &> /dev/null; then
-    echo "✅ sed: $(sed --version | head -1)"
-else
-    echo "❌ sed: not found"
-fi
-
-if command -v tar &> /dev/null; then
-    echo "✅ tar: $(tar --version | head -1)"
-else
-    echo "❌ tar: not found"
-fi
-
-if command -v tmux &> /dev/null; then
-    echo "✅ tmux: $(tmux -V)"
-else
-    echo "❌ tmux: not found"
-    VALIDATION_FAILED=1
-fi
-
-if command -v yq &> /dev/null; then
-    echo "✅ yq: $(yq --version 2>/dev/null || echo 'yq installed')"
-else
-    echo "❌ yq: not found"
-fi
-
-if command -v vim &> /dev/null; then
-    echo "✅ vim: $(vim --version | head -1)"
-else
-    echo "❌ vim: not found"
-fi
-
-if command -v nano &> /dev/null; then
-    echo "✅ nano: $(nano --version | head -1)"
-else
-    echo "❌ nano: not found"
-fi
+check_required_tool git
+check_required_tool curl
+check_required_tool awk
+check_required_tool grep
+check_required_tool gzip
+check_required_tool tar
+check_required_tool make
+check_required_tool sed
+check_optional_tool jq
+check_optional_tool rg
+check_optional_tool tmux
+check_optional_tool yq
+check_optional_tool vim
+check_optional_tool nano
 
 echo ""
+echo "=================== Summary ==================="
 
-# Exit with failure status if any tools failed validation
+# Exit with failure status if any REQUIRED tools failed validation
 if [[ $VALIDATION_FAILED -eq 1 ]]; then
-    echo "❌ Tool validation failed: One or more required tools are missing"
+    echo "❌ Validation failed: One or more REQUIRED tools are missing"
+    echo "   Install required tools or use lenient mode for development"
     exit 1
 fi
 
-echo "✅ All tool validations passed"
+echo "✅ All required tools present"
+echo "   (Optional tools marked with ⚠️ can be installed as needed)"
 exit 0
