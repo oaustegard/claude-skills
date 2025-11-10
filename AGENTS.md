@@ -12,11 +12,10 @@ This is a collection of Claude Skills - custom extensions that enhance Claude's 
 
 This repository has project skills available via `.claude/skills/` symlinks. However:
 
-**Environment-Specific Skills**: Some skills are designed for specific Claude environments:
-- **invoking-github**: Designed for Claude.ai chat (iOS/Android/Web) where native git access isn't available
-  - NOT needed in Claude Code (which has native git proxy access)
-  - Provides GitHub REST API operations for environments without git
-- Other skills may target specific environments or use cases
+**Environment-Specific Skills**: Many skills are designed for specific Claude environments and may not be appropriate for all contexts. For example:
+- **invoking-github**: Designed for Claude.ai chat (iOS/Android/Web) where native git access isn't available. NOT needed in Claude Code which has native git proxy access.
+- Skills targeting specific file formats, APIs, or workflows may only be relevant in certain contexts
+- Some skills assume environments with features that may not be present in Claude Code
 
 **Before Invoking a Skill**:
 1. **Check with the user first** before invoking any skill in this repository
