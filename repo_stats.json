@@ -1,0 +1,93 @@
+{
+  "markdown": {
+    "files": 51,
+    "lines": 12286,
+    "breakdown": {
+      "documentation": 272,
+      "other": 1842,
+      "skill_definitions": 2972,
+      "references": 7200
+    }
+  },
+  "code": {
+    "files": 12,
+    "lines": 2592,
+    "breakdown": {
+      ".py": {
+        "files": 10,
+        "lines": 2263
+      },
+      ".sh": {
+        "files": 2,
+        "lines": 329
+      }
+    }
+  },
+  "skills": [
+    {
+      "name": "check-tools",
+      "lines": 361
+    },
+    {
+      "name": "hello-demo",
+      "lines": 24
+    },
+    {
+      "name": "updating-knowledge",
+      "lines": 128
+    },
+    {
+      "name": "versioning-skills",
+      "lines": 150
+    },
+    {
+      "name": "creating-bookmarklets",
+      "lines": 176
+    },
+    {
+      "name": "asking-questions",
+      "lines": 72
+    },
+    {
+      "name": "iterating",
+      "lines": 59
+    },
+    {
+      "name": "creating-skill",
+      "lines": 265
+    },
+    {
+      "name": "developing-preact",
+      "lines": 334
+    },
+    {
+      "name": "invoking-gemini",
+      "lines": 229
+    },
+    {
+      "name": "creating-mcp-servers",
+      "lines": 166
+    },
+    {
+      "name": "convening-experts",
+      "lines": 207
+    },
+    {
+      "name": "invoking-claude",
+      "lines": 364
+    },
+    {
+      "name": "api-credentials",
+      "lines": 139
+    },
+    {
+      "name": "invoking-github",
+      "lines": 298
+    }
+  ],
+  "workflows": {
+    "files": 0,
+    "lines": 0
+  },
+  "total_directories": 16
+}
