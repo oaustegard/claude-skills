@@ -128,9 +128,8 @@ def get_github_token() -> str:
         ValueError: If no token found in any source
     """
     # 1. Check Project Knowledge (claude.ai environment)
-    # May be accessible via special path or through API
-    # Implementation depends on Project Knowledge access method
-    pk_path = Path("/mnt/project-knowledge/GITHUB_API_KEY")
+    # Project Knowledge files are accessible at /mnt/project/{filename}
+    pk_path = Path("/mnt/project/GITHUB_API_KEY")
     if pk_path.exists():
         token = pk_path.read_text().strip()
         if token:
@@ -558,11 +557,10 @@ Enable automatic DEVLOG persistence to GitHub:
 
 ## Open Questions
 
-1. **Project Knowledge access**: How to programmatically read Project Knowledge documents in claude.ai?
-   - Current assumption: Special mount point like `/mnt/project-knowledge/`
-   - May need different approach (API call, special file path, etc.)
-   - Need to test in actual claude.ai environment (web/mobile)
-   - **Critical**: This is the primary credential method for the skill
+1. **Project Knowledge filename restrictions**: Are there any naming restrictions for Project Knowledge files?
+   - Using `GITHUB_API_KEY` as filename (all caps, underscores)
+   - Confirmed path: `/mnt/project/GITHUB_API_KEY`
+   - Should work consistently across web/mobile/desktop chat
 
 2. **Concurrency**: What if multiple Claude chat sessions try to commit to same branch?
    - GitHub API handles conflicts with 409 errors
