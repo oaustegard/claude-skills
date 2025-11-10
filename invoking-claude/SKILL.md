@@ -66,6 +66,60 @@ for i, result in enumerate(results):
     print(result)
 ```
 
+### Parallel with Shared Cached Context (Recommended)
+
+For parallel operations with shared base context, use caching to reduce costs by up to 90%:
+
+```python
+from claude_client import invoke_parallel
+
+# Large context shared across all sub-agents (e.g., codebase, documentation)
+base_context = """
+<codebase>
+...large codebase or documentation (1000+ tokens)...
+</codebase>
+"""
+
+prompts = [
+    {"prompt": "Find security vulnerabilities in the authentication module"},
+    {"prompt": "Identify performance bottlenecks in the API layer"},
+    {"prompt": "Suggest refactoring opportunities in the database layer"}
+]
+
+# First sub-agent creates cache, subsequent ones reuse it
+results = invoke_parallel(
+    prompts,
+    shared_system=base_context,
+    cache_shared_system=True  # 90% cost reduction for cached content
+)
+```
+
+### Multi-Turn Conversation with Auto-Caching
+
+For sub-agents that need multiple rounds of conversation:
+
+```python
+from claude_client import ConversationThread
+
+# Create a conversation thread (auto-caches history)
+agent = ConversationThread(
+    system="You are a code refactoring expert with access to the codebase",
+    cache_system=True
+)
+
+# Turn 1: Initial analysis
+response1 = agent.send("Analyze the UserAuth class for issues")
+print(response1)
+
+# Turn 2: Follow-up (reuses cached system + turn 1)
+response2 = agent.send("How would you refactor the login method?")
+print(response2)
+
+# Turn 3: Implementation (reuses all previous context)
+response3 = agent.send("Show me the refactored code")
+print(response3)
+```
+
 ## Core Functions
 
 ### `invoke_claude()`
@@ -74,26 +128,34 @@ Single synchronous invocation with full control:
 
 ```python
 invoke_claude(
-    prompt: str,
+    prompt: str | list[dict],
     model: str = "claude-sonnet-4-5-20250929",
-    system: str | None = None,
+    system: str | list[dict] | None = None,
     max_tokens: int = 4096,
     temperature: float = 1.0,
     streaming: bool = False,
+    cache_system: bool = False,
+    cache_prompt: bool = False,
+    messages: list[dict] | None = None,
     **kwargs
 ) -> str
 ```
 
 **Parameters:**
-- `prompt`: The user message to send to Claude
+- `prompt`: The user message (string or list of content blocks)
 - `model`: Claude model to use (default: claude-sonnet-4-5-20250929)
-- `system`: Optional system prompt to set context/role
+- `system`: Optional system prompt (string or list of content blocks)
 - `max_tokens`: Maximum tokens in response (default: 4096)
 - `temperature`: Randomness 0-1 (default: 1.0)
 - `streaming`: Enable streaming response (default: False)
+- `cache_system`: Add cache_control to system prompt (requires 1024+ tokens, default: False)
+- `cache_prompt`: Add cache_control to user prompt (requires 1024+ tokens, default: False)
+- `messages`: Pre-built messages list for multi-turn (overrides prompt)
 - `**kwargs`: Additional API parameters (top_p, top_k, etc.)
 
 **Returns:** Response text as string
+
+**Note:** Caching requires minimum 1,024 tokens per cache breakpoint. Cache lifetime is 5 minutes (refreshed on use).
 
 ### `invoke_parallel()`
 
@@ -104,17 +166,50 @@ invoke_parallel(
     prompts: list[dict],
     model: str = "claude-sonnet-4-5-20250929",
     max_tokens: int = 4096,
-    max_workers: int = 5
+    max_workers: int = 5,
+    shared_system: str | list[dict] | None = None,
+    cache_shared_system: bool = False
 ) -> list[str]
 ```
 
 **Parameters:**
-- `prompts`: List of dicts with 'prompt' (required) and optional 'system', 'temperature', etc.
+- `prompts`: List of dicts with 'prompt' (required) and optional 'system', 'temperature', 'cache_system', 'cache_prompt', etc.
 - `model`: Claude model for all invocations
 - `max_tokens`: Max tokens per response
 - `max_workers`: Max concurrent API calls (default: 5, max: 10)
+- `shared_system`: System context shared across ALL invocations (for cache efficiency)
+- `cache_shared_system`: Add cache_control to shared_system (default: False)
 
 **Returns:** List of response strings in same order as prompts
+
+**Note:** For optimal cost savings, put large common context (1024+ tokens) in `shared_system` with `cache_shared_system=True`. First invocation creates cache, subsequent ones reuse it (90% cost reduction).
+
+### `ConversationThread`
+
+Manages multi-turn conversations with automatic caching:
+
+```python
+thread = ConversationThread(
+    system: str | list[dict] | None = None,
+    model: str = "claude-sonnet-4-5-20250929",
+    max_tokens: int = 4096,
+    temperature: float = 1.0,
+    cache_system: bool = True
+)
+
+response = thread.send(
+    user_message: str | list[dict],
+    cache_history: bool = True
+) -> str
+```
+
+**Methods:**
+- `send(message, cache_history=True)`: Send message and get response
+- `get_messages()`: Get conversation history
+- `clear()`: Clear conversation history
+- `__len__()`: Get number of turns
+
+**Note:** Automatically caches conversation history to minimize token costs across turns.
 
 ## Example Workflows
 
@@ -228,10 +323,111 @@ Common errors:
 - **Token limits**: Reduce prompt size or max_tokens
 - **Network errors**: Automatic retry with exponential backoff
 
+## Prompt Caching Workflows
+
+### Pattern 1: Orchestrator with Parallel Sub-Agents
+
+```python
+from claude_client import invoke_parallel
+
+# Orchestrator provides large shared context
+codebase = """
+<codebase>
+...entire codebase (10,000+ tokens)...
+</codebase>
+"""
+
+# Each sub-agent gets different task with shared cached context
+tasks = [
+    {"prompt": "Analyze authentication security", "system": "Security expert"},
+    {"prompt": "Optimize database queries", "system": "Performance expert"},
+    {"prompt": "Improve error handling", "system": "Reliability expert"}
+]
+
+# Shared context is cached, 90% cost reduction for subsequent agents
+results = invoke_parallel(
+    tasks,
+    shared_system=codebase,
+    cache_shared_system=True
+)
+```
+
+### Pattern 2: Multi-Round Sub-Agent Conversations
+
+```python
+from claude_client import ConversationThread
+
+# Base context for all sub-agents
+base_context = [
+    {"type": "text", "text": "You are analyzing this codebase:"},
+    {"type": "text", "text": "<codebase>...</codebase>", "cache_control": {"type": "ephemeral"}}
+]
+
+# Create specialized sub-agent
+security_agent = ConversationThread(system=base_context)
+
+# Multiple rounds (each reuses cached context + history)
+issue1 = security_agent.send("Find SQL injection vulnerabilities")
+issue2 = security_agent.send("Now check for XSS issues")
+remediation = security_agent.send("Generate fixes for the issues found")
+```
+
+### Pattern 3: Orchestrator + Sub-Agent Multi-Turn
+
+```python
+from claude_client import ConversationThread, invoke_parallel
+
+# Step 1: Orchestrator delegates with shared context
+shared_context = "<large_documentation>...</large_documentation>"
+
+initial_analyses = invoke_parallel(
+    [
+        {"prompt": "Identify top 3 bugs"},
+        {"prompt": "Identify top 3 performance issues"}
+    ],
+    shared_system=shared_context,
+    cache_shared_system=True
+)
+
+# Step 2: Create sub-agents for detailed investigation
+bug_agent = ConversationThread(system=shared_context, cache_system=True)
+perf_agent = ConversationThread(system=shared_context, cache_system=True)
+
+# Step 3: Multi-turn investigation (reusing cached context)
+bug_details = bug_agent.send(f"Analyze this bug: {initial_analyses[0]}")
+bug_fix = bug_agent.send("Provide a detailed fix")
+
+perf_details = perf_agent.send(f"Analyze this issue: {initial_analyses[1]}")
+perf_solution = perf_agent.send("Provide optimization strategy")
+```
+
+### Caching Best Practices
+
+1. **Cache breakpoint placement**:
+   - Put stable, large context first (cached)
+   - Put variable content after (not cached)
+   - Minimum 1,024 tokens per cache breakpoint
+
+2. **Shared context in parallel operations**:
+   - ALWAYS use `shared_system` + `cache_shared_system=True` for parallel with common context
+   - First agent creates cache, others reuse (5-minute lifetime)
+   - All agents must have IDENTICAL shared_system for cache hits
+
+3. **Multi-turn conversations**:
+   - Use `ConversationThread` for automatic history caching
+   - Each turn caches full history (system + all messages)
+   - Subsequent turns reuse cache (significant savings)
+
+4. **Cost optimization**:
+   - Cached content: 10% of normal cost (90% savings)
+   - Cache for 1000 tokens ≈ $0.0003 vs $0.003 (10x cheaper)
+   - For 10 parallel agents with 10K shared context: ~$0.27 vs $3.00
+
 ## Performance Considerations
 
 **Token efficiency:**
 - Parallel calls use more tokens but save wall-clock time
+- Use prompt caching for shared context (90% cost reduction)
 - Use concise system prompts to reduce overhead
 - Consider token budgets when setting max_tokens
 
@@ -244,7 +440,8 @@ Common errors:
 - Each invocation consumes API credits
 - Monitor usage in Anthropic Console
 - Use smaller models (haiku) for simple tasks
-- Cache results when possible
+- Use prompt caching for repeated context (90% savings)
+- Cache lifetime: 5 minutes, refreshed on each use
 
 ## Best Practices
 

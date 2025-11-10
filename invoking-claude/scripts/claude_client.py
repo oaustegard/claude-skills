@@ -1,13 +1,15 @@
 """
 Claude API Client Module
 
-Provides functions for invoking Claude programmatically, including parallel invocations.
+Provides functions for invoking Claude programmatically, including parallel invocations
+and prompt caching support for optimized token usage.
 """
 
 import sys
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any
+from typing import Any, Union
+from copy import deepcopy
 
 # Add api-credentials to path
 api_credentials_path = Path(__file__).parent.parent.parent / "api-credentials" / "scripts"
@@ -39,25 +41,111 @@ class ClaudeInvocationError(Exception):
         self.details = details
 
 
+def _format_cache_control() -> dict:
+    """Returns cache_control structure for ephemeral caching"""
+    return {"type": "ephemeral"}
+
+
+def _format_system_with_cache(
+    system: Union[str, list[dict]],
+    cache_system: bool = False
+) -> Union[str, list[dict]]:
+    """
+    Format system prompt with optional cache_control.
+
+    Args:
+        system: System prompt (string or list of content blocks)
+        cache_system: Whether to add cache_control to the last system block
+
+    Returns:
+        Formatted system prompt (string or list with cache_control)
+    """
+    if not system:
+        return system
+
+    if isinstance(system, str):
+        if cache_system:
+            # Convert string to content block with cache_control
+            return [
+                {
+                    "type": "text",
+                    "text": system,
+                    "cache_control": _format_cache_control()
+                }
+            ]
+        return system
+
+    # Already a list of content blocks
+    if cache_system and len(system) > 0:
+        # Add cache_control to last block if not present
+        system = deepcopy(system)
+        if "cache_control" not in system[-1]:
+            system[-1]["cache_control"] = _format_cache_control()
+
+    return system
+
+
+def _format_message_with_cache(
+    content: Union[str, list[dict]],
+    cache_content: bool = False
+) -> Union[str, list[dict]]:
+    """
+    Format message content with optional cache_control.
+
+    Args:
+        content: Message content (string or list of content blocks)
+        cache_content: Whether to add cache_control to the last content block
+
+    Returns:
+        Formatted content (string or list with cache_control)
+    """
+    if isinstance(content, str):
+        if cache_content:
+            # Convert string to content block with cache_control
+            return [
+                {
+                    "type": "text",
+                    "text": content,
+                    "cache_control": _format_cache_control()
+                }
+            ]
+        return content
+
+    # Already a list of content blocks
+    if cache_content and len(content) > 0:
+        # Add cache_control to last block if not present
+        content = deepcopy(content)
+        if "cache_control" not in content[-1]:
+            content[-1]["cache_control"] = _format_cache_control()
+
+    return content
+
+
 def invoke_claude(
-    prompt: str,
+    prompt: Union[str, list[dict]],
     model: str = "claude-sonnet-4-5-20250929",
-    system: str | None = None,
+    system: Union[str, list[dict], None] = None,
     max_tokens: int = 4096,
     temperature: float = 1.0,
     streaming: bool = False,
+    cache_system: bool = False,
+    cache_prompt: bool = False,
+    messages: list[dict] | None = None,
     **kwargs
 ) -> str:
     """
     Invoke Claude API with a single prompt.
 
     Args:
-        prompt: The user message to send to Claude
+        prompt: The user message to send to Claude (string or list of content blocks)
         model: Claude model to use (default: claude-sonnet-4-5-20250929)
-        system: Optional system prompt to set context/role
+        system: Optional system prompt to set context/role (string or list of content blocks)
         max_tokens: Maximum tokens in response (default: 4096)
         temperature: Randomness 0-1 (default: 1.0)
         streaming: Enable streaming response (default: False)
+        cache_system: Add cache_control to system prompt (requires 1024+ tokens, default: False)
+        cache_prompt: Add cache_control to user prompt (requires 1024+ tokens, default: False)
+        messages: Optional pre-built messages list (overrides prompt parameter)
         **kwargs: Additional API parameters (top_p, top_k, etc.)
 
     Returns:
@@ -66,9 +154,19 @@ def invoke_claude(
     Raises:
         ClaudeInvocationError: If API call fails
         ValueError: If parameters are invalid
+
+    Note:
+        Prompt caching requires minimum 1,024 tokens per cache breakpoint.
+        Cache lifetime is 5 minutes, refreshed on each use.
+        Maximum 4 cache breakpoints allowed per request.
     """
-    if not prompt or not prompt.strip():
-        raise ValueError("Prompt cannot be empty")
+    # Validate prompt unless using pre-built messages
+    if not messages:
+        if isinstance(prompt, str):
+            if not prompt or not prompt.strip():
+                raise ValueError("Prompt cannot be empty")
+        elif not prompt:
+            raise ValueError("Prompt cannot be empty")
 
     if max_tokens < 1 or max_tokens > 8192:
         raise ValueError("max_tokens must be between 1 and 8192")
@@ -92,12 +190,22 @@ def invoke_claude(
         "model": model,
         "max_tokens": max_tokens,
         "temperature": temperature,
-        "messages": [{"role": "user", "content": prompt}],
         **kwargs
     }
 
+    # Handle messages (pre-built or from prompt)
+    if messages:
+        # Use pre-built messages list (for multi-turn conversations)
+        message_params["messages"] = messages
+    else:
+        # Build single message from prompt with optional caching
+        content = _format_message_with_cache(prompt, cache_prompt)
+        message_params["messages"] = [{"role": "user", "content": content}]
+
+    # Handle system prompt with optional caching
     if system:
-        message_params["system"] = system
+        formatted_system = _format_system_with_cache(system, cache_system)
+        message_params["system"] = formatted_system
 
     try:
         if streaming:
@@ -138,7 +246,9 @@ def invoke_parallel(
     prompts: list[dict],
     model: str = "claude-sonnet-4-5-20250929",
     max_tokens: int = 4096,
-    max_workers: int = 5
+    max_workers: int = 5,
+    shared_system: Union[str, list[dict], None] = None,
+    cache_shared_system: bool = False
 ) -> list[str]:
     """
     Invoke Claude API with multiple prompts in parallel.
@@ -149,12 +259,16 @@ def invoke_parallel(
     Args:
         prompts: List of dicts, each containing:
             - 'prompt' (required): The user message
-            - 'system' (optional): System prompt
+            - 'system' (optional): System prompt (appended to shared_system if both provided)
             - 'temperature' (optional): Temperature override
+            - 'cache_system' (optional): Cache individual system prompt
+            - 'cache_prompt' (optional): Cache individual user prompt
             - Other invoke_claude parameters
         model: Claude model for all invocations
         max_tokens: Max tokens per response
         max_workers: Max concurrent API calls (default: 5, max: 10)
+        shared_system: System context shared across ALL invocations (for cache efficiency)
+        cache_shared_system: Add cache_control to shared_system (default: False)
 
     Returns:
         list[str]: List of responses in same order as prompts
@@ -162,6 +276,11 @@ def invoke_parallel(
     Raises:
         ValueError: If prompts is empty or invalid
         ClaudeInvocationError: If any API call fails
+
+    Note:
+        For optimal caching: provide large common context in shared_system with
+        cache_shared_system=True. First invocation creates cache, subsequent ones
+        reuse it (90% cost reduction for cached content).
     """
     if not prompts:
         raise ValueError("prompts list cannot be empty")
@@ -178,6 +297,14 @@ def invoke_parallel(
     # Clamp max_workers
     max_workers = max(1, min(max_workers, 10))
 
+    # Format shared system context with caching if provided
+    formatted_shared_system = None
+    if shared_system:
+        formatted_shared_system = _format_system_with_cache(
+            shared_system,
+            cache_shared_system
+        )
+
     # Storage for results with indices to maintain order
     results = [None] * len(prompts)
     errors = []
@@ -190,6 +317,26 @@ def invoke_parallel(
             params = {k: v for k, v in prompt_dict.items() if k != 'prompt'}
             params['model'] = params.get('model', model)
             params['max_tokens'] = params.get('max_tokens', max_tokens)
+
+            # Merge shared_system with individual system prompt if both exist
+            if formatted_shared_system:
+                individual_system = params.get('system')
+                if individual_system:
+                    # Combine shared and individual system prompts
+                    # shared_system is cached, individual_system follows
+                    if isinstance(formatted_shared_system, str):
+                        shared_blocks = [{"type": "text", "text": formatted_shared_system}]
+                    else:
+                        shared_blocks = formatted_shared_system
+
+                    if isinstance(individual_system, str):
+                        individual_blocks = [{"type": "text", "text": individual_system}]
+                    else:
+                        individual_blocks = individual_system
+
+                    params['system'] = shared_blocks + individual_blocks
+                else:
+                    params['system'] = formatted_shared_system
 
             response = invoke_claude(prompt, **params)
             return index, response
@@ -222,6 +369,96 @@ def invoke_parallel(
         )
 
     return results
+
+
+class ConversationThread:
+    """
+    Manages multi-turn conversations with automatic prompt caching.
+
+    Automatically caches conversation history to reduce token costs in
+    subsequent turns. Ideal for orchestrator -> sub-agent patterns where
+    each sub-agent maintains its own conversation state.
+    """
+
+    def __init__(
+        self,
+        system: Union[str, list[dict], None] = None,
+        model: str = "claude-sonnet-4-5-20250929",
+        max_tokens: int = 4096,
+        temperature: float = 1.0,
+        cache_system: bool = True
+    ):
+        """
+        Initialize a new conversation thread.
+
+        Args:
+            system: System prompt for this conversation
+            model: Claude model to use
+            max_tokens: Maximum tokens per response
+            temperature: Temperature setting
+            cache_system: Cache the system prompt (default: True)
+        """
+        self.system = system
+        self.model = model
+        self.max_tokens = max_tokens
+        self.temperature = temperature
+        self.cache_system = cache_system
+        self.messages: list[dict] = []
+
+    def send(self, user_message: Union[str, list[dict]], cache_history: bool = True) -> str:
+        """
+        Send a message and get a response.
+
+        Args:
+            user_message: The user message to send
+            cache_history: Cache conversation history up to this point (default: True)
+
+        Returns:
+            str: Claude's response
+
+        Note:
+            When cache_history=True, the entire conversation history up to and
+            including this user message will be cached for the next turn.
+        """
+        # Format user message content
+        content = _format_message_with_cache(user_message, cache_history)
+        self.messages.append({"role": "user", "content": content})
+
+        # Make API call with full conversation history
+        response = invoke_claude(
+            prompt="",  # Not used when messages provided
+            model=self.model,
+            system=self.system,
+            max_tokens=self.max_tokens,
+            temperature=self.temperature,
+            cache_system=self.cache_system,
+            messages=self.messages
+        )
+
+        # Add assistant response to history (no caching on assistant messages)
+        self.messages.append({"role": "assistant", "content": response})
+
+        # Remove cache_control from previous messages since we're caching the latest
+        if cache_history and len(self.messages) >= 3:
+            # Remove cache_control from older user messages
+            for msg in self.messages[:-2]:
+                if msg["role"] == "user" and isinstance(msg["content"], list):
+                    for block in msg["content"]:
+                        block.pop("cache_control", None)
+
+        return response
+
+    def get_messages(self) -> list[dict]:
+        """Get the current conversation history"""
+        return deepcopy(self.messages)
+
+    def clear(self):
+        """Clear conversation history"""
+        self.messages = []
+
+    def __len__(self) -> int:
+        """Return number of turns (user + assistant pairs)"""
+        return len(self.messages) // 2
 
 
 def get_available_models() -> list[str]:
