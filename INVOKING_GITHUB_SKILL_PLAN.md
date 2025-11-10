@@ -91,31 +91,26 @@ Session 2:
 
 ## Technical Architecture
 
-### Credential Management (Three-Tier Fallback)
+### Credential Management (Two-Tier Fallback)
 
 **Target environment**: Claude.ai chat (iOS/Android/Web)
 
+**Important**: GitHub OAuth connection in claude.ai UI is NOT exposed to skills. Users must provide a Personal Access Token manually.
+
 **Priority order**:
 
-1. **Claude.ai GitHub OAuth (Primary)**
-   - OAuth token automatically available when user connects GitHub to claude.ai
-   - Detection: Check for environment variable `GITHUB_TOKEN`, `CLAUDE_GITHUB_TOKEN`, or `GH_TOKEN`
-   - Scope: Limited to repositories user has granted access to
-   - **Advantage**: No manual token management, secure OAuth flow
-   - **Use case**: Most users on claude.ai web
-
-2. **Project Knowledge: GITHUB_API_KEY (Secondary)**
+1. **Project Knowledge: GITHUB_API_KEY (Primary)**
    - User creates a Project Knowledge document named "GITHUB_API_KEY"
-   - Content: Just the token (e.g., `ghp_abc123...`)
+   - Content: Just the token (e.g., `ghp_abc123...` or fine-grained token)
    - Scope: Classic or fine-grained PAT with repo permissions
    - **Advantage**: Works across all Claude.ai platforms (iOS/Android/Web)
-   - **Use case**: Mobile apps, or when broader scope needed
+   - **Use case**: Primary method for all claude.ai chat users
 
-3. **API Credentials Skill (Tertiary)**
+2. **API Credentials Skill (Secondary)**
    - Leverages existing `api-credentials` skill pattern
    - Add `github_api_key` to config.json
    - **Use case**: Fallback, or for users who prefer config files
-   - **Note**: Less relevant for claude.ai chat, more for API/local usage
+   - **Note**: Less accessible for mobile users, but works for power users
 
 **Implementation Strategy**:
 
@@ -132,13 +127,7 @@ def get_github_token() -> str:
     Raises:
         ValueError: If no token found in any source
     """
-    # 1. Check Claude.ai OAuth environment variables
-    for env_var in ['GITHUB_TOKEN', 'CLAUDE_GITHUB_TOKEN', 'GH_TOKEN']:
-        token = os.environ.get(env_var, '').strip()
-        if token:
-            return token
-
-    # 2. Check Project Knowledge (claude.ai environment)
+    # 1. Check Project Knowledge (claude.ai environment)
     # May be accessible via special path or through API
     # Implementation depends on Project Knowledge access method
     pk_path = Path("/mnt/project-knowledge/GITHUB_API_KEY")
@@ -147,7 +136,7 @@ def get_github_token() -> str:
         if token:
             return token
 
-    # 3. Check api-credentials skill (fallback)
+    # 2. Check api-credentials skill (fallback)
     try:
         sys.path.append('/home/user/claude-skills/api-credentials/scripts')
         from credentials import get_github_api_key
@@ -159,11 +148,14 @@ def get_github_token() -> str:
     raise ValueError(
         "No GitHub API token found!\n\n"
         "Configure using one of these methods:\n\n"
-        "1. Claude.ai: Connect GitHub at claude.ai/settings (recommended)\n"
-        "2. Project Knowledge: Create document named 'GITHUB_API_KEY' with your token\n"
-        "3. api-credentials skill: Add github_api_key to config.json\n\n"
+        "1. Project Knowledge (recommended): Create document named 'GITHUB_API_KEY'\n"
+        "   - In Claude.ai, go to Project settings → Add to Project Knowledge\n"
+        "   - Create new document titled 'GITHUB_API_KEY'\n"
+        "   - Paste your GitHub Personal Access Token as the content\n\n"
+        "2. api-credentials skill: Add github_api_key to config.json\n\n"
         "Generate token at: https://github.com/settings/tokens\n"
-        "Required scopes: repo (full repo access) or public_repo (public repos only)"
+        "Required scopes: repo (full repo access) or public_repo (public repos only)\n\n"
+        "Note: GitHub OAuth in claude.ai UI is not accessible to skills"
     )
 
 def commit_file(repo: str, path: str, content: str, branch: str, message: str):
@@ -570,31 +562,33 @@ Enable automatic DEVLOG persistence to GitHub:
    - Current assumption: Special mount point like `/mnt/project-knowledge/`
    - May need different approach (API call, special file path, etc.)
    - Need to test in actual claude.ai environment (web/mobile)
-   - Critical for mobile users who can't use OAuth
+   - **Critical**: This is the primary credential method for the skill
 
-2. **OAuth token availability**: What environment variables does claude.ai set when GitHub is connected?
-   - Need to test: `GITHUB_TOKEN`, `CLAUDE_GITHUB_TOKEN`, `GH_TOKEN`?
-   - Scope of OAuth token (which repos can be accessed)?
-   - Token lifetime and refresh mechanism
-
-3. **Concurrency**: What if multiple Claude chat sessions try to commit to same branch?
+2. **Concurrency**: What if multiple Claude chat sessions try to commit to same branch?
    - GitHub API handles conflicts with 409 errors
    - Need user guidance on branch naming strategy
    - Consider session-specific branches (e.g., `devlog-{session-id}`)
 
-4. **Scope boundaries**: Should skill handle GitHub Actions, Issues, Projects?
+3. **Scope boundaries**: Should skill handle GitHub Actions, Issues, Projects?
    - Phase 1: Focus on file operations only
    - Phase 5: Expand to other GitHub features
 
-5. **Permissions**: What minimum permissions are needed for GitHub tokens?
-   - OAuth: Depends on what user grants during connection
+4. **Permissions**: What minimum permissions are needed for GitHub tokens?
    - PAT: `contents:write` (read/write files), `pull_requests:write` (create PRs)
+   - Fine-grained tokens: Repository permissions for Contents (read/write) and Pull requests (read/write)
    - Document clearly in credential setup guide
 
-6. **Mobile limitations**: Are there any restrictions on claude.ai mobile apps?
+5. **Mobile limitations**: Are there any restrictions on claude.ai mobile apps?
    - File size limits for API calls?
    - Rate limiting differences?
    - Network restrictions?
+   - Can users access Project Knowledge from mobile?
+
+6. **Token security**: How to guide users on secure token management?
+   - Recommend fine-grained tokens over classic PATs
+   - Minimum scopes required
+   - Token expiration recommendations
+   - How to rotate tokens safely
 
 ## Dependencies
 
@@ -658,7 +652,7 @@ The `invoking-github` skill will unlock GitHub operations for Claude.ai chat use
 1. **GitHub write access from mobile/web chat** where it doesn't currently exist
 2. **Cross-session state persistence** through automatic DEVLOG sync to GitHub
 3. **Seamless workflow** between Claude.ai chat and Claude Code
-4. **Flexible authentication** via OAuth (preferred) or manual tokens
+4. **Simple authentication** via Project Knowledge documents
 
 **Target users:**
 - Claude.ai chat users (iOS/Android/Web) who want to commit code
@@ -670,6 +664,11 @@ The `invoking-github` skill will unlock GitHub operations for Claude.ai chat use
 - Claude Code users (native git access already available)
 - Users who only read repositories (current capabilities sufficient)
 
+**Setup requirements:**
+- Users must create a GitHub Personal Access Token manually
+- Token stored in Project Knowledge document named "GITHUB_API_KEY"
+- No OAuth integration available to skills (UI-only feature)
+
 Building on proven patterns from existing skills (api-credentials, invoking-claude) and integrating tightly with the iterating skill, we'll create a powerful bridge between chat-based AI assistance and version-controlled development workflows.
 
-The REST API approach provides cross-platform compatibility and simplicity, while the three-tier credential fallback ensures accessibility across all claude.ai platforms. The result will be a robust skill that extends Claude.ai chat's capabilities into the realm of collaborative software development.
+The REST API approach provides cross-platform compatibility and simplicity, while the two-tier credential fallback (Project Knowledge → api-credentials) ensures accessibility. The result will be a robust skill that extends Claude.ai chat's capabilities into the realm of collaborative software development.
