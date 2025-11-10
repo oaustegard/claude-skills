@@ -186,14 +186,155 @@ max_response_tokens = max_tokens
 total_tokens = prompt_tokens + max_response_tokens
 ```
 
+## Prompt Caching
+
+### Overview
+
+Prompt caching enables reusing large portions of prompts across multiple API calls, reducing costs by up to 90% and latency by up to 85% for cached content.
+
+### How It Works
+
+- **Cache Key**: Generated from cryptographic hash of prompt content up to cache breakpoint
+- **Cache Lifetime**: 5 minutes (default), refreshed on each use
+- **Cache Sharing**: Organization-scoped (same org can share cache with identical prompts)
+- **Cache Breakpoints**: Up to 4 per request
+- **Minimum Size**: 1,024 tokens per cache breakpoint
+
+### API Structure
+
+#### Cached System Prompt
+
+```python
+# String (auto-converted with cache_system=True)
+invoke_claude(
+    prompt="Your question...",
+    system="Large system instructions...",
+    cache_system=True
+)
+
+# Or manual content blocks
+system_blocks = [
+    {"type": "text", "text": "Base instructions..."},
+    {"type": "text", "text": "Large context...", "cache_control": {"type": "ephemeral"}}
+]
+invoke_claude(prompt="Your question...", system=system_blocks)
+```
+
+#### Cached User Prompt
+
+```python
+# Large document with question
+prompt_blocks = [
+    {"type": "text", "text": "<document>...</document>", "cache_control": {"type": "ephemeral"}},
+    {"type": "text", "text": "What are the key points?"}
+]
+invoke_claude(prompt=prompt_blocks)
+
+# Or use cache_prompt=True for simple string
+invoke_claude(
+    prompt="Large text...",
+    cache_prompt=True
+)
+```
+
+#### Multi-Turn with Caching
+
+```python
+from claude_client import ConversationThread
+
+thread = ConversationThread(
+    system="Large base context...",
+    cache_system=True  # Caches system prompt
+)
+
+# Each turn caches full history
+response1 = thread.send("First question")
+response2 = thread.send("Follow-up question")  # Reuses cached system + turn 1
+```
+
+### Cost Analysis
+
+**Without Caching** (10 parallel agents, 10K shared context):
+- Input tokens: 10 × 10,000 = 100,000 tokens
+- Cost (Sonnet 4.5): 100K × $3/MTok = $3.00
+
+**With Caching** (same scenario):
+- First agent: 10,000 tokens (full price) = $0.30
+- Agents 2-10: 9 × (10,000 × 0.1) = 9,000 tokens (cache hits) = $0.027
+- Total: $0.327 (89% savings)
+
+### Cache Efficiency Patterns
+
+#### Pattern 1: Shared Context in Parallel
+
+```python
+# Optimal: All agents share cached base context
+invoke_parallel(
+    prompts=[...],
+    shared_system="<large_context>...</large_context>",
+    cache_shared_system=True
+)
+```
+
+#### Pattern 2: Multi-Turn Conversations
+
+```python
+# Each turn builds on cached history
+thread = ConversationThread(system="...", cache_system=True)
+for question in questions:
+    response = thread.send(question)  # Cumulative caching
+```
+
+#### Pattern 3: Mixed Orchestration
+
+```python
+# Orchestrator caches base context
+base = "<codebase>...</codebase>"
+
+# Parallel analysis (shares cache)
+analyses = invoke_parallel(
+    prompts=[...],
+    shared_system=base,
+    cache_shared_system=True
+)
+
+# Follow-up threads (reuse same cached base)
+agent1 = ConversationThread(system=base, cache_system=True)
+agent2 = ConversationThread(system=base, cache_system=True)
+```
+
+### Caching Limitations
+
+1. **Minimum tokens**: Each cache breakpoint requires 1,024+ tokens
+2. **Maximum breakpoints**: 4 cache breakpoints per request
+3. **Exact match required**: Prompts must be IDENTICAL for cache hits (including whitespace)
+4. **TTL**: 5-minute cache lifetime (can be extended with 1-hour option)
+5. **Organization-scoped**: Cache not shared across different organizations
+
+### Token Usage Reporting
+
+API responses include caching metrics in usage field:
+
+```python
+{
+    "usage": {
+        "input_tokens": 1024,
+        "cache_creation_input_tokens": 10000,  # Tokens written to cache
+        "cache_read_input_tokens": 9500,       # Tokens read from cache
+        "output_tokens": 256
+    }
+}
+```
+
 ## Performance Tips
 
 1. **Batch independent calls**: Use `invoke_parallel()` for concurrent execution
-2. **Use appropriate models**: Haiku for simple tasks, Sonnet for complex
-3. **Cache common results**: Store responses for repeated prompts
+2. **Use prompt caching**: For shared context or multi-turn (90% cost reduction)
+3. **Use appropriate models**: Haiku for simple tasks, Sonnet for complex
 4. **Optimize prompts**: Shorter prompts = less cost + faster response
 5. **Set reasonable max_tokens**: Don't request more than needed
 6. **Handle errors gracefully**: Implement retry logic with backoff
+7. **Monitor cache hits**: Check usage metrics to verify caching effectiveness
 
 ## Security Considerations
 
