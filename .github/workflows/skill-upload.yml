@@ -163,8 +163,15 @@ jobs:
             # VERSION files are workflow metadata, not part of the skill content
             rsync -av --delete --exclude='.git' --exclude='.svn' --exclude='.hg' --exclude='VERSION' "$EXTRACTED_PATH/" "$SKILL_DIR_NAME/"
 
-            # Add the new skill files and remove the original zip file
+            # Create symlink in .claude/skills/ for project-level skill availability
+            echo "Creating symlink in .claude/skills/"
+            mkdir -p .claude/skills
+            ln -sf "../../$SKILL_DIR_NAME" ".claude/skills/$SKILL_DIR_NAME"
+            echo "✓ Symlink created: .claude/skills/$SKILL_DIR_NAME -> ../../$SKILL_DIR_NAME"
+
+            # Add the new skill files, symlink, and remove the original zip file
             git add "$SKILL_DIR_NAME"
+            git add .claude/skills/"$SKILL_DIR_NAME"
             git rm "$ZIP_FILE"
 
             git commit -m "feat(skills): Add/Update skill: $SKILL_NAME"
