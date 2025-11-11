@@ -65,7 +65,16 @@ Delete unused directories.
 
 ### Step 4: Write SKILL.md
 
-**Use `create_file` to write complete files.** Never use `str_replace` to replace entire file contents - this wastes tokens. After init_skill.sh creates templates, use `create_file` to overwrite them efficiently.
+**For small files (<200 lines):** Use `create_file` to write complete files.
+
+**For large files (>200 lines):** Build iteratively with `str_replace`:
+1. Remove template or use str_replace to modify sections incrementally
+2. Verify structure after major sections
+3. This reduces token consumption vs single massive create_file operations
+
+After init_skill.sh creates the template, either:
+- Modify the template incrementally with `str_replace` 
+- Or remove and recreate: `bash -c "rm /home/claude/skill-name/SKILL.md && create_file..."`
 
 #### Required Frontmatter
 
@@ -97,6 +106,21 @@ description: What the skill does. Use when [trigger patterns].
 - "Presentation creator" (no trigger patterns)
 - "Creates presentations with slides and animations using advanced features" (too much implementation detail)
 
+**Handling init_skill.sh templates:**
+
+After running init_skill.sh, a template SKILL.md exists. To replace it:
+
+```bash
+# Option 1: Remove then create (for complete rewrites)
+rm /home/claude/skill-name/SKILL.md
+# Then use create_file
+
+# Option 2: Modify incrementally (preferred for large files)
+# Use str_replace to update template sections one at a time
+```
+
+**Never** attempt create_file on an existing file - it will fail and waste tokens.
+
 #### Body Structure
 
 Write in imperative voice with clear instructions:
@@ -127,6 +151,8 @@ For [different condition]:
 - Use code examples over verbose explanations
 - Keep SKILL.md under 500 lines
 - Progressive disclosure: move detailed content to references/
+
+**For token optimization strategies, see:** [references/optimization-techniques.md](references/optimization-techniques.md)
 
 For computational workflows, see [references/environment-reference.md](references/environment-reference.md) for file structure, pre-installed packages, and common patterns.
 
@@ -254,6 +280,26 @@ SKILL.md is an overview pointing to details:
 - Content used in every task
 - Essential decision trees
 
+### Token Budget Management
+
+**Large file creation is expensive.** A single 10KB create_file operation can consume 12K+ tokens.
+
+**For skills with large SKILL.md files (>500 lines):**
+1. Build iteratively using str_replace
+2. Start with skeleton structure
+3. Add sections one at a time
+4. Test functionality after each major addition
+
+**For skills with large reference files:**
+- Split into focused, topic-specific files
+- Use progressive disclosure - load only what's needed
+- Keep frequently-used content in SKILL.md, detailed content in references/
+
+**Cost comparison:**
+- Single 1000-line create_file: ~13K tokens
+- Ten 100-line str_replace operations: ~4K tokens total
+- Choose the iterative approach for large content
+
 ### Common Patterns
 
 #### Validation Workflow
@@ -334,6 +380,7 @@ Before providing skill to user:
 ## Anti-Patterns to Avoid
 
 **Don't:**
+- Create large files (>500 lines) in single create_file operations
 - Use `str_replace` for entire file contents (use `create_file`)
 - Write documentation about Claude (write instructions to Claude)
 - Over-explain what Claude already knows
