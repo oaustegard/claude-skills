@@ -1,251 +1,143 @@
-# Desktop Environment (Claude Desktop App)
+# Desktop Environment (Claude Code Desktop)
 
-This guide covers using the iterating skill in Claude Desktop (Windows/Mac), where state is persisted via DEVLOG.md in your working directory.
+This guide covers using the iterating skill in Claude Code desktop environment, where state is persisted via local WorkLog.md files.
 
 ## User Acknowledgment
 
 At session start, tell the user:
-> "I'll track our progress in DEVLOG.md. Each session, I'll document key decisions, findings, and next steps."
+> "I'll track our progress in WorkLog.md locally. Each session, I'll document key decisions and next steps with version tracking."
 
 ## Environment Detection
 
-Detect via `CLAUDE_CODE_REMOTE != 'true'` (has filesystem but not web). Can also check `sys.platform` for Windows/Mac.
+Desktop environment has `CLAUDE_CODE_REMOTE` but it's not `'true'` (or may be absent).
 
-## State Persistence: DEVLOG.md
+## State Persistence: Local WorkLog.md
 
-Use DEVLOG.md in working directory (root or `.claude/` subdirectory). See SKILL.md for format template.
+Maintain state across sessions using WorkLog.md in the project directory.
 
-### File Location Options
+**Version management:**
+- Check for existing WorkLog: `ls -1 WorkLog*.md 2>/dev/null | sort -V | tail -1`
+- Parse version from frontmatter: `version: vN`
+- Increment on each update: v1 → v2 → v3
 
-**Root** (`DEVLOG.md`): Visible, easy to find
-**.claude/** (`.claude/DEVLOG.md`): Hidden, organized
+## WorkLog Format
 
-## Implementation
+Same format as web environment - see [web-environment.md](web-environment.md) for complete details.
 
-Same as web-environment.md with path parameter. Use `Path('DEVLOG.md')` or `Path('.claude/DEVLOG.md')`.
+```markdown
+---
+version: v1
+status: in_progress
+---
 
-## Desktop-Specific Considerations
+# [Project Name] Work Log
 
-### File Location Management
+## v1 | YYYY-MM-DD HH:MM | Title
 
-**Advantages of each location:**
+**Prev:** [context]
+**Now:** [goal]
+**Progress:** [percentage or milestones]
 
-**Working Directory Root** (`DEVLOG.md`):
-- ✅ Easy to find and edit
-- ✅ Visible in file explorers
-- ✅ Easy to share with team
-- ❌ Can clutter root directory
+**Files:**
+- `path/to/file` (relevance)
+  - LX-Y: [focus area]
 
-**Hidden .claude Directory** (`.claude/DEVLOG.md`):
-- ✅ Keeps root clean
-- ✅ Standard hidden config pattern
-- ✅ Can store multiple files (.claude/DEVLOG.md, .claude/NOTES.md)
-- ❌ Hidden by default (may forget it exists)
-
-**Custom Location** (e.g., Documents folder):
-- ✅ Persists across projects
-- ✅ Backed up with user documents
-- ✅ User has full control
-- ❌ Needs absolute path management
-
-### Backup Recommendations
-
-Since Desktop files are local (not in git):
-
-1. **Use cloud sync**: Place in OneDrive, Dropbox, or Google Drive folder
-2. **Regular backups**: Copy to backup location periodically
-3. **Version control**: Optionally git-track the progress file
-4. **Export important entries**: Save critical decisions to separate docs
-
-### Multi-Project Management
-
-For working on multiple projects:
-
-```python
-def get_project_devlog_file(project_name):
-    """Get or create progress file for specific project"""
-
-    # Option 1: Use project-specific subdirectories
-    project_dir = Path('.claude') / project_name
-    project_dir.mkdir(parents=True, exist_ok=True)
-    devlog_path = project_dir / 'DEVLOG.md'
-
-    # Option 2: Use single file with project sections
-    # devlog_path = Path('.claude') / f'{project_name}_DEVLOG.md'
-
-    if not devlog_path.exists():
-        with open(devlog_path, 'w') as f:
-            f.write(f"# Development Log - {project_name}\n\n")
-            f.write("---\n\n")
-
-    return devlog_path
-
-# Usage
-auth_progress = get_project_devlog_file('authentication')
-api_progress = get_project_devlog_file('api_redesign')
+**Work:** +: ~ : ! :
+**Decisions:** - [what]: [why] (vs [alt])
+**Works:** [effective]
+**Fails:** [ineffective]
+**Blockers:** [none or specific]
+**Next:** - [HIGH/MED/LOW] [action]
+**Open:** [questions]
 ```
 
-## Session Workflow
+## Key Differences from Web Environment
 
-### Starting a Session
+**Git tracking:**
+- Desktop WorkLog.md is typically NOT git-tracked
+- User manually backs up or commits if desired
+- More ephemeral than web environment
 
-At the beginning of each Claude Desktop session:
+**Persistence:**
+- WorkLog persists on local machine
+- Not automatically synced across devices
+- User responsible for backup/transfer
 
-```python
-# 1. Check for progress file
-devlog_path = Path('DEVLOG.md')  # or .claude/DEVLOG.md
+## Priority-Based Workflow
 
-if devlog_path.exists():
-    # 2. Read previous context
-    with open(devlog_path, 'r') as f:
-        previous_work = f.read()
+Same as web environment:
 
-    # 3. Summarize recent sessions
-    print("Previous session summary:")
-    # Parse and display last 2-3 entries
+**Session start:**
+1. Read WorkLog.md
+2. Parse HIGH priority items
+3. Acknowledge: "From WorkLog v3, continuing with HIGH priority: [item]"
+4. Execute HIGH items first
 
-else:
-    # First session
-    print("Starting new project - will create progress file")
+## Progress Tracking
+
+**Always update progress indicators:**
+
+```markdown
+**Progress:** 60% | Token service ✅ | Login endpoint 🔄 | Tests ⏳
 ```
 
-### Ending a Session
+**Why:** If user runs out of tokens/quota, progress shows where to resume.
 
-Before ending the session:
+## Handoff Scenarios
 
-```python
-# 1. Summarize session work
-session_summary = {
-    'title': 'Implementing Authentication',
-    'context': 'Building JWT-based auth system',
-    'added': ['JWT middleware', 'Login endpoint'],
-    'decisions': [
-        {'what': 'Use bcrypt for passwords', 'why': 'Industry standard security'}
-    ],
-    'next_steps': ['Add password reset', 'Write tests']
-}
+### Desktop → Chat
 
-# 2. Update progress file
-devlog_path = Path('DEVLOG.md')
-update_devlog_file(devlog_path, session_summary)
+**When user wants to discuss in claude.ai:**
 
-# 3. Inform user
-print(f"Updated {devlog_path} with session progress")
-print("Next session: Continue with password reset implementation")
-```
+1. User manually copies WorkLog.md content
+2. Pastes into claude.ai chat
+3. Claude recognizes WorkLog format
+4. Continues from documented context
+
+### Chat → Desktop
+
+**When user pastes WorkLog from chat:**
+
+1. **Detect handoff format:**
+   - YAML frontmatter with `version:` and `status:`
+   - WorkLog structure with task objective
+
+2. **Parse and acknowledge:**
+   > "I see you're starting from WorkLog v1, status: in_progress.
+   >
+   > Task: [objective]
+   > HIGH priorities: [list HIGH items]
+   >
+   > Starting with first HIGH priority: [item]"
+
+3. **Save to local WorkLog.md and begin work**
+
+## Example Session
+
+**Session 1:**
+> "Creating WorkLog v1 for payment integration. HIGH priority: Stripe setup."
+
+[Implements Stripe configuration]
+
+> "Updated WorkLog v1: Stripe configured. Next HIGH: checkout endpoint."
+
+**Session 2:**
+> "From WorkLog v1, progress 30%. Continuing with HIGH priority: checkout endpoint."
+
+[Implements checkout]
+
+> "Updated WorkLog v2: Checkout complete (60% progress). Remaining: webhook handling and tests."
 
 ## User Communication
 
-**At session start:**
-> "I'll track our progress in DEVLOG.md in your working directory. This file will persist across sessions so we can build on previous work. Each session, I'll read the file to understand where we left off."
+- **After update:** "Updated WorkLog v{N}. Progress: [summary]"
+- **New session:** "From WorkLog v{N}, status: {status}. Last: [summary]. Continuing with HIGH: [item]"
+- **Blocked:** "Updated WorkLog status to blocked: [reason]. Waiting on [owner/resource]."
 
-**After first update:**
-> "I've created DEVLOG.md with this session's work. The file is located at [path]. In your next session, I'll read this file to continue from where we left off."
+## Backup Recommendations
 
-**At start of new session:**
-> "From DEVLOG.md, I can see we previously [summary of past work]. Let me continue from where we left off..."
-
-## Example
-
-**Session 1:** "I'll track progress in DEVLOG.md. [Setup API] Updated: Express setup, TypeScript decision, next: endpoints."
-
-**Session 2:** "From DEVLOG: setup complete. [Implements] Updated: GET/POST endpoints, validation, next: database."
-
-## Integration with MCP Memory Servers (Optional)
-
-For users who want more sophisticated memory, consider recommending MCP memory servers:
-
-```
-If you want more persistent memory across all your Claude Desktop sessions (not just this project), consider setting up the Claude Memory MCP server. It provides:
-- Cross-project memory
-- SQLite-backed storage
-- Semantic search of past conversations
-- User preferences and context
-
-See: https://github.com/modelcontextprotocol/servers
-```
-
-## Windows-Specific Tips
-
-### File Paths
-```python
-# Use pathlib for cross-platform compatibility
-from pathlib import Path
-
-devlog_path = Path('DEVLOG.md')  # Works on Windows and Mac
-
-# Or use os.path
-import os
-devlog_path = os.path.join(os.getcwd(), 'DEVLOG.md')
-```
-
-### Windows Path Handling
-```python
-# Handle Windows backslashes
-import os
-from pathlib import Path
-
-# Pathlib handles this automatically
-devlog_path = Path('C:/Users/YourName/Projects/DEVLOG.md')
-
-# Or normalize paths
-devlog_path = os.path.normpath('C:\\Users\\YourName\\Projects\\DEVLOG.md')
-```
-
-### File Permissions
-```python
-# Check if file is writable
-devlog_path = Path('DEVLOG.md')
-
-if devlog_path.exists():
-    if os.access(devlog_path, os.W_OK):
-        print("Can write to progress file")
-    else:
-        print("Progress file is read-only - check permissions")
-```
-
-## Troubleshooting
-
-### Can't Find Progress File
-
-```python
-import os
-from pathlib import Path
-
-# List all potential progress files
-for root, dirs, files in os.walk('.'):
-    for file in files:
-        if 'PROGRESS' in file or 'DEVLOG' in file:
-            print(f"Found: {os.path.join(root, file)}")
-```
-
-### File Encoding Issues
-
-```python
-# Always specify encoding on Windows
-with open('DEVLOG.md', 'a', encoding='utf-8') as f:
-    f.write(entry)
-
-# Reading with encoding
-with open('DEVLOG.md', 'r', encoding='utf-8') as f:
-    content = f.read()
-```
-
-### Sharing Across Team
-
-If multiple people use Claude Desktop on the same project:
-
-1. **Commit to git**: Track DEVLOG.md in version control
-2. **Use shared drive**: Place in OneDrive/Dropbox
-3. **Merge strategy**: Use timestamps to merge multiple people's entries
-4. **Separate files**: Each person has their own PROGRESS_[name].md
-
-## Best Practices
-
-1. **Consistent location**: Decide on one location and stick to it
-2. **Regular reading**: Start each session by reading the progress file
-3. **Backup important entries**: Save critical decisions elsewhere too
-4. **Keep it focused**: Log meaningful progress, not every detail
-5. **Archive periodically**: Move old entries to PROGRESS_ARCHIVE.md
-6. **Use descriptive session titles**: Makes scanning easier
-7. **Reference file locations**: Include file paths when documenting code changes
+Suggest to user:
+> "Consider backing up WorkLog.md regularly, especially after major milestones. You can:
+> - Copy to cloud storage
+> - Commit to git (if using git)
+> - Keep alongside project files"
