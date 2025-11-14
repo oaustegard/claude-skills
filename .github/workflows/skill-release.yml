@@ -144,11 +144,11 @@ jobs:
             SKILL_README_CONTENT=$(cat "$SKILL_DIR/README.md" 2>/dev/null || echo "No README found for this skill.")
             SKILL_FOLDER_URL="https://github.com/${{ github.repository }}/tree/main/$SKILL_DIR"
             SKILL_DESCRIPTION_HEADER=$(cat <<EOF
-$SKILL_README_CONTENT
+          $SKILL_README_CONTENT
 
-**Skill folder:** [$SKILL_DIR]($SKILL_FOLDER_URL)
-EOF
-)
+          **Skill folder:** [$SKILL_DIR]($SKILL_FOLDER_URL)
+          EOF
+          )
 
             # Generate release notes
             # Try to get last tag for this skill
