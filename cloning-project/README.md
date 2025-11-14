@@ -1,0 +1,3 @@
+# cloning-project
+
+Exports project instructions and knowledge files from the current Claude project. Use when users want to clone, copy, backup, or export a project's configuration and files.
