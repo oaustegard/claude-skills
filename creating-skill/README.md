@@ -1,0 +1,3 @@
+# creating-skill
+
+Creates Skills for Claude. Use when users request creating/updating skills, need skill structure guidance, or mention extending Claude's capabilities through custom skills.

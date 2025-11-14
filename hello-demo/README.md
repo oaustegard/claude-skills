@@ -1,0 +1,3 @@
+# hello-demo
+
+Delivers a static Hello World HTML demo page with bookmarklet. Use when user requests the hello demo, hello world demo, or demo page.
