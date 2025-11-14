@@ -359,7 +359,7 @@ with open('/mnt/user-data/outputs/keywords.json', 'w') as f:
 - Lower scores indicate more important keywords
 - YAKE is unsupervised - no training data required
 - **Supports 34 languages** - built-in stopwords for Arabic, Bulgarian, Chinese, Czech, Danish, Dutch, English, Estonian, Farsi, Finnish, French, German, Greek, Hindi, Croatian, Hungarian, Armenian, Indonesian, Italian, Japanese, Lithuanian, Latvian, Norwegian, Polish, Portuguese, Romanian, Russian, Slovak, Slovenian, Spanish, Swedish, Turkish, Ukrainian, and more
-- Optimal n-gram size is 3 for most use cases
+- Optimal n-gram size is 2 or 3 for most use cases
 - For longer technical phrases (4+ words), consider post-processing or ontology matching
 - Always specify full venv path: `/home/claude/yake-venv/bin/python`
 
