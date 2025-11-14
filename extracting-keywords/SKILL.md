@@ -1,6 +1,6 @@
 ---
 name: extracting-keywords
-description: Extract keywords from documents using YAKE algorithm. Use when users request keyword extraction, key terms, topic identification, or content summarization from text documents. Supports standard English and life sciences domain stopwords.
+description: Extract keywords from documents using YAKE algorithm with support for 34 languages (Arabic to Chinese). Use when users request keyword extraction, key terms, topic identification, content summarization, or document analysis. Includes domain-specific stopwords for AI/ML and life sciences. Optional deeper extraction mode (n=2+n=3 combined) for comprehensive coverage.
 ---
 
 # Extracting Keywords
@@ -22,18 +22,31 @@ This reuses system packages (numpy, networkx) instead of downloading them (~0.08
 
 ## Stopwords Configuration
 
-Two stopwords lists are bundled in `assets/`:
+**Built-in YAKE stopwords (34 languages):** Use `lan="<code>"` parameter
+- See Parameters section below for all 34 supported language codes
+- English (`lan="en"`) is the default
 
-**English (default):** `stopwords_en.txt`
-- Standard English stopwords (575 words)
-- Use for general text, technical documentation, non-domain-specific content
+**Custom domain stopwords (bundled in `assets/`):**
+
+**AI/ML:** `stopwords_ai.txt`
+- English stopwords + 783 AI/ML domain-specific terms (1357 total)
+- Filters AI/ML methodology noise (model, training, network, algorithm, parameter)
+- Filters ML boilerplate (dataset, baseline, benchmark, experiment, evaluation)
+- Filters technical terms (transformer, embedding, attention, optimization, inference)
+- Includes full lemmatization (train/trains/trained/training/trainer)
+- Use for AI/ML papers, technical reports, machine learning literature
+- **Performance impact:** +4-5% runtime vs English stopwords
 
 **Life Sciences:** `stopwords_ls.txt`
-- English stopwords + 102 domain-specific terms
+- English stopwords + 719 life sciences domain-specific terms (1293 total)
 - Filters research methodology noise (study, results, analysis, significant, observed)
 - Filters academic boilerplate (paper, manuscript, publication, review, editing)
-- Filters statistical terms (p-value, correlation, model, prediction)
+- Filters statistical terms (correlation, distribution, deviation, variance)
+- Filters clinical terms (patient, treatment, diagnosis, symptom, therapy)
+- Filters biology/medicine (cell, tissue, protein, gene, organism)
+- Includes full lemmatization (analyze/analyzes/analyzed/analyzing/analysis)
 - Use for biomedical papers, clinical studies, research articles, scientific literature
+- **Performance impact:** +4-5% runtime vs English stopwords
 
 ## Basic Usage
 
@@ -88,12 +101,110 @@ kw_extractor = yake.KeywordExtractor(
 )
 ```
 
+### Using AI/ML Stopwords
+
+```python
+# Load AI/ML stopwords
+with open('/mnt/skills/user/extracting-keywords/assets/stopwords_ai.txt', 'r') as f:
+    ai_stops = set(line.strip().lower() for line in f)
+
+# Extract with AI stopwords
+kw_extractor = yake.KeywordExtractor(
+    stopwords=ai_stops,
+    n=3,
+    top=20
+)
+keywords = kw_extractor.extract_keywords(text)
+```
+
+## Deeper Extraction (n=2 + n=3 Combined)
+
+For more comprehensive extraction, run both n=2 and n=3 and consolidate results. This captures both focused phrases and broader context with ~100% time overhead (still <2s for large documents).
+
+```python
+import yake
+
+# Load domain stopwords
+with open('/mnt/skills/user/extracting-keywords/assets/stopwords_ai.txt', 'r') as f:
+    stops = set(line.strip().lower() for line in f)
+
+# Extract with n=2 (captures focused phrases)
+kw_n2 = yake.KeywordExtractor(stopwords=stops, n=2, dedupLim=0.9, top=50)
+results_n2 = kw_n2.extract_keywords(text)
+
+# Extract with n=3 (captures broader context)
+kw_n3 = yake.KeywordExtractor(stopwords=stops, n=3, dedupLim=0.9, top=50)
+results_n3 = kw_n3.extract_keywords(text)
+
+# Consolidate: union with score averaging for overlaps
+combined = {}
+for kw, score in results_n2:
+    combined[kw] = score
+for kw, score in results_n3:
+    if kw in combined:
+        combined[kw] = (combined[kw] + score) / 2
+    else:
+        combined[kw] = score
+
+# Sort by score (lower = more important)
+consolidated = sorted(combined.items(), key=lambda x: x[1])
+
+# Display top 30
+for kw, score in consolidated[:30]:
+    print(f"{score:.4f}  {kw}")
+```
+
+**Benefits:**
+- n=2 extracts cleaner domain-specific phrases ("disk move", "error rate")
+- n=3 captures contextual combinations ("Move disk 1", "per-step error rate")
+- Consolidation provides richer keyword set for topic modeling or search indexing
+
+**Performance:**
+- Combined approach: ~2x runtime of single extraction
+- Typical timing: 0.4s (small doc) to 1.0s (large doc)
+- Use when quality matters more than speed
+
 ## Parameters
 
 **lan** (str): Language code for built-in stopwords
 - `"en"` - English (default)
-- `"ls"` - Life sciences (if stopwords_ls.txt installed)
-- See YAKE docs for other language codes
+- `"ai"` - AI/ML (if stopwords_ai.txt installed in YAKE)
+- `"ls"` - Life sciences (if stopwords_ls.txt installed in YAKE)
+
+**Built-in YAKE languages (34 total):**
+- `"ar"` - Arabic
+- `"bg"` - Bulgarian  
+- `"br"` - Breton
+- `"cz"` - Czech
+- `"da"` - Danish
+- `"de"` - German
+- `"el"` - Greek
+- `"es"` - Spanish
+- `"et"` - Estonian
+- `"fa"` - Farsi/Persian
+- `"fi"` - Finnish
+- `"fr"` - French
+- `"hi"` - Hindi
+- `"hr"` - Croatian
+- `"hu"` - Hungarian
+- `"hy"` - Armenian
+- `"id"` - Indonesian
+- `"it"` - Italian
+- `"ja"` - Japanese
+- `"lt"` - Lithuanian
+- `"lv"` - Latvian
+- `"nl"` - Dutch
+- `"no"` - Norwegian
+- `"pl"` - Polish
+- `"pt"` - Portuguese
+- `"ro"` - Romanian
+- `"ru"` - Russian
+- `"sk"` - Slovak
+- `"sl"` - Slovenian
+- `"sv"` - Swedish
+- `"tr"` - Turkish
+- `"uk"` - Ukrainian
+- `"zh"` - Chinese
 
 **n** (int): Maximum n-gram size (default: 3)
 - `1` - Single words only
@@ -186,6 +297,36 @@ for filename, keywords in results.items():
         print(f"  {score:.4f}  {kw}")
 ```
 
+### Multilingual Extraction
+
+```python
+import yake
+
+# French document
+with open('/mnt/user-data/uploads/article_fr.txt', 'r') as f:
+    french_text = f.read()
+
+# Extract with French stopwords
+kw_fr = yake.KeywordExtractor(lan="fr", n=3, top=20)
+keywords_fr = kw_fr.extract_keywords(french_text)
+
+print("Mots-clés (French):")
+for kw, score in keywords_fr:
+    print(f"  {score:.4f}  {kw}")
+
+# German document
+with open('/mnt/user-data/uploads/artikel_de.txt', 'r') as f:
+    german_text = f.read()
+
+# Extract with German stopwords
+kw_de = yake.KeywordExtractor(lan="de", n=3, top=20)
+keywords_de = kw_de.extract_keywords(german_text)
+
+print("\nSchlüsselwörter (German):")
+for kw, score in keywords_de:
+    print(f"  {score:.4f}  {kw}")
+```
+
 ## Output Formats
 
 ### Plain Text
@@ -217,7 +358,7 @@ with open('/mnt/user-data/outputs/keywords.json', 'w') as f:
 
 - Lower scores indicate more important keywords
 - YAKE is unsupervised - no training data required
-- Works across 30+ languages
+- **Supports 34 languages** - built-in stopwords for Arabic, Bulgarian, Chinese, Czech, Danish, Dutch, English, Estonian, Farsi, Finnish, French, German, Greek, Hindi, Croatian, Hungarian, Armenian, Indonesian, Italian, Japanese, Lithuanian, Latvian, Norwegian, Polish, Portuguese, Romanian, Russian, Slovak, Slovenian, Spanish, Swedish, Turkish, Ukrainian, and more
 - Optimal n-gram size is 3 for most use cases
 - For longer technical phrases (4+ words), consider post-processing or ontology matching
 - Always specify full venv path: `/home/claude/yake-venv/bin/python`
