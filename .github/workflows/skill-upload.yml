@@ -18,6 +18,9 @@ jobs:
         with:
           fetch-depth: 2  # Fetch current commit and parent to enable diff
 
+      - name: Install PyYAML
+        run: pip install pyyaml
+
       - name: Process All Skill Uploads
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -162,6 +165,34 @@ jobs:
             # Copy skill files (exclude VCS directories and VERSION file)
             # VERSION files are workflow metadata, not part of the skill content
             rsync -av --delete --exclude='.git' --exclude='.svn' --exclude='.hg' --exclude='VERSION' "$EXTRACTED_PATH/" "$SKILL_DIR_NAME/"
+
+            # Generate README.md from SKILL.md frontmatter
+            echo "Generating README.md using Python..."
+            python -c "
+import yaml, os, re
+
+skill_md_path = os.path.join('$SKILL_DIR_NAME', 'SKILL.md')
+readme_path = os.path.join('$SKILL_DIR_NAME', 'README.md')
+
+try:
+    with open(skill_md_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+        match = re.search(r'^---\\s*\\n(.*?\\n)---\\s*\\n', content, re.DOTALL)
+        if match:
+            frontmatter_str = match.group(1)
+            frontmatter = yaml.safe_load(frontmatter_str)
+            if frontmatter and 'name' in frontmatter and 'description' in frontmatter:
+                readme_content = f\"# {frontmatter['name']}\\n\\n{frontmatter['description']}\\n\"
+                with open(readme_path, 'w', encoding='utf-8') as rf:
+                    rf.write(readme_content)
+                print('✓ Generated README.md')
+            else:
+                print('⚠️  Frontmatter is missing name or description.')
+        else:
+            print('⚠️  Could not find frontmatter in SKILL.md.')
+except Exception as e:
+    print(f'An error occurred: {e}')
+"
 
             # Create symlink in .claude/skills/ for project-level skill availability
             echo "Creating symlink in .claude/skills/"
