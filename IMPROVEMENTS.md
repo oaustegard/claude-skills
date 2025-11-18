@@ -4,19 +4,45 @@
 **Branch:** claude/log-skill-improvements-011CUy5nyNw8YGjkGWmYvTg4
 **Skills Analyzed:** 16
 
+**Last Updated:** 2025-11-18
+
+## ⚠️ UPDATE: README.md Clarification
+
+**README.md files are NOT anti-patterns in this repository.** They are auto-generated from SKILL.md frontmatter and automatically removed during the release process. They do not appear in final skill bundles. References to README.md as an anti-pattern in this document are **no longer valid**.
+
+AGENTS.md has been updated to reflect this clarification.
+
+## Implementation Status (as of 2025-11-18)
+
+### ✅ Phase 1 Complete
+- ✅ creating-skill reduced from 511→410 lines
+- ✅ preact-developer duplicate deleted entirely
+- ✅ All skills now under 500-line limit
+
+### ✅ Phase 2 Partial
+- ✅ check-tools description condensed
+- ✅ check-tools reduced from 473→431 lines
+- ⏳ convening-experts examples/ consolidation (pending)
+- ⏳ developing-preact description review (pending)
+
+### Token Savings Achieved
+- **~440 tokens saved** from Phase 1 completions
+
+---
+
 ## Executive Summary
 
 Analysis of all 16 skills reveals 3 critical issues, 3 high-priority improvements, and multiple optimization opportunities. Total potential token savings: **~480 tokens per session**.
 
-### Critical Issues
-- **1 skill exceeds 500-line limit** (creating-skill: 511 lines)
-- **1 duplicate skill pair** (developing-preact / preact-developer: 95%+ identical)
-- **1 anti-pattern violation** (preact-developer has README.md)
+### Critical Issues (RESOLVED)
+- ✅ **1 skill exceeds 500-line limit** (creating-skill: 511 lines) - NOW 410 lines
+- ✅ **1 duplicate skill pair** (developing-preact / preact-developer: 95%+ identical) - DELETED
+- ~~**1 anti-pattern violation** (preact-developer has README.md)~~ - NOT AN ANTI-PATTERN (see update above)
 
 ### Key Findings
-- 3 skills exceed or approach 500-line limit
-- 2 skills have redundant/duplicate content
-- 1 skill has non-standard directory structure
+- ~~3 skills exceed or approach 500-line limit~~ - ALL NOW COMPLIANT
+- ~~2 skills have redundant/duplicate content~~ - RESOLVED
+- 1 skill has non-standard directory structure (convening-experts examples/)
 - Multiple skills have verbose frontmatter descriptions
 
 ---
