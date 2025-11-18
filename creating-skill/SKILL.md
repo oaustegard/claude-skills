@@ -5,406 +5,275 @@ description: Creates Skills for Claude. Use when users request creating/updating
 
 # Creating Skills
 
-When users request skill creation, follow this workflow.
+Create portable, reusable expertise that extends Claude's capabilities across contexts.
 
-## Skill Creation Workflow
+## When to Create Skills
 
-### Step 1: Gather Requirements
+Skills are appropriate when:
+- Capability needed across multiple projects/conversations
+- Procedural knowledge that applies broadly (not project-specific)
+- Instructions should activate automatically on trigger patterns
+- Want portable expertise that loads progressively on-demand
 
-Ask the user:
-- "What tasks should this skill support?"
-- "Can you give examples of how it would be used?"
-- "What would trigger this skill?"
+Not appropriate when:
+- Context is project-specific (use Project instructions instead)
+- One-off task (use standalone prompt instead)
+- See **crafting-instructions** skill for detailed decision framework
 
-Gather concrete examples before proceeding.
+## Skill Structure
 
-### Step 2: Determine Skill Complexity
+Every skill is a directory containing:
+- `SKILL.md` (required): Frontmatter + imperative instructions
+- `scripts/` (optional): Executable code for deterministic operations
+- `references/` (optional): Detailed docs loaded on-demand
+- `assets/` (optional): Templates/files used in output
 
-**Simple skill** (SKILL.md only):
-- Single workflow or pattern
-- All guidance fits in ~200 lines
-- No repeated code generation
-
-**Medium skill** (SKILL.md + references):
-- Multiple workflows or domains
-- Detailed reference material (API docs, schemas)
-- 200-500 lines total
-
-**Complex skill** (SKILL.md + references + scripts):
-- Deterministic operations needed (validation, transformation)
-- Would require Claude to repeatedly write similar code
-
-**Decision:** 
-- Will Claude repeatedly write similar code? → Add scripts/
-- Is there detailed domain knowledge (>100 lines)? → Add references/
-- Are there templates or assets for output? → Add assets/
-- Everything fits in SKILL.md? → SKILL.md only
-
-### Step 3: Initialize Skill Structure
-
-Run the initialization script:
-
+Create this structure directly:
 ```bash
-scripts/init_skill.sh --name <skill-name>
+mkdir -p skill-name/{scripts,references,assets}
 ```
 
-**Naming convention:** Use gerund form (verb + -ing):
-- Good: `processing-pdfs`, `analyzing-spreadsheets`, `creating-reports`
-- Bad: `pdf-helper`, `spreadsheet-tool`, `report-maker`
+Delete unused directories before packaging.
 
-This creates:
-```
-skill-name/
-├── SKILL.md (template with TODOs)
-├── scripts/ (for executable code)
-├── references/ (for detailed docs)
-└── assets/ (for templates/output files)
-```
+## Naming Convention
 
-Delete unused directories.
+Use gerund form (verb + -ing):
+- ✅ `processing-pdfs`, `analyzing-data`, `creating-reports`
+- ❌ `pdf-helper`, `data-tool`, `report-maker`
 
-### Step 4: Write SKILL.md
-
-**For small files (<200 lines):** Use `create_file` to write complete files.
-
-**For large files (>200 lines):** Build iteratively with `str_replace`:
-1. Remove template or use str_replace to modify sections incrementally
-2. Verify structure after major sections
-3. This reduces token consumption vs single massive create_file operations
-
-After init_skill.sh creates the template, either:
-- Modify the template incrementally with `str_replace` 
-- Or remove and recreate: `bash -c "rm /home/claude/skill-name/SKILL.md && create_file..."`
-
-#### Required Frontmatter
-
-```yaml
----
-name: skill-name
-description: What the skill does. Use when [trigger patterns].
----
-```
-
-**name requirements:**
+Requirements:
 - Lowercase letters, numbers, hyphens only
 - Max 64 characters
 - No reserved words (anthropic, claude)
 
-**description requirements:**
-- Max 1024 characters
-- Third person voice ("Processes files" not "I process files")
-- Include WHAT it does and WHEN to use it
-- List trigger patterns: file types, keywords, tasks
+## Frontmatter Requirements
+
+```yaml
+---
+name: skill-name
+description: What it does. Use when [trigger patterns].
+---
+```
+
+**name:** Follow naming convention above
+
+**description:** (max 1024 chars)
+- Third person voice: "Processes files" not "I process files"
+- WHAT it does + WHEN to use it (trigger patterns)
+- Specify: file types, keywords, task types that should activate this skill
 - No XML tags
 
-**Good descriptions:**
+**Good examples:**
 - "Creates PowerPoint presentations. Use when users mention slides, .pptx files, or presentations."
-- "Analyzes SQL queries. Use when debugging slow queries or optimizing database operations."
+- "Analyzes SQL queries for performance. Use when debugging slow queries, optimization requests, or EXPLAIN output."
 
-**Bad descriptions:**
-- "I can help you create presentations" (first person)
-- "Presentation creator" (no trigger patterns)
-- "Creates presentations with slides and animations using advanced features" (too much implementation detail)
+**Ineffective examples:**
+- "I can help create presentations" (first person, no triggers)
+- "Presentation creator" (no triggers, vague what)
+- "Advanced presentation creation with animations" (over-detailed implementation)
 
-**Handling init_skill.sh templates:**
+The description is critical—it determines when Claude activates this skill.
 
-After running init_skill.sh, a template SKILL.md exists. To replace it:
+## Writing Effective SKILL.md
 
-```bash
-# Option 1: Remove then create (for complete rewrites)
-rm /home/claude/skill-name/SKILL.md
-# Then use create_file
+Apply **crafting-instructions** principles:
 
-# Option 2: Modify incrementally (preferred for large files)
-# Use str_replace to update template sections one at a time
-```
+### Imperative Construction
+Frame as direct commands:
+- ✅ "Extract text with pdfplumber" / "Validate output with script"
+- ❌ "Consider extracting..." / "You might want to validate..."
 
-**Never** attempt create_file on an existing file - it will fail and waste tokens.
+### Strategic Over Procedural
+Specify goals and decision frameworks, not step-by-step procedures:
+- ✅ "Create skill directory structure. Delete unused resource directories."
+- ❌ "Step 1: mkdir skill-name. Step 2: mkdir scripts. Step 3: mkdir references..."
 
-#### Body Structure
+Provide steps only when order is non-obvious or fragile.
 
-Write in imperative voice with clear instructions:
+### Trust Base Behavior
+Claude already knows:
+- Basic programming patterns, common tools, file operations
+- How to structure clear output, format markdown
+- General best practices for code quality
 
-```markdown
-# Skill Name
+Only specify skill-specific deviations or domain expertise Claude lacks.
 
-When users request [trigger]:
-1. [Action]
-2. [Action]
-3. [Action]
+### Positive Directive Framing
+State what TO do, not what to avoid:
+- ✅ "Write in imperative voice with direct instructions"
+- ❌ "Don't use suggestive language or tentative phrasing"
 
-## Workflow Pattern A
+Frame requirements positively because it's clearer and more actionable.
 
-For [condition]:
-- [Instruction]
-- [Instruction]
+### Provide Context
+Explain WHY for non-obvious requirements:
+- ✅ "Keep SKILL.md under 500 lines to enable progressive loading—move detailed content to references/"
+- ❌ "Keep SKILL.md under 500 lines"
 
-## Workflow Pattern B
+Context helps Claude make good autonomous decisions in edge cases.
 
-For [different condition]:
-- [Different instruction]
-```
+### Example Quality
+Examples teach ALL patterns, including unintended ones. Ensure every aspect demonstrates desired behavior. Better to omit examples than include mixed signals.
 
-**Key principles:**
-- Direct instructions to Claude, not documentation about Claude
-- Assume Claude's intelligence - don't over-explain
-- Use code examples over verbose explanations
-- Keep SKILL.md under 500 lines
-- Progressive disclosure: move detailed content to references/
+**For comprehensive prompting guidance**, invoke **crafting-instructions** skill.
 
-**For token optimization strategies, see:** [references/optimization-techniques.md](references/optimization-techniques.md)
+## Bundled Resources Patterns
 
-For computational workflows, see [references/environment-reference.md](references/environment-reference.md) for file structure, pre-installed packages, and common patterns.
+### scripts/
+Add when Claude would repeatedly write similar code:
+- Validation logic (schema checking, format verification)
+- Complex transformations (data normalization, format conversion)
+- Deterministic operations requiring exact consistency
 
-### Step 5: Version Control Integration
+Scripts should have explicit error handling and clear variable names.
 
-**REQUIRED: Use versioning-skills after ANY file modification.**
+### references/
+Add when:
+- SKILL.md approaching 500 lines
+- Detailed domain knowledge (API docs, schemas, specifications)
+- Content applies to specific use cases only, not core workflow
 
-After initializing the skill:
+Keep references one level deep (avoid file1 → file2 → file3 chains).
 
-```bash
-cd /home/claude/skill-name
-git init && git add . && git commit -m "Initial: skill structure"
-```
+### assets/
+Add for:
+- Templates users will receive in output
+- Files copied/referenced but not loaded into context
+- Images, fonts, static resources
 
-After each str_replace or create_file operation:
+Assets save tokens—they're used but not read into context.
 
-```bash
-cd /home/claude/skill-name
-git add .
-git commit -m "Update: describe change"
-```
+**Decision framework:** Will Claude repeatedly generate similar code? → scripts/. Is there extensive domain knowledge? → references/. Are there output templates? → assets/. Otherwise SKILL.md only.
 
-**Commit message patterns:**
-- `"Initial: skill structure"` - After init_skill.sh
-- `"Add: [feature]"` - New functionality
-- `"Fix: [issue]"` - Corrections
-- `"Update: [section]"` - Content changes
-- `"Refactor: [component]"` - Structural changes
+## Progressive Disclosure
 
-This enables rollback, change comparison, and experimental branching. See versioning-skills for full capabilities.
+Skills load in three tiers:
+1. **Metadata** (name + description): Always loaded for all skills
+2. **SKILL.md body**: Loaded when skill activates
+3. **Bundled resources**: Loaded as Claude reads them
 
-### Step 6: Add Bundled Resources
+Keep SKILL.md focused on core workflows (~500 lines max). Move detailed content to references/ for on-demand loading. This enables context-efficient skill ecosystems.
 
-Add scripts/, references/, or assets/ as needed:
-- **scripts/**: Executable code for validation/transformation (see [references/bundled-resources.md](references/bundled-resources.md))
-- **references/**: Detailed docs for specific use cases (group by domain, keep one level deep)
-- **assets/**: Templates and files for output (not loaded into context)
+## Token Efficiency
 
-Delete unused directories. For detailed guidance, MCP tool patterns, and examples, see [references/bundled-resources.md](references/bundled-resources.md).
+Challenge each line: Does Claude really need this explanation? Can I assume Claude knows this? Does this justify its token cost?
 
-### Step 6: Package Skill
+Prefer concise patterns:
+- Code examples over verbose explanations
+- Decision frameworks over exhaustive lists
+- Strategic goals over procedural steps
 
-**DO NOT use scripts/package_skill.py - it has been removed.**
+## Packaging & Delivery
 
-Package the skill directly:
-
+Create ZIP archive:
 ```bash
 cd /home/claude
 zip -r /mnt/user-data/outputs/skill-name.zip skill-name/
 ```
 
-**Verify contents:**
+Verify contents:
 ```bash
 unzip -l /mnt/user-data/outputs/skill-name.zip
 ```
 
-**Critical:** Always show the user the packaged .zip file hierarchy:
+Show user the packaged structure:
 ```bash
 tree skill-name/
 # or
 ls -lhR skill-name/
 ```
 
-### Step 7: Provide to User
-
-Link the .zip file to the user:
-
+Provide download link:
 ```markdown
 [Download skill-name.zip](computer:///mnt/user-data/outputs/skill-name.zip)
 ```
 
-## Essential Guidelines
+## Version Control (Optional)
 
-### Concise is Key
-
-The context window is shared. Only include what Claude doesn't already know.
-
-**Challenge each line:**
-- Does Claude really need this explanation?
-- Can I assume Claude knows this?
-- Does this justify its token cost?
-
-**Good (concise):**
-```markdown
-Extract text with pdfplumber:
-```python
-import pdfplumber
-with pdfplumber.open("file.pdf") as pdf:
-    text = pdf.pages[0].extract_text()
-```
+For skills under active development, track changes:
+```bash
+cd /home/claude/skill-name
+git init && git add . && git commit -m "Initial: skill structure"
 ```
 
-**Bad (verbose):**
-```markdown
-PDFs (Portable Document Format) are files that contain text and images. 
-To extract text from a PDF, you need a library. We recommend pdfplumber 
-because it's easy to use. First install it with pip, then...
+After modifications:
+```bash
+git add . && git commit -m "Update: description of change"
 ```
 
-### Degrees of Freedom
+See **versioning-skills** for advanced patterns (rollback, branching, comparison).
 
-Match specificity to task fragility:
+## Best Practices
 
-**High freedom** (text instructions): Multiple valid approaches, context-dependent decisions
-**Medium freedom** (scripts with parameters): Preferred patterns with flexibility
-**Low freedom** (exact scripts): Fragile operations requiring consistency
+**Structure:**
+- Lead with clear overview of what skill enables
+- Group related instructions together
+- Use headings that describe goals, not procedures
+- Reference other skills/resources when appropriate
 
-### Progressive Disclosure
+**Instructions:**
+- Write TO Claude (imperative commands) not ABOUT Claude (documentation)
+- Assume Claude's intelligence—avoid over-explaining basics
+- Show code examples for complex patterns
+- Specify success criteria, let Claude determine approach
 
-SKILL.md is an overview pointing to details:
+**Content:**
+- Keep frequently-used guidance in SKILL.md
+- Move detailed/specialized content to references/
+- Include WHY context for non-obvious requirements
+- Use consistent terminology throughout
 
-1. **Metadata** (name + description): Always loaded
-2. **SKILL.md body**: Loaded when skill triggers (~500 lines max)
-3. **Bundled resources**: Loaded as needed by Claude
+**Resources:**
+- Only add bundled resources that solve real problems
+- Scripts should have error handling and clear outputs
+- References should be focused and topic-specific
+- Delete unused directories before packaging
 
-**Pattern:** Keep SKILL.md lean, move detailed content to references/.
-
-**When to split:**
-- SKILL.md approaching 500 lines
-- Content applies to specific use cases only
-- Detailed reference material (API docs, schemas)
-
-**When to keep inline:**
-- Core workflow information
-- Content used in every task
-- Essential decision trees
-
-### Token Budget Management
-
-**Large file creation is expensive.** A single 10KB create_file operation can consume 12K+ tokens.
-
-**For skills with large SKILL.md files (>500 lines):**
-1. Build iteratively using str_replace
-2. Start with skeleton structure
-3. Add sections one at a time
-4. Test functionality after each major addition
-
-**For skills with large reference files:**
-- Split into focused, topic-specific files
-- Use progressive disclosure - load only what's needed
-- Keep frequently-used content in SKILL.md, detailed content in references/
-
-**Cost comparison:**
-- Single 1000-line create_file: ~13K tokens
-- Ten 100-line str_replace operations: ~4K tokens total
-- Choose the iterative approach for large content
-
-### Common Patterns
-
-#### Validation Workflow
-
-For quality-critical tasks:
-
-```markdown
-1. Create output
-2. Validate: `python scripts/validate.py output.json`
-3. If errors: Fix and re-validate
-4. Only proceed when validation passes
-5. Apply changes
-```
-
-#### Template Pattern
-
-Provide templates for consistent output:
-
-```markdown
-Use this structure:
-
-[template here]
-
-Adapt as needed for the specific context.
-```
-
-#### Conditional Workflow
-
-Guide through decision points:
-
-```markdown
-**Creating new content?** → Follow creation workflow below
-**Editing existing content?** → Follow editing workflow below
-
-## Creation Workflow
-[steps]
-
-## Editing Workflow  
-[steps]
-```
-
-## Advanced Topics
-
-For complex scenarios, see:
-- [advanced-patterns.md](references/advanced-patterns.md) - Validation workflows, visual analysis, plan-validate-execute pattern
-- [optimization-techniques.md](references/optimization-techniques.md) - Discovery optimization, token budget management, model-specific tuning
-- [environment-reference.md](references/environment-reference.md) - Comprehensive environment patterns and detailed documentation
+**Testing:**
+- Test with 3+ real scenarios (simple, complex, edge case)
+- Verify skill activates on expected trigger patterns
+- Confirm bundled resources are accessible and functional
+- Iterate based on actual usage, not assumptions
 
 ## Quality Checklist
 
 Before providing skill to user:
 
+**Metadata:**
+- [ ] Name: lowercase, hyphens, gerund form, max 64 chars
+- [ ] Description: third person, includes WHAT + WHEN triggers, max 1024 chars, no XML
+
 **Structure:**
-- [ ] Name: lowercase, hyphens, max 64 chars
-- [ ] Description: third person, what+when, max 1024 chars, no XML
-- [ ] SKILL.md under 500 lines
-- [ ] References one level deep
+- [ ] SKILL.md under 500 lines (move extras to references/)
 - [ ] Unused directories deleted
+- [ ] References one level deep (no long chains)
 
 **Content:**
-- [ ] Written in imperative voice (instructions to Claude)
-- [ ] No over-explanations of basic concepts
-- [ ] Concrete examples, not abstract explanations
-- [ ] Consistent terminology throughout
-- [ ] Package installation instructions included
+- [ ] Imperative voice throughout
+- [ ] Positive directives (not negative restrictions)
+- [ ] Strategic goals over procedural steps where possible
+- [ ] Context provided for non-obvious requirements
+- [ ] Examples perfectly demonstrate desired patterns
+- [ ] Consistent terminology
 
-**Scripts (if present):**
-- [ ] Scripts solve problems (don't punt to Claude)
-- [ ] Error handling is explicit
-- [ ] All values documented (no "voodoo constants")
-- [ ] Scripts tested and working
+**Resources:**
+- [ ] Scripts solve actual problems (not punting to Claude)
+- [ ] Scripts have error handling and clear outputs
+- [ ] References are focused and topic-specific
+- [ ] Assets are templates/files for output
 
 **Testing:**
-- [ ] Tested with 3+ real usage scenarios (simple, complex, failure)
-- [ ] Verified skill activates on expected triggers
-- [ ] Checked that bundled resources are accessible
+- [ ] Tested on 3+ real scenarios
+- [ ] Activates on expected triggers
+- [ ] Bundled resources accessible
+- [ ] Package structure verified
 
-## Anti-Patterns to Avoid
+## Advanced Topics
 
-**Don't:**
-- Create large files (>500 lines) in single create_file operations
-- Use `str_replace` for entire file contents (use `create_file`)
-- Write documentation about Claude (write instructions to Claude)
-- Over-explain what Claude already knows
-- Use first person in descriptions ("I can help...")
-- Assume packages are installed without instructions
-- Nest references deeply (file1 → file2 → file3)
-- Use Windows-style paths (use forward slashes)
-- Add unnecessary documentation files (README.md, CHANGELOG.md)
-- Create skills without testing them
-- Include untested scripts
-- Split tiny files unnecessarily
-- Write vague error messages in scripts
-- Mix terminology for same concept
-- Forget MCP server prefixes (use `ServerName:tool_name`)
-- Pass file paths to scripts expecting directories
-
-## Iteration
-
-After creating a skill:
-
-1. Use it on real tasks (not synthetic examples)
-2. Observe where Claude struggles or succeeds
-3. Update SKILL.md or bundled resources based on observations
-4. Test again on similar requests
-5. Repeat until effective
-
-Skills improve through usage observation, not assumptions.
+For complex skill patterns, see:
+- **crafting-instructions** skill - Comprehensive prompting principles
+- **versioning-skills** skill - Git-based development workflow
+- [references/advanced-patterns.md](references/advanced-patterns.md) - Validation workflows, multi-stage patterns
+- [references/optimization-techniques.md](references/optimization-techniques.md) - Token budget management
+- [references/bundled-resources.md](references/bundled-resources.md) - Detailed resource patterns and examples
+- [references/environment-reference.md](references/environment-reference.md) - Environment-specific patterns

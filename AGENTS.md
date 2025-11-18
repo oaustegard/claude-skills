@@ -58,16 +58,16 @@ claude-skills/
 
 ### Creating a New Skill
 
-**Note**: The init_skill.sh script shown below expects to run in a specific skill development environment (references `/home/claude/`, `/mnt/user-data/outputs/`, etc.) which differs from this repository checkout.
+**Note**: Skill creation typically happens in a skill development environment (using paths like `/home/claude/`, `/mnt/user-data/outputs/`, etc.) which differs from this repository checkout.
 
 The conceptual workflow when creating skills:
 
-1. Initialize structure:
+1. Create skill directory structure:
    ```bash
-   creating-skill/scripts/init_skill.sh --name skill-name
+   mkdir -p skill-name/{scripts,references,assets}
    ```
 
-2. Edit SKILL.md with required frontmatter:
+2. Create SKILL.md with required frontmatter:
    ```yaml
    ---
    name: skill-name

@@ -465,10 +465,10 @@ logo_path = '/home/claude/logo.png'  # Won't work in different environments
 
 ## Directory Cleanup
 
-**Delete unused directories after initialization:**
+**Delete unused directories after creating skill structure:**
 
 ```bash
-# After running init_skill.sh, delete what you don't need
+# After creating skill directories, delete what you don't need
 cd /home/claude/skill-name
 
 # No scripts needed?
