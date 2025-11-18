@@ -267,8 +267,10 @@ Before uploading a skill:
 - Over-explaining what Claude already knows
 - Nesting references deeply (file1→file2→file3)
 - Including executables or binaries in skills
-- Creating README.md or CHANGELOG.md (not needed for skills)
+- Creating CHANGELOG.md files (not needed for skills)
 - Skills over 500 lines without splitting to references/
+
+**Note on README.md files**: README.md files in this repository are auto-generated from SKILL.md frontmatter and are automatically removed during the release process. They do not appear in the final skill bundle distributed to users.
 
 ## License
 
