@@ -158,17 +158,6 @@ Read: [references/skill-vs-project.md](references/skill-vs-project.md) for detai
 
 Use both together for powerful combinations.
 
-## Latest Anthropic Guidance
-
-See: [references/anthropic-guidelines.md](references/anthropic-guidelines.md)
-
-Key updates for Claude 4.x:
-- Models highly attentive to example details (all patterns replicated)
-- Simple structures preferred (headings > elaborate XML)
-- Extended thinking is UI toggle, not phrase-activated
-- Positive framing more effective than restrictions
-- Context/motivation improves autonomous decisions
-
 ## Example Quality Awareness
 
 **CRITICAL for Claude 4.x:** Examples teach ALL patterns, including unintended ones.
@@ -261,7 +250,6 @@ Before delivering instructions:
 ## Additional Resources
 
 - **creating-skill** skill - For building full Skills
-- **anthropic-guidelines.md** - Latest prompt engineering best practices
 - **project-instructions.md** - Detailed guidance for Project instructions
 - **standalone-prompts.md** - Effective prompt patterns
 - **skill-vs-project.md** - Detailed comparison and decision guidance
