@@ -42,7 +42,6 @@ claude-skills/
 │   ├── references/         # Optional: detailed docs loaded on demand
 │   └── assets/             # Optional: templates, files used in output
 ├── uploads/                # Drop zone for .zip files (triggers automation)
-├── creating-skill/         # Meta-skill: instructions for creating skills
 └── .github/workflows/      # Automation for skill uploads
     └── skill-upload.yml
 ```
@@ -119,7 +118,7 @@ When a .zip file is pushed to `uploads/`:
 
 ### Meta-Skills (Skills for Creating Skills)
 
-- **creating-skill**: Comprehensive guide for skill creation workflow, structure, and patterns. Start here when building new skills.
+- **crafting-instructions**: Comprehensive guide for creating all instruction types (Project instructions, Skills, Standalone prompts). Includes skill creation workflow, structure, and patterns.
 - **versioning-skills**: Git-based workflow for tracking changes during skill development
 - **asking-questions**: When and how to ask clarifying questions during implementation
 

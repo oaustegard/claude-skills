@@ -99,7 +99,7 @@ Key points:
 - Simple structure (headings/paragraphs) unless complexity demands more
 
 ### For Skills
-See: Creating-skill (separate skill)
+See: [references/creating-skills.md](references/creating-skills.md)
 
 Key points:
 - Progressive disclosure (metadata → full instructions → bundled resources)
@@ -249,7 +249,7 @@ Before delivering instructions:
 
 ## Additional Resources
 
-- **creating-skill** skill - For building full Skills
-- **project-instructions.md** - Detailed guidance for Project instructions
-- **standalone-prompts.md** - Effective prompt patterns
-- **skill-vs-project.md** - Detailed comparison and decision guidance
+- [references/creating-skills.md](references/creating-skills.md) - For building full Skills
+- [references/project-instructions.md](references/project-instructions.md) - Detailed guidance for Project instructions
+- [references/standalone-prompts.md](references/standalone-prompts.md) - Effective prompt patterns
+- [references/skill-vs-project.md](references/skill-vs-project.md) - Detailed comparison and decision guidance

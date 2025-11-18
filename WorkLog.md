@@ -1,5 +1,5 @@
 ---
-version: v2
+version: v3
 status: completed
 ---
 
@@ -223,3 +223,199 @@ None - all questions resolved during implementation
 - ✅ References to advanced topics retained
 - ✅ No broken links or references
 - ✅ Follows CI principles throughout
+
+## v3 | 2025-11-18 | Incorporate CS into CI with Clean Progressive Disclosure
+
+**Prev:** v2 - Creating-skill simplified and aligned with CI principles
+
+**Now:** Integrate creating-skill into crafting-instructions using proper progressive disclosure to prevent skill-specific details from bleeding into general prompting guidance
+
+**Progress:** 5% complete | Planning ✅ | Implementation ⏳
+
+**Files:**
+- `crafting-instructions/SKILL.md` (Update skill section)
+  - L101-109: Currently references separate CS skill (inconsistent with Project/Prompt)
+  - Need: Brief overview + reference pattern like other formats
+- `crafting-instructions/references/creating-skills.md` (NEW - from CS SKILL.md)
+  - Will contain skill-specific workflow, structure, packaging
+  - Remove L77-118: CI principles (redundant, parent already loaded)
+  - Keep: Skill structure, frontmatter, bundled resources, packaging, workflow
+- `crafting-instructions/references/skill-creation/` (NEW directory)
+  - Move: creating-skill/references/* → here
+  - Files: advanced-patterns.md, bundled-resources.md, optimization-techniques.md, environment-reference.md
+- `creating-skill/` (DEPRECATE or REMOVE)
+  - Skill no longer needed as separate entity
+  - Content absorbed into CI's progressive disclosure path
+
+**Work:**
+None yet (planning phase)
+
+**Decisions:**
+- **Incorporate vs Keep Separate**: CS is now 279 lines (reference-sized), heavily depends on CI principles, conceptually a subset of CI scope → Incorporate wins
+- **Progressive Disclosure Levels**:
+  - L1 (CI SKILL.md): High-level overview of all 3 formats, equal treatment
+  - L2 (creating-skills.md): Skill-specific workflow and structure details
+  - L3 (skill-creation/*.md): Advanced topics loaded only when needed
+- **Remove CI principle duplication**: CS lines 77-118 explain CI principles, redundant if CI already loaded
+- **Consistent pattern**: Project→ref, Skill→ref, Prompt→ref (all use references/)
+
+**Works:**
+TBD
+
+**Fails:**
+TBD
+
+**Blockers:** None
+
+**Next:**
+- [HIGH] Update CI SKILL.md to reference creating-skills.md (consistent pattern)
+- [HIGH] Create creating-skills.md from CS SKILL.md (remove CI duplication)
+- [HIGH] Move creating-skill/references/* to CI skill-creation/ subdirectory
+- [HIGH] Test that PD prevents bleeding (general prompting doesn't load skill details)
+- [MED] Update any references to creating-skill skill
+- [MED] Decide: deprecate or remove creating-skill/ directory
+
+**Open:**
+- Should we keep creating-skill/ as deprecated (with pointer) or remove entirely?
+- Are there external references to creating-skill skill we need to handle?
+
+## Progressive Disclosure Strategy
+
+**Goal**: Prevent skill-creation details from bleeding into general prompt engineering queries
+
+**Structure**:
+
+```
+crafting-instructions/
+├── SKILL.md (L1: Overview of all instruction types)
+│   ├── For Project Instructions → references/project-instructions.md
+│   ├── For Skills → references/creating-skills.md ← CONSISTENT
+│   └── For Standalone Prompts → references/standalone-prompts.md
+└── references/
+    ├── project-instructions.md (L2: Project-specific)
+    ├── creating-skills.md (L2: Skill-specific, NEW)
+    ├── standalone-prompts.md (L2: Prompt-specific)
+    ├── skill-vs-project.md (existing)
+    └── skill-creation/ (L3: Advanced skill topics)
+        ├── advanced-patterns.md
+        ├── bundled-resources.md
+        ├── optimization-techniques.md
+        └── environment-reference.md
+```
+
+**Loading Behavior**:
+
+Query: "Help me write better prompts"
+→ Loads: CI SKILL.md (L1)
+→ Bleeding: None ✅
+
+Query: "Create a skill for X"
+→ Loads: CI SKILL.md (L1) → creating-skills.md (L2)
+→ Bleeding: None (skill details in L2) ✅
+
+Query: "Complex validation workflow for skill"
+→ Loads: CI SKILL.md (L1) → creating-skills.md (L2) → skill-creation/advanced-patterns.md (L3)
+→ Bleeding: None (advanced details in L3) ✅
+
+**Key Changes**:
+
+1. CI SKILL.md L101-109: 
+   - Before: "See: Creating-skill (separate skill)"
+   - After: "See: [references/creating-skills.md](references/creating-skills.md)"
+
+2. creating-skills.md (NEW):
+   - From: creating-skill/SKILL.md
+   - Remove: L77-118 (CI principles duplication)
+   - Keep: Skill structure, frontmatter, bundled resources, packaging, best practices, checklist
+   - Reference: skill-creation/*.md for advanced topics
+
+3. skill-creation/ subdirectory (NEW):
+   - Move: creating-skill/references/* → crafting-instructions/references/skill-creation/
+   - Preserves: All advanced content
+   - Benefit: Clean L3 separation
+
+## v3 Implementation Complete
+
+**Work:**
++: `crafting-instructions/SKILL.md:102` (Updated to reference creating-skills.md)
++: `crafting-instructions/SKILL.md:252-255` (Updated Additional Resources links)
++: `crafting-instructions/references/creating-skills.md` (NEW - 240 lines)
++: `crafting-instructions/references/skill-creation/` (NEW directory)
++: `crafting-instructions/references/skill-creation/advanced-patterns.md` (141 lines)
++: `crafting-instructions/references/skill-creation/bundled-resources.md` (558 lines)
++: `crafting-instructions/references/skill-creation/environment-reference.md` (695 lines)
++: `crafting-instructions/references/skill-creation/optimization-techniques.md` (140 lines)
+~: `AGENTS.md:38-47` (Removed creating-skill from structure diagram)
+~: `AGENTS.md:122` (Updated meta-skills section to reference crafting-instructions)
+-: `.claude/skills/creating-skill` (Removed symlink)
+
+**Decisions (Final):**
+- **Keep creating-skill/ directory**: Yes, as deprecated with pointer to crafting-instructions
+- **Remove CI duplication in L2**: Reduced from 279 to 240 lines (14% reduction, 39 lines removed)
+- **Progressive Disclosure verified**:
+  - L1 (CI SKILL.md): 255 lines
+  - L2 (creating-skills.md): 240 lines  
+  - L3 (skill-creation/*.md): 1534 lines total
+  - Clean separation prevents bleeding ✅
+
+**Works:**
+- Progressive disclosure structure prevents skill-creation details from bleeding into general prompting
+- Consistent reference pattern across all 3 instruction types (Project→ref, Skill→ref, Prompt→ref)
+- L2 file size reduced by removing CI principle duplication (redundant when CI already loaded)
+- Advanced topics properly segregated to L3 for on-demand loading
+- Symlink removal prevents confusion (single entry point via crafting-instructions)
+
+**Fails:**
+N/A - All objectives met
+
+**Blockers:** None
+
+**Metrics:**
+- Files created: 5 (creating-skills.md + 4 skill-creation/*.md)
+- Files modified: 2 (crafting-instructions/SKILL.md, AGENTS.md)
+- Symlinks removed: 1 (.claude/skills/creating-skill)
+- Lines in L1 (overview): 255
+- Lines in L2 (skill-specific): 240 (down from 279, 14% reduction)
+- Lines in L3 (advanced): 1534 (4 files)
+- Total L2+L3: 1774 lines (well-organized for progressive loading)
+- CI duplication removed: 39 lines (L77-118 explanation of CI principles)
+
+**Progressive Disclosure Validation:**
+
+Query: "Help me write better prompts"
+→ Loads: crafting-instructions/SKILL.md (255 lines, L1)
+→ Bleeding: None ✅
+→ Skill-specific details remain in L2 (not loaded)
+
+Query: "Create a skill for processing PDFs"
+→ Loads: crafting-instructions/SKILL.md (L1) → references/creating-skills.md (L2)
+→ Total: 255 + 240 = 495 lines
+→ Bleeding: None ✅
+→ Advanced topics remain in L3 (not loaded unless Claude reads them)
+
+Query: "Show me complex validation workflows for skills"
+→ Loads: CI SKILL.md (L1) → creating-skills.md (L2) → skill-creation/advanced-patterns.md (L3)
+→ Total: 255 + 240 + 141 = 636 lines
+→ Bleeding: None ✅
+→ Only relevant L3 file loaded, not all 1534 lines
+
+**Structure Achieved:**
+```
+crafting-instructions/
+├── SKILL.md (L1: 255 lines - all instruction types)
+│   ├── § For Project Instructions → project-instructions.md
+│   ├── § For Skills → creating-skills.md
+│   └── § For Standalone Prompts → standalone-prompts.md
+└── references/
+    ├── creating-skills.md (L2: 240 lines - skill workflow)
+    ├── project-instructions.md (L2: project-specific)
+    ├── standalone-prompts.md (L2: prompt-specific)
+    ├── skill-vs-project.md (existing)
+    └── skill-creation/ (L3: 1534 lines - advanced topics)
+        ├── advanced-patterns.md (141 lines)
+        ├── bundled-resources.md (558 lines)
+        ├── environment-reference.md (695 lines)
+        └── optimization-techniques.md (140 lines)
+```
+
+**Status:** COMPLETE ✅
