@@ -1,8 +1,3 @@
----
-name: creating-skill
-description: Creates Skills for Claude. Use when users request creating/updating skills, need skill structure guidance, or mention extending Claude's capabilities through custom skills.
----
-
 # Creating Skills
 
 Create portable, reusable expertise that extends Claude's capabilities across contexts.
@@ -18,7 +13,7 @@ Skills are appropriate when:
 Not appropriate when:
 - Context is project-specific (use Project instructions instead)
 - One-off task (use standalone prompt instead)
-- See **crafting-instructions** skill for detailed decision framework
+- See main crafting-instructions guidance for detailed decision framework
 
 ## Skill Structure
 
@@ -76,46 +71,14 @@ The description is critical—it determines when Claude activates this skill.
 
 ## Writing Effective SKILL.md
 
-Apply **crafting-instructions** principles:
+Apply crafting-instructions core principles when writing skill instructions:
+- **Imperative Construction**: Direct commands, not suggestions
+- **Strategic Over Procedural**: Goals and decision frameworks, not step-by-step
+- **Trust Base Behavior**: Claude knows basics, specify only skill-specific needs
+- **Positive Directive Framing**: State what to do, not what to avoid
+- **Provide Context**: Explain WHY for non-obvious requirements
 
-### Imperative Construction
-Frame as direct commands:
-- ✅ "Extract text with pdfplumber" / "Validate output with script"
-- ❌ "Consider extracting..." / "You might want to validate..."
-
-### Strategic Over Procedural
-Specify goals and decision frameworks, not step-by-step procedures:
-- ✅ "Create skill directory structure. Delete unused resource directories."
-- ❌ "Step 1: mkdir skill-name. Step 2: mkdir scripts. Step 3: mkdir references..."
-
-Provide steps only when order is non-obvious or fragile.
-
-### Trust Base Behavior
-Claude already knows:
-- Basic programming patterns, common tools, file operations
-- How to structure clear output, format markdown
-- General best practices for code quality
-
-Only specify skill-specific deviations or domain expertise Claude lacks.
-
-### Positive Directive Framing
-State what TO do, not what to avoid:
-- ✅ "Write in imperative voice with direct instructions"
-- ❌ "Don't use suggestive language or tentative phrasing"
-
-Frame requirements positively because it's clearer and more actionable.
-
-### Provide Context
-Explain WHY for non-obvious requirements:
-- ✅ "Keep SKILL.md under 500 lines to enable progressive loading—move detailed content to references/"
-- ❌ "Keep SKILL.md under 500 lines"
-
-Context helps Claude make good autonomous decisions in edge cases.
-
-### Example Quality
-Examples teach ALL patterns, including unintended ones. Ensure every aspect demonstrates desired behavior. Better to omit examples than include mixed signals.
-
-**For comprehensive prompting guidance**, invoke **crafting-instructions** skill.
+See main crafting-instructions guidance (§ Core Optimization Principles) for details.
 
 ## Bundled Resources Patterns
 
@@ -216,6 +179,7 @@ See **versioning-skills** for advanced patterns (rollback, branching, comparison
 - Assume Claude's intelligence—avoid over-explaining basics
 - Show code examples for complex patterns
 - Specify success criteria, let Claude determine approach
+- Use fully qualified names for MCP tools: `ServerName:tool_name` (prevents collisions)
 
 **Content:**
 - Keep frequently-used guidance in SKILL.md
@@ -267,13 +231,3 @@ Before providing skill to user:
 - [ ] Activates on expected triggers
 - [ ] Bundled resources accessible
 - [ ] Package structure verified
-
-## Advanced Topics
-
-For complex skill patterns, see:
-- **crafting-instructions** skill - Comprehensive prompting principles
-- **versioning-skills** skill - Git-based development workflow
-- [references/advanced-patterns.md](references/advanced-patterns.md) - Validation workflows, multi-stage patterns
-- [references/optimization-techniques.md](references/optimization-techniques.md) - Token budget management
-- [references/bundled-resources.md](references/bundled-resources.md) - Detailed resource patterns and examples
-- [references/environment-reference.md](references/environment-reference.md) - Environment-specific patterns

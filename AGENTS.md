@@ -42,7 +42,6 @@ claude-skills/
 │   ├── references/         # Optional: detailed docs loaded on demand
 │   └── assets/             # Optional: templates, files used in output
 ├── uploads/                # Drop zone for .zip files (triggers automation)
-├── creating-skill/         # Meta-skill: instructions for creating skills
 └── .github/workflows/      # Automation for skill uploads
     └── skill-upload.yml
 ```
@@ -58,16 +57,16 @@ claude-skills/
 
 ### Creating a New Skill
 
-**Note**: The init_skill.sh script shown below expects to run in a specific skill development environment (references `/home/claude/`, `/mnt/user-data/outputs/`, etc.) which differs from this repository checkout.
+**Note**: Skill creation typically happens in a skill development environment (using paths like `/home/claude/`, `/mnt/user-data/outputs/`, etc.) which differs from this repository checkout.
 
 The conceptual workflow when creating skills:
 
-1. Initialize structure:
+1. Create skill directory structure:
    ```bash
-   creating-skill/scripts/init_skill.sh --name skill-name
+   mkdir -p skill-name/{scripts,references,assets}
    ```
 
-2. Edit SKILL.md with required frontmatter:
+2. Create SKILL.md with required frontmatter:
    ```yaml
    ---
    name: skill-name
@@ -119,7 +118,7 @@ When a .zip file is pushed to `uploads/`:
 
 ### Meta-Skills (Skills for Creating Skills)
 
-- **creating-skill**: Comprehensive guide for skill creation workflow, structure, and patterns. Start here when building new skills.
+- **crafting-instructions**: Comprehensive guide for creating all instruction types (Project instructions, Skills, Standalone prompts). Includes skill creation workflow, structure, and patterns.
 - **versioning-skills**: Git-based workflow for tracking changes during skill development
 - **asking-questions**: When and how to ask clarifying questions during implementation
 

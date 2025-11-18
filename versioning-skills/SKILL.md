@@ -1,6 +1,6 @@
 ---
 name: versioning-skills
-description: REQUIRED for all skill development. Automatically version control every skill file modification for rollback/comparison. Use after init_skill.sh, after every str_replace/create_file, and before packaging.
+description: REQUIRED for all skill development. Automatically version control every skill file modification for rollback/comparison. Use after creating skill structure, after every file modification, and before packaging.
 ---
 
 # Versioning Skills
@@ -9,7 +9,7 @@ Use git to track changes during skill development. Initialize repos after creati
 
 ## When Creating a New Skill
 
-After running init_skill.sh, immediately initialize git:
+After creating the skill directory structure, immediately initialize git:
 
 ```bash
 cd /home/claude/skill-name
@@ -165,9 +165,9 @@ zip -r /mnt/user-data/outputs/skill-name.zip skill-name/ -x "*.git*"
 ## Workflow Integration
 
 **During skill creation:**
-1. Run init_skill.sh
+1. Create skill directory structure
 2. Immediately: `git init && git add . && git commit -m "Initial structure"`
-3. Edit SKILL.md
+3. Create/edit SKILL.md
 4. Commit: `git add . && git commit -m "Add: core documentation"`
 5. Continue editing → commit after each major change
 
