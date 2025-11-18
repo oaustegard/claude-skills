@@ -179,6 +179,7 @@ See **versioning-skills** for advanced patterns (rollback, branching, comparison
 - Assume Claude's intelligence—avoid over-explaining basics
 - Show code examples for complex patterns
 - Specify success criteria, let Claude determine approach
+- Use fully qualified names for MCP tools: `ServerName:tool_name` (prevents collisions)
 
 **Content:**
 - Keep frequently-used guidance in SKILL.md
@@ -230,11 +231,3 @@ Before providing skill to user:
 - [ ] Activates on expected triggers
 - [ ] Bundled resources accessible
 - [ ] Package structure verified
-
-## Advanced Topics
-
-For complex skill patterns, see:
-- [skill-creation/advanced-patterns.md](skill-creation/advanced-patterns.md) - Validation workflows, multi-stage patterns
-- [skill-creation/optimization-techniques.md](skill-creation/optimization-techniques.md) - Token budget management
-- [skill-creation/bundled-resources.md](skill-creation/bundled-resources.md) - Detailed resource patterns and examples
-- [skill-creation/environment-reference.md](skill-creation/environment-reference.md) - Environment-specific patterns
