@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Integration Test for invoking-claude and api-credentials skills
+Integration Test for multi-agent-coordination and api-credentials skills
 
 This script demonstrates:
 1. Simple single invocation
@@ -14,7 +14,15 @@ from pathlib import Path
 # Add current directory to path
 sys.path.append(str(Path(__file__).parent))
 
-from claude_client import invoke_claude, invoke_parallel, ClaudeInvocationError
+from claude_client import (
+    invoke_claude,
+    invoke_parallel,
+    invoke_claude_streaming,
+    invoke_parallel_streaming,
+    invoke_parallel_interruptible,
+    InterruptToken,
+    ClaudeInvocationError
+)
 
 
 def test_simple_invocation():
@@ -144,6 +152,64 @@ def test_error_handling():
     return all_passed
 
 
+def test_streaming():
+    """Test streaming functionality."""
+    print("=" * 60)
+    print("TEST 5: Streaming Functionality")
+    print("=" * 60)
+
+    try:
+        response = invoke_claude_streaming(
+            "Say hello",
+            callback=lambda c: None  # Silent callback
+        )
+        assert len(response) > 0
+        print("\n✓ Streaming test passed!\n")
+        return True
+    except Exception as e:
+        print(f"\n✗ Failed: {e}\n")
+        return False
+
+
+def test_parallel_streaming():
+    """Test parallel streaming."""
+    print("=" * 60)
+    print("TEST 6: Parallel Streaming")
+    print("=" * 60)
+
+    try:
+        results = invoke_parallel_streaming([
+            {"prompt": "Say hello"},
+            {"prompt": "Say goodbye"}
+        ])
+        assert len(results) == 2
+        print(f"\n✓ Results: {results}\n")
+        return True
+    except Exception as e:
+        print(f"\n✗ Failed: {e}\n")
+        return False
+
+
+def test_interruptible():
+    """Test interruptible parallel."""
+    print("=" * 60)
+    print("TEST 7: Interruptible Parallel")
+    print("=" * 60)
+
+    try:
+        token = InterruptToken()
+        results = invoke_parallel_interruptible(
+            [{"prompt": "Say hello"}],
+            interrupt_token=token
+        )
+        assert len(results) == 1
+        print(f"\n✓ Results: {results}\n")
+        return True
+    except Exception as e:
+        print(f"\n✗ Failed: {e}\n")
+        return False
+
+
 def test_credentials_fallback():
     """Test 4: Credentials system check"""
     print("=" * 60)
@@ -179,7 +245,7 @@ def test_credentials_fallback():
 def main():
     """Run all integration tests"""
     print("\n" + "=" * 60)
-    print("INVOKING-CLAUDE SKILL INTEGRATION TESTS")
+    print("MULTI-AGENT-COORDINATION SKILL INTEGRATION TESTS")
     print("=" * 60)
     print()
 
@@ -204,6 +270,9 @@ def main():
     results = {
         "Simple Invocation": test_simple_invocation(),
         "Parallel Analysis": test_parallel_analysis(),
+        "Streaming": test_streaming(),
+        "Parallel Streaming": test_parallel_streaming(),
+        "Interruptible": test_interruptible(),
     }
 
     # Summary

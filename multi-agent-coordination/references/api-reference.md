@@ -1,6 +1,6 @@
 # Claude API Reference
 
-Detailed API documentation for the invoking-claude skill.
+Detailed API documentation for the multi-agent-coordination skill.
 
 ## API Models
 
@@ -326,6 +326,76 @@ API responses include caching metrics in usage field:
 }
 ```
 
+## Streaming Functions
+
+### `invoke_claude_streaming()`
+
+Stream responses in real-time with callback support:
+
+```python
+from claude_client import invoke_claude_streaming
+
+def progress_callback(chunk):
+    print(chunk, end='', flush=True)
+
+response = invoke_claude_streaming(
+    prompt="Write a comprehensive analysis...",
+    callback=progress_callback,
+    model="claude-sonnet-4-5-20250929",
+    max_tokens=4096
+)
+```
+
+**Use cases:**
+- Real-time user feedback
+- Long-running analyses
+- Interactive applications
+
+### `invoke_parallel_streaming()`
+
+Parallel invocations with per-agent streaming:
+
+```python
+from claude_client import invoke_parallel_streaming
+
+callbacks = [
+    lambda chunk: print(f"[Agent1] {chunk}", end=''),
+    lambda chunk: print(f"[Agent2] {chunk}", end=''),
+]
+
+results = invoke_parallel_streaming(
+    [
+        {"prompt": "Analyze security..."},
+        {"prompt": "Analyze performance..."}
+    ],
+    callbacks=callbacks
+)
+```
+
+### `invoke_parallel_interruptible()`
+
+Parallel invocations with cancellation:
+
+```python
+from claude_client import invoke_parallel_interruptible, InterruptToken
+import threading
+
+token = InterruptToken()
+
+# Run in background
+def run_tasks():
+    return invoke_parallel_interruptible(
+        prompts=[...],
+        interrupt_token=token
+    )
+
+thread = threading.Thread(target=run_tasks)
+thread.start()
+
+# Cancel if needed
+token.interrupt()
+```
+
 ## Performance Tips
 
 1. **Batch independent calls**: Use `invoke_parallel()` for concurrent execution
@@ -335,6 +405,7 @@ API responses include caching metrics in usage field:
 5. **Set reasonable max_tokens**: Don't request more than needed
 6. **Handle errors gracefully**: Implement retry logic with backoff
 7. **Monitor cache hits**: Check usage metrics to verify caching effectiveness
+8. **Use streaming for long responses**: Provides immediate feedback to users
 
 ## Security Considerations
 

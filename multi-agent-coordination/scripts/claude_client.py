@@ -6,6 +6,7 @@ and prompt caching support for optimized token usage.
 """
 
 import sys
+import threading
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Union
@@ -242,6 +243,90 @@ def invoke_claude(
         )
 
 
+def _build_messages(
+    prompt: Union[str, list[dict]],
+    cache_prompt: bool = False
+) -> list[dict]:
+    """Build messages list from prompt with optional caching."""
+    content = _format_message_with_cache(prompt, cache_prompt)
+    return [{"role": "user", "content": content}]
+
+
+def invoke_claude_streaming(
+    prompt: Union[str, list[dict]],
+    callback: callable = None,
+    model: str = "claude-sonnet-4-5-20250929",
+    system: Union[str, list[dict], None] = None,
+    max_tokens: int = 4096,
+    temperature: float = 1.0,
+    cache_system: bool = False,
+    cache_prompt: bool = False,
+    **kwargs
+) -> str:
+    """
+    Invoke Claude with streaming response.
+
+    Args:
+        prompt: User message
+        callback: Optional function called with each chunk (str) as it arrives
+        model: Claude model identifier
+        system: Optional system prompt
+        max_tokens: Maximum tokens in response
+        temperature: Sampling temperature (0-1)
+        cache_system: Add cache_control to system (requires 1024+ tokens)
+        cache_prompt: Add cache_control to user prompt (requires 1024+ tokens)
+        **kwargs: Additional API parameters
+
+    Returns:
+        Complete accumulated response text
+
+    Example:
+        def print_chunk(chunk):
+            print(chunk, end='', flush=True)
+
+        response = invoke_claude_streaming(
+            "Write a story",
+            callback=print_chunk
+        )
+    """
+    api_key = get_anthropic_api_key()
+    if not api_key:
+        raise ClaudeInvocationError("Anthropic API key not found")
+
+    client = anthropic.Anthropic(api_key=api_key)
+
+    # Format system and messages
+    formatted_system = _format_system_with_cache(system, cache_system)
+    messages = _build_messages(prompt, cache_prompt)
+
+    accumulated_text = ""
+
+    try:
+        with client.messages.stream(
+            model=model,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            system=formatted_system,
+            messages=messages,
+            **kwargs
+        ) as stream:
+            for text in stream.text_stream:
+                accumulated_text += text
+                if callback:
+                    callback(text)
+
+        return accumulated_text
+
+    except anthropic.APIError as e:
+        raise ClaudeInvocationError(
+            f"Anthropic API error: {str(e)}",
+            status_code=getattr(e, 'status_code', None),
+            details=getattr(e, 'response', None)
+        )
+    except Exception as e:
+        raise ClaudeInvocationError(f"Unexpected error: {str(e)}")
+
+
 def invoke_parallel(
     prompts: list[dict],
     model: str = "claude-sonnet-4-5-20250929",
@@ -367,6 +452,171 @@ def invoke_parallel(
             status_code=getattr(error, 'status_code', None),
             details=f"{len(errors)} of {len(prompts)} invocations failed"
         )
+
+    return results
+
+
+def invoke_parallel_streaming(
+    prompts: list[dict],
+    callbacks: list[callable] = None,
+    model: str = "claude-sonnet-4-5-20250929",
+    max_tokens: int = 4096,
+    max_workers: int = 5,
+    shared_system: Union[str, list[dict], None] = None,
+    cache_shared_system: bool = False
+) -> list[str]:
+    """
+    Parallel invocations with streaming callbacks for each sub-agent.
+
+    Args:
+        prompts: List of prompt dicts (same format as invoke_parallel)
+        callbacks: Optional list of callback functions, one per prompt
+        model: Claude model identifier
+        max_tokens: Max tokens per response
+        max_workers: Max concurrent invocations
+        shared_system: System context shared across all invocations
+        cache_shared_system: Cache the shared_system
+
+    Returns:
+        List of complete response strings
+
+    Example:
+        callbacks = [
+            lambda chunk: print(f"[Agent 1] {chunk}", end=''),
+            lambda chunk: print(f"[Agent 2] {chunk}", end=''),
+        ]
+
+        results = invoke_parallel_streaming(
+            [{"prompt": "Analyze X"}, {"prompt": "Analyze Y"}],
+            callbacks=callbacks
+        )
+    """
+    if callbacks and len(callbacks) != len(prompts):
+        raise ValueError("callbacks list must match prompts list length")
+
+    formatted_shared = _format_system_with_cache(shared_system, cache_shared_system)
+
+    def process_single(idx: int, prompt_config: dict) -> tuple[int, str]:
+        system = prompt_config.get('system', formatted_shared)
+        callback = callbacks[idx] if callbacks else None
+
+        result = invoke_claude_streaming(
+            prompt=prompt_config['prompt'],
+            callback=callback,
+            model=model,
+            system=system,
+            max_tokens=max_tokens,
+            temperature=prompt_config.get('temperature', 1.0),
+            cache_system=prompt_config.get('cache_system', False),
+            cache_prompt=prompt_config.get('cache_prompt', False)
+        )
+        return (idx, result)
+
+    results = [None] * len(prompts)
+
+    with ThreadPoolExecutor(max_workers=min(max_workers, 10)) as executor:
+        futures = {
+            executor.submit(process_single, i, config): i
+            for i, config in enumerate(prompts)
+        }
+
+        for future in as_completed(futures):
+            idx, result = future.result()
+            results[idx] = result
+
+    return results
+
+
+class InterruptToken:
+    """Thread-safe interrupt flag for cancelling operations."""
+    def __init__(self):
+        self._interrupted = threading.Event()
+
+    def interrupt(self):
+        """Signal interruption."""
+        self._interrupted.set()
+
+    def is_interrupted(self) -> bool:
+        """Check if interrupted."""
+        return self._interrupted.is_set()
+
+    def reset(self):
+        """Reset interrupt flag."""
+        self._interrupted.clear()
+
+
+def invoke_parallel_interruptible(
+    prompts: list[dict],
+    interrupt_token: InterruptToken = None,
+    model: str = "claude-sonnet-4-5-20250929",
+    max_tokens: int = 4096,
+    max_workers: int = 5,
+    shared_system: Union[str, list[dict], None] = None,
+    cache_shared_system: bool = False
+) -> list[str]:
+    """
+    Parallel invocations with interrupt support.
+
+    Args:
+        prompts: List of prompt dicts
+        interrupt_token: Optional InterruptToken to signal cancellation
+        (other args same as invoke_parallel)
+
+    Returns:
+        List of response strings (None for interrupted tasks)
+
+    Example:
+        token = InterruptToken()
+
+        # In another thread or after delay:
+        # token.interrupt()
+
+        results = invoke_parallel_interruptible(
+            prompts,
+            interrupt_token=token
+        )
+    """
+    if interrupt_token is None:
+        interrupt_token = InterruptToken()
+
+    formatted_shared = _format_system_with_cache(shared_system, cache_shared_system)
+
+    def process_single_with_check(idx: int, config: dict) -> tuple[int, str]:
+        if interrupt_token.is_interrupted():
+            return (idx, None)
+
+        system = config.get('system', formatted_shared)
+
+        # Note: Anthropic API doesn't support mid-request cancellation
+        # This checks before starting each request
+        result = invoke_claude(
+            prompt=config['prompt'],
+            model=model,
+            system=system,
+            max_tokens=max_tokens,
+            temperature=config.get('temperature', 1.0),
+            cache_system=config.get('cache_system', False),
+            cache_prompt=config.get('cache_prompt', False)
+        )
+        return (idx, result)
+
+    results = [None] * len(prompts)
+
+    with ThreadPoolExecutor(max_workers=min(max_workers, 10)) as executor:
+        futures = {
+            executor.submit(process_single_with_check, i, config): i
+            for i, config in enumerate(prompts)
+        }
+
+        for future in as_completed(futures):
+            if interrupt_token.is_interrupted():
+                # Cancel remaining futures
+                for f in futures:
+                    f.cancel()
+                break
+
+            idx, result = future.result()
+            results[idx] = result
 
     return results
 

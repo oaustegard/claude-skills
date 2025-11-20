@@ -1,6 +1,6 @@
 ---
-name: invoking-claude
-description: Programmatically invokes Claude API for parallel sub-tasks, delegation, and multi-agent workflows. Use when user requests "invoke Claude", "ask another instance", "parallel analysis", or when complex analysis needs multiple simultaneous perspectives.
+name: multi-agent-coordination
+description: Orchestrate parallel Claude instances, delegated sub-tasks, and multi-agent workflows with streaming and tool-enabled agent delegation. Use for parallel analysis, multi-perspective reviews, or complex task decomposition.
 ---
 
 # Invoking Claude Programmatically
@@ -29,7 +29,7 @@ This skill enables programmatic invocation of Claude via the Anthropic API for a
 
 ```python
 import sys
-sys.path.append('/home/user/claude-skills/invoking-claude/scripts')
+sys.path.append('/home/user/claude-skills/multi-agent-coordination/scripts')
 from claude_client import invoke_claude
 
 response = invoke_claude(
@@ -120,6 +120,71 @@ response3 = agent.send("Show me the refactored code")
 print(response3)
 ```
 
+### Streaming Responses
+
+For real-time feedback from sub-agents:
+
+```python
+from claude_client import invoke_claude_streaming
+
+def show_progress(chunk):
+    print(chunk, end='', flush=True)
+
+response = invoke_claude_streaming(
+    "Write a comprehensive security analysis...",
+    callback=show_progress
+)
+```
+
+### Parallel Streaming
+
+Monitor multiple sub-agents simultaneously:
+
+```python
+from claude_client import invoke_parallel_streaming
+
+def agent1_callback(chunk):
+    print(f"[Security] {chunk}", end='', flush=True)
+
+def agent2_callback(chunk):
+    print(f"[Performance] {chunk}", end='', flush=True)
+
+results = invoke_parallel_streaming(
+    [
+        {"prompt": "Security review: ..."},
+        {"prompt": "Performance review: ..."}
+    ],
+    callbacks=[agent1_callback, agent2_callback]
+)
+```
+
+### Interruptible Operations
+
+Cancel long-running parallel operations:
+
+```python
+from claude_client import invoke_parallel_interruptible, InterruptToken
+import threading
+import time
+
+token = InterruptToken()
+
+# Run in background
+def run_analysis():
+    results = invoke_parallel_interruptible(
+        prompts=[...],
+        interrupt_token=token
+    )
+    return results
+
+thread = threading.Thread(target=run_analysis)
+thread.start()
+
+# Interrupt after 5 seconds
+time.sleep(5)
+token.interrupt()
+```
+
 ## Core Functions
 
 ### `invoke_claude()`
@@ -183,6 +248,68 @@ invoke_parallel(
 **Returns:** List of response strings in same order as prompts
 
 **Note:** For optimal cost savings, put large common context (1024+ tokens) in `shared_system` with `cache_shared_system=True`. First invocation creates cache, subsequent ones reuse it (90% cost reduction).
+
+### `invoke_claude_streaming()`
+
+Stream responses in real-time with optional callbacks:
+
+```python
+invoke_claude_streaming(
+    prompt: str | list[dict],
+    callback: callable = None,
+    model: str = "claude-sonnet-4-5-20250929",
+    system: str | list[dict] | None = None,
+    max_tokens: int = 4096,
+    temperature: float = 1.0,
+    cache_system: bool = False,
+    cache_prompt: bool = False,
+    **kwargs
+) -> str
+```
+
+**Parameters:**
+- `callback`: Optional function called with each text chunk (str) as it arrives
+- (other parameters same as invoke_claude)
+
+**Returns:** Complete accumulated response text
+
+### `invoke_parallel_streaming()`
+
+Parallel invocations with per-agent streaming callbacks:
+
+```python
+invoke_parallel_streaming(
+    prompts: list[dict],
+    callbacks: list[callable] = None,
+    model: str = "claude-sonnet-4-5-20250929",
+    max_tokens: int = 4096,
+    max_workers: int = 5,
+    shared_system: str | list[dict] | None = None,
+    cache_shared_system: bool = False
+) -> list[str]
+```
+
+**Parameters:**
+- `callbacks`: Optional list of callback functions, one per prompt
+- (other parameters same as invoke_parallel)
+
+### `invoke_parallel_interruptible()`
+
+Parallel invocations with cancellation support:
+
+```python
+invoke_parallel_interruptible(
+    prompts: list[dict],
+    interrupt_token: InterruptToken = None,
+    # ... same other parameters as invoke_parallel
+) -> list[str]
+```
+
+**Parameters:**
+- `interrupt_token`: Optional InterruptToken to signal cancellation
+- (other parameters same as invoke_parallel)
+
+**Returns:** List of response strings (None for interrupted tasks)
 
 ### `ConversationThread`
 
@@ -288,6 +415,90 @@ subtask_results = invoke_parallel([{"prompt": p} for p in subtask_prompts])
 integration_prompt = f"Integrate these implementations:\n\n{subtask_results}"
 final_code = invoke_claude(integration_prompt)
 ```
+
+## Advanced: Agent SDK Delegation Pattern
+
+### When to Use Agent SDK Instances
+
+The functions above use direct Anthropic API calls (stateless, no tools). For sub-agents that need:
+- **Tool access**: File system operations, bash commands, code execution
+- **Persistent state**: Multi-turn conversations with tool results
+- **Sandboxed environments**: Isolated execution contexts
+
+Consider delegating to Claude Agent SDK instances via WebSocket.
+
+### Architecture Overview
+
+```
+Main Claude (this skill)
+    ↓
+Orchestrator Logic
+    ↓
+Parallel API Calls          Agent SDK Delegation
+(invoke_parallel)           (WebSocket)
+    ↓                           ↓
+Stateless Analysis         Tool-Enabled Agents
+No file access             File system access
+                          Bash execution
+                          Sandboxed environment
+```
+
+### Example: Hybrid Orchestration
+
+```python
+from claude_client import invoke_parallel
+# Hypothetical agent SDK client (see references below)
+from agent_sdk_client import ClaudeAgentClient
+
+# Step 1: Parallel analysis (stateless, fast)
+analyses = invoke_parallel([
+    {"prompt": "Identify security issues in this design: ..."},
+    {"prompt": "Identify performance bottlenecks: ..."},
+    {"prompt": "Identify maintainability concerns: ..."}
+])
+
+# Step 2: Delegate implementation to tool-enabled agent
+agent_client = ClaudeAgentClient(connection_url="...")
+agent_client.start()
+
+for analysis in analyses:
+    agent_client.send({
+        "type": "user_message",
+        "data": {
+            "message": {
+                "role": "user",
+                "content": f"Implement fixes for: {analysis}"
+            }
+        }
+    })
+
+    # Agent has access to filesystem, can edit files, run tests
+
+agent_client.stop()
+```
+
+### Reference Implementation
+
+For a production WebSocket-based Agent SDK server:
+- **Repository**: https://github.com/dzhng/claude-agent
+- **Pattern**: E2B-deployed WebSocket server wrapping Agent SDK
+- **Use case**: When sub-agents need tool access beyond API completions
+
+### Decision Matrix
+
+| Need | Use invoke_parallel() | Use Agent SDK |
+|------|---------------------|---------------|
+| Pure analysis/synthesis | ✓ | |
+| Multiple perspectives | ✓ | |
+| File system operations | | ✓ |
+| Bash commands | | ✓ |
+| Code execution | | ✓ |
+| Sandboxed environment | | ✓ |
+| Multi-turn with tools | | ✓ |
+| Cost optimization | ✓ (with caching) | |
+| Setup complexity | Low | High |
+
+**Rule of thumb**: Use this skill's API functions by default. Only delegate to Agent SDK when tools are essential.
 
 ## Dependencies
 
