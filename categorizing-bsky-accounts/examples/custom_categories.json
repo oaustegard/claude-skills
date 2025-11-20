@@ -1,0 +1,95 @@
+{
+  "Climate Tech": {
+    "keywords": [
+      "climate",
+      "sustainability",
+      "clean energy",
+      "carbon",
+      "renewable",
+      "solar",
+      "wind",
+      "electric vehicle",
+      "ev",
+      "green tech",
+      "carbon capture",
+      "emissions",
+      "net zero"
+    ],
+    "weight": 1.0
+  },
+  "Biotech": {
+    "keywords": [
+      "biotech",
+      "crispr",
+      "genomics",
+      "protein",
+      "gene",
+      "pharmaceutical",
+      "drug discovery",
+      "synthetic biology",
+      "bioinformatics",
+      "molecular biology"
+    ],
+    "weight": 1.0
+  },
+  "Fintech": {
+    "keywords": [
+      "fintech",
+      "finance",
+      "banking",
+      "payments",
+      "trading",
+      "investment",
+      "financial",
+      "insurance",
+      "lending",
+      "wealth"
+    ],
+    "weight": 1.0
+  },
+  "Web3": {
+    "keywords": [
+      "web3",
+      "blockchain",
+      "crypto",
+      "cryptocurrency",
+      "defi",
+      "dao",
+      "nft",
+      "ethereum",
+      "bitcoin",
+      "smart contract"
+    ],
+    "weight": 1.0
+  },
+  "Edtech": {
+    "keywords": [
+      "education",
+      "edtech",
+      "learning",
+      "teaching",
+      "course",
+      "student",
+      "curriculum",
+      "pedagogy",
+      "mooc",
+      "e-learning"
+    ],
+    "weight": 1.0
+  },
+  "Gaming": {
+    "keywords": [
+      "gaming",
+      "game dev",
+      "gamedev",
+      "unity",
+      "unreal",
+      "indie game",
+      "esports",
+      "streaming",
+      "twitch",
+      "game design"
+    ],
+    "weight": 1.0
+  }
+}
