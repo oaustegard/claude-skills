@@ -129,20 +129,100 @@ def extract_text_from_posts(posts: List[Dict]) -> str:
 # Analysis Functions
 # ============================================================================
 
-def extract_keywords(text: str, top_n: int = 15) -> List[Tuple[str, float]]:
-    """Extract keywords from text using YAKE."""
+def extract_keywords(text: str, top_n: int = 15, language: str = "en") -> List[Tuple[str, float]]:
+    """Extract keywords using extracting-keywords skill's YAKE venv.
+
+    Args:
+        text: Text to extract keywords from
+        top_n: Number of keywords to return
+        language: Stopwords to use - "en", "ai", or "ls"
+    """
     if not text or len(text) < 100:
         return []
-    
+
     try:
-        import yake
-        kw_extractor = yake.KeywordExtractor(
-            lan="en",
-            n=3,
-            dedupLim=0.9,
-            top=top_n
+        import tempfile
+        import subprocess
+        import os
+
+        # Path to extracting-keywords venv and assets
+        venv_python = "/home/claude/yake-venv/bin/python"
+
+        # Try multiple possible paths for extracting-keywords assets
+        import os as _os
+        possible_paths = [
+            "/mnt/skills/user/extracting-keywords/assets",
+            "/home/user/claude-skills/extracting-keywords/assets",
+            os.path.join(os.path.dirname(__file__), "..", "extracting-keywords", "assets")
+        ]
+
+        assets_path = None
+        for path in possible_paths:
+            if _os.path.exists(_os.path.join(path, "stopwords_ai.txt")):
+                assets_path = path
+                break
+
+        if not assets_path:
+            raise FileNotFoundError("Cannot find extracting-keywords assets directory")
+
+        stopwords_path = {
+            "ai": _os.path.join(assets_path, "stopwords_ai.txt"),
+            "ls": _os.path.join(assets_path, "stopwords_ls.txt")
+        }
+
+        # Write text to temp file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as tmp:
+            tmp.write(text)
+            tmp_path = tmp.name
+
+        # Build extraction script - output simple TSV for token efficiency
+        if language in stopwords_path:
+            stopwords_config = f"""
+with open('{stopwords_path[language]}', 'r') as f:
+    stopwords_config = {{'stopwords': set(line.strip().lower() for line in f)}}
+"""
+        else:
+            stopwords_config = f"stopwords_config = {{'lan': '{language}'}}"
+
+        extraction_script = f"""
+import yake
+
+with open('{tmp_path}', 'r') as f:
+    text = f.read()
+
+{stopwords_config}
+
+kw_extractor = yake.KeywordExtractor(n=3, dedupLim=0.9, top={top_n}, **stopwords_config)
+keywords = kw_extractor.extract_keywords(text)
+
+for kw, score in keywords:
+    print(f"{{kw}}\\t{{score}}")
+"""
+
+        # Execute via extracting-keywords venv
+        result = subprocess.run(
+            [venv_python, "-c", extraction_script],
+            capture_output=True,
+            text=True,
+            timeout=30
         )
-        return kw_extractor.extract_keywords(text)
+
+        # Clean up temp file
+        os.unlink(tmp_path)
+
+        if result.returncode == 0:
+            keywords = []
+            for line in result.stdout.strip().split('\n'):
+                if line:
+                    parts = line.split('\t')
+                    if len(parts) == 2:
+                        kw, score = parts
+                        keywords.append((kw, float(score)))
+            return keywords
+        else:
+            print(f"Keyword extraction error: {result.stderr}", file=sys.stderr)
+            return []
+
     except Exception as e:
         print(f"Keyword extraction error: {e}", file=sys.stderr)
         return []
@@ -203,14 +283,15 @@ def load_categories(categories_file: Optional[str] = None) -> Dict:
     return default_categories
 
 def analyze_account(handle: str, display_name: str, description: str,
-                   post_limit: int = 20, verbose: bool = True) -> Dict:
+                   post_limit: int = 20, verbose: bool = True,
+                   language: str = "en") -> Dict:
     """Analyze a single account: fetch posts and extract keywords."""
     if verbose:
         print(f"  {handle}…", end="", flush=True)
-    
+
     posts = get_author_feed(handle, limit=post_limit)
     text = extract_text_from_posts(posts)
-    keywords = extract_keywords(text)
+    keywords = extract_keywords(text, language=language)
     
     if verbose:
         print(f" {len(posts)} posts, {len(keywords)} keywords")
@@ -493,7 +574,9 @@ Examples:
     parser.add_argument('--filter', help='Only analyze accounts in these categories (comma-separated)')
     parser.add_argument('--exclude', help='Skip accounts with these keywords (comma-separated)')
     parser.add_argument('--categories', help='Custom category definitions (JSON file)')
-    
+    parser.add_argument('--stopwords', choices=['en', 'ai', 'ls'], default='en',
+                       help='Stopwords to use: en=English, ai=AI/ML domain, ls=Life Sciences domain (default: en)')
+
     # Output options
     parser.add_argument('--format', choices=['grouped', 'detailed', 'json', 'csv', 'markdown'],
                        default='grouped', help='Output format (default: grouped)')
@@ -542,7 +625,8 @@ Examples:
             account.get("handle", ""),
             account.get("displayName", ""),
             account.get("description", ""),
-            post_limit=args.posts
+            post_limit=args.posts,
+            language=args.stopwords
         )
         
         # Apply exclusion filter

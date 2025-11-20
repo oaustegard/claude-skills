@@ -9,11 +9,12 @@ Analyze Bluesky accounts and categorize them by topic using keyword extraction f
 
 ## Prerequisites
 
-Install YAKE for keyword extraction:
+**Requires:** extracting-keywords skill (provides YAKE venv + domain stopwords)
 
-```bash
-pip install yake --break-system-packages
-```
+The analyzer delegates keyword extraction to the extracting-keywords skill, which provides:
+- Optimized YAKE installation with minimal dependencies
+- Domain-specific stopwords: English (574), AI/ML (1357), Life Sciences (1293)
+- Support for 34 languages
 
 ## Quick Start
 
@@ -27,6 +28,16 @@ python bluesky_analyzer.py --handles "account1.bsky.social,account2.bsky.social,
 **Analyze following list:**
 ```bash
 python bluesky_analyzer.py --following austegard.com --accounts 20
+```
+
+**Using AI/ML domain stopwords (recommended for tech-focused accounts):**
+```bash
+python bluesky_analyzer.py --following austegard.com --accounts 20 --stopwords ai
+```
+
+**Using Life Sciences stopwords (for biomedical/research accounts):**
+```bash
+python bluesky_analyzer.py --following handle.bsky.social --accounts 20 --stopwords ls
 ```
 
 **Analyze followers:**
@@ -96,6 +107,12 @@ Only analyze accounts matching these categories
 
 **--exclude "word1,word2"**
 Skip accounts with these keywords in bio/posts
+
+**--stopwords [en|ai|ls]**
+Stopwords to use for keyword extraction (default: en)
+- `en`: English stopwords (574 terms) - general purpose
+- `ai`: AI/ML domain stopwords (1357 terms) - tech-focused accounts
+- `ls`: Life Sciences stopwords (1293 terms) - biomedical/research accounts
 
 **--categories PATH**
 Custom category definitions (JSON file)
@@ -302,11 +319,15 @@ python bluesky_analyzer.py --following handle \
 
 ### Keyword Extraction
 
-Uses YAKE (Yet Another Keyword Extractor):
-- Language: English
+Delegates to **extracting-keywords skill** using YAKE venv:
+- **Stopwords options** (--stopwords):
+  - `en`: English (574 terms) - general purpose
+  - `ai`: AI/ML domain (1357 terms) - filters technical noise, ML boilerplate
+  - `ls`: Life Sciences (1293 terms) - filters research methodology, clinical terms
 - N-grams: 1-3 words
 - Deduplication: 0.9 threshold
 - Top keywords: 15 per account
+- Performance: ~5% overhead with domain stopwords vs English
 
 ### API Rate Limits
 
@@ -350,15 +371,14 @@ The analyzer:
 - Check Bluesky API status
 
 **Import errors**
-- Install YAKE: `pip install yake --break-system-packages`
+- Verify extracting-keywords skill is available
+- Check YAKE venv exists: `/home/claude/yake-venv/bin/python -c "import yake"`
 - Verify Python 3.8+: `python3 --version`
 
 ## Integration with Other Skills
 
-Combine with:
-- **exploring-data**: Analyze exported JSON/CSV
-- **charting-vega-lite**: Visualize category distributions
-- **extracting-keywords**: Fine-tune keyword extraction parameters
+**Built-in integration:**
+- **extracting-keywords**: Automatically delegates keyword extraction to this skill's optimized YAKE venv with domain-specific stopwords
 
 ## Example Sessions
 
