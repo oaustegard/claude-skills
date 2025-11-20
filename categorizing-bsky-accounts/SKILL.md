@@ -22,32 +22,32 @@ The analyzer provides three input modes:
 
 **Direct handle list:**
 ```bash
-python bluesky_analyzer.py --handles "account1.bsky.social,account2.bsky.social,account3.bsky.social"
+python scripts/bluesky_analyzer.py --handles "account1.bsky.social,account2.bsky.social,account3.bsky.social"
 ```
 
 **Analyze following list:**
 ```bash
-python bluesky_analyzer.py --following austegard.com --accounts 20
+python scripts/bluesky_analyzer.py --following austegard.com --accounts 20
 ```
 
 **Using AI/ML domain stopwords (recommended for tech-focused accounts):**
 ```bash
-python bluesky_analyzer.py --following austegard.com --accounts 20 --stopwords ai
+python scripts/bluesky_analyzer.py --following austegard.com --accounts 20 --stopwords ai
 ```
 
 **Using Life Sciences stopwords (for biomedical/research accounts):**
 ```bash
-python bluesky_analyzer.py --following handle.bsky.social --accounts 20 --stopwords ls
+python scripts/bluesky_analyzer.py --following handle.bsky.social --accounts 20 --stopwords ls
 ```
 
 **Analyze followers:**
 ```bash
-python bluesky_analyzer.py --followers austegard.com --accounts 20
+python scripts/bluesky_analyzer.py --followers austegard.com --accounts 20
 ```
 
 **From file:**
 ```bash
-python bluesky_analyzer.py --file accounts.txt
+python scripts/bluesky_analyzer.py --file accounts.txt
 ```
 
 ## Core Workflow
@@ -68,7 +68,7 @@ When users request Bluesky account analysis:
 
 3. **Run analysis:**
    ```bash
-   python bluesky_analyzer.py [input-mode] [options]
+   python scripts/bluesky_analyzer.py [input-mode] [options]
    ```
 
 4. **Choose output format:**
@@ -151,7 +151,7 @@ Create custom category definitions in JSON:
 
 Use custom categories:
 ```bash
-python bluesky_analyzer.py --following handle --categories custom.json
+python scripts/bluesky_analyzer.py --following handle --categories scripts/custom.json
 ```
 
 ### Default Categories
@@ -173,7 +173,7 @@ The analyzer includes these default categories:
 Discover topic distribution in accounts you follow:
 
 ```bash
-python bluesky_analyzer.py --following your-handle.bsky.social --accounts 50
+python scripts/bluesky_analyzer.py --following your-handle.bsky.social --accounts 50
 ```
 
 ### Find Experts in a Topic
@@ -181,7 +181,7 @@ python bluesky_analyzer.py --following your-handle.bsky.social --accounts 50
 Filter by category to find ML researchers in someone's network:
 
 ```bash
-python bluesky_analyzer.py --following handle --filter "AI/ML,Science" --accounts 100
+python scripts/bluesky_analyzer.py --following handle --filter "AI/ML,Science" --accounts 100
 ```
 
 ### Categorize a List
@@ -195,7 +195,7 @@ expert2.bsky.social
 expert3.bsky.social
 EOF
 
-python bluesky_analyzer.py --file accounts.txt --format csv
+python scripts/bluesky_analyzer.py --file accounts.txt --format csv
 ```
 
 ### Export for Further Analysis
@@ -203,7 +203,7 @@ python bluesky_analyzer.py --file accounts.txt --format csv
 Generate structured data for processing:
 
 ```bash
-python bluesky_analyzer.py --following handle --format json --output analysis.json
+python scripts/bluesky_analyzer.py --following handle --format json --output analysis.json
 ```
 
 ### Filter Out Bot Accounts
@@ -211,7 +211,7 @@ python bluesky_analyzer.py --following handle --format json --output analysis.js
 Skip accounts matching spam patterns:
 
 ```bash
-python bluesky_analyzer.py --following handle --exclude "bot,spam,promo"
+python scripts/bluesky_analyzer.py --following handle --exclude "bot,spam,promo"
 ```
 
 ## Output Formats
@@ -284,7 +284,7 @@ For following lists >100 accounts:
 
 ```bash
 # First batch
-python bluesky_analyzer.py --following handle --accounts 100 --output batch1.json
+python scripts/bluesky_analyzer.py --following handle --accounts 100 --output batch1.json
 
 # Use cursor from batch1 for next batch (automatically handled internally)
 ```
@@ -294,7 +294,7 @@ python bluesky_analyzer.py --following handle --accounts 100 --output batch1.jso
 Show how strongly accounts match categories:
 
 ```bash
-python bluesky_analyzer.py --following handle --confidence
+python scripts/bluesky_analyzer.py --following handle --confidence
 ```
 
 Output includes confidence scores:
@@ -308,7 +308,7 @@ Output includes confidence scores:
 Analyze specific subset with multiple criteria:
 
 ```bash
-python bluesky_analyzer.py --following handle \
+python scripts/bluesky_analyzer.py --following handle \
   --filter "AI/ML,Science" \
   --exclude "crypto,nft" \
   --accounts 50 \
@@ -387,14 +387,14 @@ The analyzer:
 **Claude:**
 ```python
 # Run analyzer on user's following list
-python bluesky_analyzer.py --following user-handle.bsky.social --accounts 50
+python scripts/bluesky_analyzer.py --following user-handle.bsky.social --accounts 50
 ```
 
 **User:** "Find ML researchers in @alice's network and export to CSV"
 
 **Claude:**
 ```python
-python bluesky_analyzer.py --following alice.bsky.social \
+python scripts/bluesky_analyzer.py --following alice.bsky.social \
   --filter "AI/ML,Science" \
   --format csv \
   --output ml_researchers.csv
@@ -419,5 +419,5 @@ cat > my_categories.json << 'EOF'
 EOF
 
 # Then analyze with custom categories
-python bluesky_analyzer.py --file accounts.txt --categories my_categories.json
+python scripts/bluesky_analyzer.py --file accounts.txt --categories scripts/my_categories.json
 ```
