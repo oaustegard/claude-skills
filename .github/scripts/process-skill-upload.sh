@@ -4,27 +4,38 @@ set -e
 # Process skill uploads from the uploads/ directory
 # This script is called by the skill-upload.yml GitHub Actions workflow
 
-# Check if any zip files were actually added or modified (not just deleted)
-# Use HEAD~1 as fallback if before commit is not available
-BEFORE_COMMIT="${GITHUB_BEFORE_COMMIT:-}"
-if [ -z "$BEFORE_COMMIT" ] || ! git rev-parse --verify "$BEFORE_COMMIT" >/dev/null 2>&1; then
-  BEFORE_COMMIT="HEAD~1"
-fi
+# Check if this is a manual trigger (workflow_dispatch) or automatic (push)
+EVENT_NAME="${GITHUB_EVENT_NAME:-push}"
 
-ADDED_OR_MODIFIED=$(git diff --name-status "$BEFORE_COMMIT" HEAD 2>/dev/null | grep -E '^(A|M)\s+uploads/.*\.zip$' || true)
-
-if [ -z "$ADDED_OR_MODIFIED" ]; then
+if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
   echo "========================================="
-  echo "No zip files were added or modified in this push."
-  echo "Only deletions or non-zip changes detected."
-  echo "Exiting gracefully."
+  echo "Manual workflow trigger detected"
+  echo "Will process all zip files in uploads/"
   echo "========================================="
-  exit 0
-fi
+  echo ""
+else
+  # For push events, only process zip files that were added or modified
+  # Use HEAD~1 as fallback if before commit is not available
+  BEFORE_COMMIT="${GITHUB_BEFORE_COMMIT:-}"
+  if [ -z "$BEFORE_COMMIT" ] || ! git rev-parse --verify "$BEFORE_COMMIT" >/dev/null 2>&1; then
+    BEFORE_COMMIT="HEAD~1"
+  fi
 
-echo "Detected zip file changes:"
-echo "$ADDED_OR_MODIFIED"
-echo ""
+  ADDED_OR_MODIFIED=$(git diff --name-status "$BEFORE_COMMIT" HEAD 2>/dev/null | grep -E '^(A|M)\s+uploads/.*\.zip$' || true)
+
+  if [ -z "$ADDED_OR_MODIFIED" ]; then
+    echo "========================================="
+    echo "No zip files were added or modified in this push."
+    echo "Only deletions or non-zip changes detected."
+    echo "Exiting gracefully."
+    echo "========================================="
+    exit 0
+  fi
+
+  echo "Detected zip file changes:"
+  echo "$ADDED_OR_MODIFIED"
+  echo ""
+fi
 
 # Find all zip files in uploads directory
 ZIP_FILES=$(find uploads -name "*.zip" -type f 2>/dev/null || true)
