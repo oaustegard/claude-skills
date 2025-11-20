@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Integration Test for multi-agent-coordination and api-credentials skills
+Integration Test for orchestrating-agents and api-credentials skills
 
 This script demonstrates:
 1. Simple single invocation
@@ -245,7 +245,7 @@ def test_credentials_fallback():
 def main():
     """Run all integration tests"""
     print("\n" + "=" * 60)
-    print("MULTI-AGENT-COORDINATION SKILL INTEGRATION TESTS")
+    print("ORCHESTRATING-AGENTS SKILL INTEGRATION TESTS")
     print("=" * 60)
     print()
 

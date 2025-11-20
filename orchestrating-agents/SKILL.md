@@ -1,9 +1,9 @@
 ---
-name: multi-agent-coordination
-description: Orchestrate parallel API instances, delegated sub-tasks, and multi-agent workflows with streaming and tool-enabled delegation patterns. Use for parallel analysis, multi-perspective reviews, or complex task decomposition.
+name: orchestrating-agents
+description: Orchestrates parallel API instances, delegated sub-tasks, and multi-agent workflows with streaming and tool-enabled delegation patterns. Use for parallel analysis, multi-perspective reviews, or complex task decomposition.
 ---
 
-# Multi-Agent Coordination
+# Orchestrating Agents
 
 This skill enables programmatic API invocations for advanced workflows including parallel processing, task delegation, and multi-agent analysis using the Anthropic API.
 
@@ -28,7 +28,7 @@ This skill enables programmatic API invocations for advanced workflows including
 
 ```python
 import sys
-sys.path.append('/home/user/claude-skills/multi-agent-coordination/scripts')
+sys.path.append('/home/user/claude-skills/orchestrating-agents/scripts')
 from claude_client import invoke_claude
 
 response = invoke_claude(

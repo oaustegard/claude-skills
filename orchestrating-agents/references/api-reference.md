@@ -1,6 +1,6 @@
 # Claude API Reference
 
-Detailed API documentation for the multi-agent-coordination skill.
+Detailed API documentation for the orchestrating-agents skill.
 
 ## API Models
 

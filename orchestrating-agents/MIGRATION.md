@@ -1,4 +1,4 @@
-# Migration Guide: invoking-claude → multi-agent-coordination
+# Migration Guide: invoking-claude → orchestrating-agents
 
 ## Breaking Changes
 None. All existing code remains compatible.
@@ -31,7 +31,7 @@ results = invoke_parallel_interruptible(prompts, interrupt_token=token)
 
 ## Renamed Skill
 - Old path: `.../invoking-claude/...`
-- New path: `.../multi-agent-coordination/...`
+- New path: `.../orchestrating-agents/...`
 - Update import paths accordingly
 
 ## What's New
@@ -62,7 +62,7 @@ All existing functions remain unchanged:
 sys.path.append('/home/user/claude-skills/invoking-claude/scripts')
 
 # New import path
-sys.path.append('/home/user/claude-skills/multi-agent-coordination/scripts')
+sys.path.append('/home/user/claude-skills/orchestrating-agents/scripts')
 ```
 
 #### To adopt streaming:
