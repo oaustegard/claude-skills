@@ -1,27 +1,26 @@
 ---
-name: invoking-claude
-description: Programmatically invokes Claude API for parallel sub-tasks, delegation, and multi-agent workflows. Use when user requests "invoke Claude", "ask another instance", "parallel analysis", or when complex analysis needs multiple simultaneous perspectives.
+name: orchestrating-agents
+description: Orchestrates parallel API instances, delegated sub-tasks, and multi-agent workflows with streaming and tool-enabled delegation patterns. Use for parallel analysis, multi-perspective reviews, or complex task decomposition.
 ---
 
-# Invoking Claude Programmatically
+# Orchestrating Agents
 
-This skill enables programmatic invocation of Claude via the Anthropic API for advanced workflows including parallel processing, task delegation, and multi-agent analysis.
+This skill enables programmatic API invocations for advanced workflows including parallel processing, task delegation, and multi-agent analysis using the Anthropic API.
 
 ## When to Use This Skill
 
 **Primary use cases:**
 - **Parallel sub-tasks**: Break complex analysis into simultaneous independent streams
 - **Multi-perspective analysis**: Get 3-5 different expert viewpoints concurrently
-- **Delegation**: Offload specific subtasks to specialized Claude instances
-- **Recursive workflows**: Claude coordinating multiple Claude instances
+- **Delegation**: Offload specific subtasks to specialized API instances
+- **Recursive workflows**: Orchestrator coordinating multiple API instances
 - **High-volume processing**: Batch process multiple items concurrently
 
 **Trigger patterns:**
-- "Invoke Claude to analyze..."
-- "Ask another Claude instance..."
-- "Run parallel analyses from different perspectives..."
-- "Delegate this subtask to..."
-- "Get expert opinions from multiple angles..."
+- "Parallel analysis", "multi-perspective review", "concurrent processing"
+- "Delegate subtasks", "coordinate multiple agents"
+- "Run analyses from different perspectives"
+- "Get expert opinions from multiple angles"
 
 ## Quick Start
 
@@ -29,7 +28,7 @@ This skill enables programmatic invocation of Claude via the Anthropic API for a
 
 ```python
 import sys
-sys.path.append('/home/user/claude-skills/invoking-claude/scripts')
+sys.path.append('/home/user/claude-skills/orchestrating-agents/scripts')
 from claude_client import invoke_claude
 
 response = invoke_claude(
@@ -120,6 +119,71 @@ response3 = agent.send("Show me the refactored code")
 print(response3)
 ```
 
+### Streaming Responses
+
+For real-time feedback from sub-agents:
+
+```python
+from claude_client import invoke_claude_streaming
+
+def show_progress(chunk):
+    print(chunk, end='', flush=True)
+
+response = invoke_claude_streaming(
+    "Write a comprehensive security analysis...",
+    callback=show_progress
+)
+```
+
+### Parallel Streaming
+
+Monitor multiple sub-agents simultaneously:
+
+```python
+from claude_client import invoke_parallel_streaming
+
+def agent1_callback(chunk):
+    print(f"[Security] {chunk}", end='', flush=True)
+
+def agent2_callback(chunk):
+    print(f"[Performance] {chunk}", end='', flush=True)
+
+results = invoke_parallel_streaming(
+    [
+        {"prompt": "Security review: ..."},
+        {"prompt": "Performance review: ..."}
+    ],
+    callbacks=[agent1_callback, agent2_callback]
+)
+```
+
+### Interruptible Operations
+
+Cancel long-running parallel operations:
+
+```python
+from claude_client import invoke_parallel_interruptible, InterruptToken
+import threading
+import time
+
+token = InterruptToken()
+
+# Run in background
+def run_analysis():
+    results = invoke_parallel_interruptible(
+        prompts=[...],
+        interrupt_token=token
+    )
+    return results
+
+thread = threading.Thread(target=run_analysis)
+thread.start()
+
+# Interrupt after 5 seconds
+time.sleep(5)
+token.interrupt()
+```
+
 ## Core Functions
 
 ### `invoke_claude()`
@@ -184,6 +248,68 @@ invoke_parallel(
 
 **Note:** For optimal cost savings, put large common context (1024+ tokens) in `shared_system` with `cache_shared_system=True`. First invocation creates cache, subsequent ones reuse it (90% cost reduction).
 
+### `invoke_claude_streaming()`
+
+Stream responses in real-time with optional callbacks:
+
+```python
+invoke_claude_streaming(
+    prompt: str | list[dict],
+    callback: callable = None,
+    model: str = "claude-sonnet-4-5-20250929",
+    system: str | list[dict] | None = None,
+    max_tokens: int = 4096,
+    temperature: float = 1.0,
+    cache_system: bool = False,
+    cache_prompt: bool = False,
+    **kwargs
+) -> str
+```
+
+**Parameters:**
+- `callback`: Optional function called with each text chunk (str) as it arrives
+- (other parameters same as invoke_claude)
+
+**Returns:** Complete accumulated response text
+
+### `invoke_parallel_streaming()`
+
+Parallel invocations with per-agent streaming callbacks:
+
+```python
+invoke_parallel_streaming(
+    prompts: list[dict],
+    callbacks: list[callable] = None,
+    model: str = "claude-sonnet-4-5-20250929",
+    max_tokens: int = 4096,
+    max_workers: int = 5,
+    shared_system: str | list[dict] | None = None,
+    cache_shared_system: bool = False
+) -> list[str]
+```
+
+**Parameters:**
+- `callbacks`: Optional list of callback functions, one per prompt
+- (other parameters same as invoke_parallel)
+
+### `invoke_parallel_interruptible()`
+
+Parallel invocations with cancellation support:
+
+```python
+invoke_parallel_interruptible(
+    prompts: list[dict],
+    interrupt_token: InterruptToken = None,
+    # ... same other parameters as invoke_parallel
+) -> list[str]
+```
+
+**Parameters:**
+- `interrupt_token`: Optional InterruptToken to signal cancellation
+- (other parameters same as invoke_parallel)
+
+**Returns:** List of response strings (None for interrupted tasks)
+
 ### `ConversationThread`
 
 Manages multi-turn conversations with automatic caching:
@@ -213,81 +339,14 @@ response = thread.send(
 
 ## Example Workflows
 
-### Workflow 1: Multi-Expert Code Review
+See [references/workflows.md](references/workflows.md) for detailed examples including:
+- Multi-expert code review
+- Parallel document analysis
+- Recursive task delegation
+- Advanced Agent SDK delegation patterns
+- Prompt caching workflows
 
-```python
-from claude_client import invoke_parallel
 
-code = """
-# Your code here
-"""
-
-experts = [
-    {"prompt": f"Review for security issues:\n{code}", "system": "Security expert"},
-    {"prompt": f"Review for bugs and correctness:\n{code}", "system": "QA expert"},
-    {"prompt": f"Review for performance:\n{code}", "system": "Performance expert"},
-    {"prompt": f"Review for readability:\n{code}", "system": "Code quality expert"}
-]
-
-reviews = invoke_parallel(experts)
-
-print("=== Consolidated Code Review ===")
-for expert, review in zip(["Security", "QA", "Performance", "Quality"], reviews):
-    print(f"\n## {expert} Perspective\n{review}")
-```
-
-### Workflow 2: Parallel Document Analysis
-
-```python
-from claude_client import invoke_claude
-import glob
-
-documents = glob.glob("docs/*.txt")
-
-# Read all documents
-contents = [(doc, open(doc).read()) for doc in documents]
-
-# Analyze in parallel
-analyses = invoke_parallel([
-    {"prompt": f"Summarize key points from:\n{content}"}
-    for doc, content in contents
-])
-
-# Synthesize results
-synthesis_prompt = "Synthesize these document summaries:\n\n" + "\n\n".join(
-    f"Document {i+1}:\n{summary}" for i, summary in enumerate(analyses)
-)
-
-final_report = invoke_claude(synthesis_prompt)
-print(final_report)
-```
-
-### Workflow 3: Recursive Task Delegation
-
-```python
-from claude_client import invoke_claude
-
-# Main Claude delegates subtasks
-main_prompt = """
-I need to implement a REST API with authentication.
-Plan the subtasks and generate prompts for delegation.
-"""
-
-plan = invoke_claude(main_prompt, system="You are a project planner")
-
-# Based on plan, delegate specific tasks
-subtask_prompts = [
-    "Design database schema for user authentication...",
-    "Implement JWT token generation and validation...",
-    "Create middleware for protected routes..."
-]
-
-subtask_results = invoke_parallel([{"prompt": p} for p in subtask_prompts])
-
-# Integrate results
-integration_prompt = f"Integrate these implementations:\n\n{subtask_results}"
-final_code = invoke_claude(integration_prompt)
-```
 
 ## Dependencies
 
@@ -323,105 +382,10 @@ Common errors:
 - **Token limits**: Reduce prompt size or max_tokens
 - **Network errors**: Automatic retry with exponential backoff
 
-## Prompt Caching Workflows
 
-### Pattern 1: Orchestrator with Parallel Sub-Agents
+## Prompt Caching
 
-```python
-from claude_client import invoke_parallel
-
-# Orchestrator provides large shared context
-codebase = """
-<codebase>
-...entire codebase (10,000+ tokens)...
-</codebase>
-"""
-
-# Each sub-agent gets different task with shared cached context
-tasks = [
-    {"prompt": "Analyze authentication security", "system": "Security expert"},
-    {"prompt": "Optimize database queries", "system": "Performance expert"},
-    {"prompt": "Improve error handling", "system": "Reliability expert"}
-]
-
-# Shared context is cached, 90% cost reduction for subsequent agents
-results = invoke_parallel(
-    tasks,
-    shared_system=codebase,
-    cache_shared_system=True
-)
-```
-
-### Pattern 2: Multi-Round Sub-Agent Conversations
-
-```python
-from claude_client import ConversationThread
-
-# Base context for all sub-agents
-base_context = [
-    {"type": "text", "text": "You are analyzing this codebase:"},
-    {"type": "text", "text": "<codebase>...</codebase>", "cache_control": {"type": "ephemeral"}}
-]
-
-# Create specialized sub-agent
-security_agent = ConversationThread(system=base_context)
-
-# Multiple rounds (each reuses cached context + history)
-issue1 = security_agent.send("Find SQL injection vulnerabilities")
-issue2 = security_agent.send("Now check for XSS issues")
-remediation = security_agent.send("Generate fixes for the issues found")
-```
-
-### Pattern 3: Orchestrator + Sub-Agent Multi-Turn
-
-```python
-from claude_client import ConversationThread, invoke_parallel
-
-# Step 1: Orchestrator delegates with shared context
-shared_context = "<large_documentation>...</large_documentation>"
-
-initial_analyses = invoke_parallel(
-    [
-        {"prompt": "Identify top 3 bugs"},
-        {"prompt": "Identify top 3 performance issues"}
-    ],
-    shared_system=shared_context,
-    cache_shared_system=True
-)
-
-# Step 2: Create sub-agents for detailed investigation
-bug_agent = ConversationThread(system=shared_context, cache_system=True)
-perf_agent = ConversationThread(system=shared_context, cache_system=True)
-
-# Step 3: Multi-turn investigation (reusing cached context)
-bug_details = bug_agent.send(f"Analyze this bug: {initial_analyses[0]}")
-bug_fix = bug_agent.send("Provide a detailed fix")
-
-perf_details = perf_agent.send(f"Analyze this issue: {initial_analyses[1]}")
-perf_solution = perf_agent.send("Provide optimization strategy")
-```
-
-### Caching Best Practices
-
-1. **Cache breakpoint placement**:
-   - Put stable, large context first (cached)
-   - Put variable content after (not cached)
-   - Minimum 1,024 tokens per cache breakpoint
-
-2. **Shared context in parallel operations**:
-   - ALWAYS use `shared_system` + `cache_shared_system=True` for parallel with common context
-   - First agent creates cache, others reuse (5-minute lifetime)
-   - All agents must have IDENTICAL shared_system for cache hits
-
-3. **Multi-turn conversations**:
-   - Use `ConversationThread` for automatic history caching
-   - Each turn caches full history (system + all messages)
-   - Subsequent turns reuse cache (significant savings)
-
-4. **Cost optimization**:
-   - Cached content: 10% of normal cost (90% savings)
-   - Cache for 1000 tokens ≈ $0.0003 vs $0.003 (10x cheaper)
-   - For 10 parallel agents with 10K shared context: ~$0.27 vs $3.00
+For detailed caching workflows and best practices, see [references/workflows.md](references/workflows.md#prompt-caching-workflows).
 
 ## Performance Considerations
 
