@@ -17,7 +17,7 @@ try:
 except ImportError:
     raise ImportError(
         "anthropic library not installed.\n"
-        "Install with: pip install anthropic"
+        "Install with: uv pip install anthropic"
     )
 
 

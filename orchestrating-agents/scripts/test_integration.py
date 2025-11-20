@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Integration Test for orchestrating-agents and api-credentials skills
+Integration Test for orchestrating-agents skill
 
 This script demonstrates:
 1. Simple single invocation

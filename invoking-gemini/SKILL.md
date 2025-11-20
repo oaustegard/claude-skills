@@ -53,7 +53,7 @@ See [references/models.md](references/models.md) for full model details.
 
 1. Install google-generativeai:
    ```bash
-   pip install google-generativeai pydantic --break-system-packages
+   uv pip install google-generativeai pydantic
    ```
 
 2. Configure API key via project knowledge file:
@@ -279,7 +279,7 @@ See [references/examples.md](references/examples.md) for:
 
 **Import errors:**
 ```bash
-pip install google-generativeai --break-system-packages
+uv pip install google-generativeai pydantic
 ```
 
 **Schema validation failures:**

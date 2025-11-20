@@ -354,7 +354,7 @@ See [references/workflows.md](references/workflows.md) for detailed examples inc
 
 1. Install anthropic library:
    ```bash
-   pip install anthropic --break-system-packages
+   uv pip install anthropic
    ```
 
 2. Configure API key via project knowledge file:

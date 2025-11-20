@@ -17,7 +17,7 @@ try:
     from pydantic import BaseModel
 except ImportError as e:
     print(f"Error: Required package not installed: {e}")
-    print("Install with: pip install google-generativeai pydantic --break-system-packages")
+    print("Install with: uv pip install google-generativeai pydantic")
     import sys
     sys.exit(1)
 
