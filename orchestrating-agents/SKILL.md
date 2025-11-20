@@ -348,11 +348,31 @@ See [references/workflows.md](references/workflows.md) for detailed examples inc
 
 
 
-## Dependencies
+## Setup
 
-This skill requires:
-- `anthropic` Python library (install: `pip install anthropic`)
-- `api-credentials` skill for API key management
+**Prerequisites:**
+
+1. Install anthropic library:
+   ```bash
+   uv pip install anthropic
+   ```
+
+2. Configure API key via project knowledge file:
+
+   **Option 1 (recommended): Individual file**
+   - Create document: `ANTHROPIC_API_KEY.txt`
+   - Content: Your API key (e.g., `sk-ant-api03-...`)
+
+   **Option 2: Combined file**
+   - Create document: `API_CREDENTIALS.json`
+   - Content:
+     ```json
+     {
+       "anthropic_api_key": "sk-ant-api03-..."
+     }
+     ```
+
+   Get your API key: https://console.anthropic.com/settings/keys
 
 Installation check:
 ```bash
@@ -377,7 +397,7 @@ except ValueError as e:
 ```
 
 Common errors:
-- **API key missing**: See api-credentials skill setup
+- **API key missing**: Add ANTHROPIC_API_KEY.txt to project knowledge (see Setup above)
 - **Rate limits**: Reduce max_workers or add delays
 - **Token limits**: Reduce prompt size or max_tokens
 - **Network errors**: Automatic retry with exponential backoff
@@ -435,6 +455,5 @@ This skill uses ~800 tokens when loaded but enables powerful multi-agent pattern
 
 ## See Also
 
-- [api-credentials skill](../api-credentials/SKILL.md) - Required dependency
 - [references/api-reference.md](references/api-reference.md) - Detailed API documentation
 - [Anthropic API Docs](https://docs.anthropic.com/claude/reference) - Official documentation

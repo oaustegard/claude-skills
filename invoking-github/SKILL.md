@@ -199,12 +199,10 @@ Best for Claude.ai chat users (mobile/web):
 
 ### Method 2: API Credentials Skill (Fallback)
 
-For power users or local environments:
+Alternatively, use combined credentials file:
 
-1. Edit `/home/user/claude-skills/api-credentials/config.json`
-2. Add: `"github_api_key": "ghp_your-token-here"`
-
-See [api-credentials skill](../api-credentials/SKILL.md) for details.
+1. Create `API_CREDENTIALS.json` in project knowledge
+2. Add: `{"github_api_key": "ghp_your-token-here"}`
 
 ## Integration with Iterating Skill
 
@@ -387,7 +385,6 @@ for repo in repos:
 - [references/credential-setup.md](references/credential-setup.md) - Step-by-step credential guide
 - [references/iterating-integration.md](references/iterating-integration.md) - DEVLOG auto-sync patterns
 - [references/troubleshooting.md](references/troubleshooting.md) - Common issues and solutions
-- [api-credentials skill](../api-credentials/SKILL.md) - Alternative credential method
 - [GitHub REST API Docs](https://docs.github.com/rest) - Official GitHub API reference
 
 ## Token Efficiency

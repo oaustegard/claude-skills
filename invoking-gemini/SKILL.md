@@ -53,16 +53,25 @@ See [references/models.md](references/models.md) for full model details.
 
 1. Install google-generativeai:
    ```bash
-   pip install google-generativeai --break-system-packages
+   uv pip install google-generativeai pydantic
    ```
 
-2. Configure API key via api-credentials skill:
-   ```bash
-   # Create /home/claude/config.json
-   {
-     "google_api_key": "AIzaSy..."
-   }
-   ```
+2. Configure API key via project knowledge file:
+
+   **Option 1 (recommended): Individual file**
+   - Create document: `GOOGLE_API_KEY.txt`
+   - Content: Your API key (e.g., `AIzaSy...`)
+
+   **Option 2: Combined file**
+   - Create document: `API_CREDENTIALS.json`
+   - Content:
+     ```json
+     {
+       "google_api_key": "AIzaSy..."
+     }
+     ```
+
+   Get your API key: https://console.cloud.google.com/apis/credentials
 
 ## Basic Usage
 
@@ -154,11 +163,11 @@ response = invoke_gemini(
 
 if response is None:
     print("Error: API call failed")
-    # Check /home/claude/config.json for valid google_api_key
+    # Check project knowledge file for valid google_api_key
 ```
 
 **Common issues:**
-- Missing API key → Returns None, prints error
+- Missing API key → Add GOOGLE_API_KEY.txt to project knowledge (see Setup above)
 - Invalid model → Raises ValueError
 - Rate limit → Automatically retries with backoff
 - Network error → Returns None after retries
@@ -264,18 +273,13 @@ See [references/examples.md](references/examples.md) for:
 ## Troubleshooting
 
 **"API key not configured":**
-```bash
-# Create config file
-cat > /home/claude/config.json << EOF
-{
-  "google_api_key": "AIzaSy..."
-}
-EOF
-```
+- Add project knowledge file `GOOGLE_API_KEY.txt` with your API key
+- Or add to `API_CREDENTIALS.json`: `{"google_api_key": "AIzaSy..."}`
+- See Setup section above for details
 
 **Import errors:**
 ```bash
-pip install google-generativeai --break-system-packages
+uv pip install google-generativeai pydantic
 ```
 
 **Schema validation failures:**
