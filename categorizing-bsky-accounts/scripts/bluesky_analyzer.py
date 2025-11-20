@@ -4,8 +4,8 @@ BlueSky Account Analyzer
 Fetches Bluesky account data and extracts keywords for Claude to categorize.
 
 Usage:
-  python scripts/bluesky_analyzer.py --following austegard.com --accounts 20 --stopwords ai
-  python scripts/bluesky_analyzer.py --followers handle.bsky.social --accounts 10
+  python scripts/bluesky_analyzer.py --following austegard.com --stopwords ai
+  python scripts/bluesky_analyzer.py --followers handle.bsky.social
   python scripts/bluesky_analyzer.py --handles "h1.bsky.social,h2.bsky.social"
 """
 
@@ -291,8 +291,8 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python %(prog)s --following austegard.com --accounts 20 --stopwords ai
-  python %(prog)s --followers handle.bsky.social --accounts 10
+  python %(prog)s --following austegard.com --stopwords ai
+  python %(prog)s --followers handle.bsky.social
   python %(prog)s --handles "user1.bsky.social,user2.bsky.social"
         """
     )
@@ -305,8 +305,8 @@ Examples:
     input_group.add_argument('--file', help='Read handles from file (one per line)')
 
     # Analysis options
-    parser.add_argument('--accounts', type=int, default=10,
-                       help='Number of accounts to analyze (default: 10, max: 100)')
+    parser.add_argument('--accounts', type=int, default=100,
+                       help='Number of accounts to analyze (default: 100, max: 100)')
     parser.add_argument('--posts', type=int, default=20,
                        help='Number of posts per account (default: 20)')
     parser.add_argument('--exclude', help='Skip accounts with these keywords (comma-separated)')

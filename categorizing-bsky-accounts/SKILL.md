@@ -20,14 +20,16 @@ The analyzer delegates keyword extraction to the extracting-keywords skill, whic
 
 When users request Bluesky account analysis:
 
-1. **Determine input mode** based on user's request:
+1. **Ensure keyword extraction is set up** - Invoke the extracting-keywords skill using the Skill tool to ensure YAKE venv exists (skip if already invoked in this session)
+
+2. **Determine input mode** based on user's request:
    - Following list → use `--following handle`
    - Followers → use `--followers handle`
    - List of handles → use `--handles "h1,h2,h3"`
    - File provided → use `--file accounts.txt`
 
-2. **Configure parameters:**
-   - `--accounts N` - Number to analyze (default: 10, max: 100)
+3. **Configure parameters:**
+   - `--accounts N` - Number to analyze (default: 100, max: 100)
    - `--posts N` - Posts per account (default: 20, max: 100)
    - `--stopwords [en|ai|ls]` - Choose domain-specific stopwords:
      - `en`: English (general purpose)
@@ -35,7 +37,7 @@ When users request Bluesky account analysis:
      - `ls`: Life Sciences (for biomedical/research accounts)
    - `--exclude "pattern1,pattern2"` - Skip spam/bot accounts
 
-3. **Run script** - Outputs simple text format to stdout:
+4. **Run script** - Outputs simple text format to stdout:
    ```
    @handle1.bsky.social (Display Name)
    Bio text here
@@ -46,18 +48,18 @@ When users request Bluesky account analysis:
    Keywords: keyword4, keyword5, keyword6
    ```
 
-4. **Categorize accounts** - Claude analyzes bio + keywords to categorize by topic
+5. **Categorize accounts** - Claude analyzes bio + keywords to categorize by topic
 
 ## Quick Start
 
 **Analyze following list with AI/ML stopwords:**
 ```bash
-python scripts/bluesky_analyzer.py --following austegard.com --accounts 20 --stopwords ai
+python scripts/bluesky_analyzer.py --following austegard.com --stopwords ai
 ```
 
 **Analyze followers:**
 ```bash
-python scripts/bluesky_analyzer.py --followers austegard.com --accounts 20
+python scripts/bluesky_analyzer.py --followers austegard.com
 ```
 
 **Analyze specific handles:**
@@ -94,7 +96,7 @@ Read handles from file (one per line)
 ### Analysis Options
 
 **--accounts N**
-Number of accounts to analyze (1-100, default: 10)
+Number of accounts to analyze (1-100, default: 100)
 
 **--posts N**
 Posts to fetch per account (1-100, default: 20)
@@ -133,7 +135,7 @@ Claude then categorizes accounts based on bio + keywords without hardcoded rules
 ### Audit Your Following List
 
 ```bash
-python scripts/bluesky_analyzer.py --following your-handle.bsky.social --accounts 50 --stopwords ai
+python scripts/bluesky_analyzer.py --following your-handle.bsky.social --stopwords ai
 ```
 
 Claude will categorize accounts by topic and identify patterns in who you follow.
@@ -141,7 +143,7 @@ Claude will categorize accounts by topic and identify patterns in who you follow
 ### Find Experts in a Topic
 
 ```bash
-python scripts/bluesky_analyzer.py --following alice.bsky.social --accounts 100 --stopwords ai
+python scripts/bluesky_analyzer.py --following alice.bsky.social --stopwords ai
 ```
 
 Ask Claude: "Which of these accounts are ML researchers?" or "Who focuses on climate tech?"
@@ -232,7 +234,7 @@ This agentic pattern is more flexible than hardcoded keyword matching.
 
 **Claude:**
 ```bash
-python scripts/bluesky_analyzer.py --following user-handle.bsky.social --accounts 50 --stopwords ai
+python scripts/bluesky_analyzer.py --following user-handle.bsky.social --stopwords ai
 ```
 
 Based on the output, I can see you follow:
@@ -245,7 +247,7 @@ Based on the output, I can see you follow:
 
 **Claude:**
 ```bash
-python scripts/bluesky_analyzer.py --following alice.bsky.social --accounts 100 --stopwords ai
+python scripts/bluesky_analyzer.py --following alice.bsky.social --stopwords ai
 ```
 
 I found 23 ML researchers in Alice's network:
