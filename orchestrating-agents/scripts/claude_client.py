@@ -5,25 +5,12 @@ Provides functions for invoking Claude programmatically, including parallel invo
 and prompt caching support for optimized token usage.
 """
 
-import sys
+import json
 import threading
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Union
 from copy import deepcopy
-
-# Add api-credentials to path
-api_credentials_path = Path(__file__).parent.parent.parent / "api-credentials" / "scripts"
-sys.path.append(str(api_credentials_path))
-
-try:
-    from credentials import get_anthropic_api_key
-except ImportError:
-    raise ImportError(
-        "Cannot import api-credentials skill. "
-        "Ensure api-credentials skill is installed at: "
-        f"{api_credentials_path.parent}"
-    )
 
 try:
     import anthropic
@@ -31,6 +18,62 @@ except ImportError:
     raise ImportError(
         "anthropic library not installed.\n"
         "Install with: pip install anthropic"
+    )
+
+
+def get_anthropic_api_key() -> str:
+    """
+    Get Anthropic API key from project knowledge files.
+
+    Priority order:
+    1. Individual file: /mnt/project/ANTHROPIC_API_KEY.txt
+    2. Combined file: /mnt/project/API_CREDENTIALS.json
+
+    Returns:
+        str: Anthropic API key
+
+    Raises:
+        ValueError: If no API key found in any source
+    """
+    # Pattern 1: Individual key file (recommended)
+    key_file = Path("/mnt/project/ANTHROPIC_API_KEY.txt")
+    if key_file.exists():
+        try:
+            key = key_file.read_text().strip()
+            if key:
+                return key
+        except (IOError, OSError) as e:
+            raise ValueError(
+                f"Found ANTHROPIC_API_KEY.txt but couldn't read it: {e}\n"
+                f"Please check file permissions or recreate the file"
+            )
+
+    # Pattern 2: Combined credentials file
+    creds_file = Path("/mnt/project/API_CREDENTIALS.json")
+    if creds_file.exists():
+        try:
+            with open(creds_file) as f:
+                config = json.load(f)
+                key = config.get("anthropic_api_key", "").strip()
+                if key:
+                    return key
+        except (json.JSONDecodeError, IOError, OSError) as e:
+            raise ValueError(
+                f"Found API_CREDENTIALS.json but couldn't parse it: {e}\n"
+                f"Please check file format"
+            )
+
+    # No key found - provide helpful error message
+    raise ValueError(
+        "No Anthropic API key found!\n\n"
+        "Add a project knowledge file using one of these methods:\n\n"
+        "Option 1 (recommended): Individual file\n"
+        "  File: ANTHROPIC_API_KEY.txt\n"
+        "  Content: sk-ant-api03-...\n\n"
+        "Option 2: Combined file\n"
+        "  File: API_CREDENTIALS.json\n"
+        "  Content: {\"anthropic_api_key\": \"sk-ant-api03-...\"}\n\n"
+        "Get your API key from: https://console.anthropic.com/settings/keys"
     )
 
 

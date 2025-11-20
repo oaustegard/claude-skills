@@ -5,6 +5,21 @@ description: Securely manages API credentials for multiple providers (Anthropic 
 
 # API Credentials Management
 
+**🚨 DEPRECATED: This skill is no longer needed for hosted skills environments.**
+
+**New approach:** Skills now read credentials directly from project knowledge files:
+- `ANTHROPIC_API_KEY.txt`, `GOOGLE_API_KEY.txt`, `GITHUB_API_KEY.txt` (recommended)
+- Or `API_CREDENTIALS.json` (combined file)
+
+See updated skill documentation:
+- [orchestrating-agents](../orchestrating-agents/SKILL.md#setup)
+- [invoking-gemini](../invoking-gemini/SKILL.md#setup)
+- [invoking-github](../invoking-github/SKILL.md#quick-start)
+
+**Legacy use only:** This skill may still be useful for local development environments or backward compatibility.
+
+---
+
 **⚠️ WARNING: This is a PERSONAL skill - DO NOT share or commit with actual credentials!**
 
 This skill provides secure storage and retrieval of API credentials for multiple providers. It serves as a dependency for other skills that need to invoke external APIs programmatically.

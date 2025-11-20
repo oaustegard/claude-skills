@@ -32,11 +32,11 @@ class GitHubAPIError(Exception):
 
 def get_github_token() -> str:
     """
-    Get GitHub API token with two-tier fallback.
+    Get GitHub API token from project knowledge files.
 
     Priority order:
-    1. Project Knowledge: /mnt/project/GITHUB_API_KEY
-    2. API Credentials Skill: config.json
+    1. Individual file: /mnt/project/GITHUB_API_KEY.txt
+    2. Combined file: /mnt/project/API_CREDENTIALS.json
 
     Returns:
         str: GitHub Personal Access Token
@@ -44,41 +44,44 @@ def get_github_token() -> str:
     Raises:
         ValueError: If no token found in any source
     """
-    # 1. Check Project Knowledge (claude.ai environment)
-    pk_path = Path("/mnt/project/GITHUB_API_KEY")
-    if pk_path.exists():
+    # Pattern 1: Individual key file (recommended)
+    key_file = Path("/mnt/project/GITHUB_API_KEY.txt")
+    if key_file.exists():
         try:
-            token = pk_path.read_text().strip()
+            token = key_file.read_text().strip()
             if token:
                 return token
         except (IOError, OSError) as e:
-            # File exists but can't read - let user know
             raise ValueError(
-                f"Found GITHUB_API_KEY in Project Knowledge but couldn't read it: {e}\n"
-                f"Please check file permissions or recreate the document"
+                f"Found GITHUB_API_KEY.txt but couldn't read it: {e}\n"
+                f"Please check file permissions or recreate the file"
             )
 
-    # 2. Check api-credentials skill (fallback)
-    try:
-        # Add api-credentials to path if not already there
-        credentials_path = '/home/user/claude-skills/api-credentials/scripts'
-        if credentials_path not in sys.path:
-            sys.path.insert(0, credentials_path)
-
-        from credentials import get_github_api_key
-        return get_github_api_key()
-    except (ImportError, ValueError, ModuleNotFoundError):
-        pass
+    # Pattern 2: Combined credentials file
+    creds_file = Path("/mnt/project/API_CREDENTIALS.json")
+    if creds_file.exists():
+        try:
+            with open(creds_file) as f:
+                config = json.load(f)
+                token = config.get("github_api_key", "").strip()
+                if token:
+                    return token
+        except (json.JSONDecodeError, IOError, OSError) as e:
+            raise ValueError(
+                f"Found API_CREDENTIALS.json but couldn't parse it: {e}\n"
+                f"Please check file format"
+            )
 
     # No token found - provide helpful error message
     raise ValueError(
         "No GitHub API token found!\n\n"
-        "Configure using one of these methods:\n\n"
-        "1. Project Knowledge (recommended): Create document named 'GITHUB_API_KEY'\n"
-        "   - In Claude.ai, go to Project settings → Add to Project Knowledge\n"
-        "   - Create new document titled 'GITHUB_API_KEY'\n"
-        "   - Paste your GitHub Personal Access Token as the content\n\n"
-        "2. api-credentials skill: Add github_api_key to config.json\n\n"
+        "Add a project knowledge file using one of these methods:\n\n"
+        "Option 1 (recommended): Individual file\n"
+        "  File: GITHUB_API_KEY.txt\n"
+        "  Content: ghp_...\n\n"
+        "Option 2: Combined file\n"
+        "  File: API_CREDENTIALS.json\n"
+        "  Content: {\"github_api_key\": \"ghp_...\"}\n\n"
         "Generate token at: https://github.com/settings/tokens\n"
         "Required scopes:\n"
         "  - Classic token: 'repo' scope\n"

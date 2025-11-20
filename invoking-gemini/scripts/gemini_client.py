@@ -6,15 +6,10 @@ Provides high-level functions for invoking Google Gemini models
 with support for structured outputs, parallel processing, and error handling.
 """
 
-import sys
+import json
 import time
 from typing import Optional, Any, Type, Union
 from pathlib import Path
-import json
-
-# Import credentials module
-sys.path.append('/home/user/claude-skills/api-credentials/scripts')
-from credentials import get_google_api_key
 
 try:
     import google.generativeai as genai
@@ -23,7 +18,64 @@ try:
 except ImportError as e:
     print(f"Error: Required package not installed: {e}")
     print("Install with: pip install google-generativeai pydantic --break-system-packages")
+    import sys
     sys.exit(1)
+
+
+def get_google_api_key() -> str:
+    """
+    Get Google API key from project knowledge files.
+
+    Priority order:
+    1. Individual file: /mnt/project/GOOGLE_API_KEY.txt
+    2. Combined file: /mnt/project/API_CREDENTIALS.json
+
+    Returns:
+        str: Google API key
+
+    Raises:
+        ValueError: If no API key found in any source
+    """
+    # Pattern 1: Individual key file (recommended)
+    key_file = Path("/mnt/project/GOOGLE_API_KEY.txt")
+    if key_file.exists():
+        try:
+            key = key_file.read_text().strip()
+            if key:
+                return key
+        except (IOError, OSError) as e:
+            raise ValueError(
+                f"Found GOOGLE_API_KEY.txt but couldn't read it: {e}\n"
+                f"Please check file permissions or recreate the file"
+            )
+
+    # Pattern 2: Combined credentials file
+    creds_file = Path("/mnt/project/API_CREDENTIALS.json")
+    if creds_file.exists():
+        try:
+            with open(creds_file) as f:
+                config = json.load(f)
+                key = config.get("google_api_key", "").strip()
+                if key:
+                    return key
+        except (json.JSONDecodeError, IOError, OSError) as e:
+            raise ValueError(
+                f"Found API_CREDENTIALS.json but couldn't parse it: {e}\n"
+                f"Please check file format"
+            )
+
+    # No key found - provide helpful error message
+    raise ValueError(
+        "No Google API key found!\n\n"
+        "Add a project knowledge file using one of these methods:\n\n"
+        "Option 1 (recommended): Individual file\n"
+        "  File: GOOGLE_API_KEY.txt\n"
+        "  Content: AIzaSy...\n\n"
+        "Option 2: Combined file\n"
+        "  File: API_CREDENTIALS.json\n"
+        "  Content: {\"google_api_key\": \"AIzaSy...\"}\n\n"
+        "Get your API key from: https://console.cloud.google.com/apis/credentials"
+    )
 
 
 # Available models
