@@ -5,67 +5,75 @@ description: Analyze and categorize Bluesky accounts by topic using keyword extr
 
 # Categorizing Bluesky Accounts
 
-Analyze Bluesky accounts and categorize them by topic using keyword extraction from posts and bios. Supports multiple input modes: direct handle lists, following lists, and follower lists.
+Fetch Bluesky account data and extract keywords for Claude to categorize by topic. The script compresses account context (bio + posts) into bio + keywords, then Claude performs intelligent categorization.
 
 ## Prerequisites
 
-Install YAKE for keyword extraction:
+**Requires:** extracting-keywords skill (provides YAKE venv + domain stopwords)
 
-```bash
-pip install yake --break-system-packages
-```
-
-## Quick Start
-
-The analyzer provides three input modes:
-
-**Direct handle list:**
-```bash
-python bluesky_analyzer.py --handles "account1.bsky.social,account2.bsky.social,account3.bsky.social"
-```
-
-**Analyze following list:**
-```bash
-python bluesky_analyzer.py --following austegard.com --accounts 20
-```
-
-**Analyze followers:**
-```bash
-python bluesky_analyzer.py --followers austegard.com --accounts 20
-```
-
-**From file:**
-```bash
-python bluesky_analyzer.py --file accounts.txt
-```
+The analyzer delegates keyword extraction to the extracting-keywords skill, which provides:
+- Optimized YAKE installation with minimal dependencies
+- Domain-specific stopwords: English (574), AI/ML (1357), Life Sciences (1293)
+- Support for 34 languages
 
 ## Core Workflow
 
 When users request Bluesky account analysis:
 
 1. **Determine input mode** based on user's request:
-   - List of handles → use `--handles`
-   - "Following list" → use `--following`
-   - "Followers" → use `--followers`
-   - File provided → use `--file`
+   - Following list → use `--following handle`
+   - Followers → use `--followers handle`
+   - List of handles → use `--handles "h1,h2,h3"`
+   - File provided → use `--file accounts.txt`
 
-2. **Configure analysis parameters:**
+2. **Configure parameters:**
    - `--accounts N` - Number to analyze (default: 10, max: 100)
    - `--posts N` - Posts per account (default: 20, max: 100)
-   - `--filter "Category1,Category2"` - Only analyze matching categories
-   - `--exclude "pattern1,pattern2"` - Skip accounts with matching keywords
+   - `--stopwords [en|ai|ls]` - Choose domain-specific stopwords:
+     - `en`: English (general purpose)
+     - `ai`: AI/ML domain (recommended for tech accounts)
+     - `ls`: Life Sciences (for biomedical/research accounts)
+   - `--exclude "pattern1,pattern2"` - Skip spam/bot accounts
 
-3. **Run analysis:**
-   ```bash
-   python bluesky_analyzer.py [input-mode] [options]
+3. **Run script** - Outputs simple text format to stdout:
+   ```
+   @handle1.bsky.social (Display Name)
+   Bio text here
+   Keywords: keyword1, keyword2, keyword3
+
+   @handle2.bsky.social (Another Name)
+   Bio text here
+   Keywords: keyword4, keyword5, keyword6
    ```
 
-4. **Choose output format:**
-   - Grouped view (default): Accounts organized by topic
-   - Detailed view (`--detailed`): Full keyword analysis per account
-   - JSON export (`--format json`): Structured data
-   - CSV export (`--format csv`): Spreadsheet-compatible
-   - Markdown (`--format markdown`): Documentation-ready
+4. **Categorize accounts** - Claude analyzes bio + keywords to categorize by topic
+
+## Quick Start
+
+**Analyze following list with AI/ML stopwords:**
+```bash
+python scripts/bluesky_analyzer.py --following austegard.com --accounts 20 --stopwords ai
+```
+
+**Analyze followers:**
+```bash
+python scripts/bluesky_analyzer.py --followers austegard.com --accounts 20
+```
+
+**Analyze specific handles:**
+```bash
+python scripts/bluesky_analyzer.py --handles "user1.bsky.social,user2.bsky.social,user3.bsky.social"
+```
+
+**From file:**
+```bash
+python scripts/bluesky_analyzer.py --file accounts.txt --stopwords ai
+```
+
+**Filter out bot accounts:**
+```bash
+python scripts/bluesky_analyzer.py --following handle --exclude "bot,spam,promo" --stopwords ai
+```
 
 ## Parameters
 
@@ -91,85 +99,54 @@ Number of accounts to analyze (1-100, default: 10)
 **--posts N**
 Posts to fetch per account (1-100, default: 20)
 
-**--filter "Cat1,Cat2"**
-Only analyze accounts matching these categories
+**--stopwords [en|ai|ls]**
+Stopwords to use for keyword extraction (default: en)
+- `en`: English stopwords (574 terms) - general purpose
+- `ai`: AI/ML domain stopwords (1357 terms) - tech-focused accounts
+- `ls`: Life Sciences stopwords (1293 terms) - biomedical/research accounts
 
 **--exclude "word1,word2"**
 Skip accounts with these keywords in bio/posts
 
-**--categories PATH**
-Custom category definitions (JSON file)
+## Output Format
 
-### Output Options
+The script outputs simple text format for Claude to process:
 
-**--format [grouped|detailed|json|csv|markdown]**
-Output format (default: grouped)
+```
+@alice.bsky.social (Alice Smith)
+AI researcher working on LLM alignment and safety
+Keywords: alignment, safety research, interpretability, llm evaluation
 
-**--output PATH**
-Output file path (default: /home/claude/bluesky_analysis.json)
+@bob.bsky.social (Bob Johnson)
+Full-stack developer building web applications
+Keywords: react, typescript, node.js, api design, postgresql
 
-**--confidence**
-Show categorization confidence scores
-
-## Category Customization
-
-Create custom category definitions in JSON:
-
-```json
-{
-  "AI/ML": {
-    "keywords": ["ai", "llm", "machine learning", "model", "neural"],
-    "weight": 1.0
-  },
-  "Web3": {
-    "keywords": ["blockchain", "crypto", "web3", "defi", "dao"],
-    "weight": 1.0
-  },
-  "Science": {
-    "keywords": ["research", "paper", "phd", "university", "study"],
-    "weight": 1.0
-  }
-}
+@carol.bsky.social (Carol Williams)
+Biotech researcher studying CRISPR applications
+Keywords: crispr, gene editing, therapeutics, clinical trials
 ```
 
-Use custom categories:
-```bash
-python bluesky_analyzer.py --following handle --categories custom.json
-```
-
-### Default Categories
-
-The analyzer includes these default categories:
-- **AI/ML**: Artificial intelligence, machine learning, LLMs
-- **Software Dev**: Programming, coding, development tools
-- **Philosophy**: Philosophical discourse, consciousness, ethics
-- **Music**: Music creation, streaming, artists
-- **Law/Policy**: Legal, copyright, policy, regulation
-- **Engineering**: Infrastructure, systems, architecture
-- **Science**: Research, academia, scientific work
-- **Other**: Accounts that don't fit defined categories
+Claude then categorizes accounts based on bio + keywords without hardcoded rules.
 
 ## Common Workflows
 
 ### Audit Your Following List
 
-Discover topic distribution in accounts you follow:
-
 ```bash
-python bluesky_analyzer.py --following your-handle.bsky.social --accounts 50
+python scripts/bluesky_analyzer.py --following your-handle.bsky.social --accounts 50 --stopwords ai
 ```
+
+Claude will categorize accounts by topic and identify patterns in who you follow.
 
 ### Find Experts in a Topic
 
-Filter by category to find ML researchers in someone's network:
-
 ```bash
-python bluesky_analyzer.py --following handle --filter "AI/ML,Science" --accounts 100
+python scripts/bluesky_analyzer.py --following alice.bsky.social --accounts 100 --stopwords ai
 ```
 
-### Categorize a List
+Ask Claude: "Which of these accounts are ML researchers?" or "Who focuses on climate tech?"
 
-Analyze a curated list of accounts:
+### Analyze a Curated List
 
 ```bash
 cat > accounts.txt << 'EOF'
@@ -178,135 +155,28 @@ expert2.bsky.social
 expert3.bsky.social
 EOF
 
-python bluesky_analyzer.py --file accounts.txt --format csv
-```
-
-### Export for Further Analysis
-
-Generate structured data for processing:
-
-```bash
-python bluesky_analyzer.py --following handle --format json --output analysis.json
+python scripts/bluesky_analyzer.py --file accounts.txt --stopwords ls
 ```
 
 ### Filter Out Bot Accounts
 
-Skip accounts matching spam patterns:
-
 ```bash
-python bluesky_analyzer.py --following handle --exclude "bot,spam,promo"
-```
-
-## Output Formats
-
-### Grouped View (Default)
-
-Accounts organized by detected category:
-
-```
-## AI/ML (5 accounts)
-
-**John Smith** (@john.bsky.social)
-  AI researcher focusing on LLM alignment
-  Topics: alignment, safety, ai research, interpretability
-
-**Jane Doe** (@jane.bsky.social)
-  Building ML infrastructure at Scale Co
-  Topics: mlops, kubernetes, infrastructure, deployment
-```
-
-### Detailed View
-
-Full keyword analysis for each account:
-
-```
-John Smith (@john.bsky.social)
-Posts analyzed: 20
-Bio: AI researcher focusing on LLM alignment
-Top Keywords:
-  • alignment                      (0.0234)
-  • safety research                (0.0287)
-  • interpretability               (0.0312)
-```
-
-### JSON Format
-
-Structured data for programmatic use:
-
-```json
-{
-  "accounts": [
-    {
-      "handle": "john.bsky.social",
-      "display_name": "John Smith",
-      "category": "AI/ML",
-      "confidence": 0.85,
-      "keywords": [
-        {"keyword": "alignment", "score": 0.0234},
-        {"keyword": "safety research", "score": 0.0287}
-      ]
-    }
-  ]
-}
-```
-
-### CSV Format
-
-Spreadsheet-compatible output:
-
-```csv
-handle,display_name,category,confidence,top_keywords
-john.bsky.social,John Smith,AI/ML,0.85,"alignment, safety research, interpretability"
-```
-
-## Advanced Usage
-
-### Pagination for Large Lists
-
-For following lists >100 accounts:
-
-```bash
-# First batch
-python bluesky_analyzer.py --following handle --accounts 100 --output batch1.json
-
-# Use cursor from batch1 for next batch (automatically handled internally)
-```
-
-### Confidence Scoring
-
-Show how strongly accounts match categories:
-
-```bash
-python bluesky_analyzer.py --following handle --confidence
-```
-
-Output includes confidence scores:
-- 0.9-1.0: Very strong match
-- 0.7-0.9: Strong match
-- 0.5-0.7: Moderate match
-- <0.5: Weak match (may be miscategorized)
-
-### Combining Filters
-
-Analyze specific subset with multiple criteria:
-
-```bash
-python bluesky_analyzer.py --following handle \
-  --filter "AI/ML,Science" \
-  --exclude "crypto,nft" \
-  --accounts 50 \
-  --posts 30
+python scripts/bluesky_analyzer.py --following handle --exclude "bot,spam,promo,follow back" --stopwords ai
 ```
 
 ## Technical Details
 
 ### Keyword Extraction
 
-Uses YAKE (Yet Another Keyword Extractor):
-- Language: English
+Delegates to **extracting-keywords skill** using YAKE venv:
+- **Stopwords options** (--stopwords):
+  - `en`: English (574 terms) - general purpose
+  - `ai`: AI/ML domain (1357 terms) - filters technical noise, ML boilerplate
+  - `ls`: Life Sciences (1293 terms) - filters research methodology, clinical terms
 - N-grams: 1-3 words
 - Deduplication: 0.9 threshold
-- Top keywords: 15 per account
+- Top keywords: 10 per account
+- Performance: ~5% overhead with domain stopwords vs English
 
 ### API Rate Limits
 
@@ -318,20 +188,17 @@ The analyzer respects these limits with built-in delays.
 
 ### Categorization Algorithm
 
-1. Extract keywords from recent posts (default: 20)
-2. Combine with bio/description text
-3. Match against category patterns
-4. Score each category by keyword overlap
-5. Assign highest-scoring category
-6. Calculate confidence based on score distribution
+**Script's role:**
+1. Fetch account data (bio + posts)
+2. Extract keywords to compress context
+3. Output bio + keywords in simple format
 
-### Data Privacy
+**Claude's role:**
+1. Read bio + keywords for each account
+2. Intelligently categorize by topic (no hardcoded rules)
+3. Group accounts, identify patterns, answer user questions
 
-The analyzer:
-- Only accesses public profile data
-- Does not store credentials
-- Operates read-only
-- Respects Bluesky's terms of service
+This agentic pattern is more flexible than hardcoded keyword matching.
 
 ## Troubleshooting
 
@@ -350,54 +217,53 @@ The analyzer:
 - Check Bluesky API status
 
 **Import errors**
-- Install YAKE: `pip install yake --break-system-packages`
+- Verify extracting-keywords skill is available
+- Check YAKE venv exists: `/home/claude/yake-venv/bin/python -c "import yake"`
 - Verify Python 3.8+: `python3 --version`
 
 ## Integration with Other Skills
 
-Combine with:
-- **exploring-data**: Analyze exported JSON/CSV
-- **charting-vega-lite**: Visualize category distributions
-- **extracting-keywords**: Fine-tune keyword extraction parameters
+**Built-in integration:**
+- **extracting-keywords**: Automatically delegates keyword extraction to this skill's optimized YAKE venv with domain-specific stopwords
 
 ## Example Sessions
 
 **User:** "Can you analyze the accounts I follow on Bluesky and tell me what topics they focus on?"
 
 **Claude:**
-```python
-# Run analyzer on user's following list
-python bluesky_analyzer.py --following user-handle.bsky.social --accounts 50
+```bash
+python scripts/bluesky_analyzer.py --following user-handle.bsky.social --accounts 50 --stopwords ai
 ```
 
-**User:** "Find ML researchers in @alice's network and export to CSV"
+Based on the output, I can see you follow:
+- **AI/ML researchers** (15 accounts): Focus on LLM safety, alignment, interpretability
+- **Software engineers** (20 accounts): Web development, React, TypeScript, DevOps
+- **Writers** (8 accounts): Tech journalism, newsletters, long-form content
+- **Scientists** (7 accounts): Climate science, biotech, physics
+
+**User:** "Find ML researchers in @alice's network"
 
 **Claude:**
-```python
-python bluesky_analyzer.py --following alice.bsky.social \
-  --filter "AI/ML,Science" \
-  --format csv \
-  --output ml_researchers.csv
+```bash
+python scripts/bluesky_analyzer.py --following alice.bsky.social --accounts 100 --stopwords ai
 ```
 
-**User:** "Here's a list of 30 accounts, categorize them with custom topics"
+I found 23 ML researchers in Alice's network:
+- 8 working on LLM alignment and safety
+- 6 focused on model evaluation and benchmarks
+- 5 in ML infrastructure and MLOps
+- 4 in computer vision and multimodal models
+
+**User:** "Here's a list of 30 accounts, categorize them"
 
 **Claude:**
-```python
-# First, save custom categories
-cat > my_categories.json << 'EOF'
-{
-  "Climate Tech": {
-    "keywords": ["climate", "sustainability", "clean energy", "carbon"],
-    "weight": 1.0
-  },
-  "Biotech": {
-    "keywords": ["biotech", "crispr", "genomics", "protein"],
-    "weight": 1.0
-  }
-}
-EOF
-
-# Then analyze with custom categories
-python bluesky_analyzer.py --file accounts.txt --categories my_categories.json
+```bash
+python scripts/bluesky_analyzer.py --file accounts.txt --stopwords ai
 ```
+
+Categorized into:
+- Climate Tech (8 accounts)
+- Biotech (6 accounts)
+- Fintech (5 accounts)
+- AI/ML (7 accounts)
+- Other (4 accounts)
