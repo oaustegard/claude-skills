@@ -29,6 +29,25 @@ fi
 
 See environment-specific reference for persistence and retrieval details.
 
+## Critical: Checkpoint Pattern
+
+**The iterating skill enforces a checkpoint-and-save pattern to prevent work loss:**
+
+1. **Create/Update WorkLog** → Output for user → **STOP**
+2. User saves WorkLog to project knowledge (survives conversation limits)
+3. User says "continue" (same or new conversation)
+4. **Make incremental progress** on ONE item → Update WorkLog → **STOP**
+5. Repeat
+
+**Why this matters:**
+- Prevents token exhaustion mid-task
+- Survives 5-hour conversation limits
+- Allows user to review progress before continuing
+- Creates natural save points
+- Enables work across multiple conversations
+
+**NEVER skip the STOP step** - going "full waterfall" defeats the entire purpose of iterating.
+
 ## WorkLog Format
 
 ```markdown
@@ -78,21 +97,28 @@ status: in_progress
 1. Detect environment
 2. Create WorkLog v1 with task objective, decisions, file references, next steps
 3. Persist using environment-specific method
-4. Begin work on HIGH priority items
+4. **STOP - Present WorkLog to user**
+   - Explain what's planned
+   - Tell user to save WorkLog to project knowledge
+   - Wait for user to say "continue" before doing ANY work
 
 **Continuing work:**
 1. Detect environment
-2. Retrieve WorkLog using environment-specific method
+2. Retrieve WorkLog using environment-specific method OR recognize pasted WorkLog
 3. Parse latest version and status
-4. Acknowledge: "From WorkLog vN, status: [status]. Progress: [X%]. Continuing with HIGH: [item]"
-5. Execute HIGH priority items first
+4. Acknowledge: "From WorkLog vN, status: [status]. Progress: [X%]. Working on: [specific HIGH item]"
+5. **Execute ONE HIGH priority item** (not all of them!)
 6. Update WorkLog, increment version
 7. Persist using environment-specific method
+8. **STOP - Present updated WorkLog to user**
+   - Summarize what was completed
+   - Tell user to save updated WorkLog
+   - Wait for user to say "continue" before next item
 
 **Recognizing pasted WorkLog:**
 If user pastes content with WorkLog frontmatter at conversation start:
 1. Parse version and status from YAML
-2. Acknowledge: "From WorkLog vN, status: [status]. Task: [objective]. Starting with HIGH: [item]"
+2. Acknowledge: "From WorkLog vN, status: [status]. Task: [objective]. Next: [HIGH item]"
 3. Continue workflow from step 5 above
 
 ## Version Management
@@ -116,7 +142,17 @@ If user pastes content with WorkLog frontmatter at conversation start:
 - **[MED]**: Important but not urgent
 - **[LOW]**: Nice-to-have improvements
 
-**Claude tackles HIGH priority items first** unless told otherwise.
+**Claude works on ONE HIGH priority item per iteration** unless told otherwise.
+
+**Incremental progress pattern:**
+- Pick ONE HIGH item from WorkLog
+- Complete that specific item
+- Update WorkLog with progress
+- STOP for user to save
+- User says "continue" → Pick next HIGH item
+- Repeat
+
+This prevents token exhaustion and enables natural checkpoints.
 
 ## File References
 
@@ -164,9 +200,24 @@ Or for longer projects:
 
 ## User Communication
 
-- **After update:** "Updated WorkLog vN with [summary]"
-- **New session:** "From WorkLog vN, status: [status]. Progress: [X%]. Continuing with HIGH: [item]"
-- **Status change:** "Updated WorkLog status to [new_status]: [reason]"
+**After creating WorkLog:**
+- "Created WorkLog v1. Please save this to project knowledge."
+- "Ready to start when you say 'continue'."
+
+**After completing an item:**
+- "Completed [item]. Updated WorkLog to vN."
+- "Please save updated WorkLog to project knowledge."
+- "Ready for next item when you say 'continue'."
+
+**When continuing:**
+- "From WorkLog vN, status: [status]. Progress: [X%]."
+- "Working on: [specific HIGH item]"
+
+**Status changes:**
+- "Updated WorkLog status to [new_status]: [reason]"
+- "Please save updated WorkLog."
+
+**NEVER say:** "Now I'll continue with the next item..." - Always STOP and wait for user.
 
 ## Advanced Patterns
 
