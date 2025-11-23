@@ -1,6 +1,6 @@
 ---
 name: versioning-skills
-description: REQUIRED for all skill development. Automatically version control every skill file modification for rollback/comparison. Use after creating skill structure, after every file modification, and before packaging.
+description: REQUIRED for all skill development. Automatically version control every skill file modification for rollback/comparison. Use after init_skill.sh, after every str_replace/create_file, and before packaging.
 ---
 
 # Versioning Skills
@@ -9,7 +9,7 @@ Use git to track changes during skill development. Initialize repos after creati
 
 ## When Creating a New Skill
 
-After creating the skill directory structure, immediately initialize git:
+After running init_skill.sh, immediately initialize git:
 
 ```bash
 cd /home/claude/skill-name
@@ -39,7 +39,16 @@ git commit -m "Add: validation workflow pattern"
 
 **CRITICAL: Never display diffs inline - redirect to files and provide links.**
 
-Show commit history:
+**ALSO CRITICAL: Only create diffs/changelogs when user explicitly asks "what changed?" or "show differences"**
+
+**Don't preemptively create:**
+- CHANGELOG.md files
+- Change documentation
+- "Here's what I modified" summaries
+
+**Why:** The updated code/docs ARE the documentation. Creating separate changelogs wastes tokens and duplicates information.
+
+**When user asks, show commit history:**
 
 ```bash
 cd /home/claude/skill-name
@@ -165,9 +174,9 @@ zip -r /mnt/user-data/outputs/skill-name.zip skill-name/ -x "*.git*"
 ## Workflow Integration
 
 **During skill creation:**
-1. Create skill directory structure
+1. Run init_skill.sh
 2. Immediately: `git init && git add . && git commit -m "Initial structure"`
-3. Create/edit SKILL.md
+3. Edit SKILL.md
 4. Commit: `git add . && git commit -m "Add: core documentation"`
 5. Continue editing → commit after each major change
 
