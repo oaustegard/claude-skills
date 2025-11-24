@@ -25,3 +25,4 @@ Thumbs.db
 config.json
 *.key
 *.pem
+temp-spotify-mcp/
