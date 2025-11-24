@@ -2,7 +2,7 @@
 # Spotify MCP Server Installation Script
 #
 # This script installs the Spotify MCP Server in ephemeral compute environments.
-# It clones the modified repository, installs dependencies, and builds the server.
+# It clones the repository, patches it for environment variable support, and builds it.
 #
 # Usage:
 #   bash install-mcp-server.sh [install_dir]
@@ -14,8 +14,12 @@ set -e  # Exit on error
 
 # Configuration
 INSTALL_DIR="${1:-/home/claude/spotify-mcp-server}"
-REPO_URL="https://github.com/YOUR-FORK/spotify-mcp-server.git"  # TODO: Update with actual fork URL
+REPO_URL="https://github.com/marcelmarais/spotify-mcp-server.git"
 NODE_VERSION="18"  # Minimum Node.js version required
+
+# Script location
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+PATCH_SCRIPT="$SCRIPT_DIR/apply-patch.js"
 
 # Colors for output
 RED='\033[0;31m'
@@ -78,6 +82,12 @@ main() {
     log_info "Node.js version: $(node -v) ✓"
     log_info "npm version: $(npm -v) ✓"
 
+    # Check patch script
+    if [ ! -f "$PATCH_SCRIPT" ]; then
+        log_error "Patch script not found at $PATCH_SCRIPT"
+        exit 1
+    fi
+
     # Check if installation directory already exists
     if [ -d "$INSTALL_DIR" ]; then
         log_warn "Installation directory already exists: $INSTALL_DIR"
@@ -88,19 +98,7 @@ main() {
             rm -rf "$INSTALL_DIR"
         else
             log_info "Using existing installation at $INSTALL_DIR"
-
-            # Verify it's built
-            if [ -f "$INSTALL_DIR/build/index.js" ]; then
-                log_info "MCP server already installed and built ✓"
-                echo
-                echo "Installation directory: $INSTALL_DIR"
-                echo "Server executable: $INSTALL_DIR/build/index.js"
-                echo
-                log_info "You can now configure your MCP client to use this server."
-                exit 0
-            else
-                log_warn "Existing installation appears incomplete. Continuing with build..."
-            fi
+            exit 0
         fi
     fi
 
@@ -117,9 +115,19 @@ main() {
     # Navigate to directory
     cd "$INSTALL_DIR"
 
+    # Patch the server
+    log_info "Patching server for environment variable support..."
+    if node "$PATCH_SCRIPT"; then
+        log_info "Patch applied successfully ✓"
+    else
+        log_error "Failed to patch server"
+        exit 1
+    fi
+
     # Install dependencies
-    log_info "Installing dependencies (this may take a minute)..."
-    npm install --production
+    # We use 'npm install' instead of 'npm install --production' to ensure build tools (devDependencies) are available
+    log_info "Installing dependencies..."
+    npm install
 
     if [ $? -ne 0 ]; then
         log_error "Failed to install dependencies"
@@ -147,14 +155,6 @@ main() {
     chmod +x build/index.js
     log_info "Made server executable ✓"
 
-    # Test the server (quick validation)
-    log_info "Validating server installation..."
-    if node build/index.js --help &>/dev/null; then
-        log_info "Server validation passed ✓"
-    else
-        log_warn "Server validation inconclusive (this may be normal)"
-    fi
-
     # Installation complete
     echo
     echo "╔══════════════════════════════════════════════════════════════╗"
@@ -165,21 +165,10 @@ main() {
     echo "Server executable: $INSTALL_DIR/build/index.js"
     echo
     echo "Next steps:"
-    echo "1. Ensure you have your Spotify credentials:"
-    echo "   - SPOTIFY_CLIENT_ID"
-    echo "   - SPOTIFY_CLIENT_SECRET"
-    echo "   - SPOTIFY_REFRESH_TOKEN"
+    echo "1. Run the token helper script if you haven't yet:"
+    echo "   node $SCRIPT_DIR/get-refresh-token.js <CLIENT_ID> <CLIENT_SECRET>"
     echo
-    echo "2. Configure your MCP client with:"
-    echo "   {\"
-    echo "     \"command\": \"node\","
-    echo "     \"args\": [\"$INSTALL_DIR/build/index.js\"],"
-    echo "     \"env\": {"
-    echo "       \"SPOTIFY_CLIENT_ID\": \"your_client_id\","
-    echo "       \"SPOTIFY_CLIENT_SECRET\": \"your_client_secret\","
-    echo "       \"SPOTIFY_REFRESH_TOKEN\": \"your_refresh_token\""
-    echo "     }"
-    echo "   }"
+    echo "2. Configure your MCP client with the credentials."
     echo
     log_info "Installation successful!"
 }

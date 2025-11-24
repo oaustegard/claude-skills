@@ -43,35 +43,23 @@ The setup involves:
 
 ### Step 2: Obtain Refresh Token
 
-You need to run a helper script **on your local machine** to obtain a refresh token.
+You need to run the helper script included in this skill **on your local machine** to obtain a refresh token.
 
-#### Option A: Using the Modified Spotify MCP Server
+1. **Locate the Script**
+   The script is located at `controlling-spotify/scripts/get-refresh-token.js`.
 
-1. **Clone and Setup**
+2. **Run the Script**
+   You need Node.js installed on your machine.
+
    ```bash
-   # Clone the repository
-   git clone https://github.com/YOUR-FORK/spotify-mcp-server.git
-   cd spotify-mcp-server
+   # Navigate to the script directory
+   cd controlling-spotify/scripts
 
-   # Install dependencies
-   npm install
-   npm run build
+   # Run the script with your credentials
+   node get-refresh-token.js YOUR_CLIENT_ID YOUR_CLIENT_SECRET
    ```
 
-2. **Run Helper Script**
-   ```bash
-   # Set your credentials as environment variables
-   export SPOTIFY_CLIENT_ID="your_client_id_here"
-   export SPOTIFY_CLIENT_SECRET="your_client_secret_here"
-
-   # Run the script
-   node get-refresh-token.js
-   ```
-
-   **Or pass credentials as arguments:**
-   ```bash
-   node get-refresh-token.js your_client_id your_client_secret
-   ```
+   *Replace `YOUR_CLIENT_ID` and `YOUR_CLIENT_SECRET` with the values from Step 1.*
 
 3. **Authorize in Browser**
    - The script will open your browser automatically
@@ -80,59 +68,14 @@ You need to run a helper script **on your local machine** to obtain a refresh to
    - The browser will show "Authentication Successful!"
 
 4. **Copy Your Refresh Token**
-   - Look in your terminal - you'll see output like:
-     ```
-     ╔══════════════════════════════════════════════════════╗
-     ║                ✅ SUCCESS!                           ║
-     ╚══════════════════════════════════════════════════════╝
-
-     Your Spotify Refresh Token:
-
-     ┌──────────────────────────────────────────────────────┐
-     │ AQDQcj...very-long-string...7w                       │
-     └──────────────────────────────────────────────────────┘
-     ```
-   - **Copy this entire token** - you'll need it for Step 3
-
-#### Option B: Manual Method (If Helper Script Unavailable)
-
-If you can't run the helper script, you can get a refresh token manually:
-
-1. **Generate Authorization URL**
-   ```
-   https://accounts.spotify.com/authorize?client_id=YOUR_CLIENT_ID&response_type=code&redirect_uri=http://127.0.0.1:8888/callback&scope=user-read-private%20user-read-email%20user-read-playback-state%20user-modify-playback-state%20user-read-currently-playing%20playlist-read-private%20playlist-modify-private%20playlist-modify-public%20user-library-read%20user-library-modify%20user-read-recently-played
-   ```
-   Replace `YOUR_CLIENT_ID` with your actual client ID
-
-2. **Visit URL and Authorize**
-   - Paste the URL in your browser
-   - Log in to Spotify and click "Agree"
-   - You'll be redirected to `http://127.0.0.1:8888/callback?code=XXXXXX`
-   - The page won't load (that's OK!)
-   - Copy the `code` parameter from the URL
-
-3. **Exchange Code for Token**
-   ```bash
-   curl -X POST "https://accounts.spotify.com/api/token" \
-     -H "Authorization: Basic $(echo -n 'YOUR_CLIENT_ID:YOUR_CLIENT_SECRET' | base64)" \
-     -H "Content-Type: application/x-www-form-urlencoded" \
-     -d "grant_type=authorization_code&code=YOUR_CODE&redirect_uri=http://127.0.0.1:8888/callback"
-   ```
-
-   Replace:
-   - `YOUR_CLIENT_ID` with your client ID
-   - `YOUR_CLIENT_SECRET` with your client secret
-   - `YOUR_CODE` with the code from step 2
-
-4. **Extract Refresh Token**
-   - The response will be JSON containing `refresh_token`
-   - Copy the value of `refresh_token`
+   - Look in your terminal - you'll see your refresh token displayed.
+   - **Copy this entire token** - you'll need it for Step 3.
 
 ### Step 3: Configure Skill Credentials
 
-Now add your credentials to the skill configuration.
+Now add your credentials to the skill configuration. You have two options:
 
-#### For Claude.ai Skills
+#### Option A: Skill Configuration (Recommended)
 
 1. **Edit Skill Credentials**
    - Open your skill's credential configuration
@@ -150,6 +93,21 @@ Now add your credentials to the skill configuration.
    - Ensure the skill has these domains whitelisted:
      - `api.spotify.com`
      - `accounts.spotify.com`
+
+#### Option B: Project Knowledge File
+
+If you are using this skill within a specific Project, you can provide credentials via a Project Knowledge file.
+
+1. Create a file (e.g., `spotify-credentials.txt` or a `.env` file) in your Project Knowledge.
+2. Add the following content:
+
+```env
+SPOTIFY_CLIENT_ID=your_client_id
+SPOTIFY_CLIENT_SECRET=your_client_secret
+SPOTIFY_REFRESH_TOKEN=your_refresh_token
+```
+
+Claude will scan the context for these values if they are not found in the skill configuration.
 
 #### For Local Development (Claude Desktop, Cursor, etc.)
 
@@ -173,8 +131,6 @@ Add to your MCP configuration file:
   }
 }
 ```
-
-Replace `/absolute/path/to/spotify-mcp-server` with the actual path where you cloned the repository.
 
 ### Step 4: Test the Integration
 
@@ -288,11 +244,8 @@ If your token is compromised or you want to revoke access:
 
 **Solution**:
 ```bash
-# Use a different port
-node get-refresh-token.js YOUR_CLIENT_ID YOUR_CLIENT_SECRET 8889
-
-# Remember to update your Spotify app's redirect URI to match:
-# http://127.0.0.1:8889/callback
+# Use a different port (modify the script or free the port)
+lsof -i :8888  # Find process using port (macOS/Linux)
 ```
 
 ## FAQ
@@ -316,93 +269,3 @@ A: No. For skills in ephemeral environments, the MCP server is started automatic
 **Q: Can I see what permissions I granted?**
 
 A: Yes, visit https://www.spotify.com/account/apps/ to see all authorized applications and their permissions.
-
-**Q: What happens if Spotify changes their API?**
-
-A: The MCP server may need updates. Check for updates regularly if you encounter issues.
-
-**Q: Can I limit what the refresh token can access?**
-
-A: Permissions are determined when you authorize. To change permissions, revoke access and re-authorize with different scopes (requires modifying the helper script).
-
-## Advanced Topics
-
-### Custom Scopes
-
-If you want to limit permissions, edit the `SCOPES` array in `get-refresh-token.js`:
-
-```javascript
-const SCOPES = [
-  'user-read-playback-state',  // View what's playing
-  'user-modify-playback-state', // Control playback
-  'playlist-read-private',      // Read playlists
-  // Remove any you don't need
-].join(' ');
-```
-
-### Using with CI/CD
-
-For automated environments:
-
-1. Get refresh token manually (one-time)
-2. Store in secrets manager (GitHub Secrets, AWS Secrets Manager, etc.)
-3. Inject as environment variable in CI/CD pipeline
-
-Example for GitHub Actions:
-```yaml
-- name: Run Spotify integration
-  env:
-    SPOTIFY_CLIENT_ID: ${{ secrets.SPOTIFY_CLIENT_ID }}
-    SPOTIFY_CLIENT_SECRET: ${{ secrets.SPOTIFY_CLIENT_SECRET }}
-    SPOTIFY_REFRESH_TOKEN: ${{ secrets.SPOTIFY_REFRESH_TOKEN }}
-  run: node run-spotify-task.js
-```
-
-### Monitoring Token Usage
-
-To monitor API usage and detect compromised tokens:
-
-1. Check Spotify API rate limit headers in responses
-2. Review authorized devices in Spotify account settings
-3. Monitor for unexpected playback activity
-
-### Token Rotation
-
-While refresh tokens don't expire, you may want to rotate them periodically for security:
-
-1. Set a reminder (e.g., every 6 months)
-2. Run helper script to get new token
-3. Update all configurations
-4. Revoke old token from Spotify account settings
-
-## Support
-
-### Resources
-
-- Spotify Web API Docs: https://developer.spotify.com/documentation/web-api/
-- MCP Specification: https://modelcontextprotocol.io/
-- Original MCP Server: https://github.com/marcelmarais/spotify-mcp-server
-
-### Getting Help
-
-If you encounter issues:
-
-1. Check this troubleshooting guide
-2. Verify all credentials are correct
-3. Test with a simple command first
-4. Check Spotify service status: https://status.spotify.com/
-5. Review MCP server logs for error messages
-
-## Summary Checklist
-
-- [ ] Created Spotify Developer application
-- [ ] Added redirect URI: `http://127.0.0.1:8888/callback`
-- [ ] Noted Client ID and Client Secret
-- [ ] Ran helper script to get refresh token
-- [ ] Added all three credentials to skill configuration
-- [ ] Whitelisted required domains
-- [ ] Tested with a simple command
-- [ ] Stored credentials securely
-- [ ] Understood security implications
-
-Once all items are checked, your Spotify MCP integration is ready to use!
