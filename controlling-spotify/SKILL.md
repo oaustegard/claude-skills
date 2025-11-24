@@ -38,7 +38,7 @@ Invoke this skill when users request:
    - Add redirect URI: `http://127.0.0.1:8888/callback`
 
 2. **Obtain Refresh Token**
-   - User must run the helper script locally (see references/setup-guide.md)
+   - User must run the helper script locally (see `references/setup-guide.md`)
    - Script exchanges OAuth code for a long-lived refresh token
    - Refresh token is saved as credential in skill configuration
 
@@ -48,45 +48,46 @@ Invoke this skill when users request:
      - `SPOTIFY_CLIENT_SECRET`: From Spotify Developer Dashboard
      - `SPOTIFY_REFRESH_TOKEN`: From helper script output
 
+   **Alternative**: Credentials can also be provided via a **Project Knowledge** file. Ensure the file contains a `.env` style block with the keys above.
+
 **Without these credentials, the skill cannot function.** If credentials are missing, guide the user through the setup process detailed in `references/setup-guide.md`.
 
 ## MCP Server Installation
 
-The Spotify MCP Server must be installed in the compute environment:
-
-### Installation Method: NPM Package
-
-**Recommended**: Install directly from npm when available, or from GitHub:
+The Spotify MCP Server must be installed in the compute environment. Use the provided installation script which handles cloning, patching, and building the server.
 
 ```bash
-# From npm (when published)
-npm install -g spotify-mcp-server
-
-# Or from GitHub (modified version with env var support)
-cd /home/claude
-git clone https://github.com/YOUR-FORK/spotify-mcp-server.git
-cd spotify-mcp-server
-npm install
-npm run build
+# Run the installation script
+bash scripts/install-mcp-server.sh
 ```
 
 ### MCP Server Configuration
 
-Configure the MCP client to connect to the Spotify MCP server:
+Configure the MCP client to connect to the Spotify MCP server. Note the logic to support credentials from Project Knowledge.
 
 ```python
 from mcp import Client
 import asyncio
+import re
+
+# 1. Try to get credentials from skill configuration
+env_vars = {
+    "SPOTIFY_CLIENT_ID": credentials.get("SPOTIFY_CLIENT_ID"),
+    "SPOTIFY_CLIENT_SECRET": credentials.get("SPOTIFY_CLIENT_SECRET"),
+    "SPOTIFY_REFRESH_TOKEN": credentials.get("SPOTIFY_REFRESH_TOKEN")
+}
+
+# 2. If missing, look in Project Knowledge / Context for .env style block
+if not all(env_vars.values()):
+    # Heuristic: Scan context/files for VAR=VALUE patterns
+    # (Pseudo-code: Implement based on available context access)
+    pass
 
 # Server configuration
 mcp_config = {
     "command": "node",
     "args": ["/home/claude/spotify-mcp-server/build/index.js"],
-    "env": {
-        "SPOTIFY_CLIENT_ID": credentials.get("SPOTIFY_CLIENT_ID"),
-        "SPOTIFY_CLIENT_SECRET": credentials.get("SPOTIFY_CLIENT_SECRET"),
-        "SPOTIFY_REFRESH_TOKEN": credentials.get("SPOTIFY_REFRESH_TOKEN")
-    }
+    "env": env_vars
 }
 
 # Initialize client
@@ -359,10 +360,8 @@ print(os.getenv("SPOTIFY_REFRESH_TOKEN"))  # Should not be None
 
 **Solution**:
 ```bash
-cd /home/claude/spotify-mcp-server
-npm install
-npm run build
-node build/index.js  # Test if it starts
+# Re-run installation script
+bash scripts/install-mcp-server.sh
 ```
 
 ## Best Practices
