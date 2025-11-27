@@ -82,8 +82,20 @@ echo "$ZIP_FILES" | while IFS= read -r ZIP_FILE; do
 
   EXTRACTED_PATH="$TEMP_DIR/extracted_skill"
 
+  # Remove macOS metadata if present
+  if [ -d "$EXTRACTED_PATH/__MACOSX" ]; then
+    echo "Removing macOS metadata folder (__MACOSX)"
+    rm -rf "$EXTRACTED_PATH/__MACOSX"
+  fi
+
+  # Remove .DS_Store files (macOS Finder metadata)
+  find "$EXTRACTED_PATH" -name ".DS_Store" -type f -delete 2>/dev/null || true
+
+  # Remove ._* files (macOS resource forks)
+  find "$EXTRACTED_PATH" -name "._*" -type f -delete 2>/dev/null || true
+
   # Handle case where zip contains a single root directory
-  # Count items in extracted path
+  # Count items in extracted path (excluding __MACOSX which we just removed)
   ITEM_COUNT=$(find "$EXTRACTED_PATH" -mindepth 1 -maxdepth 1 | wc -l)
   if [ "$ITEM_COUNT" -eq 1 ]; then
     SINGLE_ITEM=$(find "$EXTRACTED_PATH" -mindepth 1 -maxdepth 1)
