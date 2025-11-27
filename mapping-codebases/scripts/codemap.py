@@ -23,8 +23,8 @@ EXT_TO_LANG = {
     '.java': 'java',
 }
 
-# Directories to skip
-SKIP_DIRS = {'.git', 'node_modules', '__pycache__', '.venv', 'venv', 'dist', 'build', '.next'}
+# Default directories to skip
+DEFAULT_SKIP_DIRS = {'.git', 'node_modules', '__pycache__', '.venv', 'venv', 'dist', 'build', '.next'}
 
 @dataclass
 class FileInfo:
@@ -103,34 +103,22 @@ def extract_typescript(tree, source: bytes) -> FileInfo:
         elif node.type == 'export_statement':
             for child in node.children:
                 if child.type == 'function_declaration':
-                    for c in child.children:
-                        if c.type == 'identifier':
-                            exports.append(get_text(c))
+                    for subchild in child.children:
+                        if subchild.type == 'identifier':
+                            exports.append(get_text(subchild))
                             break
                 elif child.type == 'class_declaration':
-                    for c in child.children:
-                        if c.type == 'type_identifier':
-                            exports.append(get_text(c))
+                    for subchild in child.children:
+                        if subchild.type == 'type_identifier':
+                            exports.append(get_text(subchild))
                             break
                 elif child.type == 'lexical_declaration':
-                    for c in child.children:
-                        if c.type == 'variable_declarator':
-                            for cc in c.children:
-                                if cc.type == 'identifier':
-                                    exports.append(get_text(cc))
+                    for subchild in child.children:
+                        if subchild.type == 'variable_declarator':
+                            for id_node in subchild.children:
+                                if id_node.type == 'identifier':
+                                    exports.append(get_text(id_node))
                                     break
-                elif child.type == 'identifier':
-                    exports.append(get_text(child))
-                elif child.type == 'type_alias_declaration':
-                    for c in child.children:
-                        if c.type == 'type_identifier':
-                            exports.append(get_text(c))
-                            break
-                elif child.type == 'interface_declaration':
-                    for c in child.children:
-                        if c.type == 'type_identifier':
-                            exports.append(get_text(c))
-                            break
         
         for child in node.children:
             visit(child)
@@ -152,35 +140,17 @@ def extract_go(tree, source: bytes) -> FileInfo:
         if node.type == 'import_spec':
             for child in node.children:
                 if child.type == 'interpreted_string_literal':
-                    imports.append(get_text(child).strip('"'))
-                    break
+                    text = get_text(child).strip('"')
+                    imports.append(text)
         
-        # Exports (capitalized identifiers at package level)
-        elif node.type == 'function_declaration':
+        # Exports (capitalized top-level)
+        elif node.type in ('function_declaration', 'type_declaration'):
             for child in node.children:
                 if child.type == 'identifier':
                     name = get_text(child)
                     if name[0].isupper():
                         exports.append(name)
                     break
-        elif node.type == 'type_declaration':
-            for child in node.children:
-                if child.type == 'type_spec':
-                    for c in child.children:
-                        if c.type == 'type_identifier':
-                            name = get_text(c)
-                            if name[0].isupper():
-                                exports.append(name)
-                            break
-        elif node.type in ('var_declaration', 'const_declaration'):
-            for child in node.children:
-                if child.type in ('var_spec', 'const_spec'):
-                    for c in child.children:
-                        if c.type == 'identifier':
-                            name = get_text(c)
-                            if name[0].isupper():
-                                exports.append(name)
-                            break
         
         for child in node.children:
             visit(child)
@@ -197,46 +167,26 @@ def extract_rust(tree, source: bytes) -> FileInfo:
     def get_text(node):
         return source[node.start_byte:node.end_byte].decode()
     
-    def is_pub(node):
-        for child in node.children:
-            if child.type == 'visibility_modifier':
-                return True
-        return False
-    
     def visit(node):
         # Use statements
         if node.type == 'use_declaration':
-            text = get_text(node)
-            # Extract the path part
-            if '::' in text:
-                imports.append(text.split('use ')[-1].rstrip(';').split('::')[0])
+            for child in node.children:
+                if child.type in ('scoped_identifier', 'identifier'):
+                    imports.append(get_text(child))
         
         # Public items
-        elif node.type == 'function_item' and is_pub(node):
+        elif node.type == 'attribute_item':
+            is_pub = False
             for child in node.children:
-                if child.type == 'identifier':
-                    exports.append(get_text(child))
-                    break
-        elif node.type == 'struct_item' and is_pub(node):
-            for child in node.children:
-                if child.type == 'type_identifier':
-                    exports.append(get_text(child))
-                    break
-        elif node.type == 'enum_item' and is_pub(node):
-            for child in node.children:
-                if child.type == 'type_identifier':
-                    exports.append(get_text(child))
-                    break
-        elif node.type == 'trait_item' and is_pub(node):
-            for child in node.children:
-                if child.type == 'type_identifier':
-                    exports.append(get_text(child))
-                    break
-        elif node.type == 'impl_item' and is_pub(node):
-            for child in node.children:
-                if child.type == 'type_identifier':
-                    exports.append(get_text(child))
-                    break
+                if child.type == 'visibility_modifier' and get_text(child) == 'pub':
+                    is_pub = True
+            if is_pub:
+                for child in node.children:
+                    if child.type in ('function_item', 'struct_item', 'enum_item', 'trait_item'):
+                        for subchild in child.children:
+                            if subchild.type in ('identifier', 'type_identifier'):
+                                exports.append(get_text(subchild))
+                                break
         
         for child in node.children:
             visit(child)
@@ -255,33 +205,21 @@ def extract_ruby(tree, source: bytes) -> FileInfo:
     
     def visit(node):
         # Requires
-        if node.type == 'call':
-            children = list(node.children)
-            if children and children[0].type == 'identifier':
-                method = get_text(children[0])
-                if method in ('require', 'require_relative'):
-                    for child in children:
-                        if child.type == 'argument_list':
-                            for arg in child.children:
-                                if arg.type == 'string':
-                                    text = get_text(arg).strip('"\'')
-                                    imports.append(text)
+        if node.type == 'call' and any(
+            child.type == 'identifier' and get_text(child) == 'require' 
+            for child in node.children
+        ):
+            for child in node.children:
+                if child.type == 'argument_list':
+                    for arg in child.children:
+                        if arg.type == 'string':
+                            text = get_text(arg).strip('"\'')
+                            imports.append(text)
         
-        # Class and module definitions (top-level)
-        elif node.type == 'class' and node.parent.type == 'program':
+        # Top-level definitions
+        elif node.type in ('method', 'class', 'module'):
             for child in node.children:
-                if child.type == 'constant':
-                    exports.append(get_text(child))
-                    break
-        elif node.type == 'module' and node.parent.type == 'program':
-            for child in node.children:
-                if child.type == 'constant':
-                    exports.append(get_text(child))
-                    break
-        # Top-level methods
-        elif node.type == 'method' and node.parent.type == 'program':
-            for child in node.children:
-                if child.type == 'identifier':
+                if child.type in ('identifier', 'constant'):
                     exports.append(get_text(child))
                     break
         
@@ -300,37 +238,26 @@ def extract_java(tree, source: bytes) -> FileInfo:
     def get_text(node):
         return source[node.start_byte:node.end_byte].decode()
     
-    def is_public(node):
-        for child in node.children:
-            if child.type == 'modifiers':
-                modifiers_text = get_text(child)
-                return 'public' in modifiers_text
-        return False
-    
     def visit(node):
-        # Import declarations
+        # Imports
         if node.type == 'import_declaration':
             for child in node.children:
                 if child.type == 'scoped_identifier':
                     imports.append(get_text(child))
-                    break
         
-        # Public class/interface/enum
-        elif node.type == 'class_declaration' and is_public(node):
+        # Public classes/interfaces
+        elif node.type in ('class_declaration', 'interface_declaration'):
+            is_public = False
             for child in node.children:
-                if child.type == 'identifier':
-                    exports.append(get_text(child))
-                    break
-        elif node.type == 'interface_declaration' and is_public(node):
-            for child in node.children:
-                if child.type == 'identifier':
-                    exports.append(get_text(child))
-                    break
-        elif node.type == 'enum_declaration' and is_public(node):
-            for child in node.children:
-                if child.type == 'identifier':
-                    exports.append(get_text(child))
-                    break
+                if child.type == 'modifiers':
+                    mod_text = get_text(child)
+                    if 'public' in mod_text:
+                        is_public = True
+            if is_public:
+                for child in node.children:
+                    if child.type == 'identifier':
+                        exports.append(get_text(child))
+                        break
         
         for child in node.children:
             visit(child)
@@ -354,22 +281,26 @@ EXTRACTORS = {
 def analyze_file(filepath: Path) -> FileInfo | None:
     """Analyze a single file and return its info."""
     lang = get_language(filepath)
-    if not lang or lang not in EXTRACTORS:
+    if not lang:
         return None
     
     try:
         parser = get_parser(lang)
         source = filepath.read_bytes()
         tree = parser.parse(source)
-        info = EXTRACTORS[lang](tree, source)
+        
+        extractor = EXTRACTORS.get(lang)
+        if not extractor:
+            return None
+        
+        info = extractor(tree, source)
         info.name = filepath.name
         return info
-    except Exception as e:
-        print(f"Warning: Failed to parse {filepath}: {e}", file=sys.stderr)
+    except Exception:
         return None
 
 
-def generate_map_for_directory(dirpath: Path) -> str | None:
+def generate_map_for_directory(dirpath: Path, skip_dirs: set[str]) -> str | None:
     """Generate _MAP.md content for a single directory."""
     files_info = []
     subdirs = []
@@ -378,7 +309,7 @@ def generate_map_for_directory(dirpath: Path) -> str | None:
         if entry.name.startswith('.') or entry.name == '_MAP.md':
             continue
         if entry.is_dir():
-            if entry.name not in SKIP_DIRS:
+            if entry.name not in skip_dirs:
                 subdirs.append(entry.name)
         elif entry.is_file():
             info = analyze_file(entry)
@@ -388,7 +319,19 @@ def generate_map_for_directory(dirpath: Path) -> str | None:
     if not files_info and not subdirs:
         return None
     
-    lines = [f"# {dirpath.name}/\n"]
+    # Header with stats
+    lines = [f"# {dirpath.name}/"]
+    
+    # Add summary stats
+    stats = []
+    if files_info:
+        stats.append(f"Files: {len(files_info)}")
+    if subdirs:
+        stats.append(f"Subdirectories: {len(subdirs)}")
+    if stats:
+        lines.append(f"*{' | '.join(stats)}*\n")
+    else:
+        lines.append("")
     
     if subdirs:
         lines.append("## Subdirectories\n")
@@ -400,27 +343,40 @@ def generate_map_for_directory(dirpath: Path) -> str | None:
         lines.append("## Files\n")
         for info in files_info:
             parts = [f"**{info.name}**"]
+            
+            # Show export count if truncated
             if info.exports:
-                parts.append(f"exports: `{', '.join(info.exports[:8])}`{'...' if len(info.exports) > 8 else ''}")
+                export_preview = ', '.join(info.exports[:8])
+                if len(info.exports) > 8:
+                    parts.append(f"exports ({len(info.exports)}): `{export_preview}`...")
+                else:
+                    parts.append(f"exports: `{export_preview}`")
+            
+            # Show import count if truncated
             if info.imports:
                 # Shorten imports for readability
                 short_imports = [i.split('/')[-1] for i in info.imports[:5]]
-                parts.append(f"imports: `{', '.join(short_imports)}`{'...' if len(info.imports) > 5 else ''}")
+                import_preview = ', '.join(short_imports)
+                if len(info.imports) > 5:
+                    parts.append(f"imports ({len(info.imports)}): `{import_preview}`...")
+                else:
+                    parts.append(f"imports: `{import_preview}`")
+            
             lines.append(f"- {' — '.join(parts)}")
     
     return '\n'.join(lines) + '\n'
 
 
-def generate_maps(root: Path, dry_run: bool = False):
+def generate_maps(root: Path, skip_dirs: set[str], dry_run: bool = False):
     """Walk directory tree and generate _MAP.md files."""
     count = 0
     
     for dirpath, dirnames, filenames in os.walk(root):
         # Filter out skip dirs in-place
-        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and not d.startswith('.')]
+        dirnames[:] = [d for d in dirnames if d not in skip_dirs and not d.startswith('.')]
         
         path = Path(dirpath)
-        content = generate_map_for_directory(path)
+        content = generate_map_for_directory(path, skip_dirs)
         
         if content:
             map_path = path / '_MAP.md'
@@ -442,21 +398,27 @@ def main():
     parser.add_argument('path', nargs='?', default='.', help='Root directory to process')
     parser.add_argument('--dry-run', '-n', action='store_true', help='Print output without writing files')
     parser.add_argument('--clean', action='store_true', help='Remove all _MAP.md files')
+    parser.add_argument('--skip', help='Comma-separated list of additional directories to skip (e.g., "locale,migrations,tests")')
     args = parser.parse_args()
     
     root = Path(args.path).resolve()
     
+    # Build skip set
+    skip_dirs = DEFAULT_SKIP_DIRS.copy()
+    if args.skip:
+        skip_dirs.update(s.strip() for s in args.skip.split(','))
+    
     if args.clean:
         count = 0
         for map_file in root.rglob('_MAP.md'):
-            if not any(skip in map_file.parts for skip in SKIP_DIRS):
+            if not any(skip in map_file.parts for skip in skip_dirs):
                 map_file.unlink()
                 print(f"Removed: {map_file}")
                 count += 1
         print(f"Cleaned {count} _MAP.md files")
         return
     
-    count = generate_maps(root, dry_run=args.dry_run)
+    count = generate_maps(root, skip_dirs, dry_run=args.dry_run)
     print(f"\nGenerated {count} _MAP.md files")
 
 
