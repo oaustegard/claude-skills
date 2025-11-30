@@ -1,0 +1,45 @@
+name: Install Claude Skills
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to update (leave empty for current branch)'
+        required: false
+        default: ''
+
+jobs:
+  install-skills:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch || github.ref }}
+
+      - name: Run skill installation
+        run: |
+          # Make script executable
+          chmod +x templates/installation/install-skills.sh
+
+          # Run installation
+          ./templates/installation/install-skills.sh
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push changes
+        run: |
+          git add .claude/skills/
+
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: Update Claude Skills from repository"
+            git push
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
