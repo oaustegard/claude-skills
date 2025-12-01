@@ -45,6 +45,31 @@ Provide goals and decision frameworks, not step-by-step procedures:
 - Specify: Success criteria, constraints, decision frameworks
 - Minimize: Sequential steps Claude can infer from goals
 
+## Model-Aware Project Instructions
+
+Project instructions may be executed by different Claude models. Calibrate accordingly:
+
+**If project primarily uses Sonnet:**
+- Include explicit decision frameworks with clear conditions
+- State fallback behaviors for edge cases
+- More examples demonstrating expected patterns
+- Concrete constraints over abstract principles
+
+**If project primarily uses Opus:**
+- Lead with goals and success criteria
+- Provide rich context about WHY—Opus uses this for autonomous judgment
+- Fewer procedural steps, more strategic direction
+- Can include: "Apply judgment for situations not explicitly covered"
+- Principles and reasoning over exhaustive rules
+
+**Model-agnostic baseline:**
+- Imperative language (works for both)
+- Positive framing with context (both benefit)
+- No system prompt duplication (universal)
+- Extended thinking suggestions (model-agnostic UI feature)
+
+If you don't control which model executes: Write for Sonnet (more explicit), with strategic context Opus will leverage.
+
 ## Structure Guidance
 
 ### Default: Simple and Clear

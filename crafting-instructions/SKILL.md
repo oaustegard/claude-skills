@@ -78,6 +78,10 @@ Provide goals and decision frameworks, not step-by-step procedures:
 - Minimize: Sequential steps, detailed execution, obvious operations
 - Rule: If Claude can infer procedure from goal, specify only the goal
 
+**Model-aware calibration:**
+- **Sonnet:** Include decision frameworks with explicit conditions and fallbacks. Concrete examples help more than abstract principles. When in doubt, add structure.
+- **Opus:** Lean harder into strategic goals over procedures. Trust Opus to handle ambiguity—overly procedural instructions can constrain its natural reasoning. Principles > rules. Context about WHY is particularly valuable since Opus uses it for autonomous judgment in edge cases.
+
 ### 5. Trust Base Behavior
 Claude's system prompt already covers:
 - Citation protocols, copyright guidelines, safety
@@ -168,6 +172,10 @@ When including examples:
 - Better to omit examples than include mixed signals
 - If example uses bullets but you want prose, Claude will default to bullets
 
+**Model-aware calibration:**
+- **Sonnet:** Examples are highly influential—include 2-3 demonstrating desired patterns. Sonnet learns format/style strongly from examples.
+- **Opus:** Examples help but are less essential. Opus weights explicit instructions and principles more heavily than pattern-matching from examples. One clear example often suffices; omit entirely if examples can't perfectly align with all requirements.
+
 ## Structural Simplicity
 
 Default to clear organization:
@@ -204,6 +212,31 @@ Match instruction complexity to task needs:
 **Complex task** → Comprehensive instructions + suggest extended thinking
 
 Before adding complexity: Could simpler formulation work equally well?
+
+## Model Selection & Instruction Density
+
+When crafting instructions, consider which model will execute them:
+
+**For Sonnet-executed instructions:**
+- Explicit > implicit (state assumptions that might be obvious)
+- More decision trees, fewer abstract principles
+- Comprehensive edge case handling
+- Concrete fallback behaviors
+- Token-efficient but explicit
+
+**For Opus-executed instructions:**
+- Strategic goals > procedural steps
+- Principles and reasoning > exhaustive rules
+- Trust handling of unstated edge cases
+- Provide rich WHY context—Opus uses it for autonomous judgment
+- Permission to deviate when spirit conflicts with letter
+- Can state: "Use judgment for cases not covered here"
+
+**Instruction density heuristic:**
+- Sonnet: 1.0-1.2x the detail you'd give a competent junior
+- Opus: 0.6-0.8x the detail—more like briefing a senior peer
+
+**When uncertain:** Instructions optimized for Opus will still work with Sonnet (just less perfectly). Instructions over-optimized for Sonnet may constrain Opus unnecessarily.
 
 ## Quality Checklist
 

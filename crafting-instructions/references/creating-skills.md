@@ -78,6 +78,17 @@ Apply crafting-instructions core principles when writing skill instructions:
 - **Positive Directive Framing**: State what to do, not what to avoid
 - **Provide Context**: Explain WHY for non-obvious requirements
 
+**Model-aware skill writing:**
+Skills may be executed by any Claude model. Write for robustness:
+- Lead with goals (Opus) but include decision frameworks (Sonnet)
+- Provide WHY context (both benefit, Opus leverages more)
+- Include 1-2 examples (Sonnet benefits; Opus uses if helpful)
+- State explicit edge case handling rather than assuming inference
+
+If skill is known to run on a specific model, calibrate:
+- **Sonnet:** More procedural detail, explicit conditions, concrete examples
+- **Opus:** More strategic, principle-based, trust judgment for unstated cases
+
 See main crafting-instructions guidance (§ Core Optimization Principles) for details.
 
 ## Bundled Resources Patterns
