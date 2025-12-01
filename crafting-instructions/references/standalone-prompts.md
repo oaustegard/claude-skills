@@ -110,6 +110,10 @@ Match prompt complexity to task needs:
 **Complex task (5-10+ tool calls):** "Research semiconductor export restrictions and analyze impact on our tech portfolio. Consider geopolitical factors, supply chain dependencies, and alternative suppliers."
 → Comprehensive prompt with context and multi-part analysis
 
+**Model selection for prompts:**
+- **Sonnet:** Best for routine, well-defined tasks. Add explicit structure, constraints, and examples for complex requests.
+- **Opus:** Best for nuanced reasoning, creative work, or ambiguous tasks requiring judgment. Can work from goals with less procedural guidance. Worth the latency/cost tradeoff when task benefits from deeper reasoning.
+
 ## Advanced Techniques
 
 ### Prefill Claude's Response
