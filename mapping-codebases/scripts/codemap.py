@@ -21,6 +21,7 @@ EXT_TO_LANG = {
     '.rs': 'rust',
     '.rb': 'ruby',
     '.java': 'java',
+    '.html': 'html',
 }
 
 # Default directories to skip
@@ -266,6 +267,100 @@ def extract_java(tree, source: bytes) -> FileInfo:
     return FileInfo(name="", exports=exports, imports=imports)
 
 
+def extract_html_javascript(tree, source: bytes) -> FileInfo:
+    """Extract JavaScript functions and imports from HTML <script> tags."""
+    functions = []
+    imports = []
+
+    def get_text(node):
+        return source[node.start_byte:node.end_byte].decode()
+
+    def find_script_elements(node):
+        """Recursively find all script elements in HTML."""
+        script_contents = []
+
+        if node.type == 'script_element':
+            # Check if this is an inline script (not src-only)
+            has_src = False
+            for child in node.children:
+                if child.type == 'start_tag':
+                    tag_text = get_text(child)
+                    if 'src=' in tag_text:
+                        has_src = True
+                        # Extract the src value for imports
+                        try:
+                            import_match = tag_text.split('src=')[1].split()[0].strip('"\'>')
+                            if import_match and not import_match.startswith('http'):
+                                imports.append(import_match)
+                        except:
+                            pass
+                elif child.type == 'raw_text':
+                    # This is inline JavaScript code
+                    js_code = get_text(child)
+                    if js_code.strip():
+                        script_contents.append(js_code)
+
+        for child in node.children:
+            script_contents.extend(find_script_elements(child))
+
+        return script_contents
+
+    # Extract all script contents
+    script_contents = find_script_elements(tree.root_node)
+
+    # Parse each script block as JavaScript
+    if script_contents:
+        try:
+            js_parser = get_parser('javascript')
+            for script_code in script_contents:
+                js_tree = js_parser.parse(script_code.encode())
+
+                # Extract function declarations
+                def visit_js(node):
+                    js_source = script_code.encode()
+                    node_text = js_source[node.start_byte:node.end_byte].decode()
+
+                    # Function declarations: function foo() {}
+                    if node.type == 'function_declaration':
+                        for child in node.children:
+                            if child.type == 'identifier':
+                                func_name = js_source[child.start_byte:child.end_byte].decode()
+                                if func_name not in functions:
+                                    functions.append(func_name)
+                                break
+
+                    # Variable declarations with functions: const foo = function() {}
+                    # Also arrow functions: const foo = () => {}
+                    elif node.type == 'variable_declarator':
+                        identifier = None
+                        is_function = False
+                        for child in node.children:
+                            if child.type == 'identifier':
+                                identifier = js_source[child.start_byte:child.end_byte].decode()
+                            elif child.type in ('function', 'arrow_function', 'function_expression'):
+                                is_function = True
+                        if identifier and is_function and identifier not in functions:
+                            functions.append(identifier)
+
+                    # Import statements
+                    elif node.type == 'import_statement':
+                        for child in node.children:
+                            if child.type == 'string':
+                                import_path = js_source[child.start_byte:child.end_byte].decode().strip('"\'')
+                                if import_path not in imports:
+                                    imports.append(import_path)
+
+                    for child in node.children:
+                        visit_js(child)
+
+                visit_js(js_tree.root_node)
+        except Exception:
+            # If JavaScript parsing fails, silently continue
+            pass
+
+    return FileInfo(name="", exports=functions, imports=imports)
+
+
 EXTRACTORS = {
     'python': extract_python,
     'javascript': extract_typescript,
@@ -275,6 +370,7 @@ EXTRACTORS = {
     'rust': extract_rust,
     'ruby': extract_ruby,
     'java': extract_java,
+    'html': extract_html_javascript,
 }
 
 
