@@ -40,7 +40,7 @@ Example output:
 
 ## Supported Languages
 
-Python, JavaScript, TypeScript, TSX, Go, Rust, Ruby, Java.
+Python, JavaScript, TypeScript, TSX, Go, Rust, Ruby, Java, HTML.
 
 ## Commands
 
