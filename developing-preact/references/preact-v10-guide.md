@@ -11,8 +11,6 @@
       "preact": "https://esm.sh/*preact@10.23.1",
       "preact/": "https://esm.sh/*preact@10.23.1/",
       "@preact/signals": "https://esm.sh/*@preact/signals@1.3.0",
-      "@preact/signals-core": "https://esm.sh/*@preact/signals-core@1.8.0",
-      "htm": "https://esm.sh/*htm@3.1.1",
       "htm/preact": "https://esm.sh/*htm@3.1.1/preact"
     }
   }
@@ -31,15 +29,13 @@
       "react/": "https://esm.sh/*preact@10.23.1/compat/",
       "react-dom": "https://esm.sh/*preact@10.23.1/compat",
       "@preact/signals": "https://esm.sh/*@preact/signals@1.3.0",
-      "@preact/signals-core": "https://esm.sh/*@preact/signals-core@1.8.0",
-      "htm": "https://esm.sh/*htm@3.1.1",
       "htm/preact": "https://esm.sh/*htm@3.1.1/preact"
     }
   }
 </script>
 ```
 
-**Critical Note**: Always use the `*` prefix in esm.sh URLs to mark all dependencies as external, preventing duplicate Preact instances. You must also include transitive dependencies (`@preact/signals-core`, `htm`) in the import map.
+**Critical Note**: Always use the `*` prefix in esm.sh URLs to mark all dependencies as external, preventing duplicate Preact instances.
 
 ## HTM Syntax (Default Preference)
 
