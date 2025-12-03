@@ -1,3 +1,3 @@
 # developing-preact
 
-Preact development for dynamic web applications requiring reactive state management, complex interactions, or real-time updates. Use only when vanilla HTML/CSS/JS cannot efficiently handle the requirements. Specializes in zero-build solutions with HTM syntax, data visualization, SPAs, WebGL integration, and native-first architecture with minimal dependencies.
+Specialized Preact development skill for standards-based web applications with native-first architecture and minimal dependency footprint. Use when building Preact projects, particularly those involving data visualization, interactive applications, single-page apps with HTM syntax, Web Components integration, CSV/JSON data parsing, WebGL shader visualizations, or zero-build solutions with CDN imports.

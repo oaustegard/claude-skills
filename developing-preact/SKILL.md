@@ -1,6 +1,6 @@
 ---
 name: developing-preact
-description: Preact development for dynamic web applications requiring reactive state management, complex interactions, or real-time updates. Use only when vanilla HTML/CSS/JS cannot efficiently handle the requirements. Specializes in zero-build solutions with HTM syntax, data visualization, SPAs, WebGL integration, and native-first architecture with minimal dependencies.
+description: Specialized Preact development skill for standards-based web applications with native-first architecture and minimal dependency footprint. Use when building Preact projects, particularly those involving data visualization, interactive applications, single-page apps with HTM syntax, Web Components integration, CSV/JSON data parsing, WebGL shader visualizations, or zero-build solutions with CDN imports.
 ---
 
 # Preact Developer
@@ -15,80 +15,17 @@ Transform Claude into a specialized Preact developer with expertise in building 
 
 **Always Deliver in Artifacts**: All code should be created as artifacts to enable iterative editing across sessions.
 
-## HTML vs. Preact Decision Framework
-
-**Default to vanilla HTML** for all web content. Only escalate to Preact when you need dynamic behavior that vanilla HTML cannot provide efficiently.
-
-### Use Vanilla HTML When:
-
-- Content is primarily **static** (marketing pages, documentation, blogs)
-- User interactions are **simple** (links, basic form submission, CSS-only effects)
-- Behavior can be achieved with **CSS alone** (hover states, transitions, show/hide)
-- Native HTML features suffice (forms with native validation, details/summary for accordions)
-- Progressive enhancement via minimal vanilla JS works (event listeners, DOM manipulation)
-
-**Example vanilla HTML scenarios**:
-- Landing pages with navigation
-- Static portfolio sites
-- Documentation with code samples
-- Contact forms with native validation
-- Image galleries with CSS grid/flexbox
-- Accordions using `<details>` and `<summary>`
-- Modals using `<dialog>` element
-
-### Escalate to Preact When You Need:
-
-- **Complex state management** - Multiple interconnected UI states that change over time
-- **Reactive updates** - DOM needs to automatically reflect data changes
-- **Component reusability** - Same UI pattern used repeatedly with different data
-- **Conditional rendering** - Show/hide multiple sections based on complex logic
-- **List rendering** - Dynamic lists that add/remove/reorder items
-- **Real-time data** - WebSocket updates, live data feeds, polling
-- **Client-side routing** - SPA navigation without page reloads
-- **Data fetching & display** - API calls with loading/error states
-- **Form state beyond native** - Multi-step forms, dynamic validation, derived fields
-- **Performance requirements** - Need virtual DOM for efficient updates of large lists
-
-**Example Preact scenarios**:
-- Todo app with add/remove/filter functionality
-- Data dashboard with real-time updates
-- Interactive data visualizations from CSV/JSON
-- Multi-step wizards with conditional steps
-- Search interfaces with instant filtering
-- Shopping cart with quantity updates
-- File upload with progress and preview
-- Chat applications
-- Canvas/WebGL apps with reactive controls
-
-### Decision Process:
-
-1. **Start with HTML** - Can the requirement be met with semantic HTML and CSS?
-2. **Add minimal JS** - Would a few vanilla JS event listeners suffice?
-3. **Consider complexity** - Will state management become unwieldy without a framework?
-4. **Choose Preact** - Only when vanilla approaches become impractical
-
-**When in doubt, start with vanilla HTML.** It's easier to add Preact later than to remove unnecessary complexity.
-
 ## When to Use This Skill
 
-Trigger this skill **only when Preact is actually needed** (per the decision framework above):
+Trigger this skill when working on:
 
-- **Dynamic state management** requiring reactive updates
-- **Interactive applications** with complex user interactions
+- **Preact projects** of any complexity level
 - **Data visualization applications** requiring CSV/JSON parsing and interactive charts
-- **Single-page applications** with client-side routing
-- **Real-time interfaces** with WebSocket or polling updates
-- **Component-heavy UIs** with significant reusability needs
-- **WebGL/shader-based** mathematical visualizations with reactive controls
-- **Web Components** integration requiring reactive behavior
-- **Progressive web applications** with advanced interactivity
-
-**Do NOT use this skill for**:
-- Static websites or landing pages
-- Simple forms with native validation
-- Content-focused sites (blogs, documentation)
-- Marketing pages without complex interactions
-- Anything achievable with vanilla HTML/CSS/minimal JS
+- **Single-page applications** using HTM tagged template literals
+- **WebGL/shader-based** mathematical visualizations
+- **Web Components** integration projects
+- **Zero-build prototypes** with CDN-based dependencies
+- **Progressive web applications** emphasizing accessibility and performance
 
 ## Project Type Decision Tree
 
@@ -150,15 +87,13 @@ Always use this exact import map structure for standalone examples:
       "preact": "https://esm.sh/*preact@10.23.1",
       "preact/": "https://esm.sh/*preact@10.23.1/",
       "@preact/signals": "https://esm.sh/*@preact/signals@1.3.0",
-      "@preact/signals-core": "https://esm.sh/*@preact/signals-core@1.8.0",
-      "htm": "https://esm.sh/*htm@3.1.1",
       "htm/preact": "https://esm.sh/*htm@3.1.1/preact"
     }
   }
 </script>
 ```
 
-**Critical**: Always use the `*` prefix in esm.sh URLs to mark all dependencies as external, preventing duplicate Preact instances. You must also include transitive dependencies (`@preact/signals-core`, `htm`) in the import map.
+**Critical**: Always use the `*` prefix in esm.sh URLs to mark all dependencies as external, preventing duplicate Preact instances.
 
 ### Syntax Preference
 
@@ -339,17 +274,14 @@ import { users, isAuthenticated } from './state.js';
 ## Constraints
 
 **DO NOT**:
-- Use Preact for static content achievable with vanilla HTML/CSS
 - Recommend npm tooling without confirming user's development environment
 - Suggest dependencies when native solutions exist
 - Optimize prematurely - start with simplest working implementation
 - Ask questions inferable from context
 
 **DO**:
-- Default to vanilla HTML unless dynamic behavior is explicitly needed
-- Escalate to Preact only when justified by the decision framework
 - Execute with reasonable defaults when requirements are clear
-- Use HTM syntax by default when Preact is warranted
+- Use HTM syntax by default
 - Create artifacts for all code
 - Prioritize accessibility and progressive enhancement
 - Document architectural decisions in comments
@@ -381,8 +313,6 @@ import { users, isAuthenticated } from './state.js';
       "imports": {
         "preact": "https://esm.sh/*preact@10.23.1",
         "@preact/signals": "https://esm.sh/*@preact/signals@1.3.0",
-        "@preact/signals-core": "https://esm.sh/*@preact/signals-core@1.8.0",
-        "htm": "https://esm.sh/*htm@3.1.1",
         "htm/preact": "https://esm.sh/*htm@3.1.1/preact"
       }
     }
@@ -433,8 +363,7 @@ For mathematical visualizations using WebGL shaders, create a canvas element, in
 
 Before delivering code, verify:
 
-- [ ] **Preact is actually needed** - Could this be vanilla HTML/CSS/JS instead?
-- [ ] Import map uses `*` prefix for all esm.sh URLs (if using Preact)
+- [ ] Import map uses `*` prefix for all esm.sh URLs
 - [ ] HTM syntax is used (unless JSX explicitly requested)
 - [ ] Keys provided for all mapped elements
 - [ ] Signals used for reactive state
