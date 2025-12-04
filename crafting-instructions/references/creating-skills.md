@@ -46,28 +46,33 @@ Requirements:
 ```yaml
 ---
 name: skill-name
-description: What it does. Use when [trigger patterns].
+description: [Action verbs] [what]. Use for: [trigger patterns].
 ---
 ```
 
 **name:** Follow naming convention above
 
 **description:** (max 1024 chars)
-- Third person voice: "Processes files" not "I process files"
-- WHAT it does + WHEN to use it (trigger patterns)
-- Specify: file types, keywords, task types that should activate this skill
-- No XML tags
+- **Lead with action verbs**: "Create", "Generate", "Analyze", "Extract" (imperative, not descriptive)
+- **State capabilities concisely**: What the skill does in active voice
+- **Explicit trigger section**: "Use for:" followed by comma-separated patterns
+- **Trigger specificity**: File types (.docx, .pptx), keywords (chart, visualize), task verbs (debug, optimize), user phrases
+- **No XML tags, no procedural steps**
 
-**Good examples:**
-- "Creates PowerPoint presentations. Use when users mention slides, .pptx files, or presentations."
-- "Analyzes SQL queries for performance. Use when debugging slow queries, optimization requests, or EXPLAIN output."
+**Strong examples:**
+- "Create and edit PowerPoint presentations (.pptx) with layouts and formatting. Use for: slide creation, presentation requests, .pptx file mentions, pitch deck generation."
+- "Analyze and optimize SQL query performance. Use for: slow query debugging, EXPLAIN output analysis, optimization requests, database performance tuning."
+- "Generate interactive data visualizations using Vega-Lite. Use for: chart creation, plotting data, visualization requests, uploaded CSV/JSON with charting intent."
 
-**Ineffective examples:**
-- "I can help create presentations" (first person, no triggers)
-- "Presentation creator" (no triggers, vague what)
-- "Advanced presentation creation with animations" (over-detailed implementation)
+**Weak examples:**
+- "I can help create presentations" (first person, passive, no triggers)
+- "Presentation creator" (descriptive noun, no actions, no triggers)
+- "Creates PowerPoint presentations. Use when users mention slides" (descriptive "Creates", weak "Use when", incomplete triggers)
+- "Advanced presentation tool with animations and transitions" (implementation details, no actions or triggers)
 
-The description is critical—it determines when Claude activates this skill.
+**Pattern:** `[Verb] [Verb] [Verb] [object/domain]. Use for: [trigger1], [trigger2], [trigger3].`
+
+The description determines skill activation—imperative verbs and explicit triggers are critical.
 
 ## Writing Effective SKILL.md
 
