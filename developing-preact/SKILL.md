@@ -102,6 +102,70 @@ Always use this exact import map structure for standalone examples:
 - Project already uses JSX tooling
 - TypeScript strict mode requires JSX
 
+### JSX to HTM Translation Reference
+
+When mentally converting from React/JSX patterns to HTM, apply these rules:
+
+#### Mental Model
+
+HTM uses JavaScript template literals. Everything that was `{expression}` in JSX becomes `${expression}`. Component *names* are also expressions, hence `<${Component}>`.
+
+#### Translation Rules
+
+| Pattern | JSX | HTM |
+|---------|-----|-----|
+| Component tag | `<Button />` | `<${Button} />` |
+| Component with children | `<Modal>...</Modal>` | `<${Modal}>...</${Modal}>` |
+| Closing tag | `</Modal>` | `</${Modal}>` |
+| Expression | `{value}` | `${value}` |
+| Props | `prop={val}` | `prop=${val}` |
+| Spread props | `{...obj}` | `...${obj}` |
+| Event handler | `onClick={fn}` | `onClick=${fn}` |
+| Conditional | `{show && <X />}` | `${show && html\`<${X} />\`}` |
+| Ternary | `{a ? <X /> : <Y />}` | `${a ? html\`<${X} />\` : html\`<${Y} />\`}` |
+| Map | `{items.map(i => <Li />)}` | `${items.map(i => html\`<li>...</li>\`)}` |
+
+#### Key Differences
+
+1. **Component references need `${}`**: The component name is a JavaScript expression
+   ```javascript
+   // JSX
+   <Button onClick={handleClick}>Save</Button>
+   
+   // HTM
+   <${Button} onClick=${handleClick}>Save</${Button}>
+   ```
+
+2. **Nested templates for conditional components**: When conditionally rendering components (not HTML elements), wrap in `html\`\``
+   ```javascript
+   // JSX
+   {isOpen && <Modal title="Hello" />}
+   
+   // HTM
+   ${isOpen && html`<${Modal} title="Hello" />`}
+   ```
+
+3. **No braces for spread**: In HTM, spread uses `...${obj}` directly
+   ```javascript
+   // JSX
+   <Input {...inputProps} />
+   
+   // HTM
+   <${Input} ...${inputProps} />
+   ```
+
+4. **class vs className**: Both work in Preact, but prefer `class` for consistency and smaller output
+
+#### Common Mistakes
+
+| Mistake | Wrong | Correct |
+|---------|-------|---------|
+| Missing `${}` on component | `<Button>` | `<${Button}>` |
+| Wrong closing syntax | `</MyComponent>` | `</${MyComponent}>` |
+| Braces instead of template | `{count}` | `${count}` |
+| Spread with braces | `{...props}` | `...${props}` |
+| Missing html wrapper in conditional | `${show && <${X} />}` | `${show && html\`<${X} />\`}` |
+
 ### Component Patterns
 
 Use function components with:
