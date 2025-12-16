@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bluesky Zeitgeist</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 20px;
+      line-height: 1.5;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+    
+    header {
+      text-align: center;
+      padding: 20px 0 30px;
+      border-bottom: 1px solid #334155;
+      margin-bottom: 24px;
+    }
+    h1 { font-size: 24px; font-weight: 600; color: #38bdf8; margin-bottom: 8px; }
+    .subtitle { color: #94a3b8; font-size: 14px; }
+    
+    .stats-row {
+      display: flex;
+      justify-content: center;
+      gap: 32px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+    .stat { text-align: center; }
+    .stat-value { font-size: 28px; font-weight: 700; color: #f1f5f9; }
+    .stat-label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+    
+    section { margin-bottom: 28px; }
+    h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #1e293b;
+    }
+    
+    .windows {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    .window {
+      background: #1e293b;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    .window-label { color: #64748b; font-size: 11px; text-transform: uppercase; margin-bottom: 4px; }
+    .window-stats { color: #cbd5e1; }
+    .window-top { margin-top: 6px; font-size: 12px; color: #94a3b8; }
+    
+    .clusters { display: grid; gap: 16px; }
+    .cluster {
+      background: #1e293b;
+      border-radius: 8px;
+      padding: 16px;
+      border-left: 3px solid #3b82f6;
+    }
+    .cluster.hot { border-left-color: #f97316; }
+    .cluster-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .cluster-name { font-weight: 600; font-size: 16px; color: #f1f5f9; }
+    .cluster-velocity { font-size: 13px; color: #94a3b8; }
+    .trend-up { color: #22c55e; }
+    .trend-down { color: #ef4444; }
+    .trend-stable { color: #94a3b8; }
+    .cluster-terms { font-size: 13px; color: #64748b; margin-bottom: 8px; }
+    .cluster-terms code {
+      background: #334155;
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-right: 4px;
+      color: #cbd5e1;
+    }
+    .cluster-search {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 6px 12px;
+      background: #3b82f6;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .cluster-search:hover { background: #2563eb; }
+    .cluster-samples {
+      font-size: 13px;
+      color: #94a3b8;
+      border-top: 1px solid #334155;
+      padding-top: 8px;
+      margin-top: 8px;
+    }
+    .sample-post { padding: 4px 0; border-bottom: 1px solid #1e293b; }
+    .sample-post:last-child { border-bottom: none; }
+    
+    .items-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .item {
+      background: #334155;
+      padding: 6px 12px;
+      border-radius: 16px;
+      font-size: 13px;
+      text-decoration: none;
+      color: #e2e8f0;
+      transition: background 0.15s;
+    }
+    .item:hover { background: #475569; }
+    .item-count { color: #64748b; margin-left: 4px; }
+    .item-rate { color: #94a3b8; font-size: 11px; margin-left: 4px; }
+    
+    .lang-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-top: 8px; }
+    .lang-segment { height: 100%; }
+    .lang-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 8px; font-size: 12px; color: #94a3b8; }
+    .lang-item { display: flex; align-items: center; gap: 4px; }
+    .lang-dot { width: 8px; height: 8px; border-radius: 50%; }
+    
+    .timestamp { text-align: center; font-size: 11px; color: #475569; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🌊 Bluesky Zeitgeist</h1>
+      <div class="subtitle">Live firehose analysis</div>
+      <div class="stats-row" id="header-stats"></div>
+    </header>
+    <section><h2>Sample Windows</h2><div class="windows" id="windows"></div></section>
+    <section id="monitored-section" style="display:none"><h2>📍 Monitored Topic</h2><div id="monitored"></div></section>
+    <section><h2>Content Clusters</h2><div class="clusters" id="clusters"></div></section>
+    <section><h2>Top Entities</h2><div class="items-list" id="entities"></div></section>
+    <section><h2>Top Phrases</h2><div class="items-list" id="phrases"></div></section>
+    <section><h2>Languages</h2><div class="lang-bar" id="lang-bar"></div><div class="lang-legend" id="lang-legend"></div></section>
+    <div class="timestamp" id="timestamp"></div>
+  </div>
+
+  <script>
+    // ========== DATA ISLAND - REPLACE THIS OBJECT ==========
+    const DATA = {"aggregate":{"totalPosts":0,"totalDurationSec":30,"avgPostsPerSecond":0,"timestamp":""},"windows":[],"clusters":[],"entities":[],"phrases":[],"languages":{},"monitoredTopic":null};
+    // ========== END DATA ISLAND ==========
+
+    const bskySearch = (q) => `https://bsky.app/search?q=${encodeURIComponent(q)}`;
+    const trendIcon = (t) => t === 'up' ? '↑' : t === 'down' ? '↓' : '→';
+    const trendClass = (t) => t === 'up' ? 'trend-up' : t === 'down' ? 'trend-down' : 'trend-stable';
+
+    function render() {
+      const { aggregate: agg, windows, clusters, entities, phrases, languages, monitoredTopic } = DATA;
+      
+      // Header
+      document.getElementById('header-stats').innerHTML = `
+        <div class="stat"><div class="stat-value">${agg.totalPosts.toLocaleString()}</div><div class="stat-label">Posts</div></div>
+        <div class="stat"><div class="stat-value">${agg.avgPostsPerSecond.toFixed(1)}</div><div class="stat-label">Posts/Sec</div></div>
+        <div class="stat"><div class="stat-value">${agg.totalDurationSec}s</div><div class="stat-label">Duration</div></div>
+      `;
+
+      // Windows
+      document.getElementById('windows').innerHTML = windows.map(w => `
+        <div class="window">
+          <div class="window-label">${w.label}</div>
+          <div class="window-stats">${w.posts} posts @ ${w.postsPerSecond}/s</div>
+          ${w.topTerms?.length ? `<div class="window-top">Top: ${w.topTerms.slice(0,2).map(([t,c])=>`${t} (${c})`).join(', ')}</div>` : ''}
+        </div>
+      `).join('');
+
+      // Monitored Topic (if present)
+      if (monitoredTopic) {
+        document.getElementById('monitored-section').style.display = 'block';
+        const mt = monitoredTopic;
+        const sparkline = mt.windowCounts ? mt.windowCounts.map((c,i) => `W${i+1}:${c}`).join(' → ') : '';
+        document.getElementById('monitored').innerHTML = `
+          <div class="cluster hot">
+            <div class="cluster-header">
+              <span class="cluster-name">🎯 "${mt.query}"</span>
+              <span class="cluster-velocity" style="color: #f97316; font-weight: 600;">${mt.mentionsPerMin.toFixed(1)}/min ${trendIcon(mt.trend)}</span>
+            </div>
+            <div class="cluster-terms">Tracking: <code>${mt.query}</code> ${sparkline ? `<span style="margin-left:12px;color:#64748b">${sparkline}</span>` : ''}</div>
+            <a class="cluster-search" href="${bskySearch(mt.query)}" target="_blank">🔍 Search on Bluesky</a>
+            ${mt.samples?.length ? `<div class="cluster-samples">${mt.samples.slice(0,3).map(s => `<div class="sample-post">"${s.length > 100 ? s.substring(0,100)+'...' : s}"</div>`).join('')}</div>` : ''}
+          </div>
+        `;
+      }
+
+      // Clusters
+      document.getElementById('clusters').innerHTML = clusters.map(c => `
+        <div class="cluster ${c.mentionsPerMin >= 30 ? 'hot' : ''}">
+          <div class="cluster-header">
+            <span class="cluster-name">${c.emoji || ''} ${c.name}</span>
+            <span class="cluster-velocity ${trendClass(c.trend)}">${c.mentionsPerMin.toFixed(1)}/min ${trendIcon(c.trend)} ${c.mentionsPerMin >= 30 ? '🔥' : ''}</span>
+          </div>
+          <div class="cluster-terms">Terms: ${c.terms.map(t => `<code>${t}</code>`).join('')}</div>
+          <a class="cluster-search" href="${bskySearch(c.searchQuery)}" target="_blank">🔍 Search on Bluesky</a>
+          ${c.samples?.length ? `<div class="cluster-samples">${c.samples.slice(0,3).map(s => `<div class="sample-post">"${s.length > 100 ? s.substring(0,100)+'...' : s}"</div>`).join('')}</div>` : ''}
+        </div>
+      `).join('');
+
+      // Entities
+      document.getElementById('entities').innerHTML = entities.slice(0,12).map(e => 
+        `<a class="item" href="${bskySearch(e.name)}" target="_blank">${e.name}<span class="item-count">${e.count}</span><span class="item-rate">${e.perMin.toFixed(1)}/m</span></a>`
+      ).join('');
+
+      // Phrases
+      document.getElementById('phrases').innerHTML = phrases.slice(0,10).map(p => 
+        `<a class="item" href="${bskySearch(p.phrase)}" target="_blank">"${p.phrase}"<span class="item-count">${p.count}</span><span class="item-rate">${p.perMin.toFixed(1)}/m</span></a>`
+      ).join('');
+
+      // Languages
+      const langColors = ['#3b82f6', '#22c55e', '#f97316', '#a855f7', '#ec4899', '#64748b'];
+      const langTotal = Object.values(languages).reduce((a, b) => a + b, 0);
+      const langEntries = Object.entries(languages).sort((a, b) => b[1] - a[1]).slice(0, 6);
+      
+      document.getElementById('lang-bar').innerHTML = langEntries.map(([lang, count], i) => 
+        `<div class="lang-segment" style="width: ${(count/langTotal*100).toFixed(1)}%; background: ${langColors[i]}"></div>`
+      ).join('');
+      
+      document.getElementById('lang-legend').innerHTML = langEntries.map(([lang, count], i) => 
+        `<span class="lang-item"><span class="lang-dot" style="background: ${langColors[i]}"></span>${lang} ${(count/langTotal*100).toFixed(1)}%</span>`
+      ).join('');
+
+      document.getElementById('timestamp').textContent = `Sampled: ${agg.timestamp}`;
+    }
+
+    render();
+  </script>
+</body>
+</html>
