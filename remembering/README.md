@@ -1,3 +1,3 @@
 # remembering
 
-Minimal persistent memory across Claude sessions. Use when storing user preferences, project context, decisions, or facts that should persist. Triggers on "remember this", "save for later", "don't forget", or when context should survive session boundaries.
+Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, and edge cases.
