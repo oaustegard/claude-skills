@@ -1,87 +1,152 @@
 ---
 name: remembering
-description: Minimal persistent memory across Claude sessions. Use when storing user preferences, project context, decisions, or facts that should persist. Triggers on "remember this", "save for later", "don't forget", or when context should survive session boundaries.
+description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, and edge cases.
 ---
 
-# Remembering
+# Remembering - Advanced Operations
 
-One-liner memory operations. Store what matters, retrieve when needed.
+**Basic patterns are in project instructions.** This skill covers advanced features and edge cases.
 
-## Store
+## Two-Table Architecture
+
+| Table | Purpose | Growth |
+|-------|---------|--------|
+| `config` | Stable operational state (profile + ops) | Small, static |
+| `memories` | Timestamped observations | Unbounded |
+
+Config loads fast at startup. Memories are queried as needed.
+
+## Config Table
+
+Key-value store for profile (behavioral) and ops (operational) settings.
 
 ```python
-from remembering import remember
+from remembering import config_get, config_set, config_delete, config_list, profile, ops
 
-remember("User prefers concise answers")
-remember("Deadline Dec 15", tags=["project-x"])
-remember("Always use dark mode", conf=0.95)
+# Read
+config_get("identity")                    # Single key
+profile()                                  # All profile entries
+ops()                                      # All ops entries
+config_list()                              # Everything
+
+# Write
+config_set("new-key", "value", "profile")  # Category: 'profile' or 'ops'
+config_set("skill-foo", "usage notes", "ops")
+
+# Delete
+config_delete("old-key")
 ```
 
-Type auto-inferred from content:
-- "prefers", "should", "always" → `decision`
-- "TODO", "deadline", "blocked" → `world`
-- "error", "bug", "failed" → `anomaly`
-- Default → `experience`
+## Memory Type System
 
-Override with `type="decision"` if needed.
+**Type is required** on all write operations. Valid types:
 
-## Retrieve
+| Type | Use For |
+|------|---------|
+| `decision` | Explicit choices: prefers X, always/never do Y |
+| `world` | External facts: tasks, deadlines, project state |
+| `anomaly` | Errors, bugs, unexpected behavior |
+| `experience` | General observations, catch-all |
+
+Note: `profile` is no longer a memory type—use `config_set(key, value, "profile")` instead.
+
+```python
+from remembering import TYPES  # {'decision', 'world', 'anomaly', 'experience'}
+```
+
+## Background Writes (Agentic Pattern)
+
+Fire-and-forget storage for non-blocking workflow:
+
+```python
+from remembering import remember_bg
+
+# Returns immediately, writes in background thread
+remember_bg("User's project uses Python 3.12 with FastAPI", "world")
+remember_bg("Discovered: batch insert reduces latency 70%", "experience", tags=["optimization"])
+```
+
+Use `remember_bg()` when:
+- Storing derived insights during active work
+- Memory write shouldn't block response
+- Agentic pattern where latency matters
+
+Use blocking `remember()` when:
+- User explicitly requests storage
+- Need confirmation of write success
+- Memory ID needed for references
+
+## Memory Versioning (Patch/Snapshot)
+
+Supersede without losing history:
+
+```python
+from remembering import supersede
+
+# User's preference evolved
+original_id = "abc-123"
+supersede(original_id, "User now prefers Python 3.12", "decision", conf=0.9)
+```
+
+Creates new memory with `refs=[original_id]`. Original preserved but not returned in default queries. Trace evolution via `refs` chain.
+
+## Complex Queries
+
+Multiple filters, custom confidence thresholds:
 
 ```python
 from remembering import recall
 
-recall()                      # recent 10
-recall(20)                    # recent 20
-recall("deadline")            # search summaries
-recall(tags=["task"])         # filter by tags
-recall(type="decision")       # filter by type
-recall(conf=0.8)              # min confidence
+# High-confidence decisions only
+decisions = recall(type="decision", conf=0.85, n=20)
+
+# Recent anomalies for debugging context
+bugs = recall(type="anomaly", n=5)
+
+# Search with tag filter
+tasks = recall("API", tags=["task"], n=15)
 ```
 
-## Forget
+## Soft Delete
+
+Remove without destroying data:
 
 ```python
 from remembering import forget
 
-forget("memory-uuid-here")    # soft delete
+forget("memory-uuid")  # Sets deleted_at, excluded from queries
 ```
 
-## Short Form
+Memories remain in database for audit/recovery. Hard deletes require direct SQL.
 
-```python
-import remembering as m
-m.r("fact")   # remember
-m.q()         # query/recall
-```
+## Memory Quality Guidelines
 
-## Workflow
+Write complete, searchable summaries that standalone without conversation context:
 
-**Conversation start:** Load relevant context
-```python
-prefs = recall(type="decision", conf=0.7)
-recent = recall(5)
-```
+✓ "User prefers direct answers with code examples over lengthy conceptual explanations"
 
-**During conversation:** Save insights as they emerge
-```python
-remember("User's project uses Python 3.12 with FastAPI")
-```
+✗ "User wants code" (lacks context, unsearchable)
 
-**Conversation end:** Consolidate learnings
-```python
-remember("When user asks about APIs, show curl examples first", conf=0.85)
-```
+✗ "User asked question" + "gave code" + "seemed happy" (fragmented, no synthesis)
 
-## Memory Quality
+## Edge Cases
 
-Write complete, narrative summaries:
+**Empty recall results:** Returns `[]`, not an error. Check list length before accessing.
 
-✓ "User prefers direct answers with code examples over conceptual explanations"
+**Search literal matching:** Current implementation uses SQL LIKE. Searches "API test" matches "API testing" but not "test API" (order matters).
 
-✗ "User asked question" + "gave code" + "seemed happy"
+**Tag partial matching:** `tags=["task"]` matches memories with tags `["task", "urgent"]` via JSON substring search.
 
-## Technical
+**Confidence defaults:** `decision` type defaults to 0.8 if not specified. Others default to `NULL`.
 
-- Backend: Turso SQLite (HTTP API)
+**Invalid type:** Raises `ValueError` with list of valid types.
+
+**Invalid category:** `config_set` raises `ValueError` if category not 'profile' or 'ops'.
+
+## Implementation Notes
+
+- Backend: Turso SQLite HTTP API
 - Token: `/mnt/project/turso-token.txt`
-- Same database as personal-memory skill (compatible)
+- Two tables: `config` (KV) and `memories` (observations)
+- HTTP API required (libsql SDK bypasses egress proxy)
+- Thread-safe for background writes
