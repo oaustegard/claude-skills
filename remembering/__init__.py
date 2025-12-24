@@ -121,9 +121,9 @@ def config_get(key: str) -> str | None:
     return result[0]["value"] if result else None
 
 def config_set(key: str, value: str, category: str) -> None:
-    """Set a config value. Category must be 'profile' or 'ops'."""
-    if category not in ("profile", "ops"):
-        raise ValueError(f"Invalid category '{category}'. Must be 'profile' or 'ops'")
+    """Set a config value. Category must be 'profile', 'ops', or 'journal'."""
+    if category not in ("profile", "ops", "journal"):
+        raise ValueError(f"Invalid category '{category}'. Must be 'profile', 'ops', or 'journal'")
     now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     _exec(
         "INSERT OR REPLACE INTO config (key, value, category, updated_at) VALUES (?, ?, ?, ?)",
@@ -149,13 +149,55 @@ def ops() -> list:
     """Load operational config for conversation start."""
     return config_list("ops")
 
+def journal(topics: list = None, user_stated: str = None, my_intent: str = None) -> str:
+    """Record a journal entry. Returns the entry key."""
+    now = datetime.now(UTC)
+    key = f"j-{now.strftime('%Y%m%d-%H%M%S')}"
+    entry = {
+        "t": now.isoformat().replace("+00:00", "Z"),
+        "topics": topics or [],
+        "user_stated": user_stated,
+        "my_intent": my_intent
+    }
+    # Remove None values for cleaner storage
+    entry = {k: v for k, v in entry.items() if v is not None}
+    config_set(key, json.dumps(entry), "journal")
+    return key
+
+def journal_recent(n: int = 10) -> list:
+    """Get recent journal entries for boot context. Returns list of parsed entries."""
+    entries = config_list("journal")
+    # Sort by key (timestamp-based) descending, take last n
+    entries.sort(key=lambda x: x["key"], reverse=True)
+    result = []
+    for e in entries[:n]:
+        try:
+            parsed = json.loads(e["value"])
+            parsed["_key"] = e["key"]
+            result.append(parsed)
+        except json.JSONDecodeError:
+            continue
+    return result
+
+def journal_prune(keep: int = 40) -> int:
+    """Prune old journal entries, keeping the most recent `keep` entries. Returns count deleted."""
+    entries = config_list("journal")
+    if len(entries) <= keep:
+        return 0
+    entries.sort(key=lambda x: x["key"], reverse=True)
+    to_delete = entries[keep:]
+    for e in to_delete:
+        config_delete(e["key"])
+    return len(to_delete)
+
 # Short aliases
 r = remember
 q = recall
+j = journal
 
 __all__ = [
     "remember", "recall", "forget", "supersede", "remember_bg",  # memories
     "config_get", "config_set", "config_delete", "config_list",  # config
-    "profile", "ops",  # convenience loaders
-    "r", "q", "TYPES"  # aliases & constants
+    "profile", "ops", "journal", "journal_recent", "journal_prune",  # convenience loaders
+    "r", "q", "j", "TYPES"  # aliases & constants
 ]
