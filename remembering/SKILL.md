@@ -63,9 +63,17 @@ config_list()                              # Everything
 config_set("new-key", "value", "profile")  # Category: 'profile', 'ops', or 'journal'
 config_set("skill-foo", "usage notes", "ops")
 
+# Write with constraints (new!)
+config_set("bio", "Short bio here", "profile", char_limit=500)  # Enforce max length
+config_set("core-rule", "Never modify this", "ops", read_only=True)  # Mark immutable
+
 # Delete
 config_delete("old-key")
 ```
+
+**Config constraints:**
+- `char_limit`: Enforces maximum character count on writes (raises `ValueError` if exceeded)
+- `read_only`: Prevents modifications (raises `ValueError` on attempted updates)
 
 ## Memory Type System
 
@@ -133,8 +141,41 @@ decisions = recall(type="decision", conf=0.85, n=20)
 # Recent anomalies for debugging context
 bugs = recall(type="anomaly", n=5)
 
-# Search with tag filter
+# Search with tag filter (any match)
 tasks = recall("API", tags=["task"], n=15)
+
+# Require ALL tags (tag_mode="all")
+urgent_tasks = recall(tags=["task", "urgent"], tag_mode="all", n=10)
+```
+
+## Semantic Search (Vector Similarity)
+
+Find memories by meaning, not just keywords. Requires `EMBEDDING_API_KEY` environment variable (OpenAI API key).
+
+```python
+from remembering import semantic_recall
+
+# Find memories semantically similar to a concept
+similar = semantic_recall("performance optimization strategies")
+
+# With filters
+similar_decisions = semantic_recall("user preferences", type="decision", n=3)
+```
+
+**How it works:**
+- Stores 1536-dim embeddings (OpenAI `text-embedding-3-small`) with each memory
+- Uses Turso's DiskANN vector index for efficient cosine similarity search
+- Returns results with `similarity` field (0.0-1.0)
+- Gracefully degrades if embeddings not available
+
+**Enable semantic search:**
+```bash
+export EMBEDDING_API_KEY="sk-..."  # OpenAI API key
+```
+
+**Disable embeddings for a specific write:**
+```python
+remember("No embedding needed", "world", embed=False)
 ```
 
 ## Soft Delete
@@ -159,6 +200,38 @@ Write complete, searchable summaries that standalone without conversation contex
 
 ✗ "User asked question" + "gave code" + "seemed happy" (fragmented, no synthesis)
 
+## Export/Import for Portability
+
+Backup or migrate Muninn state across environments:
+
+```python
+from remembering import muninn_export, muninn_import
+import json
+
+# Export all state to JSON
+state = muninn_export()
+# Returns: {"version": "1.0", "exported_at": "...", "config": [...], "memories": [...]}
+
+# Save to file
+with open("muninn-backup.json", "w") as f:
+    json.dump(state, f, indent=2)
+
+# Import (merge with existing data)
+with open("muninn-backup.json") as f:
+    data = json.load(f)
+stats = muninn_import(data, merge=True)
+print(f"Imported {stats['config_count']} config, {stats['memory_count']} memories")
+
+# Import (replace all - destructive!)
+stats = muninn_import(data, merge=False)
+```
+
+**Notes:**
+- `merge=False` deletes all existing data before import (use with caution!)
+- Memory IDs are regenerated on import to avoid conflicts
+- Embeddings are preserved from export (not regenerated)
+- Returns stats dict with counts and any errors
+
 ## Edge Cases
 
 **Empty recall results:** Returns `[]`, not an error. Check list length before accessing.
@@ -175,10 +248,16 @@ Write complete, searchable summaries that standalone without conversation contex
 
 **Journal pruning:** Call `journal_prune()` periodically to prevent unbounded growth. Default keeps 40 entries.
 
+**Semantic search without API key:** `semantic_recall()` raises `RuntimeError` if `EMBEDDING_API_KEY` not set. Regular `recall()` works without it.
+
+**Tag mode:** `tag_mode="all"` requires all specified tags to be present. `tag_mode="any"` (default) matches if any tag present.
+
 ## Implementation Notes
 
 - Backend: Turso SQLite HTTP API
-- Token: `/mnt/project/turso-token.txt`
+- Token: `TURSO_TOKEN` environment variable or `/mnt/project/turso-token.txt`
+- Embedding API: `EMBEDDING_API_KEY` environment variable (OpenAI)
 - Two tables: `config` (KV) and `memories` (observations)
+- Vector search: 1536-dim embeddings with DiskANN index
 - HTTP API required (libsql SDK bypasses egress proxy)
 - Thread-safe for background writes
