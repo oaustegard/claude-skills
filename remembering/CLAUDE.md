@@ -222,11 +222,11 @@ remembering/
 
 ## Recent Enhancements
 
-### v0.2.4 (2025-12-26)
+### v0.3.1 (2025-12-26)
 ✅ **Boot Sequence**: `decisions_recent()` for loading high-confidence decisions at session start
 ✅ **Documentation**: Added comprehensive boot sequence guide in SKILL.md
 
-### v0.2.3 (2025-12-26)
+### v0.3.0 (2025-12-26)
 ✅ **Date-filtered Queries**: `recall_since()` and `recall_between()` for temporal filtering
 ✅ **Therapy Helpers**: `therapy_scope()` and `therapy_session_count()` for reflection workflows
 ✅ **Analysis Helpers**: `group_by_type()` and `group_by_tag()` for memory organization
