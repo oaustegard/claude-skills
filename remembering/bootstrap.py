@@ -8,14 +8,21 @@ Usage:
 """
 
 import sys
-sys.path.insert(0, '/mnt/skills/user')
+import os
 
-from remembering import _exec, _init, config_set
+# Support both installed path (/mnt/skills/user) and local development
+if os.path.exists('/mnt/skills/user'):
+    sys.path.insert(0, '/mnt/skills/user')
+    from remembering import _exec, _init, config_set
+else:
+    # Local development - import from current directory
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from __init__ import _exec, _init, config_set
 
 def create_tables():
     """Create memories and config tables if they don't exist."""
     _init()
-    
+
     _exec("""
         CREATE TABLE IF NOT EXISTS memories (
             id TEXT PRIMARY KEY,
@@ -29,20 +36,60 @@ def create_tables():
             session_id TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
-            deleted_at TEXT
+            deleted_at TEXT,
+            embedding F32_BLOB(1536)
         )
     """)
-    
+
     _exec("""
         CREATE TABLE IF NOT EXISTS config (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL,
             category TEXT NOT NULL,
-            updated_at TEXT NOT NULL
+            updated_at TEXT NOT NULL,
+            char_limit INTEGER,
+            read_only BOOLEAN DEFAULT FALSE
         )
     """)
-    
+
     print("Tables created/verified")
+
+def migrate_schema():
+    """Add new columns to existing tables if needed."""
+    _init()
+
+    # Add embedding column to memories if it doesn't exist
+    try:
+        _exec("ALTER TABLE memories ADD COLUMN embedding F32_BLOB(1536)")
+        print("Added embedding column to memories table")
+    except:
+        pass  # Column already exists
+
+    # Add char_limit and read_only columns to config if they don't exist
+    try:
+        _exec("ALTER TABLE config ADD COLUMN char_limit INTEGER")
+        print("Added char_limit column to config table")
+    except:
+        pass  # Column already exists
+
+    try:
+        _exec("ALTER TABLE config ADD COLUMN read_only BOOLEAN DEFAULT FALSE")
+        print("Added read_only column to config table")
+    except:
+        pass  # Column already exists
+
+    # Create vector index for efficient semantic search
+    try:
+        _exec("""
+            CREATE INDEX IF NOT EXISTS memories_embedding_idx ON memories (
+                libsql_vector_idx(embedding, 'type=diskann', 'metric=cosine')
+            )
+        """)
+        print("Created vector index on memories.embedding")
+    except Exception as e:
+        print(f"Note: Vector index creation skipped (may require newer Turso version): {e}")
+
+    print("Schema migration complete")
 
 def seed_config():
     """Seed minimal required config entries."""
@@ -92,7 +139,10 @@ def seed_config():
 
 def verify():
     """Print current config state."""
-    from remembering import profile, ops
+    if os.path.exists('/mnt/skills/user'):
+        from remembering import profile, ops
+    else:
+        from __init__ import profile, ops
     
     print("\n=== Profile ===")
     for p in profile():
@@ -104,6 +154,7 @@ def verify():
 
 if __name__ == "__main__":
     create_tables()
+    migrate_schema()
     seed_config()
     verify()
     print("\nBootstrap complete")

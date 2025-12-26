@@ -2,10 +2,35 @@
 
 This repo contains the `remembering` skill for Muninn, a persistent memory system for Claude.
 
+## Meta: Using Muninn During Development
+
+**When working on this skill, USE IT for tracking development progress!** Examples:
+
+```python
+from remembering import remember, journal, semantic_recall
+
+# Record design decisions
+remember("Vector search uses DiskANN index for sub-100ms latency at scale", "decision",
+         tags=["vector-search", "performance"], conf=0.9)
+
+# Track implementation progress
+journal(topics=["muninn-v0.1.0"],
+        my_intent="Adding semantic search and export/import capabilities")
+
+# Remember discovered issues
+remember("Config read_only flag should be checked before updates", "anomaly",
+         tags=["bug", "config"], conf=0.7)
+
+# Recall related context when debugging
+issues = semantic_recall("configuration constraints and validation")
+```
+
+This creates a **feedback loop**: improve the skill while using it to track improvements.
+
 ## Quick Reference
 
-**Database**: Turso SQLite via HTTP API  
-**URL**: `https://assistant-memory-oaustegard.aws-us-east-1.turso.io`  
+**Database**: Turso SQLite via HTTP API
+**URL**: `https://assistant-memory-oaustegard.aws-us-east-1.turso.io`
 **Auth**: JWT token in `TURSO_TOKEN` environment variable
 
 ## Environment Variables
@@ -15,7 +40,7 @@ Set these in Claude Code's environment settings:
 | Variable | Purpose |
 |----------|---------|
 | `TURSO_TOKEN` | JWT auth token for Turso HTTP API (required) |
-| `EMBEDDING_API_KEY` | API key for embedding generation (optional, for vector search) |
+| `EMBEDDING_API_KEY` | API key for embedding generation (OpenAI, for vector search) |
 
 ## Architecture
 
@@ -61,20 +86,27 @@ CREATE TABLE memories (
 ## Core API
 
 ```python
-from remembering import remember, recall, forget, supersede, remember_bg
+from remembering import remember, recall, forget, supersede, remember_bg, semantic_recall
 from remembering import config_get, config_set, config_list, profile, ops
 from remembering import journal, journal_recent, journal_prune
+from remembering import muninn_export, muninn_import
 
-# Store a memory (type required)
+# Store a memory (type required, with optional embedding)
 id = remember("User prefers dark mode", "decision", tags=["ui"], conf=0.9)
+id = remember("Quick note", "world", embed=False)  # Skip embedding
 
 # Background write (non-blocking)
 remember_bg("Project uses React", "world", tags=["tech"])
 
-# Query memories
+# Query memories - keyword search
 memories = recall("dark mode")  # text search
 memories = recall(type="decision", conf=0.8)  # filtered
-memories = recall(tags=["ui"])  # by tag
+memories = recall(tags=["ui"])  # by tag (any match)
+memories = recall(tags=["urgent", "task"], tag_mode="all")  # require all tags
+
+# Query memories - semantic search (requires EMBEDDING_API_KEY)
+similar = semantic_recall("user interface preferences", n=5)
+similar = semantic_recall("performance issues", type="anomaly")
 
 # Soft delete
 forget(memory_id)
@@ -82,14 +114,21 @@ forget(memory_id)
 # Version a memory (creates new, links to old)
 new_id = supersede(old_id, "Updated preference", "decision")
 
-# Config operations
+# Config operations with constraints
 config_set("identity", "I am Muninn...", "profile")
+config_set("bio", "Short bio", "profile", char_limit=500)  # max length
+config_set("rule", "Important rule", "ops", read_only=True)  # immutable
 value = config_get("identity")
 all_profile = profile()  # shorthand for config_list("profile")
 
 # Journal (session summaries)
 journal(topics=["coding"], my_intent="helped with refactor")
 recent = journal_recent(5)
+
+# Export/Import
+state = muninn_export()  # all config + memories as JSON
+stats = muninn_import(state, merge=True)  # merge into existing
+stats = muninn_import(state, merge=False)  # replace all (destructive!)
 ```
 
 ## Memory Types
@@ -160,11 +199,16 @@ remembering/
 - Soft delete via `deleted_at` column
 - `session_id` currently placeholder ("session")
 
-## Current Limitations
+## Recent Enhancements (v0.1.0)
 
-- No vector/semantic search (text LIKE only)
-- No tag match mode (any vs all)
-- Config table lacks char_limit/read_only columns
-- No export/import functions
+✅ **Vector/Semantic Search**: `semantic_recall()` with OpenAI embeddings and DiskANN index
+✅ **Tag Match Modes**: `tag_mode="any"` or `tag_mode="all"` in `recall()`
+✅ **Config Constraints**: `char_limit` and `read_only` flags in `config_set()`
+✅ **Export/Import**: `muninn_export()` and `muninn_import()` for portability
 
-See `muninn-implementation-plan.md` for enhancement roadmap.
+## Known Limitations
+
+- Semantic search requires OpenAI API key (paid service)
+- Vector index creation requires newer Turso versions (falls back to brute-force)
+- Embeddings not automatically regenerated on import
+- Session ID currently hardcoded to "session" (not per-conversation tracking)
