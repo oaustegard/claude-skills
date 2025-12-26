@@ -499,6 +499,18 @@ def therapy_session_count() -> int:
     """
     return len(recall(search="Therapy Session", type="experience", tags=["therapy"], n=100))
 
+def decisions_recent(n: int = 10, conf: float = 0.7) -> list:
+    """Return recent decisions above confidence threshold for boot loading.
+
+    Args:
+        n: Maximum number of decisions to return (default 10)
+        conf: Minimum confidence threshold (default 0.7)
+
+    Returns:
+        List of decision memories sorted by timestamp (newest first)
+    """
+    return recall(type="decision", conf=conf, n=n)
+
 # --- Analysis helpers ---
 
 def group_by_type(memories: list) -> dict:
@@ -620,7 +632,7 @@ __all__ = [
     "recall_since", "recall_between",  # date-filtered queries
     "config_get", "config_set", "config_delete", "config_list",  # config
     "profile", "ops", "journal", "journal_recent", "journal_prune",  # convenience loaders
-    "therapy_scope", "therapy_session_count",  # therapy helpers
+    "therapy_scope", "therapy_session_count", "decisions_recent",  # therapy helpers
     "group_by_type", "group_by_tag",  # analysis helpers
     "muninn_export", "muninn_import",  # export/import
     "r", "q", "j", "TYPES"  # aliases & constants

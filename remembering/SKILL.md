@@ -16,6 +16,43 @@ description: Advanced memory operations reference. Basic patterns (profile loadi
 
 Config loads fast at startup. Memories are queried as needed.
 
+## Boot Sequence
+
+Load context at conversation start to maintain continuity across sessions:
+
+```python
+from remembering import profile, ops, journal_recent, decisions_recent
+
+# Load profile and ops configuration
+for p in profile():
+    print(p['value'])
+
+for o in ops():
+    print(o['value'])
+
+# Load recent high-confidence decisions
+print("\n=== RECENT DECISIONS ===")
+for d in decisions_recent(10, conf=0.7):
+    print(f"[{d['t'][:10]}] {d['summary'][:100]}")
+
+# Load recent journal entries
+print("\n=== RECENT ACTIVITY ===")
+for j in journal_recent(5):
+    print(f"[{j['t'][:10]}] {j.get('topics', [])}: {j.get('my_intent', '')}")
+```
+
+**Why load decisions at boot?**
+
+Decision memories capture important preferences and rules. Loading them at session start ensures:
+- Past mistakes aren't repeated
+- User preferences are immediately visible
+- Consistency across conversations
+
+**Adjusting the confidence threshold:**
+- `conf=0.7`: Include most decisions (default, balanced)
+- `conf=0.85`: Only high-confidence decisions (strict)
+- `conf=0.5`: Include more exploratory decisions (permissive)
+
 ## Journal System
 
 Temporal awareness via rolling journal entries in config. Inspired by Strix's journal.jsonl pattern.

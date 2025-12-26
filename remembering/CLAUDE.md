@@ -90,7 +90,7 @@ from remembering import remember, recall, forget, supersede, remember_bg, semant
 from remembering import recall_since, recall_between
 from remembering import config_get, config_set, config_list, profile, ops
 from remembering import journal, journal_recent, journal_prune
-from remembering import therapy_scope, therapy_session_count
+from remembering import therapy_scope, therapy_session_count, decisions_recent
 from remembering import group_by_type, group_by_tag
 from remembering import muninn_export, muninn_import
 
@@ -135,6 +135,11 @@ recent = journal_recent(5)
 # Therapy session helpers
 cutoff, unprocessed = therapy_scope()  # get memories since last therapy session
 session_count = therapy_session_count()  # count therapy sessions
+
+# Boot sequence - load recent decisions
+recent_decisions = decisions_recent(10, conf=0.7)  # recent decisions with conf >= 0.7
+for d in recent_decisions:
+    print(f"[{d['t'][:10]}] {d['summary'][:80]}")
 
 # Analysis helpers
 mems = recall(n=50)
@@ -216,6 +221,10 @@ remembering/
 - `session_id` currently placeholder ("session")
 
 ## Recent Enhancements
+
+### v0.2.4 (2025-12-26)
+✅ **Boot Sequence**: `decisions_recent()` for loading high-confidence decisions at session start
+✅ **Documentation**: Added comprehensive boot sequence guide in SKILL.md
 
 ### v0.2.3 (2025-12-26)
 ✅ **Date-filtered Queries**: `recall_since()` and `recall_between()` for temporal filtering
