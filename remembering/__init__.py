@@ -29,6 +29,8 @@ def _init():
                 _TOKEN = token_path.read_text().strip()
         if not _TOKEN:
             raise RuntimeError("No TURSO_TOKEN in environment or /mnt/project/turso-token.txt")
+        # Clean token: remove whitespace that may be present in environment variable
+        _TOKEN = _TOKEN.strip().replace(" ", "")
         _HEADERS = {"Authorization": f"Bearer {_TOKEN}", "Content-Type": "application/json"}
 
     if _EMBEDDING_API_KEY is None:
@@ -85,7 +87,7 @@ def _exec(sql, args=None):
     res = r["response"]["result"]
     cols = [c["name"] for c in res["cols"]]
     return [
-        {cols[i]: (row[i]["value"] if row[i]["type"] != "null" else None) for i in range(len(cols))}
+        {cols[i]: (row[i].get("value") if row[i].get("type") != "null" else None) for i in range(len(cols))}
         for row in res["rows"]
     ]
 
