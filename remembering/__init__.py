@@ -16,20 +16,43 @@ _EMBEDDING_API_KEY = None
 # Valid memory types (profile now lives in config table)
 TYPES = {"decision", "world", "anomaly", "experience"}
 
+def _load_env_file(path: Path) -> dict[str, str]:
+    """Parse a .env file into a dict. Ignores comments and blank lines."""
+    env = {}
+    if path.exists():
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith('#') and '=' in line:
+                key, _, value = line.partition('=')
+                env[key.strip()] = value.strip()
+    return env
+
+
 def _init():
-    """Lazy-load credentials from environment or project file."""
+    """Lazy-load credentials from environment, .env file, or legacy project file."""
     global _TOKEN, _HEADERS, _EMBEDDING_API_KEY
     if _TOKEN is None:
-        # Prefer environment variable (for Claude Code)
+        # 1. Prefer environment variable (for Claude Code)
         _TOKEN = os.environ.get("TURSO_TOKEN")
+        
+        # 2. Fall back to .env file in project knowledge
         if not _TOKEN:
-            # Fall back to project file (for Claude.ai projects)
+            env_file = _load_env_file(Path("/mnt/project/muninn.env"))
+            _TOKEN = env_file.get("TURSO_TOKEN")
+            # Also load embedding key from .env if present
+            if _EMBEDDING_API_KEY is None:
+                _EMBEDDING_API_KEY = env_file.get("EMBEDDING_API_KEY")
+        
+        # 3. Legacy fallback to separate token file
+        if not _TOKEN:
             token_path = Path("/mnt/project/turso-token.txt")
             if token_path.exists():
                 _TOKEN = token_path.read_text().strip()
+        
         if not _TOKEN:
-            raise RuntimeError("No TURSO_TOKEN in environment or /mnt/project/turso-token.txt")
-        # Clean token: remove whitespace that may be present in environment variable
+            raise RuntimeError("No TURSO_TOKEN in environment, /mnt/project/muninn.env, or /mnt/project/turso-token.txt")
+        
+        # Clean token: remove whitespace that may be present
         _TOKEN = _TOKEN.strip().replace(" ", "")
         _HEADERS = {"Authorization": f"Bearer {_TOKEN}", "Content-Type": "application/json"}
 
