@@ -105,8 +105,10 @@ def _exec(sql, args=None):
     
     r = resp["results"][0]
     if r["type"] != "ok":
-        return []
-    
+        error_msg = r.get("error", {}).get("message", "Unknown error")
+        error_code = r.get("error", {}).get("code", "UNKNOWN")
+        raise RuntimeError(f"Database error [{error_code}]: {error_msg}")
+
     res = r["response"]["result"]
     cols = [c["name"] for c in res["cols"]]
     return [
@@ -141,14 +143,26 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
     if embed:
         embedding = _embed(what)
 
-    _exec(
-        """INSERT INTO memories (id, type, t, summary, confidence, tags, entities, refs,
-           session_id, created_at, updated_at, embedding)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, vector32(?))""",
-        [mem_id, type, now, what, conf,
-         json.dumps(tags or []), json.dumps(entities or []), json.dumps(refs or []),
-         "session", now, now, json.dumps(embedding) if embedding else None]
-    )
+    # vector32() doesn't accept NULL, so we use conditional SQL
+    if embedding:
+        _exec(
+            """INSERT INTO memories (id, type, t, summary, confidence, tags, entities, refs,
+               session_id, created_at, updated_at, embedding)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, vector32(?))""",
+            [mem_id, type, now, what, conf,
+             json.dumps(tags or []), json.dumps(entities or []), json.dumps(refs or []),
+             "session", now, now, json.dumps(embedding)]
+        )
+    else:
+        # Insert without embedding when not available
+        _exec(
+            """INSERT INTO memories (id, type, t, summary, confidence, tags, entities, refs,
+               session_id, created_at, updated_at, embedding)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)""",
+            [mem_id, type, now, what, conf,
+             json.dumps(tags or []), json.dumps(entities or []), json.dumps(refs or []),
+             "session", now, now]
+        )
     return mem_id
 
 def remember_bg(what: str, type: str, *, tags: list = None, conf: float = None,
@@ -204,7 +218,13 @@ def semantic_recall(query: str, *, n: int = 5, type: str = None,
         )
 
     # Build WHERE clause for filters
-    conditions = ["deleted_at IS NULL", "embedding IS NOT NULL"]
+    # Exclude soft-deleted memories, memories without embeddings, and superseded memories
+    conditions = [
+        "deleted_at IS NULL",
+        "embedding IS NOT NULL",
+        # Exclude memories that are superseded (appear in any other memory's refs field)
+        "id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)"
+    ]
     if type:
         conditions.append(f"type = '{type}'")
     if conf is not None:
@@ -247,7 +267,12 @@ def _query(search: str = None, tags: list = None, type: str = None,
     Args:
         tag_mode: "any" (default) matches any tag, "all" requires all tags
     """
-    conditions = ["deleted_at IS NULL"]
+    # Exclude soft-deleted memories and superseded memories (those referenced in refs)
+    conditions = [
+        "deleted_at IS NULL",
+        # Exclude memories that are superseded (appear in any other memory's refs field)
+        "id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)"
+    ]
 
     if search:
         conditions.append(f"summary LIKE '%{search}%'")
@@ -305,9 +330,13 @@ def config_set(key: str, value: str, category: str, *,
         raise ValueError(f"Invalid category '{category}'. Must be 'profile', 'ops', or 'journal'")
 
     # Check existing entry for read_only flag
+    # Note: Turso returns boolean fields as strings ('0' or '1'), so we need explicit checks
     existing = _exec("SELECT read_only FROM config WHERE key = ?", [key])
-    if existing and existing[0].get("read_only"):
-        raise ValueError(f"Config key '{key}' is marked read-only and cannot be modified")
+    if existing:
+        is_readonly = existing[0].get("read_only")
+        # Check for truthy values that indicate read-only (handle both int and string types)
+        if is_readonly not in (None, 0, '0', False, 'false', 'False'):
+            raise ValueError(f"Config key '{key}' is marked read-only and cannot be modified")
 
     # Enforce character limit if specified
     if char_limit and len(value) > char_limit:
@@ -345,7 +374,8 @@ def ops() -> list:
 def journal(topics: list = None, user_stated: str = None, my_intent: str = None) -> str:
     """Record a journal entry. Returns the entry key."""
     now = datetime.now(UTC)
-    key = f"j-{now.strftime('%Y%m%d-%H%M%S')}"
+    # Use microsecond precision to prevent key collisions from rapid successive calls
+    key = f"j-{now.strftime('%Y%m%d-%H%M%S%f')}"
     entry = {
         "t": now.isoformat().replace("+00:00", "Z"),
         "topics": topics or [],
