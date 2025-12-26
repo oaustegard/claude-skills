@@ -294,6 +294,69 @@ def _query(search: str = None, tags: list = None, type: str = None,
 
     return _exec(f"SELECT * FROM memories WHERE {where} ORDER BY {order} LIMIT {limit}")
 
+def recall_since(after: str, *, search: str = None, n: int = 50,
+                 type: str = None, tags: list = None, tag_mode: str = "any") -> list:
+    """Query memories created after a given timestamp.
+
+    Args:
+        after: ISO timestamp (e.g., '2025-12-26T00:00:00Z')
+        search: Text to search for in memory summaries
+        n: Max number of results
+        type: Filter by memory type
+        tags: Filter by tags
+        tag_mode: "any" (default) matches any tag, "all" requires all tags
+    """
+    conditions = [
+        "deleted_at IS NULL",
+        f"t > '{after}'",
+        "id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)"
+    ]
+    if search:
+        conditions.append(f"summary LIKE '%{search}%'")
+    if type:
+        conditions.append(f"type = '{type}'")
+    if tags:
+        if tag_mode == "all":
+            tag_conds = " AND ".join(f"tags LIKE '%\"{t}\"%'" for t in tags)
+        else:  # "any"
+            tag_conds = " OR ".join(f"tags LIKE '%\"{t}\"%'" for t in tags)
+        conditions.append(f"({tag_conds})")
+    where = " AND ".join(conditions)
+    return _exec(f"SELECT * FROM memories WHERE {where} ORDER BY t DESC LIMIT {n}")
+
+def recall_between(after: str, before: str, *, search: str = None,
+                   n: int = 100, type: str = None, tags: list = None,
+                   tag_mode: str = "any") -> list:
+    """Query memories within a time range.
+
+    Args:
+        after: Start timestamp (exclusive)
+        before: End timestamp (exclusive)
+        search: Text to search for in memory summaries
+        n: Max number of results
+        type: Filter by memory type
+        tags: Filter by tags
+        tag_mode: "any" (default) matches any tag, "all" requires all tags
+    """
+    conditions = [
+        "deleted_at IS NULL",
+        f"t > '{after}'",
+        f"t < '{before}'",
+        "id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)"
+    ]
+    if search:
+        conditions.append(f"summary LIKE '%{search}%'")
+    if type:
+        conditions.append(f"type = '{type}'")
+    if tags:
+        if tag_mode == "all":
+            tag_conds = " AND ".join(f"tags LIKE '%\"{t}\"%'" for t in tags)
+        else:  # "any"
+            tag_conds = " OR ".join(f"tags LIKE '%\"{t}\"%'" for t in tags)
+        conditions.append(f"({tag_conds})")
+    where = " AND ".join(conditions)
+    return _exec(f"SELECT * FROM memories WHERE {where} ORDER BY t DESC LIMIT {n}")
+
 def forget(memory_id: str) -> bool:
     """Soft-delete a memory."""
     now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
@@ -413,6 +476,63 @@ def journal_prune(keep: int = 40) -> int:
         config_delete(e["key"])
     return len(to_delete)
 
+# --- Therapy session helpers ---
+
+def therapy_scope() -> tuple[str | None, list]:
+    """Get cutoff timestamp and unprocessed memories for therapy session.
+
+    Returns:
+        Tuple of (cutoff_timestamp, memories_list)
+        - cutoff_timestamp: Latest therapy session timestamp, or None if no sessions exist
+        - memories_list: Memories since last therapy session (or all if no sessions)
+    """
+    sessions = recall(search="Therapy Session", type="experience", tags=["therapy"], n=1)
+    cutoff = sessions[0]['t'] if sessions else None
+    memories = recall_since(cutoff, n=100) if cutoff else recall(n=100)
+    return cutoff, memories
+
+def therapy_session_count() -> int:
+    """Count existing therapy sessions.
+
+    Returns:
+        Number of therapy session memories found
+    """
+    return len(recall(search="Therapy Session", type="experience", tags=["therapy"], n=100))
+
+# --- Analysis helpers ---
+
+def group_by_type(memories: list) -> dict:
+    """Group memories by type.
+
+    Args:
+        memories: List of memory dicts from recall()
+
+    Returns:
+        Dict mapping type -> list of memories: {type: [memories]}
+    """
+    by_type = {}
+    for m in memories:
+        t = m.get('type', 'unknown')
+        by_type.setdefault(t, []).append(m)
+    return by_type
+
+def group_by_tag(memories: list) -> dict:
+    """Group memories by tags.
+
+    Args:
+        memories: List of memory dicts from recall()
+
+    Returns:
+        Dict mapping tag -> list of memories: {tag: [memories]}
+        Note: A memory with multiple tags will appear under each tag
+    """
+    by_tag = {}
+    for m in memories:
+        tags = json.loads(m.get('tags', '[]')) if isinstance(m.get('tags'), str) else m.get('tags', [])
+        for tag in tags:
+            by_tag.setdefault(tag, []).append(m)
+    return by_tag
+
 # --- Export/Import for portability ---
 
 def muninn_export() -> dict:
@@ -497,8 +617,11 @@ j = journal
 
 __all__ = [
     "remember", "recall", "forget", "supersede", "remember_bg", "semantic_recall",  # memories
+    "recall_since", "recall_between",  # date-filtered queries
     "config_get", "config_set", "config_delete", "config_list",  # config
     "profile", "ops", "journal", "journal_recent", "journal_prune",  # convenience loaders
+    "therapy_scope", "therapy_session_count",  # therapy helpers
+    "group_by_type", "group_by_tag",  # analysis helpers
     "muninn_export", "muninn_import",  # export/import
     "r", "q", "j", "TYPES"  # aliases & constants
 ]

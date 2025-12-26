@@ -148,6 +148,104 @@ tasks = recall("API", tags=["task"], n=15)
 urgent_tasks = recall(tags=["task", "urgent"], tag_mode="all", n=10)
 ```
 
+## Date-Filtered Queries
+
+Query memories by temporal range:
+
+```python
+from remembering import recall_since, recall_between
+
+# Get memories after a specific timestamp
+recent = recall_since("2025-12-01T00:00:00Z", n=50)
+recent_bugs = recall_since("2025-12-20T00:00:00Z", type="anomaly", tags=["critical"])
+
+# Get memories within a time range
+december = recall_between("2025-12-01T00:00:00Z", "2025-12-31T23:59:59Z", n=100)
+sprint_mems = recall_between("2025-12-15T00:00:00Z", "2025-12-22T00:00:00Z",
+                             type="decision", tags=["sprint-5"])
+```
+
+**Use cases:**
+- Review decisions made during a project phase
+- Analyze bugs discovered in a time window
+- Track learning progress over specific periods
+- Build time-based memory summaries
+
+**Notes:**
+- Timestamps are exclusive (use `>` and `<` not `>=` and `<=`)
+- Supports all standard filters: `search`, `type`, `tags`, `tag_mode`
+- Sorted by timestamp descending (newest first)
+- Excludes soft-deleted and superseded memories
+
+## Therapy Helpers
+
+Support for reflection and memory consolidation workflows:
+
+```python
+from remembering import therapy_scope, therapy_session_count
+
+# Get unprocessed memories since last therapy session
+cutoff_time, unprocessed_memories = therapy_scope()
+# cutoff_time: timestamp of last therapy session (or None if no sessions)
+# unprocessed_memories: all memories created after that timestamp
+
+# Count how many therapy sessions have been recorded
+count = therapy_session_count()
+```
+
+**Therapy session workflow:**
+1. Call `therapy_scope()` to get unprocessed memories
+2. Analyze and consolidate memories (group patterns, extract insights)
+3. Record therapy session completion:
+   ```python
+   remember(f"Therapy Session #{count+1}: Consolidated {len(unprocessed)} memories...",
+            "experience", tags=["therapy"])
+   ```
+
+**Pattern detection example:**
+```python
+cutoff, mems = therapy_scope()
+by_type = group_by_type(mems)  # See Analysis Helpers below
+
+print(f"Since {cutoff}:")
+print(f"  {len(by_type.get('decision', []))} decisions")
+print(f"  {len(by_type.get('anomaly', []))} anomalies to investigate")
+```
+
+## Analysis Helpers
+
+Group and organize memories for pattern detection:
+
+```python
+from remembering import group_by_type, group_by_tag
+
+# Get memories and group by type
+memories = recall(n=100)
+by_type = group_by_type(memories)
+# Returns: {"decision": [...], "world": [...], "anomaly": [...], "experience": [...]}
+
+# Group by tags
+by_tag = group_by_tag(memories)
+# Returns: {"ui": [...], "bug": [...], "performance": [...], ...}
+# Note: Memories with multiple tags appear under each tag
+```
+
+**Use cases:**
+- **Pattern detection**: Find clusters of related memories
+- **Quality analysis**: Identify over/under-represented memory types
+- **Tag hygiene**: Discover inconsistent tagging patterns
+- **Therapy sessions**: Organize unprocessed memories before consolidation
+
+**Example - Find overused tags:**
+```python
+mems = recall(n=200)
+by_tag = group_by_tag(mems)
+sorted_tags = sorted(by_tag.items(), key=lambda x: len(x[1]), reverse=True)
+print("Top tags:")
+for tag, tagged_mems in sorted_tags[:5]:
+    print(f"  {tag}: {len(tagged_mems)} memories")
+```
+
 ## Semantic Search (Vector Similarity)
 
 Find memories by meaning, not just keywords. Requires `EMBEDDING_API_KEY` environment variable (OpenAI API key).
@@ -199,6 +297,48 @@ Write complete, searchable summaries that standalone without conversation contex
 ✗ "User wants code" (lacks context, unsearchable)
 
 ✗ "User asked question" + "gave code" + "seemed happy" (fragmented, no synthesis)
+
+## Handoff Convention
+
+Use the `handoff` tag for cross-environment work coordination:
+
+```python
+from remembering import remember
+
+# From Claude.ai (web/mobile) - cannot persist file changes
+remember("""
+HANDOFF: Implement user authentication
+
+## Context
+User wants OAuth2 + JWT authentication for the API.
+
+## Files to Modify
+- src/auth/oauth.py
+- src/middleware/auth.py
+- tests/test_auth.py
+
+## Implementation Notes
+- Use FastAPI OAuth2PasswordBearer
+- JWT tokens with 24h expiry
+- Refresh token support
+...
+""", "world", tags=["handoff", "claude-code", "auth"])
+
+# From Claude Code - query handoffs
+handoffs = recall(tags=["handoff"], n=20)
+```
+
+**Use when:**
+- Working in Claude.ai (web/mobile) without file write access
+- Planning work that needs Claude Code execution
+- Coordinating between environments
+- Leaving detailed instructions for future sessions
+
+**Handoff structure:**
+- **Title**: Brief summary of what needs to be done
+- **Context**: Why this work is needed
+- **Files to Modify**: Specific paths
+- **Implementation Notes**: Code patterns, constraints, dependencies
 
 ## Export/Import for Portability
 

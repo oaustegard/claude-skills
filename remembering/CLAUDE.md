@@ -87,8 +87,11 @@ CREATE TABLE memories (
 
 ```python
 from remembering import remember, recall, forget, supersede, remember_bg, semantic_recall
+from remembering import recall_since, recall_between
 from remembering import config_get, config_set, config_list, profile, ops
 from remembering import journal, journal_recent, journal_prune
+from remembering import therapy_scope, therapy_session_count
+from remembering import group_by_type, group_by_tag
 from remembering import muninn_export, muninn_import
 
 # Store a memory (type required, with optional embedding)
@@ -103,6 +106,10 @@ memories = recall("dark mode")  # text search
 memories = recall(type="decision", conf=0.8)  # filtered
 memories = recall(tags=["ui"])  # by tag (any match)
 memories = recall(tags=["urgent", "task"], tag_mode="all")  # require all tags
+
+# Query memories - date-filtered
+recent = recall_since("2025-12-01T00:00:00Z", n=50)  # after timestamp
+range_mems = recall_between("2025-12-01T00:00:00Z", "2025-12-26T00:00:00Z")
 
 # Query memories - semantic search (requires EMBEDDING_API_KEY)
 similar = semantic_recall("user interface preferences", n=5)
@@ -124,6 +131,15 @@ all_profile = profile()  # shorthand for config_list("profile")
 # Journal (session summaries)
 journal(topics=["coding"], my_intent="helped with refactor")
 recent = journal_recent(5)
+
+# Therapy session helpers
+cutoff, unprocessed = therapy_scope()  # get memories since last therapy session
+session_count = therapy_session_count()  # count therapy sessions
+
+# Analysis helpers
+mems = recall(n=50)
+by_type = group_by_type(mems)  # {"decision": [...], "world": [...]}
+by_tag = group_by_tag(mems)    # {"ui": [...], "bug": [...]}
 
 # Export/Import
 state = muninn_export()  # all config + memories as JSON
@@ -199,12 +215,77 @@ remembering/
 - Soft delete via `deleted_at` column
 - `session_id` currently placeholder ("session")
 
-## Recent Enhancements (v0.1.0)
+## Recent Enhancements
 
+### v0.2.3 (2025-12-26)
+✅ **Date-filtered Queries**: `recall_since()` and `recall_between()` for temporal filtering
+✅ **Therapy Helpers**: `therapy_scope()` and `therapy_session_count()` for reflection workflows
+✅ **Analysis Helpers**: `group_by_type()` and `group_by_tag()` for memory organization
+✅ **Agent Guidance**: Added comprehensive import troubleshooting in CLAUDE.md
+
+### v0.1.0
 ✅ **Vector/Semantic Search**: `semantic_recall()` with OpenAI embeddings and DiskANN index
 ✅ **Tag Match Modes**: `tag_mode="any"` or `tag_mode="all"` in `recall()`
 ✅ **Config Constraints**: `char_limit` and `read_only` flags in `config_set()`
 ✅ **Export/Import**: `muninn_export()` and `muninn_import()` for portability
+
+## Lessons for Claude Code Agents
+
+### ALWAYS Explore Before Executing
+
+When working with this skill, follow this sequence:
+
+1. **Check directory structure first**:
+   ```bash
+   ls -la /path/to/remembering/
+   ```
+
+2. **Identify the module location**:
+   - In repo root: `/home/user/claude-skills/remembering/`
+   - Skills symlink: `.claude/skills/remembering -> ../../remembering`
+   - The actual module is in repo root, NOT in a `scripts/` subdirectory
+
+3. **Read the code before running**:
+   ```python
+   # Use Read tool to examine __init__.py first
+   # Then run code with proper import path
+   ```
+
+4. **Import correctly**:
+   ```python
+   import sys
+   sys.path.insert(0, '/home/user/claude-skills')  # Repo root
+   from remembering import recall, remember
+   ```
+
+### Common Mistakes to Avoid
+
+❌ **DON'T** assume there's a `scripts/` directory
+❌ **DON'T** try to import before checking file structure
+❌ **DON'T** ignore symlinks - they tell you where code lives
+❌ **DON'T** guess import paths
+
+✅ **DO** use `ls` and `Read` tool first
+✅ **DO** follow symlinks to find actual code
+✅ **DO** verify imports work in a simple test first
+✅ **DO** use absolute paths for sys.path
+
+### Debugging Import Issues
+
+If imports fail:
+```bash
+# 1. Find the actual module
+find /home/user/claude-skills -name "remembering" -type d
+
+# 2. Check what's in it
+ls -la /home/user/claude-skills/remembering/
+
+# 3. Verify __init__.py exists
+test -f /home/user/claude-skills/remembering/__init__.py && echo "Found" || echo "Missing"
+
+# 4. Test import
+python3 -c "import sys; sys.path.insert(0, '/home/user/claude-skills'); import remembering; print('Success')"
+```
 
 ## Known Limitations
 
