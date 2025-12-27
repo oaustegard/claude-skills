@@ -88,10 +88,11 @@ CREATE TABLE memories (
 ```python
 from remembering import remember, recall, forget, supersede, remember_bg, semantic_recall
 from remembering import recall_since, recall_between
-from remembering import config_get, config_set, config_list, profile, ops
+from remembering import config_get, config_set, config_list, profile, ops, boot
 from remembering import journal, journal_recent, journal_prune
 from remembering import therapy_scope, therapy_session_count, decisions_recent
 from remembering import group_by_type, group_by_tag
+from remembering import handoff_pending, handoff_complete
 from remembering import muninn_export, muninn_import
 
 # Store a memory (type required, with optional embedding)
@@ -136,7 +137,12 @@ recent = journal_recent(5)
 cutoff, unprocessed = therapy_scope()  # get memories since last therapy session
 session_count = therapy_session_count()  # count therapy sessions
 
-# Boot sequence - load recent decisions
+# Boot sequence - optimized single-call (recommended, ~200ms)
+profile, ops, journal, decisions = boot()  # single HTTP request
+# Returns: (profile_list, ops_list, journal_list, decision_index)
+# decision_index has headlines only: {id, t, tags, headline}
+
+# Boot sequence - individual calls (if you need more control)
 recent_decisions = decisions_recent(10, conf=0.7)  # recent decisions with conf >= 0.7
 for d in recent_decisions:
     print(f"[{d['t'][:10]}] {d['summary'][:80]}")
@@ -145,6 +151,10 @@ for d in recent_decisions:
 mems = recall(n=50)
 by_type = group_by_type(mems)  # {"decision": [...], "world": [...]}
 by_tag = group_by_tag(mems)    # {"ui": [...], "bug": [...]}
+
+# Handoff workflow (cross-environment coordination)
+pending = handoff_pending()  # get pending work
+handoff_complete(handoff_id, "COMPLETED: ...", version="0.5.0")  # mark done
 
 # Export/Import
 state = muninn_export()  # all config + memories as JSON

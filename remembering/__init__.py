@@ -533,6 +533,92 @@ def ops() -> list:
     """Load operational config for conversation start."""
     return config_list("ops")
 
+def boot(journal_n: int = 5, decisions_n: int = 10, decisions_conf: float = 0.7) -> tuple[list, list, list, list]:
+    """Single-call boot: returns (profile, ops, journal, decision_index) in one HTTP request.
+
+    Decision index contains headlines only (id, timestamp, tags, first 60 chars).
+    Use recall(type="decision") to fetch full decision text when needed.
+
+    Args:
+        journal_n: Number of recent journal entries (default 5)
+        decisions_n: Number of decision headlines (default 10)
+        decisions_conf: Minimum confidence for decisions (default 0.7)
+
+    Returns:
+        Tuple of (profile_list, ops_list, journal_list, decision_index)
+    """
+    _init()
+    resp = requests.post(
+        f"{_URL}/v2/pipeline",
+        headers=_HEADERS,
+        json={"requests": [
+            {"type": "execute", "stmt": {
+                "sql": "SELECT * FROM config WHERE category = ? ORDER BY key",
+                "args": [{"type": "text", "value": "profile"}]
+            }},
+            {"type": "execute", "stmt": {
+                "sql": "SELECT * FROM config WHERE category = ? ORDER BY key",
+                "args": [{"type": "text", "value": "ops"}]
+            }},
+            {"type": "execute", "stmt": {
+                "sql": "SELECT * FROM config WHERE category = ? ORDER BY key DESC LIMIT ?",
+                "args": [{"type": "text", "value": "journal"}, {"type": "integer", "value": str(journal_n)}]
+            }},
+            {"type": "execute", "stmt": {
+                "sql": """SELECT id, t, tags, SUBSTR(summary, 1, 60) as headline
+                         FROM memories
+                         WHERE type = 'decision'
+                           AND (confidence >= ? OR confidence IS NULL)
+                           AND deleted_at IS NULL
+                         ORDER BY t DESC LIMIT ?""",
+                "args": [
+                    {"type": "float", "value": str(decisions_conf)},
+                    {"type": "integer", "value": str(decisions_n)}
+                ]
+            }},
+        ]}
+    ).json()
+
+    def parse_result(r):
+        if r["type"] != "ok":
+            raise RuntimeError(f"Query failed: {r.get('error', 'unknown')}")
+        res = r["response"]["result"]
+        cols = [c["name"] for c in res["cols"]]
+        return [
+            {cols[i]: (row[i].get("value") if row[i].get("type") != "null" else None)
+             for i in range(len(cols))}
+            for row in res["rows"]
+        ]
+
+    results = resp.get("results", [])
+    if len(results) != 4:
+        raise RuntimeError(f"Expected 4 results, got {len(results)}")
+
+    profile_data = parse_result(results[0])
+    ops_data = parse_result(results[1])
+    journal_raw = parse_result(results[2])
+    decision_index = parse_result(results[3])
+
+    # Parse journal entries
+    journal_data = []
+    for e in journal_raw:
+        try:
+            parsed = json.loads(e["value"])
+            parsed["_key"] = e["key"]
+            journal_data.append(parsed)
+        except json.JSONDecodeError:
+            continue
+
+    # Parse decision tags from JSON string
+    for d in decision_index:
+        if d.get('tags'):
+            try:
+                d['tags'] = json.loads(d['tags'])
+            except json.JSONDecodeError:
+                d['tags'] = []
+
+    return profile_data, ops_data, journal_data, decision_index
+
 def journal(topics: list = None, user_stated: str = None, my_intent: str = None) -> str:
     """Record a journal entry. Returns the entry key."""
     now = datetime.now(UTC)
@@ -659,6 +745,48 @@ def muninn_export() -> dict:
         "memories": _exec("SELECT * FROM memories WHERE deleted_at IS NULL")
     }
 
+def handoff_pending() -> list:
+    """Get pending handoff instructions (not yet completed).
+
+    Returns handoffs tagged with BOTH 'handoff' AND 'pending', excluding superseded ones.
+    Use handoff_complete() to mark a handoff as done.
+
+    Returns:
+        List of pending handoff memories, most recent first
+    """
+    return recall(tags=["handoff", "pending"], tag_mode="all", n=50)
+
+def handoff_complete(handoff_id: str, completion_notes: str, version: str = None) -> str:
+    """Mark a handoff as completed by superseding it with completion record.
+
+    The original handoff will be excluded from future handoff_pending() queries.
+    Completion record is tagged with version for historical tracking.
+
+    Args:
+        handoff_id: ID of the handoff to mark complete
+        completion_notes: Summary of what was done
+        version: Optional version number (e.g., "0.5.0")
+
+    Returns:
+        ID of the completion record
+
+    Example:
+        handoff_id = handoff_pending()[0]['id']
+        handoff_complete(handoff_id, "Implemented boot() function", "0.5.0")
+    """
+    # Read VERSION file if version not provided
+    if version is None:
+        try:
+            from pathlib import Path
+            version_file = Path(__file__).parent / "VERSION"
+            version = version_file.read_text().strip()
+        except Exception:
+            version = "unknown"
+
+    # Supersede the handoff with completion record
+    completion_tags = ["handoff-completed", f"v{version}"]
+    return supersede(handoff_id, completion_notes, "world", tags=completion_tags)
+
 def muninn_import(data: dict, *, merge: bool = False) -> dict:
     """Import Muninn state from exported JSON.
 
@@ -730,9 +858,10 @@ __all__ = [
     "remember", "recall", "forget", "supersede", "remember_bg", "semantic_recall",  # memories
     "recall_since", "recall_between",  # date-filtered queries
     "config_get", "config_set", "config_delete", "config_list",  # config
-    "profile", "ops", "journal", "journal_recent", "journal_prune",  # convenience loaders
+    "profile", "ops", "boot", "journal", "journal_recent", "journal_prune",  # convenience loaders
     "therapy_scope", "therapy_session_count", "decisions_recent",  # therapy helpers
     "group_by_type", "group_by_tag",  # analysis helpers
+    "handoff_pending", "handoff_complete",  # handoff workflow
     "muninn_export", "muninn_import",  # export/import
     "r", "q", "j", "TYPES"  # aliases & constants
 ]

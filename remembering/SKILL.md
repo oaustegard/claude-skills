@@ -22,7 +22,56 @@ Config loads fast at startup. Memories are queried as needed.
 
 ## Boot Sequence
 
-Load context at conversation start to maintain continuity across sessions:
+Load context at conversation start to maintain continuity across sessions.
+
+### Optimized: Single-Call Boot (Recommended)
+
+Use `boot()` for fast startup with batched queries (~200ms vs ~1.2s):
+
+```python
+from remembering import boot
+
+# Single HTTP request loads all boot data
+profile, ops, journal, decisions = boot()
+
+# Profile and ops (full text)
+for p in profile:
+    print(p['value'])
+
+for o in ops:
+    print(o['value'])
+
+# Decisions (headlines only - progressive disclosure)
+print(f"\n=== DECISIONS ({len(decisions)} available) ===")
+for d in decisions:
+    tags = ', '.join(d.get('tags', []))
+    print(f"[{d['t'][:10]}] {tags}")
+
+# Journal (recent activity)
+print("\n=== RECENT ===")
+for j in journal:
+    topics = ', '.join(j.get('topics', []))
+    intent = j.get('my_intent', '-')
+    stated = j.get('user_stated', '')
+    print(f"[{j['t'][:10]}] {topics}: {intent}" + (f" | user: {stated}" if stated else ""))
+```
+
+**Progressive disclosure:** Decision index shows date + tags only. Retrieve full text when relevant:
+
+```python
+# Later in conversation, when topic becomes relevant
+from remembering import recall
+full_decisions = recall("memory architecture", type="decision")
+```
+
+**Parameters:**
+- `journal_n=5`: Number of recent journal entries (default 5)
+- `decisions_n=10`: Number of decision headlines (default 10)
+- `decisions_conf=0.7`: Minimum confidence for decisions (default 0.7)
+
+### Alternative: Individual Calls
+
+If you need more control over loading:
 
 ```python
 from remembering import profile, ops, journal_recent, decisions_recent
@@ -34,7 +83,7 @@ for p in profile():
 for o in ops():
     print(o['value'])
 
-# Load recent high-confidence decisions
+# Load recent high-confidence decisions (full text)
 print("\n=== RECENT DECISIONS ===")
 for d in decisions_recent(10, conf=0.7):
     print(f"[{d['t'][:10]}] {d['summary'][:100]}")
@@ -341,12 +390,15 @@ Write complete, searchable summaries that standalone without conversation contex
 
 ## Handoff Convention
 
-Use the `handoff` tag for cross-environment work coordination:
+Cross-environment work coordination with version tracking and automatic completion marking.
+
+### Creating Handoffs
+
+From Claude.ai (web/mobile) - cannot persist file changes:
 
 ```python
 from remembering import remember
 
-# From Claude.ai (web/mobile) - cannot persist file changes
 remember("""
 HANDOFF: Implement user authentication
 
@@ -363,10 +415,56 @@ User wants OAuth2 + JWT authentication for the API.
 - JWT tokens with 24h expiry
 - Refresh token support
 ...
-""", "world", tags=["handoff", "claude-code", "auth"])
+""", "world", tags=["handoff", "pending", "auth"])
+```
 
-# From Claude Code - query handoffs
-handoffs = recall(tags=["handoff"], n=20)
+**Important:** Tag with `["handoff", "pending", ...]` so it appears in `handoff_pending()` queries.
+
+**Handoff structure:**
+- **Title**: Brief summary of what needs to be done
+- **Context**: Why this work is needed
+- **Files to Modify**: Specific paths
+- **Implementation Notes**: Code patterns, constraints, dependencies
+
+### Completing Handoffs
+
+From Claude Code - streamlined workflow:
+
+```python
+from remembering import handoff_pending, handoff_complete
+
+# Get pending work (excludes completed handoffs)
+pending = handoff_pending()
+print(f"{len(pending)} pending handoff(s)")
+
+for h in pending:
+    print(f"[{h['created_at'][:10]}] {h['summary'][:80]}")
+
+# Complete a handoff (automatically tags with version)
+handoff_id = pending[0]['id']
+handoff_complete(
+    handoff_id,
+    "COMPLETED: Implemented boot() function with batched queries...",
+    # version auto-detected from VERSION file, or specify: "0.5.0"
+)
+```
+
+**What happens:**
+- Original handoff is superseded (won't appear in future `handoff_pending()` queries)
+- Completion record created with tags `["handoff-completed", "v0.5.0"]`
+- Version tracked automatically from `VERSION` file
+- Full history preserved via `supersede()` chain
+
+### Querying History
+
+```python
+from remembering import recall
+
+# See what was completed in a specific version
+v050_work = recall(tags=["handoff-completed", "v0.5.0"])
+
+# See all completion records
+completed = recall(tags=["handoff-completed"], n=50)
 ```
 
 **Use when:**
@@ -374,12 +472,6 @@ handoffs = recall(tags=["handoff"], n=20)
 - Planning work that needs Claude Code execution
 - Coordinating between environments
 - Leaving detailed instructions for future sessions
-
-**Handoff structure:**
-- **Title**: Brief summary of what needs to be done
-- **Context**: Why this work is needed
-- **Files to Modify**: Specific paths
-- **Implementation Notes**: Code patterns, constraints, dependencies
 
 ## Export/Import for Portability
 
