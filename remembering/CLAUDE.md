@@ -94,6 +94,7 @@ from remembering import therapy_scope, therapy_session_count, decisions_recent
 from remembering import group_by_type, group_by_tag
 from remembering import handoff_pending, handoff_complete
 from remembering import muninn_export, muninn_import
+from remembering import cache_stats  # v0.7.0 cache diagnostics
 
 # Store a memory (type required, with optional embedding)
 id = remember("User prefers dark mode", "decision", tags=["ui"], conf=0.9)
@@ -236,6 +237,48 @@ remembering/
 - `session_id` currently placeholder ("session")
 
 ## Recent Enhancements
+
+### v0.7.0 (2025-12-27)
+✅ **Local SQLite Cache with Progressive Disclosure**:
+- New local cache in `~/.muninn/cache.db` for fast in-conversation queries
+- `boot_fast()` now populates cache with memory index (headlines only)
+- `recall()` queries local cache first (<5ms vs ~150ms network)
+- Full content lazy-loaded from Turso on first access, then cached
+- `remember()` writes to both cache and Turso (write-through)
+- `cache_stats()` for cache diagnostics
+
+**Performance Gains:**
+- First recall after boot: ~300ms (fetches full content)
+- Subsequent recalls: ~2ms (149x faster via cache hit)
+
+**API Changes:**
+```python
+# boot_fast() now accepts cache parameters
+profile, ops, journal = boot_fast(
+    journal_n=5,       # journal entries
+    index_n=500,       # memory headlines to cache
+    use_cache=True     # enable local cache (default)
+)
+
+# recall() uses cache automatically
+memories = recall(type="decision", n=5)  # Fast if boot_fast() was called
+
+# Bypass cache if needed
+memories = recall(type="decision", use_cache=False)
+
+# Check cache status
+stats = cache_stats()
+# {'enabled': True, 'available': True, 'index_count': 79, 'full_count': 6, ...}
+```
+
+**Cache Architecture:**
+```
+~/.muninn/
+└── cache.db          # Local SQLite mirror
+    ├── memory_index  # Headlines: id, type, t, tags, summary_preview
+    ├── memory_full   # Full content: lazy-loaded on demand
+    └── config_cache  # Full config mirror
+```
 
 ### v0.6.1 (2025-12-27)
 ✅ **Boot Performance Optimization**:

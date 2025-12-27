@@ -6,6 +6,7 @@ import uuid
 import threading
 import os
 import time
+import sqlite3
 from datetime import datetime, UTC
 from pathlib import Path
 
@@ -20,6 +21,353 @@ TYPES = {"decision", "world", "anomaly", "experience"}
 # Track pending background writes for flush()
 _pending_writes = []
 _pending_writes_lock = threading.Lock()
+
+# =========================================================================
+# Local SQLite Cache (v0.7.0) - Progressive Disclosure
+# =========================================================================
+# Cache stores:
+# - memory_index: Headlines only (id, type, t, tags, summary_preview, confidence)
+# - memory_full: Full content, lazy-loaded on demand
+# - config_cache: Full config (small, always populated)
+#
+# Benefits:
+# - Boot: Single Turso round-trip populates index
+# - Recall: Local queries <5ms vs 150ms network
+# - Progressive: Full content fetched only when needed
+# =========================================================================
+
+_CACHE_DIR = Path.home() / ".muninn"
+_CACHE_DB = _CACHE_DIR / "cache.db"
+_cache_conn = None
+_cache_enabled = True  # Can be disabled for testing
+
+
+def _init_local_cache() -> bool:
+    """Initialize local SQLite cache. Returns True if successful."""
+    global _cache_conn
+    if _cache_conn is not None:
+        return True  # Already initialized
+
+    if not _cache_enabled:
+        return False
+
+    try:
+        _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        _cache_conn = sqlite3.connect(str(_CACHE_DB), check_same_thread=False)
+        _cache_conn.row_factory = sqlite3.Row
+
+        # Create schema
+        _cache_conn.executescript("""
+            -- Index: populated at boot, headlines only
+            CREATE TABLE IF NOT EXISTS memory_index (
+                id TEXT PRIMARY KEY,
+                type TEXT,
+                t TEXT,
+                tags TEXT,              -- JSON array
+                summary_preview TEXT,   -- First 100 chars
+                confidence REAL,
+                importance REAL,
+                has_full INTEGER DEFAULT 0
+            );
+
+            -- Full content: lazy-loaded on demand
+            CREATE TABLE IF NOT EXISTS memory_full (
+                id TEXT PRIMARY KEY,
+                summary TEXT,
+                entities TEXT,
+                refs TEXT,
+                memory_class TEXT,
+                valid_from TEXT,
+                valid_to TEXT,
+                access_count INTEGER,
+                last_accessed TEXT
+            );
+
+            -- Config: full mirror (small)
+            CREATE TABLE IF NOT EXISTS config_cache (
+                key TEXT PRIMARY KEY,
+                value TEXT,
+                category TEXT
+            );
+
+            -- Track cache freshness
+            CREATE TABLE IF NOT EXISTS cache_meta (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            );
+
+            -- Indexes for common queries
+            CREATE INDEX IF NOT EXISTS idx_memory_index_type ON memory_index(type);
+            CREATE INDEX IF NOT EXISTS idx_memory_index_t ON memory_index(t);
+            CREATE INDEX IF NOT EXISTS idx_config_cache_category ON config_cache(category);
+        """)
+        _cache_conn.commit()
+
+        # Store initialization timestamp
+        now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        _cache_conn.execute(
+            "INSERT OR REPLACE INTO cache_meta (key, value) VALUES (?, ?)",
+            ("initialized_at", now)
+        )
+        _cache_conn.commit()
+        return True
+    except Exception as e:
+        print(f"Warning: Cache initialization failed: {e}")
+        _cache_conn = None
+        return False
+
+
+def _cache_available() -> bool:
+    """Check if local cache is initialized and healthy."""
+    return _cache_conn is not None and _cache_enabled
+
+
+def _cache_clear():
+    """Clear all cached data (for testing/refresh)."""
+    if not _cache_available():
+        return
+    try:
+        _cache_conn.executescript("""
+            DELETE FROM memory_index;
+            DELETE FROM memory_full;
+            DELETE FROM config_cache;
+            DELETE FROM cache_meta;
+        """)
+        _cache_conn.commit()
+    except Exception as e:
+        print(f"Warning: Cache clear failed: {e}")
+
+
+def _cache_populate_index(memories: list):
+    """Populate memory_index from boot data (headlines only)."""
+    if not _cache_available() or not memories:
+        return
+
+    try:
+        for m in memories:
+            tags = m.get('tags')
+            if isinstance(tags, list):
+                tags = json.dumps(tags)
+
+            _cache_conn.execute("""
+                INSERT OR REPLACE INTO memory_index
+                (id, type, t, tags, summary_preview, confidence, importance, has_full)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+            """, (
+                m.get('id'),
+                m.get('type'),
+                m.get('t'),
+                tags,
+                m.get('summary_preview', m.get('summary', '')[:100]),
+                m.get('confidence'),
+                m.get('importance')
+            ))
+        _cache_conn.commit()
+    except Exception as e:
+        print(f"Warning: Cache index population failed: {e}")
+
+
+def _cache_populate_full(memories: list):
+    """Populate memory_full with complete content (lazy-load target)."""
+    if not _cache_available() or not memories:
+        return
+
+    try:
+        for m in memories:
+            # Update index to mark as having full content
+            _cache_conn.execute(
+                "UPDATE memory_index SET has_full = 1 WHERE id = ?",
+                (m.get('id'),)
+            )
+
+            # Store full content
+            entities = m.get('entities')
+            if isinstance(entities, list):
+                entities = json.dumps(entities)
+            refs = m.get('refs')
+            if isinstance(refs, list):
+                refs = json.dumps(refs)
+
+            _cache_conn.execute("""
+                INSERT OR REPLACE INTO memory_full
+                (id, summary, entities, refs, memory_class, valid_from, valid_to, access_count, last_accessed)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                m.get('id'),
+                m.get('summary'),
+                entities,
+                refs,
+                m.get('memory_class'),
+                m.get('valid_from'),
+                m.get('valid_to'),
+                m.get('access_count'),
+                m.get('last_accessed')
+            ))
+        _cache_conn.commit()
+    except Exception as e:
+        print(f"Warning: Cache full population failed: {e}")
+
+
+def _cache_config(config_entries: list):
+    """Cache config entries."""
+    if not _cache_available() or not config_entries:
+        return
+
+    try:
+        for c in config_entries:
+            _cache_conn.execute("""
+                INSERT OR REPLACE INTO config_cache (key, value, category)
+                VALUES (?, ?, ?)
+            """, (c.get('key'), c.get('value'), c.get('category')))
+        _cache_conn.commit()
+    except Exception as e:
+        print(f"Warning: Config caching failed: {e}")
+
+
+def _cache_query_index(search: str = None, type: str = None,
+                       tags: list = None, n: int = 10) -> list:
+    """Query memory_index (local, fast).
+
+    Returns list of dicts with cache data. If has_full=0,
+    full content needs to be fetched from Turso.
+    """
+    if not _cache_available():
+        return []
+
+    try:
+        conditions = []
+        params = []
+
+        if search:
+            conditions.append("summary_preview LIKE ?")
+            params.append(f"%{search}%")
+        if type:
+            conditions.append("type = ?")
+            params.append(type)
+        if tags:
+            # Match any tag
+            tag_conds = []
+            for t in tags:
+                tag_conds.append("tags LIKE ?")
+                params.append(f'%"{t}"%')
+            conditions.append(f"({' OR '.join(tag_conds)})")
+
+        where = " AND ".join(conditions) if conditions else "1=1"
+
+        cursor = _cache_conn.execute(f"""
+            SELECT i.*, f.summary, f.entities, f.refs, f.memory_class,
+                   f.valid_from, f.valid_to, f.access_count, f.last_accessed
+            FROM memory_index i
+            LEFT JOIN memory_full f ON i.id = f.id
+            WHERE {where}
+            ORDER BY i.t DESC
+            LIMIT ?
+        """, params + [n])
+
+        rows = cursor.fetchall()
+        return [_cache_row_to_dict(row) for row in rows]
+    except Exception as e:
+        print(f"Warning: Cache query failed: {e}")
+        return []
+
+
+def _cache_row_to_dict(row: sqlite3.Row) -> dict:
+    """Convert SQLite row to dict, parsing JSON fields."""
+    d = dict(row)
+
+    # Parse JSON fields
+    for field in ('tags', 'entities', 'refs'):
+        if field in d and d[field] is not None:
+            if isinstance(d[field], str):
+                try:
+                    d[field] = json.loads(d[field])
+                except json.JSONDecodeError:
+                    d[field] = []
+
+    return d
+
+
+def _cache_memory(mem_id: str, what: str, type: str, now: str,
+                  conf: float, tags: list, importance: float, **kwargs):
+    """Cache a new memory (write-through)."""
+    if not _cache_available():
+        return
+
+    try:
+        tags_json = json.dumps(tags or [])
+
+        # Insert into index
+        _cache_conn.execute("""
+            INSERT OR REPLACE INTO memory_index
+            (id, type, t, tags, summary_preview, confidence, importance, has_full)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+        """, (mem_id, type, now, tags_json, what[:100], conf, importance))
+
+        # Insert full content
+        entities = kwargs.get('entities')
+        refs = kwargs.get('refs')
+        if isinstance(entities, list):
+            entities = json.dumps(entities)
+        if isinstance(refs, list):
+            refs = json.dumps(refs)
+
+        _cache_conn.execute("""
+            INSERT OR REPLACE INTO memory_full
+            (id, summary, entities, refs, memory_class, valid_from, access_count)
+            VALUES (?, ?, ?, ?, ?, ?, 0)
+        """, (
+            mem_id, what, entities, refs,
+            kwargs.get('memory_class', 'episodic'),
+            kwargs.get('valid_from', now)
+        ))
+
+        _cache_conn.commit()
+    except Exception as e:
+        print(f"Warning: Cache write failed: {e}")
+
+
+def _fetch_full_content(ids: list) -> list:
+    """Fetch full content from Turso for cache misses."""
+    if not ids:
+        return []
+
+    placeholders = ", ".join("?" * len(ids))
+    return _exec(f"""
+        SELECT * FROM memories
+        WHERE id IN ({placeholders}) AND deleted_at IS NULL
+    """, ids)
+
+
+def cache_stats() -> dict:
+    """Get cache statistics for debugging."""
+    if not _cache_available():
+        return {"enabled": False, "available": False}
+
+    try:
+        index_count = _cache_conn.execute(
+            "SELECT COUNT(*) FROM memory_index"
+        ).fetchone()[0]
+        full_count = _cache_conn.execute(
+            "SELECT COUNT(*) FROM memory_full"
+        ).fetchone()[0]
+        config_count = _cache_conn.execute(
+            "SELECT COUNT(*) FROM config_cache"
+        ).fetchone()[0]
+        initialized = _cache_conn.execute(
+            "SELECT value FROM cache_meta WHERE key = 'initialized_at'"
+        ).fetchone()
+
+        return {
+            "enabled": _cache_enabled,
+            "available": True,
+            "index_count": index_count,
+            "full_count": full_count,
+            "config_count": config_count,
+            "hit_rate": f"{full_count}/{index_count}" if index_count else "0/0",
+            "initialized_at": initialized[0] if initialized else None
+        }
+    except Exception as e:
+        return {"enabled": _cache_enabled, "available": False, "error": str(e)}
 
 def _load_env_file(path: Path) -> dict[str, str]:
     """Parse a .env file into a dict. Ignores comments and blank lines."""
@@ -343,12 +691,18 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
     if embed:
         embedding = _embed(what)
 
+    # Write to local cache immediately (if available) - v0.7.0
+    if _cache_available():
+        _cache_memory(mem_id, what, type, now, conf, tags, importance,
+                     entities=entities, refs=refs, memory_class=memory_class,
+                     valid_from=valid_from)
+
     if sync:
-        # Blocking write
+        # Blocking write to Turso
         _write_memory(mem_id, what, type, now, conf, tags, entities, refs,
                      embedding, importance, memory_class, valid_from)
     else:
-        # Background write
+        # Background write to Turso
         def _bg_write():
             try:
                 _write_memory(mem_id, what, type, now, conf, tags, entities, refs,
@@ -414,8 +768,12 @@ def flush(timeout: float = 5.0) -> dict:
     return {"completed": completed, "timed_out": timed_out}
 
 def recall(search: str = None, *, n: int = 10, tags: list = None,
-           type: str = None, conf: float = None, tag_mode: str = "any") -> list:
+           type: str = None, conf: float = None, tag_mode: str = "any",
+           use_cache: bool = True) -> list:
     """Query memories with flexible filters.
+
+    v0.7.0: Uses local cache with progressive disclosure when available.
+    First query returns cached index data, then lazy-loads full content as needed.
 
     Args:
         search: Text to search for in memory summaries (LIKE match)
@@ -424,9 +782,51 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
         type: Filter by memory type
         conf: Minimum confidence threshold
         tag_mode: "any" (default) matches any tag, "all" requires all tags
+        use_cache: If True (default), check local cache first (much faster)
     """
     if isinstance(search, int):
         return _query(limit=search)
+
+    # Try cache first (progressive disclosure)
+    if use_cache and _cache_available():
+        results = _cache_query_index(search=search, type=type, tags=tags, n=n)
+
+        if results:
+            # Check if we need to fetch full content for any results
+            need_full = [r['id'] for r in results if not r.get('has_full')]
+
+            if need_full:
+                # Lazy-load full content from Turso
+                full_content = _fetch_full_content(need_full)
+
+                # Update cache with full content
+                _cache_populate_full(full_content)
+
+                # Merge full content into results
+                full_by_id = {m['id']: m for m in full_content}
+                for r in results:
+                    if r['id'] in full_by_id:
+                        full = full_by_id[r['id']]
+                        r.update({
+                            'summary': full.get('summary'),
+                            'entities': full.get('entities'),
+                            'refs': full.get('refs'),
+                            'memory_class': full.get('memory_class'),
+                            'valid_from': full.get('valid_from'),
+                            'valid_to': full.get('valid_to'),
+                            'access_count': full.get('access_count'),
+                            'last_accessed': full.get('last_accessed'),
+                            'has_full': 1
+                        })
+
+            # Track access in Turso (background, don't block)
+            def _bg_track():
+                _update_access_tracking([r['id'] for r in results])
+            threading.Thread(target=_bg_track, daemon=True).start()
+
+            return results
+
+    # Fallback to direct Turso query
     return _query(search=search, tags=tags, type=type, conf=conf, limit=n, tag_mode=tag_mode)
 
 def semantic_recall(query: str, *, n: int = 5, type: str = None,
@@ -720,14 +1120,19 @@ def ops() -> list:
     """Load operational config for conversation start."""
     return config_list("ops")
 
-def boot_fast(journal_n: int = 5) -> tuple[list, list, list]:
+def boot_fast(journal_n: int = 5, index_n: int = 500,
+              use_cache: bool = True) -> tuple[list, list, list]:
     """Optimized boot: returns (profile, ops, journal) in one HTTP request (~130ms).
 
     Use this instead of calling profile(), ops(), journal_recent() separately,
     which would make 3 HTTP requests (~1100ms total).
 
+    v0.7.0: Also populates local SQLite cache with memory index for fast recall().
+
     Args:
         journal_n: Number of recent journal entries (default 5)
+        index_n: Number of memory headlines to cache (default 500)
+        use_cache: If True, populate local cache for fast subsequent queries
 
     Returns:
         Tuple of (profile_list, ops_list, journal_list)
@@ -735,16 +1140,31 @@ def boot_fast(journal_n: int = 5) -> tuple[list, list, list]:
     Performance:
         - Separate calls: ~1100ms (3 HTTP requests)
         - boot_fast(): ~130ms (1 HTTP request, 8x faster)
+        - Subsequent recall(): <5ms (local cache) vs ~150ms (network)
     """
+    # Initialize local cache if enabled
+    if use_cache:
+        _init_local_cache()
+        _cache_clear()  # Fresh cache each session
+
+    # Fetch config + memory index in single request
     results = _exec_batch([
         "SELECT * FROM config WHERE category = 'profile' ORDER BY key",
         "SELECT * FROM config WHERE category = 'ops' ORDER BY key",
         ("SELECT * FROM config WHERE category = 'journal' ORDER BY key DESC LIMIT ?", [journal_n]),
+        # Memory index: headlines only for progressive disclosure
+        ("""SELECT id, type, t, tags, substr(summary, 1, 100) as summary_preview,
+                   confidence, importance
+            FROM memories
+            WHERE deleted_at IS NULL
+              AND id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)
+            ORDER BY t DESC LIMIT ?""", [index_n]),
     ])
 
     profile_data = results[0]
     ops_data = results[1]
     journal_raw = results[2]
+    memory_index = results[3]
 
     # Parse journal entries
     journal_data = []
@@ -755,6 +1175,11 @@ def boot_fast(journal_n: int = 5) -> tuple[list, list, list]:
             journal_data.append(parsed)
         except json.JSONDecodeError:
             continue
+
+    # Populate local cache
+    if use_cache and _cache_available():
+        _cache_config(profile_data + ops_data + journal_raw)
+        _cache_populate_index(memory_index)
 
     return profile_data, ops_data, journal_data
 
@@ -1086,5 +1511,6 @@ __all__ = [
     "group_by_type", "group_by_tag",  # analysis helpers
     "handoff_pending", "handoff_complete",  # handoff workflow
     "muninn_export", "muninn_import",  # export/import
+    "cache_stats",  # v0.7.0 cache diagnostics
     "r", "q", "j", "TYPES"  # aliases & constants
 ]
