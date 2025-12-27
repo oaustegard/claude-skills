@@ -232,6 +232,36 @@ remembering/
 
 ## Recent Enhancements
 
+### v0.6.0 (2025-12-27)
+✅ **Bug Fixes**:
+- Fixed ambiguous column error in `semantic_recall()` vector index query by qualifying all column references
+- Fixed tag deserialization: all memory queries now return `tags`, `entities`, and `refs` as parsed lists (not JSON strings)
+
+✅ **Unified Write API**:
+- Added `sync` parameter to `remember()` (default `True` for backwards compatibility)
+- `sync=False`: Non-blocking background write, returns immediately
+- `sync=True`: Blocking write, waits for confirmation
+- Deprecated `remember_bg()` - now an alias for `remember(..., sync=False)`
+- Added `flush()` function to wait for all pending background writes
+
+✅ **Batch Query Helper**:
+- New `_exec_batch()` for executing multiple SQL statements in single pipeline request
+- Reduces round-trip latency for multi-query operations
+- Automatically parses JSON fields in all result sets
+
+**Migration**: No schema changes, fully backwards compatible.
+
+**API Changes**:
+```python
+# New unified API
+remember("note", "world", sync=False)  # Background write
+remember("important", "decision", sync=True)  # Blocking write
+flush()  # Wait for pending writes
+
+# Old API (still works, deprecated)
+remember_bg("note", "world")  # Calls remember(..., sync=False)
+```
+
 ### v0.4.0 (2025-12-27)
 ✅ **Importance Tracking**: New `importance` parameter in `remember()` for memory prioritization (default 0.5)
 ✅ **Access Analytics**: Automatic tracking of `access_count` and `last_accessed` for all recall operations
