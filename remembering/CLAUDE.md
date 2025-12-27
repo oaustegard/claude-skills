@@ -238,6 +238,37 @@ remembering/
 
 ## Recent Enhancements
 
+### v0.8.0 (2025-12-27)
+✅ **Full Content at Boot**:
+- `boot_fast()` now fetches all memory content in the initial batch query
+- Eliminated async cache warming thread (no longer needed)
+- Zero network calls after boot for any `recall()` query
+- Simplified architecture: full content cached at boot, not lazy-loaded
+
+**Performance Impact:**
+- Boot time: ~566ms (vs ~130ms in v0.7.1, acceptable tradeoff for zero mid-conversation latency)
+- All recall() queries: 1-3ms (guaranteed, no network variance)
+- Network calls during conversation: 0 (was unpredictable in v0.7.0-v0.7.1)
+
+**Implementation Changes:**
+```python
+# boot_fast() now fetches full memories in initial batch
+results = _exec_batch([
+    # ... profile, ops, journal ...
+    ("SELECT * FROM memories WHERE deleted_at IS NULL ORDER BY t DESC LIMIT ?", [index_n]),
+])
+full_memories = results[3]
+
+# Populate both index and full content immediately
+_cache_populate_index(memory_index)
+_cache_populate_full(full_memories)
+# No async warm_cache thread needed
+```
+
+**Cache Sync Guarantee:**
+- Added explicit guidance in SKILL.md: call `flush()` before conversation end if using `sync=False`
+- Ensures all background writes persist before ephemeral container destruction
+
 ### v0.7.1 (2025-12-27)
 ✅ **Async Cache Warming**:
 - `boot_fast()` now prefetches 20 recent full memories in background thread

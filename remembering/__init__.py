@@ -1146,14 +1146,13 @@ def boot_fast(journal_n: int = 5, index_n: int = 500,
     if use_cache:
         _init_local_cache()
 
-    # Fetch config + memory index in single request
+    # Fetch config + full memory content in single request
     results = _exec_batch([
         "SELECT * FROM config WHERE category = 'profile' ORDER BY key",
         "SELECT * FROM config WHERE category = 'ops' ORDER BY key",
         ("SELECT * FROM config WHERE category = 'journal' ORDER BY key DESC LIMIT ?", [journal_n]),
-        # Memory index: headlines only for progressive disclosure
-        ("""SELECT id, type, t, tags, substr(summary, 1, 100) as summary_preview,
-                   confidence, importance
+        # Full memory content: fetch everything to eliminate mid-conversation network calls
+        ("""SELECT *
             FROM memories
             WHERE deleted_at IS NULL
               AND id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)
@@ -1163,7 +1162,7 @@ def boot_fast(journal_n: int = 5, index_n: int = 500,
     profile_data = results[0]
     ops_data = results[1]
     journal_raw = results[2]
-    memory_index = results[3]
+    full_memories = results[3]
 
     # Parse journal entries
     journal_data = []
@@ -1175,22 +1174,25 @@ def boot_fast(journal_n: int = 5, index_n: int = 500,
         except json.JSONDecodeError:
             continue
 
-    # Populate local cache
+    # Populate local cache with full content
     if use_cache and _cache_available():
         _cache_config(profile_data + ops_data + journal_raw)
+
+        # Create index entries from full memories
+        memory_index = []
+        for m in full_memories:
+            memory_index.append({
+                'id': m.get('id'),
+                'type': m.get('type'),
+                't': m.get('t'),
+                'tags': m.get('tags'),
+                'summary_preview': m.get('summary', '')[:100],
+                'confidence': m.get('confidence'),
+                'importance': m.get('importance')
+            })
+
         _cache_populate_index(memory_index)
-
-        # Async cache warming: prefetch recent memories during Claude's thinking time
-        def _warm_cache():
-            try:
-                full_recent = _exec_batch([
-                    ("SELECT * FROM memories WHERE deleted_at IS NULL ORDER BY t DESC LIMIT 20", [])
-                ])[0]
-                _cache_populate_full(full_recent)
-            except Exception:
-                pass  # Silent failure - cache warming is optimization, not critical
-
-        threading.Thread(target=_warm_cache, daemon=True).start()
+        _cache_populate_full(full_memories)
 
     return profile_data, ops_data, journal_data
 
