@@ -22,7 +22,56 @@ Config loads fast at startup. Memories are queried as needed.
 
 ## Boot Sequence
 
-Load context at conversation start to maintain continuity across sessions:
+Load context at conversation start to maintain continuity across sessions.
+
+### Optimized: Single-Call Boot (Recommended)
+
+Use `boot()` for fast startup with batched queries (~200ms vs ~1.2s):
+
+```python
+from remembering import boot
+
+# Single HTTP request loads all boot data
+profile, ops, journal, decisions = boot()
+
+# Profile and ops (full text)
+for p in profile:
+    print(p['value'])
+
+for o in ops:
+    print(o['value'])
+
+# Decisions (headlines only - progressive disclosure)
+print(f"\n=== DECISIONS ({len(decisions)} available) ===")
+for d in decisions:
+    tags = ', '.join(d.get('tags', []))
+    print(f"[{d['t'][:10]}] {tags}")
+
+# Journal (recent activity)
+print("\n=== RECENT ===")
+for j in journal:
+    topics = ', '.join(j.get('topics', []))
+    intent = j.get('my_intent', '-')
+    stated = j.get('user_stated', '')
+    print(f"[{j['t'][:10]}] {topics}: {intent}" + (f" | user: {stated}" if stated else ""))
+```
+
+**Progressive disclosure:** Decision index shows date + tags only. Retrieve full text when relevant:
+
+```python
+# Later in conversation, when topic becomes relevant
+from remembering import recall
+full_decisions = recall("memory architecture", type="decision")
+```
+
+**Parameters:**
+- `journal_n=5`: Number of recent journal entries (default 5)
+- `decisions_n=10`: Number of decision headlines (default 10)
+- `decisions_conf=0.7`: Minimum confidence for decisions (default 0.7)
+
+### Alternative: Individual Calls
+
+If you need more control over loading:
 
 ```python
 from remembering import profile, ops, journal_recent, decisions_recent
@@ -34,7 +83,7 @@ for p in profile():
 for o in ops():
     print(o['value'])
 
-# Load recent high-confidence decisions
+# Load recent high-confidence decisions (full text)
 print("\n=== RECENT DECISIONS ===")
 for d in decisions_recent(10, conf=0.7):
     print(f"[{d['t'][:10]}] {d['summary'][:100]}")
