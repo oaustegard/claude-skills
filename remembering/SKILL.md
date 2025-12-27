@@ -246,6 +246,12 @@ remember_bg("Quick note", "world")  # Same as remember(..., sync=False)
 - Critical memories (handoffs, decisions)
 - End of workflow when durability matters
 
+**⚠️ IMPORTANT - Cache Sync Guarantee:**
+- If you use `sync=False` for ANY writes in a conversation, you MUST call `flush()` before the conversation ends
+- This ensures all background writes persist to the database before the ephemeral container is destroyed
+- Single-user context: no concurrent write conflicts, all writes will succeed
+- Prefer `sync=True` (default) for critical writes to guarantee immediate persistence
+
 ## Memory Versioning (Patch/Snapshot)
 
 Supersede without losing history:
