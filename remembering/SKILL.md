@@ -390,12 +390,15 @@ Write complete, searchable summaries that standalone without conversation contex
 
 ## Handoff Convention
 
-Use the `handoff` tag for cross-environment work coordination:
+Cross-environment work coordination with version tracking and automatic completion marking.
+
+### Creating Handoffs
+
+From Claude.ai (web/mobile) - cannot persist file changes:
 
 ```python
 from remembering import remember
 
-# From Claude.ai (web/mobile) - cannot persist file changes
 remember("""
 HANDOFF: Implement user authentication
 
@@ -412,10 +415,56 @@ User wants OAuth2 + JWT authentication for the API.
 - JWT tokens with 24h expiry
 - Refresh token support
 ...
-""", "world", tags=["handoff", "claude-code", "auth"])
+""", "world", tags=["handoff", "pending", "auth"])
+```
 
-# From Claude Code - query handoffs
-handoffs = recall(tags=["handoff"], n=20)
+**Important:** Tag with `["handoff", "pending", ...]` so it appears in `handoff_pending()` queries.
+
+**Handoff structure:**
+- **Title**: Brief summary of what needs to be done
+- **Context**: Why this work is needed
+- **Files to Modify**: Specific paths
+- **Implementation Notes**: Code patterns, constraints, dependencies
+
+### Completing Handoffs
+
+From Claude Code - streamlined workflow:
+
+```python
+from remembering import handoff_pending, handoff_complete
+
+# Get pending work (excludes completed handoffs)
+pending = handoff_pending()
+print(f"{len(pending)} pending handoff(s)")
+
+for h in pending:
+    print(f"[{h['created_at'][:10]}] {h['summary'][:80]}")
+
+# Complete a handoff (automatically tags with version)
+handoff_id = pending[0]['id']
+handoff_complete(
+    handoff_id,
+    "COMPLETED: Implemented boot() function with batched queries...",
+    # version auto-detected from VERSION file, or specify: "0.5.0"
+)
+```
+
+**What happens:**
+- Original handoff is superseded (won't appear in future `handoff_pending()` queries)
+- Completion record created with tags `["handoff-completed", "v0.5.0"]`
+- Version tracked automatically from `VERSION` file
+- Full history preserved via `supersede()` chain
+
+### Querying History
+
+```python
+from remembering import recall
+
+# See what was completed in a specific version
+v050_work = recall(tags=["handoff-completed", "v0.5.0"])
+
+# See all completion records
+completed = recall(tags=["handoff-completed"], n=50)
 ```
 
 **Use when:**
@@ -423,12 +472,6 @@ handoffs = recall(tags=["handoff"], n=20)
 - Planning work that needs Claude Code execution
 - Coordinating between environments
 - Leaving detailed instructions for future sessions
-
-**Handoff structure:**
-- **Title**: Brief summary of what needs to be done
-- **Context**: Why this work is needed
-- **Files to Modify**: Specific paths
-- **Implementation Notes**: Code patterns, constraints, dependencies
 
 ## Export/Import for Portability
 

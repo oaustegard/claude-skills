@@ -745,6 +745,48 @@ def muninn_export() -> dict:
         "memories": _exec("SELECT * FROM memories WHERE deleted_at IS NULL")
     }
 
+def handoff_pending() -> list:
+    """Get pending handoff instructions (not yet completed).
+
+    Returns handoffs tagged with BOTH 'handoff' AND 'pending', excluding superseded ones.
+    Use handoff_complete() to mark a handoff as done.
+
+    Returns:
+        List of pending handoff memories, most recent first
+    """
+    return recall(tags=["handoff", "pending"], tag_mode="all", n=50)
+
+def handoff_complete(handoff_id: str, completion_notes: str, version: str = None) -> str:
+    """Mark a handoff as completed by superseding it with completion record.
+
+    The original handoff will be excluded from future handoff_pending() queries.
+    Completion record is tagged with version for historical tracking.
+
+    Args:
+        handoff_id: ID of the handoff to mark complete
+        completion_notes: Summary of what was done
+        version: Optional version number (e.g., "0.5.0")
+
+    Returns:
+        ID of the completion record
+
+    Example:
+        handoff_id = handoff_pending()[0]['id']
+        handoff_complete(handoff_id, "Implemented boot() function", "0.5.0")
+    """
+    # Read VERSION file if version not provided
+    if version is None:
+        try:
+            from pathlib import Path
+            version_file = Path(__file__).parent / "VERSION"
+            version = version_file.read_text().strip()
+        except Exception:
+            version = "unknown"
+
+    # Supersede the handoff with completion record
+    completion_tags = ["handoff-completed", f"v{version}"]
+    return supersede(handoff_id, completion_notes, "world", tags=completion_tags)
+
 def muninn_import(data: dict, *, merge: bool = False) -> dict:
     """Import Muninn state from exported JSON.
 
@@ -819,6 +861,7 @@ __all__ = [
     "profile", "ops", "boot", "journal", "journal_recent", "journal_prune",  # convenience loaders
     "therapy_scope", "therapy_session_count", "decisions_recent",  # therapy helpers
     "group_by_type", "group_by_tag",  # analysis helpers
+    "handoff_pending", "handoff_complete",  # handoff workflow
     "muninn_export", "muninn_import",  # export/import
     "r", "q", "j", "TYPES"  # aliases & constants
 ]

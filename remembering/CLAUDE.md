@@ -92,6 +92,7 @@ from remembering import config_get, config_set, config_list, profile, ops, boot
 from remembering import journal, journal_recent, journal_prune
 from remembering import therapy_scope, therapy_session_count, decisions_recent
 from remembering import group_by_type, group_by_tag
+from remembering import handoff_pending, handoff_complete
 from remembering import muninn_export, muninn_import
 
 # Store a memory (type required, with optional embedding)
@@ -150,6 +151,10 @@ for d in recent_decisions:
 mems = recall(n=50)
 by_type = group_by_type(mems)  # {"decision": [...], "world": [...]}
 by_tag = group_by_tag(mems)    # {"ui": [...], "bug": [...]}
+
+# Handoff workflow (cross-environment coordination)
+pending = handoff_pending()  # get pending work
+handoff_complete(handoff_id, "COMPLETED: ...", version="0.5.0")  # mark done
 
 # Export/Import
 state = muninn_export()  # all config + memories as JSON
