@@ -5,6 +5,7 @@ import json
 import uuid
 import threading
 import os
+import time
 from datetime import datetime, UTC
 from pathlib import Path
 
@@ -59,16 +60,48 @@ def _init():
     if _EMBEDDING_API_KEY is None:
         _EMBEDDING_API_KEY = os.environ.get("EMBEDDING_API_KEY")
 
+def _retry_with_backoff(fn, max_retries=3, base_delay=1.0):
+    """Retry a function with exponential backoff on 503/429 errors.
+
+    Args:
+        fn: Callable that may raise exceptions
+        max_retries: Maximum number of retry attempts (default 3)
+        base_delay: Initial delay in seconds (default 1.0)
+
+    Returns:
+        Result of fn() if successful
+
+    Raises:
+        Last exception if all retries exhausted
+    """
+    for attempt in range(max_retries):
+        try:
+            return fn()
+        except Exception as e:
+            if attempt == max_retries - 1:
+                # Last attempt failed, re-raise
+                raise
+            # Check if it's a retriable error (503 Service Unavailable, 429 Too Many Requests)
+            error_str = str(e)
+            if '503' in error_str or '429' in error_str or 'Service Unavailable' in error_str:
+                delay = base_delay * (2 ** attempt)
+                print(f"Warning: API request failed (attempt {attempt + 1}/{max_retries}), retrying in {delay}s: {e}")
+                time.sleep(delay)
+            else:
+                # Non-retriable error, fail immediately
+                raise
+
 def _embed(text: str) -> list[float] | None:
     """Generate embedding vector for text using OpenAI text-embedding-3-small.
 
     Returns list of 1536 floats, or None if API key not configured.
+    Uses exponential backoff retry for 503/429 errors.
     """
     _init()
     if not _EMBEDDING_API_KEY:
         return None
 
-    try:
+    def _do_embed():
         response = requests.post(
             "https://api.openai.com/v1/embeddings",
             headers={
@@ -83,9 +116,12 @@ def _embed(text: str) -> list[float] | None:
         )
         response.raise_for_status()
         return response.json()["data"][0]["embedding"]
+
+    try:
+        return _retry_with_backoff(_do_embed, max_retries=3, base_delay=1.0)
     except Exception as e:
         # Fail gracefully - embedding is optional
-        print(f"Warning: Embedding generation failed: {e}")
+        print(f"Warning: Embedding generation failed after retries: {e}")
         return None
 
 def _exec(sql, args=None):
@@ -117,7 +153,8 @@ def _exec(sql, args=None):
     ]
 
 def remember(what: str, type: str, *, tags: list = None, conf: float = None,
-             entities: list = None, refs: list = None, embed: bool = True) -> str:
+             entities: list = None, refs: list = None, embed: bool = True,
+             importance: float = None, memory_class: str = None, valid_from: str = None) -> str:
     """Store a memory with optional embedding. Type is required. Returns memory ID.
 
     Args:
@@ -128,6 +165,9 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
         entities: Optional list of entities
         refs: Optional list of referenced memory IDs
         embed: Generate and store embedding for semantic search (default True)
+        importance: Optional importance score (0.0-1.0, default 0.5)
+        memory_class: Optional classification ('episodic' or 'semantic', default 'episodic')
+        valid_from: Optional timestamp when fact became true (defaults to creation time)
     """
     if type not in TYPES:
         raise ValueError(f"Invalid type '{type}'. Must be one of: {', '.join(sorted(TYPES))}")
@@ -138,6 +178,14 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
     if type == "decision" and conf is None:
         conf = 0.8
 
+    # Set v0.4.0 defaults
+    if importance is None:
+        importance = 0.5
+    if memory_class is None:
+        memory_class = 'episodic'
+    if valid_from is None:
+        valid_from = now
+
     # Generate embedding if requested
     embedding = None
     if embed:
@@ -147,33 +195,35 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
     if embedding:
         _exec(
             """INSERT INTO memories (id, type, t, summary, confidence, tags, entities, refs,
-               session_id, created_at, updated_at, embedding)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, vector32(?))""",
+               session_id, created_at, updated_at, embedding, importance, memory_class, valid_from, access_count)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, vector32(?), ?, ?, ?, 0)""",
             [mem_id, type, now, what, conf,
              json.dumps(tags or []), json.dumps(entities or []), json.dumps(refs or []),
-             "session", now, now, json.dumps(embedding)]
+             "session", now, now, json.dumps(embedding), importance, memory_class, valid_from]
         )
     else:
         # Insert without embedding when not available
         _exec(
             """INSERT INTO memories (id, type, t, summary, confidence, tags, entities, refs,
-               session_id, created_at, updated_at, embedding)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)""",
+               session_id, created_at, updated_at, embedding, importance, memory_class, valid_from, access_count)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, 0)""",
             [mem_id, type, now, what, conf,
              json.dumps(tags or []), json.dumps(entities or []), json.dumps(refs or []),
-             "session", now, now]
+             "session", now, now, importance, memory_class, valid_from]
         )
     return mem_id
 
 def remember_bg(what: str, type: str, *, tags: list = None, conf: float = None,
-                entities: list = None, refs: list = None, embed: bool = True) -> None:
+                entities: list = None, refs: list = None, embed: bool = True,
+                importance: float = None, memory_class: str = None, valid_from: str = None) -> None:
     """Fire-and-forget memory storage. Type required. Returns immediately, writes in background.
 
     Args:
-        Same as remember(), including embed parameter for semantic search support.
+        Same as remember(), including v0.4.0 parameters (importance, memory_class, valid_from).
     """
     def _do():
-        remember(what, type, tags=tags, conf=conf, entities=entities, refs=refs, embed=embed)
+        remember(what, type, tags=tags, conf=conf, entities=entities, refs=refs, embed=embed,
+                importance=importance, memory_class=memory_class, valid_from=valid_from)
     threading.Thread(target=_do, daemon=True).start()
 
 def recall(search: str = None, *, n: int = 10, tags: list = None,
@@ -246,7 +296,7 @@ def semantic_recall(query: str, *, n: int = 5, type: str = None,
             ORDER BY similarity DESC
             LIMIT {n}
         """
-        return _exec(sql, [json.dumps(query_embedding), json.dumps(query_embedding)])
+        results = _exec(sql, [json.dumps(query_embedding), json.dumps(query_embedding)])
     except Exception as e:
         # Fallback: If vector index not available, use brute-force similarity
         print(f"Warning: Vector index search failed, using fallback: {e}")
@@ -258,7 +308,27 @@ def semantic_recall(query: str, *, n: int = 5, type: str = None,
             ORDER BY similarity DESC
             LIMIT {n}
         """
-        return _exec(sql, [json.dumps(query_embedding)])
+        results = _exec(sql, [json.dumps(query_embedding)])
+
+    # Track access for returned memories
+    if results:
+        _update_access_tracking([m["id"] for m in results])
+
+    return results
+
+def _update_access_tracking(memory_ids: list):
+    """Update access_count and last_accessed for memories (v0.4.0)."""
+    if not memory_ids:
+        return
+    now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    # Use SQL to increment access_count and set last_accessed
+    placeholders = ", ".join("?" * len(memory_ids))
+    _exec(f"""
+        UPDATE memories
+        SET access_count = COALESCE(access_count, 0) + 1,
+            last_accessed = ?
+        WHERE id IN ({placeholders})
+    """, [now] + memory_ids)
 
 def _query(search: str = None, tags: list = None, type: str = None,
            conf: float = None, limit: int = 10, tag_mode: str = "any") -> list:
@@ -266,6 +336,8 @@ def _query(search: str = None, tags: list = None, type: str = None,
 
     Args:
         tag_mode: "any" (default) matches any tag, "all" requires all tags
+
+    v0.4.0: Tracks access_count and last_accessed for retrieved memories.
     """
     # Exclude soft-deleted memories and superseded memories (those referenced in refs)
     conditions = [
@@ -292,7 +364,13 @@ def _query(search: str = None, tags: list = None, type: str = None,
     where = " AND ".join(conditions)
     order = "confidence DESC" if conf else "t DESC"
 
-    return _exec(f"SELECT * FROM memories WHERE {where} ORDER BY {order} LIMIT {limit}")
+    results = _exec(f"SELECT * FROM memories WHERE {where} ORDER BY {order} LIMIT {limit}")
+
+    # Track access for returned memories
+    if results:
+        _update_access_tracking([m["id"] for m in results])
+
+    return results
 
 def recall_since(after: str, *, search: str = None, n: int = 50,
                  type: str = None, tags: list = None, tag_mode: str = "any") -> list:
@@ -322,7 +400,13 @@ def recall_since(after: str, *, search: str = None, n: int = 50,
             tag_conds = " OR ".join(f"tags LIKE '%\"{t}\"%'" for t in tags)
         conditions.append(f"({tag_conds})")
     where = " AND ".join(conditions)
-    return _exec(f"SELECT * FROM memories WHERE {where} ORDER BY t DESC LIMIT {n}")
+    results = _exec(f"SELECT * FROM memories WHERE {where} ORDER BY t DESC LIMIT {n}")
+
+    # Track access for returned memories
+    if results:
+        _update_access_tracking([m["id"] for m in results])
+
+    return results
 
 def recall_between(after: str, before: str, *, search: str = None,
                    n: int = 100, type: str = None, tags: list = None,
@@ -355,7 +439,13 @@ def recall_between(after: str, before: str, *, search: str = None,
             tag_conds = " OR ".join(f"tags LIKE '%\"{t}\"%'" for t in tags)
         conditions.append(f"({tag_conds})")
     where = " AND ".join(conditions)
-    return _exec(f"SELECT * FROM memories WHERE {where} ORDER BY t DESC LIMIT {n}")
+    results = _exec(f"SELECT * FROM memories WHERE {where} ORDER BY t DESC LIMIT {n}")
+
+    # Track access for returned memories
+    if results:
+        _update_access_tracking([m["id"] for m in results])
+
+    return results
 
 def forget(memory_id: str) -> bool:
     """Soft-delete a memory."""
@@ -365,8 +455,17 @@ def forget(memory_id: str) -> bool:
 
 def supersede(original_id: str, summary: str, type: str, *,
               tags: list = None, conf: float = None) -> str:
-    """Create a patch that supersedes an existing memory. Type required. Returns new memory ID."""
-    return remember(summary, type, tags=tags, conf=conf, refs=[original_id])
+    """Create a patch that supersedes an existing memory. Type required. Returns new memory ID.
+
+    v0.4.0: Sets valid_to on original memory and valid_from on new memory for bitemporal tracking.
+    """
+    now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+    # Set valid_to on original memory to mark when it stopped being true
+    _exec("UPDATE memories SET valid_to = ? WHERE id = ?", [now, original_id])
+
+    # Create new memory with valid_from set to now
+    return remember(summary, type, tags=tags, conf=conf, refs=[original_id], valid_from=now)
 
 # --- Config table functions (profile + ops) ---
 

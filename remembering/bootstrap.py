@@ -78,6 +78,45 @@ def migrate_schema():
     except:
         pass  # Column already exists
 
+    # v0.4.0: Add importance tracking columns
+    try:
+        _exec("ALTER TABLE memories ADD COLUMN importance REAL DEFAULT 0.5")
+        print("Added importance column to memories table")
+    except:
+        pass  # Column already exists
+
+    try:
+        _exec("ALTER TABLE memories ADD COLUMN access_count INTEGER DEFAULT 0")
+        print("Added access_count column to memories table")
+    except:
+        pass  # Column already exists
+
+    try:
+        _exec("ALTER TABLE memories ADD COLUMN last_accessed TEXT")
+        print("Added last_accessed column to memories table")
+    except:
+        pass  # Column already exists
+
+    # v0.4.0: Add episodic/semantic memory classification
+    try:
+        _exec("ALTER TABLE memories ADD COLUMN memory_class TEXT DEFAULT 'episodic'")
+        print("Added memory_class column to memories table")
+    except:
+        pass  # Column already exists
+
+    # v0.4.0: Add bitemporal tracking columns
+    try:
+        _exec("ALTER TABLE memories ADD COLUMN valid_from TEXT")
+        print("Added valid_from column to memories table")
+    except:
+        pass  # Column already exists
+
+    try:
+        _exec("ALTER TABLE memories ADD COLUMN valid_to TEXT")
+        print("Added valid_to column to memories table")
+    except:
+        pass  # Column already exists
+
     # Create vector index for efficient semantic search
     try:
         _exec("""

@@ -55,6 +55,30 @@ claude-skills/
 
 ## Working with Skills
 
+### Developing or Modifying Existing Skills
+
+When working on skills in this repository (not just using them):
+
+**Pre-flight Checklist:**
+1. **Check for CLAUDE.md** - If the skill directory contains a CLAUDE.md file, READ IT FIRST before any code execution. This file contains Claude Code-specific context, development patterns, and critical guidance.
+2. **Explore structure** - Use `ls -la skill-name/` to understand what files exist before importing or executing
+3. **Follow skill's own practices** - If CLAUDE.md says "use this skill to develop itself", do that
+4. **Verify imports** - Check for __init__.py location and symlink structure before running code
+
+**Example workflow:**
+```bash
+# 1. Explore first
+ls -la remembering/
+
+# 2. Check for development docs
+test -f remembering/CLAUDE.md && cat remembering/CLAUDE.md
+
+# 3. Follow guidance in CLAUDE.md before executing
+# 4. Use proper import paths (check symlinks!)
+```
+
+**Why this matters:** Skills like `remembering` contain meta-instructions about their own development. Skipping CLAUDE.md means missing critical context that prevents errors.
+
 ### Creating a New Skill
 
 **Note**: Skill creation typically happens in a skill development environment (using paths like `/home/claude/`, `/mnt/user-data/outputs/`, etc.) which differs from this repository checkout.
