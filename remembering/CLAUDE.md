@@ -88,7 +88,7 @@ CREATE TABLE memories (
 ```python
 from remembering import remember, recall, forget, supersede, remember_bg, semantic_recall
 from remembering import recall_since, recall_between
-from remembering import config_get, config_set, config_list, profile, ops, boot
+from remembering import config_get, config_set, config_list, profile, ops, boot, boot_fast
 from remembering import journal, journal_recent, journal_prune
 from remembering import therapy_scope, therapy_session_count, decisions_recent
 from remembering import group_by_type, group_by_tag
@@ -137,12 +137,17 @@ recent = journal_recent(5)
 cutoff, unprocessed = therapy_scope()  # get memories since last therapy session
 session_count = therapy_session_count()  # count therapy sessions
 
-# Boot sequence - optimized single-call (recommended, ~200ms)
-profile, ops, journal, decisions = boot()  # single HTTP request
+# Boot sequence - fastest (recommended, ~130ms)
+profile, ops, journal = boot_fast()  # single HTTP request, 3 queries
+# Returns: (profile_list, ops_list, journal_list)
+
+# Boot sequence - with decision index (~200ms)
+profile, ops, journal, decisions = boot()  # single HTTP request, 4 queries
 # Returns: (profile_list, ops_list, journal_list, decision_index)
 # decision_index has headlines only: {id, t, tags, headline}
 
-# Boot sequence - individual calls (if you need more control)
+# Boot sequence - individual calls (SLOW: ~1100ms, 3 HTTP requests)
+# Only use if you need fine-grained control
 recent_decisions = decisions_recent(10, conf=0.7)  # recent decisions with conf >= 0.7
 for d in recent_decisions:
     print(f"[{d['t'][:10]}] {d['summary'][:80]}")
@@ -231,6 +236,27 @@ remembering/
 - `session_id` currently placeholder ("session")
 
 ## Recent Enhancements
+
+### v0.6.1 (2025-12-27)
+✅ **Boot Performance Optimization**:
+- New `boot_fast()` function for optimized boot sequence (~130ms vs ~1100ms)
+- Batches profile + ops + journal queries in single HTTP request (8x faster)
+- Use `boot_fast()` instead of calling `profile()`, `ops()`, `journal_recent()` separately
+
+**API**:
+```python
+# Fast boot (recommended)
+profile, ops, journal = boot_fast()  # ~130ms, 1 HTTP request
+
+# With decisions (if needed)
+profile, ops, journal, decisions = boot()  # ~200ms, 1 HTTP request
+
+# Slow (avoid)
+profile()  # ~485ms
+ops()      # ~261ms
+journal_recent()  # ~222ms
+# Total: ~1100ms, 3 HTTP requests
+```
 
 ### v0.6.0 (2025-12-27)
 ✅ **Bug Fixes**:

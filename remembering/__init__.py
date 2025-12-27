@@ -720,11 +720,52 @@ def ops() -> list:
     """Load operational config for conversation start."""
     return config_list("ops")
 
+def boot_fast(journal_n: int = 5) -> tuple[list, list, list]:
+    """Optimized boot: returns (profile, ops, journal) in one HTTP request (~130ms).
+
+    Use this instead of calling profile(), ops(), journal_recent() separately,
+    which would make 3 HTTP requests (~1100ms total).
+
+    Args:
+        journal_n: Number of recent journal entries (default 5)
+
+    Returns:
+        Tuple of (profile_list, ops_list, journal_list)
+
+    Performance:
+        - Separate calls: ~1100ms (3 HTTP requests)
+        - boot_fast(): ~130ms (1 HTTP request, 8x faster)
+    """
+    results = _exec_batch([
+        "SELECT * FROM config WHERE category = 'profile' ORDER BY key",
+        "SELECT * FROM config WHERE category = 'ops' ORDER BY key",
+        ("SELECT * FROM config WHERE category = 'journal' ORDER BY key DESC LIMIT ?", [journal_n]),
+    ])
+
+    profile_data = results[0]
+    ops_data = results[1]
+    journal_raw = results[2]
+
+    # Parse journal entries
+    journal_data = []
+    for e in journal_raw:
+        try:
+            parsed = json.loads(e["value"])
+            parsed["_key"] = e["key"]
+            journal_data.append(parsed)
+        except json.JSONDecodeError:
+            continue
+
+    return profile_data, ops_data, journal_data
+
+
 def boot(journal_n: int = 5, decisions_n: int = 10, decisions_conf: float = 0.7) -> tuple[list, list, list, list]:
     """Single-call boot: returns (profile, ops, journal, decision_index) in one HTTP request.
 
     Decision index contains headlines only (id, timestamp, tags, first 60 chars).
     Use recall(type="decision") to fetch full decision text when needed.
+
+    For faster boot without decision_index, use boot_fast() instead.
 
     Args:
         journal_n: Number of recent journal entries (default 5)
@@ -1040,7 +1081,7 @@ __all__ = [
     "remember", "recall", "forget", "supersede", "remember_bg", "flush", "semantic_recall",  # memories
     "recall_since", "recall_between",  # date-filtered queries
     "config_get", "config_set", "config_delete", "config_list",  # config
-    "profile", "ops", "boot", "journal", "journal_recent", "journal_prune",  # convenience loaders
+    "profile", "ops", "boot", "boot_fast", "journal", "journal_recent", "journal_prune",  # convenience loaders
     "therapy_scope", "therapy_session_count", "decisions_recent",  # therapy helpers
     "group_by_type", "group_by_tag",  # analysis helpers
     "handoff_pending", "handoff_complete",  # handoff workflow
