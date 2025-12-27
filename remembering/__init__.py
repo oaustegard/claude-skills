@@ -1145,7 +1145,6 @@ def boot_fast(journal_n: int = 5, index_n: int = 500,
     # Initialize local cache if enabled
     if use_cache:
         _init_local_cache()
-        _cache_clear()  # Fresh cache each session
 
     # Fetch config + memory index in single request
     results = _exec_batch([
@@ -1180,6 +1179,18 @@ def boot_fast(journal_n: int = 5, index_n: int = 500,
     if use_cache and _cache_available():
         _cache_config(profile_data + ops_data + journal_raw)
         _cache_populate_index(memory_index)
+
+        # Async cache warming: prefetch recent memories during Claude's thinking time
+        def _warm_cache():
+            try:
+                full_recent = _exec_batch([
+                    ("SELECT * FROM memories WHERE deleted_at IS NULL ORDER BY t DESC LIMIT 20", [])
+                ])[0]
+                _cache_populate_full(full_recent)
+            except Exception:
+                pass  # Silent failure - cache warming is optimization, not critical
+
+        threading.Thread(target=_warm_cache, daemon=True).start()
 
     return profile_data, ops_data, journal_data
 
