@@ -17,6 +17,10 @@ _EMBEDDING_API_KEY = None
 # Valid memory types (profile now lives in config table)
 TYPES = {"decision", "world", "anomaly", "experience"}
 
+# Track pending background writes for flush()
+_pending_writes = []
+_pending_writes_lock = threading.Lock()
+
 def _load_env_file(path: Path) -> dict[str, str]:
     """Parse a .env file into a dict. Ignores comments and blank lines."""
     env = {}
@@ -124,21 +128,129 @@ def _embed(text: str) -> list[float] | None:
         print(f"Warning: Embedding generation failed after retries: {e}")
         return None
 
-def _exec(sql, args=None):
-    """Execute SQL, return list of dicts."""
+def _parse_memory_row(row: dict) -> dict:
+    """Parse JSON fields in a memory row (tags, entities, refs).
+
+    Args:
+        row: Raw row dict from database
+
+    Returns:
+        Row dict with parsed JSON fields
+    """
+    # Parse tags field
+    if 'tags' in row and row['tags'] is not None:
+        if isinstance(row['tags'], str):
+            try:
+                row['tags'] = json.loads(row['tags'])
+            except json.JSONDecodeError:
+                row['tags'] = []
+
+    # Parse entities field
+    if 'entities' in row and row['entities'] is not None:
+        if isinstance(row['entities'], str):
+            try:
+                row['entities'] = json.loads(row['entities'])
+            except json.JSONDecodeError:
+                row['entities'] = []
+
+    # Parse refs field
+    if 'refs' in row and row['refs'] is not None:
+        if isinstance(row['refs'], str):
+            try:
+                row['refs'] = json.loads(row['refs'])
+            except json.JSONDecodeError:
+                row['refs'] = []
+
+    return row
+
+def _exec_batch(statements: list) -> list:
+    """Execute multiple SQL statements in a single pipeline request.
+
+    Args:
+        statements: List of SQL strings or (sql, args) tuples
+
+    Returns:
+        List of result lists (one per statement)
+
+    Example:
+        results = _exec_batch([
+            "SELECT * FROM config WHERE category = 'profile'",
+            ("SELECT * FROM memories WHERE type = ?", ["decision"])
+        ])
+        profile_data = results[0]
+        decisions = results[1]
+    """
+    _init()
+    requests_list = []
+
+    for stmt in statements:
+        if isinstance(stmt, tuple):
+            sql, args = stmt
+        else:
+            sql, args = stmt, []
+
+        request = {"type": "execute", "stmt": {"sql": sql}}
+        if args:
+            request["stmt"]["args"] = [
+                {"type": "text", "value": str(v)} if v is not None else {"type": "null"}
+                for v in args
+            ]
+        requests_list.append(request)
+
+    # Add close request
+    requests_list.append({"type": "close"})
+
+    resp = requests.post(
+        f"{_URL}/v2/pipeline",
+        headers=_HEADERS,
+        json={"requests": requests_list}
+    ).json()
+
+    # Parse results (exclude the close response)
+    results = []
+    for r in resp.get("results", [])[:-1]:  # Exclude close result
+        if r["type"] != "ok":
+            error_msg = r.get("error", {}).get("message", "Unknown error")
+            error_code = r.get("error", {}).get("code", "UNKNOWN")
+            raise RuntimeError(f"Database error [{error_code}]: {error_msg}")
+
+        res = r["response"]["result"]
+        cols = [c["name"] for c in res["cols"]]
+        rows = [
+            {cols[i]: (row[i].get("value") if row[i].get("type") != "null" else None)
+             for i in range(len(cols))}
+            for row in res["rows"]
+        ]
+
+        # Parse JSON fields if this is a memory query
+        if rows and 'tags' in rows[0]:
+            rows = [_parse_memory_row(row) for row in rows]
+
+        results.append(rows)
+
+    return results
+
+def _exec(sql, args=None, parse_json: bool = True):
+    """Execute SQL, return list of dicts.
+
+    Args:
+        sql: SQL query
+        args: Query arguments
+        parse_json: If True, parse JSON fields (tags, entities, refs) in memory rows
+    """
     _init()
     stmt = {"sql": sql}
     if args:
         stmt["args"] = [
-            {"type": "text", "value": str(v)} if v is not None else {"type": "null"} 
+            {"type": "text", "value": str(v)} if v is not None else {"type": "null"}
             for v in args
         ]
     resp = requests.post(
-        f"{_URL}/v2/pipeline", 
+        f"{_URL}/v2/pipeline",
         headers=_HEADERS,
         json={"requests": [{"type": "execute", "stmt": stmt}]}
     ).json()
-    
+
     r = resp["results"][0]
     if r["type"] != "ok":
         error_msg = r.get("error", {}).get("message", "Unknown error")
@@ -147,14 +259,46 @@ def _exec(sql, args=None):
 
     res = r["response"]["result"]
     cols = [c["name"] for c in res["cols"]]
-    return [
+    rows = [
         {cols[i]: (row[i].get("value") if row[i].get("type") != "null" else None) for i in range(len(cols))}
         for row in res["rows"]
     ]
 
+    # Parse JSON fields if this is a memory query
+    if parse_json and rows and 'tags' in rows[0]:
+        rows = [_parse_memory_row(row) for row in rows]
+
+    return rows
+
+def _write_memory(mem_id: str, what: str, type: str, now: str, conf: float,
+                  tags: list, entities: list, refs: list, embedding: list,
+                  importance: float, memory_class: str, valid_from: str) -> None:
+    """Internal helper: write memory to Turso (blocking)."""
+    # vector32() doesn't accept NULL, so we use conditional SQL
+    if embedding:
+        _exec(
+            """INSERT INTO memories (id, type, t, summary, confidence, tags, entities, refs,
+               session_id, created_at, updated_at, embedding, importance, memory_class, valid_from, access_count)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, vector32(?), ?, ?, ?, 0)""",
+            [mem_id, type, now, what, conf,
+             json.dumps(tags or []), json.dumps(entities or []), json.dumps(refs or []),
+             "session", now, now, json.dumps(embedding), importance, memory_class, valid_from]
+        )
+    else:
+        # Insert without embedding when not available
+        _exec(
+            """INSERT INTO memories (id, type, t, summary, confidence, tags, entities, refs,
+               session_id, created_at, updated_at, embedding, importance, memory_class, valid_from, access_count)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, 0)""",
+            [mem_id, type, now, what, conf,
+             json.dumps(tags or []), json.dumps(entities or []), json.dumps(refs or []),
+             "session", now, now, importance, memory_class, valid_from]
+        )
+
 def remember(what: str, type: str, *, tags: list = None, conf: float = None,
              entities: list = None, refs: list = None, embed: bool = True,
-             importance: float = None, memory_class: str = None, valid_from: str = None) -> str:
+             importance: float = None, memory_class: str = None, valid_from: str = None,
+             sync: bool = True) -> str:
     """Store a memory with optional embedding. Type is required. Returns memory ID.
 
     Args:
@@ -168,6 +312,14 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
         importance: Optional importance score (0.0-1.0, default 0.5)
         memory_class: Optional classification ('episodic' or 'semantic', default 'episodic')
         valid_from: Optional timestamp when fact became true (defaults to creation time)
+        sync: If True (default), block until write completes. If False, write in background.
+               Use sync=True for critical memories (handoffs, decisions). Use sync=False for
+               fast writes where eventual consistency is acceptable.
+
+    Returns:
+        Memory ID (UUID)
+
+    v0.6.0: Added sync parameter for background writes. Use flush() to wait for all pending writes.
     """
     if type not in TYPES:
         raise ValueError(f"Invalid type '{type}'. Must be one of: {', '.join(sorted(TYPES))}")
@@ -191,40 +343,75 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
     if embed:
         embedding = _embed(what)
 
-    # vector32() doesn't accept NULL, so we use conditional SQL
-    if embedding:
-        _exec(
-            """INSERT INTO memories (id, type, t, summary, confidence, tags, entities, refs,
-               session_id, created_at, updated_at, embedding, importance, memory_class, valid_from, access_count)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, vector32(?), ?, ?, ?, 0)""",
-            [mem_id, type, now, what, conf,
-             json.dumps(tags or []), json.dumps(entities or []), json.dumps(refs or []),
-             "session", now, now, json.dumps(embedding), importance, memory_class, valid_from]
-        )
+    if sync:
+        # Blocking write
+        _write_memory(mem_id, what, type, now, conf, tags, entities, refs,
+                     embedding, importance, memory_class, valid_from)
     else:
-        # Insert without embedding when not available
-        _exec(
-            """INSERT INTO memories (id, type, t, summary, confidence, tags, entities, refs,
-               session_id, created_at, updated_at, embedding, importance, memory_class, valid_from, access_count)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, 0)""",
-            [mem_id, type, now, what, conf,
-             json.dumps(tags or []), json.dumps(entities or []), json.dumps(refs or []),
-             "session", now, now, importance, memory_class, valid_from]
-        )
+        # Background write
+        def _bg_write():
+            try:
+                _write_memory(mem_id, what, type, now, conf, tags, entities, refs,
+                            embedding, importance, memory_class, valid_from)
+            finally:
+                # Remove from pending list when done
+                with _pending_writes_lock:
+                    if thread in _pending_writes:
+                        _pending_writes.remove(thread)
+
+        thread = threading.Thread(target=_bg_write, daemon=True)
+        with _pending_writes_lock:
+            _pending_writes.append(thread)
+        thread.start()
+
     return mem_id
 
 def remember_bg(what: str, type: str, *, tags: list = None, conf: float = None,
                 entities: list = None, refs: list = None, embed: bool = True,
-                importance: float = None, memory_class: str = None, valid_from: str = None) -> None:
-    """Fire-and-forget memory storage. Type required. Returns immediately, writes in background.
+                importance: float = None, memory_class: str = None, valid_from: str = None) -> str:
+    """Deprecated: Use remember(..., sync=False) instead.
+
+    Fire-and-forget memory storage. Type required. Returns immediately, writes in background.
 
     Args:
         Same as remember(), including v0.4.0 parameters (importance, memory_class, valid_from).
+
+    Returns:
+        Memory ID (UUID)
     """
-    def _do():
-        remember(what, type, tags=tags, conf=conf, entities=entities, refs=refs, embed=embed,
-                importance=importance, memory_class=memory_class, valid_from=valid_from)
-    threading.Thread(target=_do, daemon=True).start()
+    return remember(what, type, tags=tags, conf=conf, entities=entities, refs=refs, embed=embed,
+                    importance=importance, memory_class=memory_class, valid_from=valid_from, sync=False)
+
+def flush(timeout: float = 5.0) -> dict:
+    """Block until all pending background writes complete.
+
+    Call this before conversation end to ensure all memories are persisted.
+
+    Args:
+        timeout: Maximum seconds to wait per thread (default 5.0)
+
+    Returns:
+        Dict with 'completed' count and 'timed_out' count
+
+    Example:
+        remember("note 1", "world", sync=False)
+        remember("note 2", "world", sync=False)
+        flush()  # Wait for both writes to complete
+    """
+    with _pending_writes_lock:
+        threads = list(_pending_writes)  # Copy list
+
+    completed = 0
+    timed_out = 0
+
+    for thread in threads:
+        thread.join(timeout=timeout)
+        if thread.is_alive():
+            timed_out += 1
+        else:
+            completed += 1
+
+    return {"completed": completed, "timed_out": timed_out}
 
 def recall(search: str = None, *, n: int = 10, tags: list = None,
            type: str = None, conf: float = None, tag_mode: str = "any") -> list:
@@ -288,10 +475,10 @@ def semantic_recall(query: str, *, n: int = 5, type: str = None,
     # Use vector_top_k with index for efficient similarity search
     try:
         sql = f"""
-            SELECT m.*,
-                   1 - vector_distance_cos(m.embedding, vector32(?)) AS similarity
+            SELECT memories.*,
+                   1 - vector_distance_cos(memories.embedding, vector32(?)) AS similarity
             FROM vector_top_k('memories_embedding_idx', vector32(?), {n * 2}) AS v
-            JOIN memories m ON m.rowid = v.id
+            JOIN memories ON memories.rowid = v.id
             WHERE {where}
             ORDER BY similarity DESC
             LIMIT {n}
@@ -301,8 +488,8 @@ def semantic_recall(query: str, *, n: int = 5, type: str = None,
         # Fallback: If vector index not available, use brute-force similarity
         print(f"Warning: Vector index search failed, using fallback: {e}")
         sql = f"""
-            SELECT *,
-                   1 - vector_distance_cos(embedding, vector32(?)) AS similarity
+            SELECT memories.*,
+                   1 - vector_distance_cos(memories.embedding, vector32(?)) AS similarity
             FROM memories
             WHERE {where}
             ORDER BY similarity DESC
@@ -609,13 +796,8 @@ def boot(journal_n: int = 5, decisions_n: int = 10, decisions_conf: float = 0.7)
         except json.JSONDecodeError:
             continue
 
-    # Parse decision tags from JSON string
-    for d in decision_index:
-        if d.get('tags'):
-            try:
-                d['tags'] = json.loads(d['tags'])
-            except json.JSONDecodeError:
-                d['tags'] = []
+    # Parse decision JSON fields (tags, entities, refs)
+    decision_index = [_parse_memory_row(d) for d in decision_index]
 
     return profile_data, ops_data, journal_data, decision_index
 
@@ -855,7 +1037,7 @@ q = recall
 j = journal
 
 __all__ = [
-    "remember", "recall", "forget", "supersede", "remember_bg", "semantic_recall",  # memories
+    "remember", "recall", "forget", "supersede", "remember_bg", "flush", "semantic_recall",  # memories
     "recall_since", "recall_between",  # date-filtered queries
     "config_get", "config_set", "config_delete", "config_list",  # config
     "profile", "ops", "boot", "journal", "journal_recent", "journal_prune",  # convenience loaders

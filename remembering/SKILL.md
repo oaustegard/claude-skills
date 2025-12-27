@@ -184,25 +184,37 @@ from remembering import TYPES  # {'decision', 'world', 'anomaly', 'experience'}
 
 ## Background Writes (Agentic Pattern)
 
-Fire-and-forget storage for non-blocking workflow:
+**v0.6.0:** Unified API with `sync` parameter. Use `remember(..., sync=False)` for background writes:
+
+```python
+from remembering import remember, flush
+
+# Background writes (non-blocking, returns immediately)
+remember("User's project uses Python 3.12 with FastAPI", "world", sync=False)
+remember("Discovered: batch insert reduces latency 70%", "experience",
+         tags=["optimization"], sync=False)
+
+# Ensure all pending writes complete before conversation end
+flush()  # Blocks until all background writes finish
+```
+
+**Backwards compatibility:** `remember_bg()` still works (deprecated, calls `remember(..., sync=False)`):
 
 ```python
 from remembering import remember_bg
-
-# Returns immediately, writes in background thread
-remember_bg("User's project uses Python 3.12 with FastAPI", "world")
-remember_bg("Discovered: batch insert reduces latency 70%", "experience", tags=["optimization"])
+remember_bg("Quick note", "world")  # Same as remember(..., sync=False)
 ```
 
-Use `remember_bg()` when:
+**When to use sync=False (background):**
 - Storing derived insights during active work
 - Memory write shouldn't block response
 - Agentic pattern where latency matters
 
-Use blocking `remember()` when:
+**When to use sync=True (blocking, default):**
 - User explicitly requests storage
 - Need confirmation of write success
-- Memory ID needed for references
+- Critical memories (handoffs, decisions)
+- End of workflow when durability matters
 
 ## Memory Versioning (Patch/Snapshot)
 
