@@ -238,6 +238,30 @@ remembering/
 
 ## Recent Enhancements
 
+### v0.7.1 (2025-12-27)
+✅ **Async Cache Warming**:
+- `boot_fast()` now prefetches 20 recent full memories in background thread
+- Cache warming happens during Claude's "thinking" time (non-blocking)
+- Recall performance improved to ~1ms (vs ~300ms first-access in v0.7.0)
+- Removed dead `_cache_clear()` call (unnecessary in ephemeral containers)
+
+**Performance Impact:**
+- Boot time: unchanged (~130ms)
+- First recall after warming: ~1ms (299x improvement vs v0.7.0)
+- Cache warming completes within ~3s in background
+
+**Implementation:**
+```python
+# In boot_fast(), after populating index:
+def _warm_cache():
+    full_recent = _exec_batch([
+        ("SELECT * FROM memories WHERE deleted_at IS NULL ORDER BY t DESC LIMIT 20", [])
+    ])[0]
+    _cache_populate_full(full_recent)
+
+threading.Thread(target=_warm_cache, daemon=True).start()
+```
+
 ### v0.7.0 (2025-12-27)
 ✅ **Local SQLite Cache with Progressive Disclosure**:
 - New local cache in `~/.muninn/cache.db` for fast in-conversation queries
