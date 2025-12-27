@@ -222,6 +222,22 @@ remembering/
 
 ## Recent Enhancements
 
+### v0.4.0 (2025-12-27)
+✅ **Importance Tracking**: New `importance` parameter in `remember()` for memory prioritization (default 0.5)
+✅ **Access Analytics**: Automatic tracking of `access_count` and `last_accessed` for all recall operations
+✅ **Memory Classification**: `memory_class` field distinguishes episodic vs semantic memories
+✅ **Bitemporal Tracking**: `valid_from` and `valid_to` columns for tracking when facts became/stopped being true
+✅ **Enhanced supersede()**: Automatically sets bitemporal fields when updating memories
+✅ **Retry Logic**: Exponential backoff (1s, 2s, 4s) for 503/429 errors in embedding generation
+✅ **Schema Extensions**: Six new columns added to memories table for advanced memory management
+
+**New Parameters in remember():**
+- `importance`: Float 0.0-1.0, defaults to 0.5
+- `memory_class`: 'episodic' or 'semantic', defaults to 'episodic'
+- `valid_from`: Timestamp when fact became true, defaults to creation time
+
+**Migration Required**: Run `python bootstrap.py` to add new columns to existing databases
+
 ### v0.3.1 (2025-12-26)
 ✅ **Boot Sequence**: `decisions_recent()` for loading high-confidence decisions at session start
 ✅ **Documentation**: Added comprehensive boot sequence guide in SKILL.md

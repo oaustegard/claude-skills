@@ -3,6 +3,10 @@ name: remembering
 description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, and edge cases.
 ---
 
+> **⚠️ IMPORTANT FOR CLAUDE CODE AGENTS**
+> Before working with this skill, read `CLAUDE.md` in this directory.
+> It contains critical development context, import patterns, and instructs you to use Muninn to track work on Muninn (meta-usage pattern).
+
 # Remembering - Advanced Operations
 
 **Basic patterns are in project instructions.** This skill covers advanced features and edge cases.
