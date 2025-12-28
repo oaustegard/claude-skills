@@ -95,9 +95,9 @@ for SKILL_DIR in $SKILLS; do
   # Copy skill folder to temp directory
   cp -r "$SKILL_DIR" "$TEMP_DIR/"
 
-  # Create ZIP from temp directory (exclude VERSION - it's workflow metadata)
+  # Create ZIP from temp directory (exclude README - auto-generated, keep VERSION for runtime version detection)
   cd "$TEMP_DIR"
-  zip -r "$SKILL_DIR.zip" "$SKILL_DIR/" -x "$SKILL_DIR/VERSION" "$SKILL_DIR/README.md"
+  zip -r "$SKILL_DIR.zip" "$SKILL_DIR/" -x "$SKILL_DIR/README.md"
 
   echo "✓ Created $SKILL_DIR.zip"
   echo "ZIP contents:"

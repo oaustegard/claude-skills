@@ -67,6 +67,9 @@ def _init_local_cache() -> bool:
                 summary_preview TEXT,   -- First 100 chars
                 confidence REAL,
                 importance REAL,
+                salience REAL,          -- v0.9.2: for composite ranking
+                last_accessed TEXT,     -- v0.9.2: for recency weight
+                access_count INTEGER,   -- v0.9.2: for access weight
                 has_full INTEGER DEFAULT 0
             );
 
@@ -80,7 +83,8 @@ def _init_local_cache() -> bool:
                 valid_from TEXT,
                 valid_to TEXT,
                 access_count INTEGER,
-                last_accessed TEXT
+                last_accessed TEXT,
+                salience REAL
             );
 
             -- FTS5 virtual table for fast ranked text search (v0.9.0)
@@ -130,6 +134,15 @@ def _cache_available() -> bool:
     return _cache_conn is not None and _cache_enabled
 
 
+# Auto-init cache on module import if DB exists (v0.9.2 fix for cross-process cache)
+# Fixes: remember() and recall() work across bash_tool calls
+if _CACHE_DB.exists() and _cache_conn is None:
+    try:
+        _init_local_cache()
+    except Exception:
+        pass  # Fall back to network-only mode
+
+
 def _cache_clear():
     """Clear all cached data (for testing/refresh)."""
     if not _cache_available():
@@ -159,8 +172,8 @@ def _cache_populate_index(memories: list):
 
             _cache_conn.execute("""
                 INSERT OR REPLACE INTO memory_index
-                (id, type, t, tags, summary_preview, confidence, importance, has_full)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 0)
+                (id, type, t, tags, summary_preview, confidence, importance, salience, last_accessed, access_count, has_full)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
             """, (
                 m.get('id'),
                 m.get('type'),
@@ -168,7 +181,10 @@ def _cache_populate_index(memories: list):
                 tags,
                 m.get('summary_preview', m.get('summary', '')[:100]),
                 m.get('confidence'),
-                m.get('importance')
+                m.get('importance'),
+                m.get('salience', 1.0),
+                m.get('last_accessed'),
+                m.get('access_count', 0)
             ))
         _cache_conn.commit()
     except Exception as e:
@@ -211,8 +227,8 @@ def _cache_populate_full(memories: list):
 
             _cache_conn.execute("""
                 INSERT OR REPLACE INTO memory_full
-                (id, summary, entities, refs, memory_class, valid_from, valid_to, access_count, last_accessed)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (id, summary, entities, refs, memory_class, valid_from, valid_to, access_count, last_accessed, salience)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 mem_id,
                 summary,
@@ -222,7 +238,8 @@ def _cache_populate_full(memories: list):
                 m.get('valid_from'),
                 m.get('valid_to'),
                 m.get('access_count'),
-                m.get('last_accessed')
+                m.get('last_accessed'),
+                m.get('salience', 1.0)
             ))
 
             # Populate FTS5 for fast text search (v0.9.0)
@@ -987,17 +1004,17 @@ def semantic_recall(query: str, *, n: int = 5, type: str = None,
     # Build WHERE clause for filters
     # Exclude soft-deleted memories, memories without embeddings, and superseded memories
     conditions = [
-        "deleted_at IS NULL",
-        "embedding IS NOT NULL",
+        "memories.deleted_at IS NULL",
+        "memories.embedding IS NOT NULL",
         # Exclude memories that are superseded (appear in any other memory's refs field)
-        "id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)"
+        "memories.id NOT IN (SELECT value FROM memories m2, json_each(m2.refs) WHERE m2.deleted_at IS NULL)"
     ]
     if type:
-        conditions.append(f"type = '{type}'")
+        conditions.append(f"memories.type = '{type}'")
     if conf is not None:
-        conditions.append(f"confidence >= {conf}")
+        conditions.append(f"memories.confidence >= {conf}")
     if tags:
-        tag_conds = " OR ".join(f"tags LIKE '%\"{t}\"%'" for t in tags)
+        tag_conds = " OR ".join(f"memories.tags LIKE '%\"{t}\"%'" for t in tags)
         conditions.append(f"({tag_conds})")
 
     where = " AND ".join(conditions)
