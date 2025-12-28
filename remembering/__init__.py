@@ -226,8 +226,10 @@ def _cache_populate_full(memories: list):
             ))
 
             # Populate FTS5 for fast text search (v0.9.0)
+            # FTS5 doesn't support INSERT OR REPLACE - use DELETE + INSERT
+            _cache_conn.execute("DELETE FROM memory_fts WHERE id = ?", (mem_id,))
             _cache_conn.execute(
-                "INSERT OR REPLACE INTO memory_fts (id, summary, tags) VALUES (?, ?, ?)",
+                "INSERT INTO memory_fts (id, summary, tags) VALUES (?, ?, ?)",
                 (mem_id, summary, tags_str)
             )
         _cache_conn.commit()
@@ -253,11 +255,14 @@ def _cache_config(config_entries: list):
 
 def _cache_query_index(search: str = None, type: str = None,
                        tags: list = None, n: int = 10,
-                       conf: float = None) -> list:
+                       conf: float = None, tag_mode: str = "any") -> list:
     """Query memory_index using FTS5 for text search (v0.9.0).
 
     When search is provided, uses FTS5 MATCH for ranked full-text search
     instead of LIKE. Results are ordered by BM25 relevance.
+
+    Args:
+        tag_mode: "any" (default) matches any tag, "all" requires all tags
 
     Returns list of dicts with cache data. If has_full=0,
     full content needs to be fetched from Turso.
@@ -281,12 +286,13 @@ def _cache_query_index(search: str = None, type: str = None,
                 conditions.append("i.confidence >= ?")
                 params.append(conf)
             if tags:
-                # Match any tag in memory_index
+                # Match tags according to tag_mode
                 tag_conds = []
                 for t in tags:
                     tag_conds.append("i.tags LIKE ?")
                     params.append(f'%"{t}"%')
-                conditions.append(f"({' OR '.join(tag_conds)})")
+                join_op = ' AND ' if tag_mode == "all" else ' OR '
+                conditions.append(f"({join_op.join(tag_conds)})")
 
             where = " AND ".join(conditions)
 
@@ -314,11 +320,13 @@ def _cache_query_index(search: str = None, type: str = None,
                 conditions.append("i.confidence >= ?")
                 params.append(conf)
             if tags:
+                # Match tags according to tag_mode
                 tag_conds = []
                 for t in tags:
                     tag_conds.append("i.tags LIKE ?")
                     params.append(f'%"{t}"%')
-                conditions.append(f"({' OR '.join(tag_conds)})")
+                join_op = ' AND ' if tag_mode == "all" else ' OR '
+                conditions.append(f"({join_op.join(tag_conds)})")
 
             where = " AND ".join(conditions) if conditions else "1=1"
 
@@ -413,8 +421,10 @@ def _cache_memory(mem_id: str, what: str, type: str, now: str,
         ))
 
         # Insert into FTS5 for fast text search (v0.9.0)
+        # FTS5 doesn't support INSERT OR REPLACE - use DELETE + INSERT
+        _cache_conn.execute("DELETE FROM memory_fts WHERE id = ?", (mem_id,))
         _cache_conn.execute(
-            "INSERT OR REPLACE INTO memory_fts (id, summary, tags) VALUES (?, ?, ?)",
+            "INSERT INTO memory_fts (id, summary, tags) VALUES (?, ?, ?)",
             (mem_id, what, tags_str)
         )
 
@@ -892,7 +902,7 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
 
     # Try cache first (progressive disclosure)
     if use_cache and _cache_available():
-        results = _cache_query_index(search=search, type=type, tags=tags, n=n, conf=conf)
+        results = _cache_query_index(search=search, type=type, tags=tags, n=n, conf=conf, tag_mode=tag_mode)
 
         # Semantic fallback: if FTS5 returns few results and search was provided,
         # try semantic search to find conceptually related memories (v0.9.0)
