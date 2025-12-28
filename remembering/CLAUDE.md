@@ -103,11 +103,13 @@ id = remember("Quick note", "world", embed=False)  # Skip embedding
 # Background write (non-blocking)
 remember_bg("Project uses React", "world", tags=["tech"])
 
-# Query memories - keyword search
-memories = recall("dark mode")  # text search
+# Query memories - FTS5 ranked search (v0.9.0)
+memories = recall("dark mode")  # FTS5 search, ranked by BM25
 memories = recall(type="decision", conf=0.8)  # filtered
 memories = recall(tags=["ui"])  # by tag (any match)
 memories = recall(tags=["urgent", "task"], tag_mode="all")  # require all tags
+memories = recall("concept", semantic_fallback=True)  # auto-fallback to semantic
+memories = recall("exact term", semantic_fallback=False)  # FTS5 only
 
 # Query memories - date-filtered
 recent = recall_since("2025-12-01T00:00:00Z", n=50)  # after timestamp
@@ -237,6 +239,52 @@ remembering/
 - `session_id` currently placeholder ("session")
 
 ## Recent Enhancements
+
+### v0.9.0 (2025-12-28)
+✅ **FTS5 Hybrid Search**:
+- Replaced LIKE queries with FTS5 full-text search for ranked results
+- Search results now ordered by BM25 relevance instead of recency
+- Automatic semantic fallback when FTS5 returns few results
+- New `_escape_fts5_query()` helper for safe query formatting
+
+**Performance Impact:**
+- FTS5 search: ~1.2ms (faster and ranked vs unranked LIKE)
+- Boot time: ~1000ms (includes FTS5 table population)
+- Semantic fallback: adds ~200ms when triggered (network round-trip)
+
+**Implementation Changes:**
+```python
+# New FTS5 virtual table in cache
+CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(
+    id UNINDEXED,
+    summary,
+    tags
+);
+
+# Cache query now uses FTS5 MATCH with BM25 ranking
+SELECT i.*, bm25(memory_fts) as rank
+FROM memory_fts fts
+JOIN memory_index i ON fts.id = i.id
+WHERE memory_fts MATCH ?
+ORDER BY rank;
+```
+
+**API Changes:**
+```python
+# recall() now has semantic fallback options
+memories = recall("search term", n=5,
+                  semantic_fallback=True,      # Enable semantic fallback (default)
+                  semantic_threshold=2)        # Trigger when FTS5 < 2 results
+
+# Disable semantic fallback for pure FTS5
+memories = recall("search term", semantic_fallback=False)
+```
+
+**What triggers semantic fallback:**
+- FTS5 returns fewer than `semantic_threshold` results (default: 2)
+- Search term was provided
+- `semantic_fallback=True` (default)
+- EMBEDDING_API_KEY is configured
 
 ### v0.8.0 (2025-12-27)
 ✅ **Full Content at Boot**:

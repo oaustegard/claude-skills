@@ -83,6 +83,14 @@ def _init_local_cache() -> bool:
                 last_accessed TEXT
             );
 
+            -- FTS5 virtual table for fast ranked text search (v0.9.0)
+            -- Standalone table (not contentless) for simpler sync
+            CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(
+                id UNINDEXED,
+                summary,
+                tags
+            );
+
             -- Config: full mirror (small)
             CREATE TABLE IF NOT EXISTS config_cache (
                 key TEXT PRIMARY KEY,
@@ -168,16 +176,29 @@ def _cache_populate_index(memories: list):
 
 
 def _cache_populate_full(memories: list):
-    """Populate memory_full with complete content (lazy-load target)."""
+    """Populate memory_full and FTS5 with complete content (lazy-load target)."""
     if not _cache_available() or not memories:
         return
 
     try:
         for m in memories:
+            mem_id = m.get('id')
+            summary = m.get('summary', '')
+            tags = m.get('tags')
+            if isinstance(tags, list):
+                tags_str = ' '.join(tags)  # Space-separated for FTS5
+            elif isinstance(tags, str):
+                try:
+                    tags_str = ' '.join(json.loads(tags))
+                except json.JSONDecodeError:
+                    tags_str = tags
+            else:
+                tags_str = ''
+
             # Update index to mark as having full content
             _cache_conn.execute(
                 "UPDATE memory_index SET has_full = 1 WHERE id = ?",
-                (m.get('id'),)
+                (mem_id,)
             )
 
             # Store full content
@@ -193,8 +214,8 @@ def _cache_populate_full(memories: list):
                 (id, summary, entities, refs, memory_class, valid_from, valid_to, access_count, last_accessed)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                m.get('id'),
-                m.get('summary'),
+                mem_id,
+                summary,
                 entities,
                 refs,
                 m.get('memory_class'),
@@ -203,6 +224,12 @@ def _cache_populate_full(memories: list):
                 m.get('access_count'),
                 m.get('last_accessed')
             ))
+
+            # Populate FTS5 for fast text search (v0.9.0)
+            _cache_conn.execute(
+                "INSERT OR REPLACE INTO memory_fts (id, summary, tags) VALUES (?, ?, ?)",
+                (mem_id, summary, tags_str)
+            )
         _cache_conn.commit()
     except Exception as e:
         print(f"Warning: Cache full population failed: {e}")
@@ -225,8 +252,12 @@ def _cache_config(config_entries: list):
 
 
 def _cache_query_index(search: str = None, type: str = None,
-                       tags: list = None, n: int = 10) -> list:
-    """Query memory_index (local, fast).
+                       tags: list = None, n: int = 10,
+                       conf: float = None) -> list:
+    """Query memory_index using FTS5 for text search (v0.9.0).
+
+    When search is provided, uses FTS5 MATCH for ranked full-text search
+    instead of LIKE. Results are ordered by BM25 relevance.
 
     Returns list of dicts with cache data. If has_full=0,
     full content needs to be fetched from Turso.
@@ -235,40 +266,98 @@ def _cache_query_index(search: str = None, type: str = None,
         return []
 
     try:
-        conditions = []
-        params = []
-
         if search:
-            conditions.append("summary_preview LIKE ?")
-            params.append(f"%{search}%")
-        if type:
-            conditions.append("type = ?")
-            params.append(type)
-        if tags:
-            # Match any tag
-            tag_conds = []
-            for t in tags:
-                tag_conds.append("tags LIKE ?")
-                params.append(f'%"{t}"%')
-            conditions.append(f"({' OR '.join(tag_conds)})")
+            # Use FTS5 for ranked text search (v0.9.0)
+            # Escape FTS5 special characters and add prefix matching
+            fts_query = _escape_fts5_query(search)
 
-        where = " AND ".join(conditions) if conditions else "1=1"
+            conditions = ["1=1"]
+            params = [fts_query]
 
-        cursor = _cache_conn.execute(f"""
-            SELECT i.*, f.summary, f.entities, f.refs, f.memory_class,
-                   f.valid_from, f.valid_to, f.access_count, f.last_accessed
-            FROM memory_index i
-            LEFT JOIN memory_full f ON i.id = f.id
-            WHERE {where}
-            ORDER BY i.t DESC
-            LIMIT ?
-        """, params + [n])
+            if type:
+                conditions.append("i.type = ?")
+                params.append(type)
+            if conf is not None:
+                conditions.append("i.confidence >= ?")
+                params.append(conf)
+            if tags:
+                # Match any tag in memory_index
+                tag_conds = []
+                for t in tags:
+                    tag_conds.append("i.tags LIKE ?")
+                    params.append(f'%"{t}"%')
+                conditions.append(f"({' OR '.join(tag_conds)})")
+
+            where = " AND ".join(conditions)
+
+            cursor = _cache_conn.execute(f"""
+                SELECT i.*, f.summary, f.entities, f.refs, f.memory_class,
+                       f.valid_from, f.valid_to, f.access_count, f.last_accessed,
+                       bm25(memory_fts) as rank
+                FROM memory_fts fts
+                JOIN memory_index i ON fts.id = i.id
+                LEFT JOIN memory_full f ON i.id = f.id
+                WHERE memory_fts MATCH ?
+                  AND {where}
+                ORDER BY rank
+                LIMIT ?
+            """, params + [n])
+        else:
+            # No search term - use simple index query
+            conditions = []
+            params = []
+
+            if type:
+                conditions.append("i.type = ?")
+                params.append(type)
+            if conf is not None:
+                conditions.append("i.confidence >= ?")
+                params.append(conf)
+            if tags:
+                tag_conds = []
+                for t in tags:
+                    tag_conds.append("i.tags LIKE ?")
+                    params.append(f'%"{t}"%')
+                conditions.append(f"({' OR '.join(tag_conds)})")
+
+            where = " AND ".join(conditions) if conditions else "1=1"
+
+            cursor = _cache_conn.execute(f"""
+                SELECT i.*, f.summary, f.entities, f.refs, f.memory_class,
+                       f.valid_from, f.valid_to, f.access_count, f.last_accessed
+                FROM memory_index i
+                LEFT JOIN memory_full f ON i.id = f.id
+                WHERE {where}
+                ORDER BY i.t DESC
+                LIMIT ?
+            """, params + [n])
 
         rows = cursor.fetchall()
         return [_cache_row_to_dict(row) for row in rows]
     except Exception as e:
         print(f"Warning: Cache query failed: {e}")
         return []
+
+
+def _escape_fts5_query(query: str) -> str:
+    """Escape special FTS5 characters and format for search.
+
+    FTS5 special chars: " * ( ) : ^
+    We escape them and add prefix matching (*) for better UX.
+    """
+    # Remove FTS5 special characters that could break the query
+    special_chars = '"*():^'
+    escaped = query
+    for char in special_chars:
+        escaped = escaped.replace(char, ' ')
+
+    # Split into words, filter empty, and add prefix matching
+    words = [w.strip() for w in escaped.split() if w.strip()]
+    if not words:
+        return '""'  # Empty query - match nothing
+
+    # Use OR between words with prefix matching for partial matches
+    return ' OR '.join(f'"{w}"*' for w in words)
 
 
 def _cache_row_to_dict(row: sqlite3.Row) -> dict:
@@ -289,12 +378,14 @@ def _cache_row_to_dict(row: sqlite3.Row) -> dict:
 
 def _cache_memory(mem_id: str, what: str, type: str, now: str,
                   conf: float, tags: list, importance: float, **kwargs):
-    """Cache a new memory (write-through)."""
+    """Cache a new memory (write-through), including FTS5 index."""
     if not _cache_available():
         return
 
     try:
-        tags_json = json.dumps(tags or [])
+        tags_list = tags or []
+        tags_json = json.dumps(tags_list)
+        tags_str = ' '.join(tags_list)  # Space-separated for FTS5
 
         # Insert into index
         _cache_conn.execute("""
@@ -320,6 +411,12 @@ def _cache_memory(mem_id: str, what: str, type: str, now: str,
             kwargs.get('memory_class', 'episodic'),
             kwargs.get('valid_from', now)
         ))
+
+        # Insert into FTS5 for fast text search (v0.9.0)
+        _cache_conn.execute(
+            "INSERT OR REPLACE INTO memory_fts (id, summary, tags) VALUES (?, ?, ?)",
+            (mem_id, what, tags_str)
+        )
 
         _cache_conn.commit()
     except Exception as e:
@@ -769,27 +866,50 @@ def flush(timeout: float = 5.0) -> dict:
 
 def recall(search: str = None, *, n: int = 10, tags: list = None,
            type: str = None, conf: float = None, tag_mode: str = "any",
-           use_cache: bool = True) -> list:
+           use_cache: bool = True, semantic_fallback: bool = True,
+           semantic_threshold: int = 2) -> list:
     """Query memories with flexible filters.
 
     v0.7.0: Uses local cache with progressive disclosure when available.
-    First query returns cached index data, then lazy-loads full content as needed.
+    v0.9.0: Uses FTS5 for ranked text search instead of LIKE.
+            Adds semantic fallback when FTS5 returns few results.
 
     Args:
-        search: Text to search for in memory summaries (LIKE match)
+        search: Text to search for in memory summaries (FTS5 ranked search)
         n: Max number of results
         tags: Filter by tags
         type: Filter by memory type
         conf: Minimum confidence threshold
         tag_mode: "any" (default) matches any tag, "all" requires all tags
         use_cache: If True (default), check local cache first (much faster)
+        semantic_fallback: If True (default), use semantic search when FTS5 returns
+                          fewer than semantic_threshold results
+        semantic_threshold: Trigger semantic fallback when FTS5 returns fewer
+                           than this many results (default 2)
     """
     if isinstance(search, int):
         return _query(limit=search)
 
     # Try cache first (progressive disclosure)
     if use_cache and _cache_available():
-        results = _cache_query_index(search=search, type=type, tags=tags, n=n)
+        results = _cache_query_index(search=search, type=type, tags=tags, n=n, conf=conf)
+
+        # Semantic fallback: if FTS5 returns few results and search was provided,
+        # try semantic search to find conceptually related memories (v0.9.0)
+        if search and semantic_fallback and len(results) < semantic_threshold:
+            try:
+                semantic_results = semantic_recall(search, n=n, type=type, conf=conf, tags=tags)
+                # Merge results, preferring FTS5 matches (already ranked by relevance)
+                seen_ids = {r['id'] for r in results}
+                for sr in semantic_results:
+                    if sr['id'] not in seen_ids:
+                        results.append(sr)
+                        seen_ids.add(sr['id'])
+                        if len(results) >= n:
+                            break
+            except RuntimeError:
+                # Semantic search not available (no API key) - continue with FTS5 results only
+                pass
 
         if results:
             # Check if we need to fetch full content for any results
