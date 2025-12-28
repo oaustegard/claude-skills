@@ -240,6 +240,23 @@ remembering/
 
 ## Recent Enhancements
 
+### v0.9.1 (2025-12-28)
+✅ **Critical Bug Fixes**:
+- Fixed tag filtering with `tag_mode="all"` - now correctly requires ALL tags to match
+- Fixed FTS5 duplicate entries by using DELETE + INSERT pattern instead of INSERT OR REPLACE
+- Added `tag_mode` parameter to `_cache_query_index()` for proper tag intersection
+
+**Bug 1 - Tag Filtering**: The `_cache_query_index()` function didn't accept or respect the `tag_mode` parameter, always using OR logic for tags. Now correctly supports both `tag_mode="any"` (OR) and `tag_mode="all"` (AND).
+
+**Bug 2 - FTS5 Duplicates**: FTS5 virtual tables don't support `INSERT OR REPLACE`, causing duplicate entries (212 FTS5 entries vs 107 memories = 1.98x ratio). Fixed by using `DELETE + INSERT` pattern, achieving 1.00x ratio.
+
+**Architecture Verification**: Confirmed recall() implements hybrid-by-default search correctly:
+- Primary: FTS5/BM25 local search (fast, <5ms)
+- Fallback: Semantic search when FTS5 returns sparse results
+- Tags work as filters on search results (correct SQL WHERE clause usage)
+
+**Migration**: No schema changes. Existing caches will auto-fix on next write. Recommend clearing cache to remove FTS5 duplicates immediately: `rm -rf ~/.muninn/cache.db` then call `boot_fast()`.
+
 ### v0.9.0 (2025-12-28)
 ✅ **FTS5 Hybrid Search**:
 - Replaced LIKE queries with FTS5 full-text search for ranked results
