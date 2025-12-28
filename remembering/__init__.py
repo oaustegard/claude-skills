@@ -313,16 +313,28 @@ def _cache_query_index(search: str = None, type: str = None,
 
             where = " AND ".join(conditions)
 
+            # v0.10.0: Composite ranking = BM25 * recency_weight * access_weight * salience
+            # - recency_weight: 1 / (1 + days_since_access / 30)
+            # - access_weight: log(access_count + 1)  [natural log]
+            # - salience: therapy-adjustable multiplier
             cursor = _cache_conn.execute(f"""
                 SELECT i.*, f.summary, f.entities, f.refs, f.memory_class,
                        f.valid_from, f.valid_to, f.access_count, f.last_accessed,
-                       bm25(memory_fts) as rank
+                       bm25(memory_fts) as bm25_score,
+                       bm25(memory_fts) *
+                       COALESCE(i.salience, 1.0) *
+                       (CASE
+                           WHEN i.last_accessed IS NOT NULL
+                           THEN 1.0 / (1.0 + (julianday('now') - julianday(i.last_accessed)) / 30.0)
+                           ELSE 0.5
+                       END) *
+                       (1.0 + ln(1.0 + COALESCE(i.access_count, 0))) as composite_rank
                 FROM memory_fts fts
                 JOIN memory_index i ON fts.id = i.id
                 LEFT JOIN memory_full f ON i.id = f.id
                 WHERE memory_fts MATCH ?
                   AND {where}
-                ORDER BY rank
+                ORDER BY composite_rank
                 LIMIT ?
             """, params + [n])
         else:
@@ -347,13 +359,22 @@ def _cache_query_index(search: str = None, type: str = None,
 
             where = " AND ".join(conditions) if conditions else "1=1"
 
+            # v0.10.0: When no search, order by composite score using recency from 't'
+            # composite_score = salience * recency_weight * access_weight
             cursor = _cache_conn.execute(f"""
                 SELECT i.*, f.summary, f.entities, f.refs, f.memory_class,
-                       f.valid_from, f.valid_to, f.access_count, f.last_accessed
+                       f.valid_from, f.valid_to, f.access_count, f.last_accessed,
+                       COALESCE(i.salience, 1.0) *
+                       (CASE
+                           WHEN i.last_accessed IS NOT NULL
+                           THEN 1.0 / (1.0 + (julianday('now') - julianday(i.last_accessed)) / 30.0)
+                           ELSE 1.0 / (1.0 + (julianday('now') - julianday(i.t)) / 30.0)
+                       END) *
+                       (1.0 + ln(1.0 + COALESCE(i.access_count, 0))) as composite_score
                 FROM memory_index i
                 LEFT JOIN memory_full f ON i.id = f.id
                 WHERE {where}
-                ORDER BY i.t DESC
+                ORDER BY composite_score DESC
                 LIMIT ?
             """, params + [n])
 
@@ -415,9 +436,9 @@ def _cache_memory(mem_id: str, what: str, type: str, now: str,
         # Insert into index
         _cache_conn.execute("""
             INSERT OR REPLACE INTO memory_index
-            (id, type, t, tags, summary_preview, confidence, importance, has_full)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-        """, (mem_id, type, now, tags_json, what[:100], conf, importance))
+            (id, type, t, tags, summary_preview, confidence, importance, salience, last_accessed, access_count, has_full)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+        """, (mem_id, type, now, tags_json, what[:100], conf, importance, 1.0, None, 0))
 
         # Insert full content
         entities = kwargs.get('entities')
@@ -429,8 +450,8 @@ def _cache_memory(mem_id: str, what: str, type: str, now: str,
 
         _cache_conn.execute("""
             INSERT OR REPLACE INTO memory_full
-            (id, summary, entities, refs, memory_class, valid_from, access_count)
-            VALUES (?, ?, ?, ?, ?, ?, 0)
+            (id, summary, entities, refs, memory_class, valid_from, access_count, salience)
+            VALUES (?, ?, ?, ?, ?, ?, 0, 1.0)
         """, (
             mem_id, what, entities, refs,
             kwargs.get('memory_class', 'episodic'),
@@ -750,8 +771,8 @@ def _write_memory(mem_id: str, what: str, type: str, now: str, conf: float,
     if embedding:
         _exec(
             """INSERT INTO memories (id, type, t, summary, confidence, tags, entities, refs,
-               session_id, created_at, updated_at, embedding, importance, memory_class, valid_from, access_count)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, vector32(?), ?, ?, ?, 0)""",
+               session_id, created_at, updated_at, embedding, importance, memory_class, valid_from, access_count, salience)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, vector32(?), ?, ?, ?, 0, 1.0)""",
             [mem_id, type, now, what, conf,
              json.dumps(tags or []), json.dumps(entities or []), json.dumps(refs or []),
              "session", now, now, json.dumps(embedding), importance, memory_class, valid_from]
@@ -760,8 +781,8 @@ def _write_memory(mem_id: str, what: str, type: str, now: str, conf: float,
         # Insert without embedding when not available
         _exec(
             """INSERT INTO memories (id, type, t, summary, confidence, tags, entities, refs,
-               session_id, created_at, updated_at, embedding, importance, memory_class, valid_from, access_count)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, 0)""",
+               session_id, created_at, updated_at, embedding, importance, memory_class, valid_from, access_count, salience)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, 0, 1.0)""",
             [mem_id, type, now, what, conf,
              json.dumps(tags or []), json.dumps(entities or []), json.dumps(refs or []),
              "session", now, now, importance, memory_class, valid_from]
@@ -1051,11 +1072,12 @@ def semantic_recall(query: str, *, n: int = 5, type: str = None,
     return results
 
 def _update_access_tracking(memory_ids: list):
-    """Update access_count and last_accessed for memories (v0.4.0)."""
+    """Update access_count and last_accessed for memories (v0.4.0, updated v0.10.0 for cache sync)."""
     if not memory_ids:
         return
     now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-    # Use SQL to increment access_count and set last_accessed
+
+    # Update Turso database
     placeholders = ", ".join("?" * len(memory_ids))
     _exec(f"""
         UPDATE memories
@@ -1063,6 +1085,30 @@ def _update_access_tracking(memory_ids: list):
             last_accessed = ?
         WHERE id IN ({placeholders})
     """, [now] + memory_ids)
+
+    # Update cache if available (v0.10.0)
+    if _cache_available():
+        try:
+            for mem_id in memory_ids:
+                # Update memory_index
+                _cache_conn.execute("""
+                    UPDATE memory_index
+                    SET access_count = COALESCE(access_count, 0) + 1,
+                        last_accessed = ?
+                    WHERE id = ?
+                """, (now, mem_id))
+
+                # Update memory_full
+                _cache_conn.execute("""
+                    UPDATE memory_full
+                    SET access_count = COALESCE(access_count, 0) + 1,
+                        last_accessed = ?
+                    WHERE id = ?
+                """, (now, mem_id))
+
+            _cache_conn.commit()
+        except Exception as e:
+            print(f"Warning: Cache access tracking failed: {e}")
 
 def _query(search: str = None, tags: list = None, type: str = None,
            conf: float = None, limit: int = 10, tag_mode: str = "any") -> list:
@@ -1200,6 +1246,94 @@ def supersede(original_id: str, summary: str, type: str, *,
 
     # Create new memory with valid_from set to now
     return remember(summary, type, tags=tags, conf=conf, refs=[original_id], valid_from=now)
+
+# --- Salience adjustment functions (v0.10.0) ---
+
+def strengthen(memory_id: str, factor: float = 1.5) -> None:
+    """Boost salience for a memory (therapy/consolidation use).
+
+    Increases salience by multiplying current value by factor.
+    Used during therapy sessions to reinforce confirmed patterns.
+
+    Args:
+        memory_id: Memory UUID
+        factor: Multiplication factor (default 1.5, higher = stronger boost)
+
+    Example:
+        strengthen("abc-123", factor=2.0)  # Double the salience
+    """
+    if factor <= 0:
+        raise ValueError("Factor must be positive")
+
+    # Update Turso database
+    _exec("""
+        UPDATE memories
+        SET salience = COALESCE(salience, 1.0) * ?
+        WHERE id = ?
+    """, [factor, memory_id])
+
+    # Update cache if available
+    if _cache_available():
+        try:
+            _cache_conn.execute("""
+                UPDATE memory_index
+                SET salience = COALESCE(salience, 1.0) * ?
+                WHERE id = ?
+            """, (factor, memory_id))
+
+            _cache_conn.execute("""
+                UPDATE memory_full
+                SET salience = COALESCE(salience, 1.0) * ?
+                WHERE id = ?
+            """, (factor, memory_id))
+
+            _cache_conn.commit()
+        except Exception as e:
+            print(f"Warning: Cache salience update failed: {e}")
+
+
+def weaken(memory_id: str, factor: float = 0.5) -> None:
+    """Reduce salience for a memory (therapy/consolidation use).
+
+    Decreases salience by multiplying current value by factor.
+    Used during therapy sessions to downrank noise or obsolete memories.
+
+    Args:
+        memory_id: Memory UUID
+        factor: Multiplication factor (default 0.5, lower = weaker)
+
+    Example:
+        weaken("xyz-789", factor=0.25)  # Reduce to 25% salience
+    """
+    if factor <= 0 or factor >= 1:
+        raise ValueError("Factor must be between 0 and 1")
+
+    # Update Turso database
+    _exec("""
+        UPDATE memories
+        SET salience = COALESCE(salience, 1.0) * ?
+        WHERE id = ?
+    """, [factor, memory_id])
+
+    # Update cache if available
+    if _cache_available():
+        try:
+            _cache_conn.execute("""
+                UPDATE memory_index
+                SET salience = COALESCE(salience, 1.0) * ?
+                WHERE id = ?
+            """, (factor, memory_id))
+
+            _cache_conn.execute("""
+                UPDATE memory_full
+                SET salience = COALESCE(salience, 1.0) * ?
+                WHERE id = ?
+            """, (factor, memory_id))
+
+            _cache_conn.commit()
+        except Exception as e:
+            print(f"Warning: Cache salience update failed: {e}")
+
 
 # --- Config table functions (profile + ops) ---
 
