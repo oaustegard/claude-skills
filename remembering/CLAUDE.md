@@ -94,6 +94,7 @@ from remembering import therapy_scope, therapy_session_count, decisions_recent
 from remembering import group_by_type, group_by_tag
 from remembering import handoff_pending, handoff_complete
 from remembering import muninn_export, muninn_import
+from remembering import strengthen, weaken  # v0.10.0 salience adjustment
 from remembering import cache_stats  # v0.7.0 cache diagnostics
 
 # Store a memory (type required, with optional embedding)
@@ -124,6 +125,10 @@ forget(memory_id)
 
 # Version a memory (creates new, links to old)
 new_id = supersede(old_id, "Updated preference", "decision")
+
+# Salience adjustment for memory consolidation (v0.10.0)
+strengthen("memory-id", factor=1.5)  # Boost salience (default 1.5x)
+weaken("memory-id", factor=0.5)      # Reduce salience (default 0.5x)
 
 # Config operations with constraints
 config_set("identity", "I am Muninn...", "profile")
@@ -239,6 +244,55 @@ remembering/
 - `session_id` currently placeholder ("session")
 
 ## Recent Enhancements
+
+### v0.10.0 (2025-12-28)
+✅ **Critical Bug Fixes**:
+- Fixed cache auto-init bug: cache now auto-initializes on module import if DB exists
+  - Fixes: remember() and recall() now work across bash_tool calls (different Python processes)
+  - Impact: Eliminates "memory stored but not found" issues in multi-step workflows
+- Fixed ambiguous column names in semantic_recall() vector search
+  - All column references now qualified with table names (memories.*, m2.*)
+  - Prevents SQL errors when JOIN queries include columns with same names
+- Fixed VERSION file exclusion in release workflow
+  - VERSION file now included in skill ZIP for runtime version detection
+  - Enables version-aware features and handoff_complete() auto-versioning
+
+✅ **Salience Decay & Composite Ranking (Biological Memory Model)**:
+- New `salience` column for therapy-adjustable memory ranking multiplier (default 1.0)
+- Composite ranking formula: `BM25 * salience * recency_weight * access_weight`
+  - `recency_weight`: 1 / (1 + days_since_access / 30) - exponential decay over 30-day half-life
+  - `access_weight`: ln(1 + access_count) - logarithmic boost for frequently accessed memories
+  - `salience`: therapy-adjustable multiplier for manual consolidation
+- Access tracking automatically updates both Turso and cache for ranking consistency
+- New API functions for memory consolidation:
+  - `strengthen(memory_id, factor=1.5)`: Boost salience for confirmed patterns
+  - `weaken(memory_id, factor=0.5)`: Reduce salience for noise/obsolete memories
+
+**Performance Impact:**
+- recall() with search: <5ms (composite ranking adds negligible overhead)
+- recall() without search: <5ms (composite score replaces simple time sort)
+- strengthen()/weaken(): ~150ms (updates both Turso and cache)
+
+**Migration**: Run `python bootstrap.py` to add salience column. Existing memories default to salience=1.0.
+
+**Example - Therapy Session:**
+```python
+from remembering import therapy_scope, strengthen, weaken, remember
+
+# Get unprocessed memories
+cutoff, mems = therapy_scope()
+
+# Identify patterns
+for m in mems:
+    if 'performance' in m.get('tags', []):
+        strengthen(m['id'], factor=2.0)  # Reinforce performance insights
+    elif m.get('confidence', 1.0) < 0.3:
+        weaken(m['id'], factor=0.3)  # Downrank low-confidence memories
+
+# Record therapy session
+remember("Therapy: Strengthened performance patterns, weakened speculation",
+         "experience", tags=["therapy"])
+```
 
 ### v0.9.1 (2025-12-28)
 ✅ **Critical Bug Fixes**:

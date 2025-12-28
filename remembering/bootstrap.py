@@ -37,7 +37,14 @@ def create_tables():
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             deleted_at TEXT,
-            embedding F32_BLOB(1536)
+            embedding F32_BLOB(1536),
+            importance REAL DEFAULT 0.5,
+            access_count INTEGER DEFAULT 0,
+            last_accessed TEXT,
+            memory_class TEXT DEFAULT 'episodic',
+            valid_from TEXT,
+            valid_to TEXT,
+            salience REAL DEFAULT 1.0
         )
     """)
 
@@ -114,6 +121,13 @@ def migrate_schema():
     try:
         _exec("ALTER TABLE memories ADD COLUMN valid_to TEXT")
         print("Added valid_to column to memories table")
+    except:
+        pass  # Column already exists
+
+    # v0.9.2: Add salience decay for memory ranking
+    try:
+        _exec("ALTER TABLE memories ADD COLUMN salience REAL DEFAULT 1.0")
+        print("Added salience column to memories table")
     except:
         pass  # Column already exists
 
