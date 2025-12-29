@@ -134,7 +134,8 @@ weaken("memory-id", factor=0.5)      # Reduce salience (default 0.5x)
 # Embedding reliability monitoring and retry (v0.10.1)
 stats = embedding_stats()  # Check embedding coverage and failure rates
 if stats['failure_rate'] > 5.0:
-    result = retry_embeddings(limit=50)  # Batch retry failed embeddings
+    result = retry_embeddings(limit=50)  # Batch retry failed embeddings (default: 100 per API call)
+    # Or customize batch size: retry_embeddings(limit=200, batch_size=50)
 
 # Config operations with constraints
 config_set("identity", "I am Muninn...", "profile")
@@ -261,11 +262,13 @@ remembering/
   - Calculates failure rate percentage
   - Provides 7-day timeline of embedding failures
   - Lists recent memories without embeddings
-- New `retry_embeddings(limit, dry_run)` function for batch-retrying failed embeddings
+- New `retry_embeddings(limit, dry_run, batch_size)` function for batch-retrying failed embeddings
+  - Uses OpenAI's batch embedding API (up to 2048 texts per request)
   - Processes memories that are missing embeddings (NULL in embedding column)
   - Useful after API outages (503 errors) or when API key was initially missing
   - Supports dry_run mode to preview what would be retried
   - Updates both Turso database and local cache
+  - Benefits: Simpler retry logic (one batch retry vs many individual retries)
 
 **Investigation Results**:
 - Overall embedding failure rate: 20.9% (38 of 182 memories)

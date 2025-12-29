@@ -621,6 +621,52 @@ def _embed(text: str) -> list[float] | None:
         print(f"Warning: Embedding generation failed after retries: {e}")
         return None
 
+def _embed_batch(texts: list[str]) -> list[list[float] | None]:
+    """Generate embedding vectors for multiple texts in a single API call.
+
+    Args:
+        texts: List of text strings to embed (max 2048 per OpenAI limit)
+
+    Returns:
+        List of embeddings (1536 floats each) or None for failures.
+        Maintains input order even if some embeddings fail.
+    """
+    _init()
+    if not _EMBEDDING_API_KEY:
+        return [None] * len(texts)
+
+    if not texts:
+        return []
+
+    # OpenAI supports up to 2048 inputs per request
+    if len(texts) > 2048:
+        raise ValueError(f"Cannot embed {len(texts)} texts in one batch (max 2048)")
+
+    def _do_embed_batch():
+        response = requests.post(
+            "https://api.openai.com/v1/embeddings",
+            headers={
+                "Authorization": f"Bearer {_EMBEDDING_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "text-embedding-3-small",
+                "input": texts  # Array of strings
+            },
+            timeout=30  # Longer timeout for batch
+        )
+        response.raise_for_status()
+        data = response.json()["data"]
+        # Response includes index field to maintain order
+        return [item["embedding"] for item in sorted(data, key=lambda x: x["index"])]
+
+    try:
+        return _retry_with_backoff(_do_embed_batch, max_retries=3, base_delay=1.0)
+    except Exception as e:
+        # Fail gracefully - return None for all
+        print(f"Warning: Batch embedding generation failed after retries: {e}")
+        return [None] * len(texts)
+
 def _parse_memory_row(row: dict) -> dict:
     """Parse JSON fields in a memory row (tags, entities, refs).
 
@@ -1811,8 +1857,10 @@ def embedding_stats() -> dict:
         'recent_failures': recent_failures
     }
 
-def retry_embeddings(*, limit: int = 100, dry_run: bool = False) -> dict:
+def retry_embeddings(*, limit: int = 100, dry_run: bool = False, batch_size: int = 100) -> dict:
     """Retry embedding generation for memories that are missing embeddings.
+
+    Uses OpenAI's batch embedding API for efficient processing (up to 2048 texts per request).
 
     Useful for batch-processing memories that failed embedding generation due to:
     - API outages (503 errors)
@@ -1822,6 +1870,7 @@ def retry_embeddings(*, limit: int = 100, dry_run: bool = False) -> dict:
     Args:
         limit: Maximum number of memories to retry (default 100)
         dry_run: If True, show what would be retried without actually doing it
+        batch_size: Number of memories to embed per API call (default 100, max 2048)
 
     Returns:
         Dict with retry results:
@@ -1829,15 +1878,16 @@ def retry_embeddings(*, limit: int = 100, dry_run: bool = False) -> dict:
         - successful: Number that got embeddings
         - failed: Number that still failed
         - errors: List of error messages
+        - batches: Number of API calls made
 
     Example:
         # Check what would be retried
         result = retry_embeddings(dry_run=True)
         print(f"Would retry {result['attempted']} memories")
 
-        # Actually retry
+        # Actually retry (fast batch mode)
         result = retry_embeddings(limit=50)
-        print(f"Successfully added embeddings to {result['successful']} memories")
+        print(f"Successfully added embeddings to {result['successful']} memories in {result['batches']} API calls")
     """
     _init()
 
@@ -1846,7 +1896,8 @@ def retry_embeddings(*, limit: int = 100, dry_run: bool = False) -> dict:
             'attempted': 0,
             'successful': 0,
             'failed': 0,
-            'errors': ['EMBEDDING_API_KEY not set - cannot generate embeddings']
+            'errors': ['EMBEDDING_API_KEY not set - cannot generate embeddings'],
+            'batches': 0
         }
 
     # Get memories without embeddings
@@ -1860,11 +1911,13 @@ def retry_embeddings(*, limit: int = 100, dry_run: bool = False) -> dict:
     """)
 
     if dry_run:
+        num_batches = (len(memories) + batch_size - 1) // batch_size
         return {
             'attempted': len(memories),
             'successful': 0,
             'failed': 0,
             'errors': [],
+            'batches': num_batches,
             'dry_run': True
         }
 
@@ -1872,38 +1925,46 @@ def retry_embeddings(*, limit: int = 100, dry_run: bool = False) -> dict:
         'attempted': len(memories),
         'successful': 0,
         'failed': 0,
-        'errors': []
+        'errors': [],
+        'batches': 0
     }
 
-    for mem in memories:
-        mem_id = mem['id']
-        summary = mem['summary']
+    # Process in batches
+    for i in range(0, len(memories), batch_size):
+        batch = memories[i:i + batch_size]
+        results['batches'] += 1
 
-        # Try to generate embedding
-        embedding = _embed(summary)
+        # Extract texts and IDs
+        texts = [mem['summary'] for mem in batch]
+        mem_ids = [mem['id'] for mem in batch]
 
-        if embedding is not None:
-            # Update memory with embedding
-            try:
-                _exec_batch([
-                    ("UPDATE memories SET embedding = vector32(?) WHERE id = ?",
-                     [json.dumps(embedding), mem_id])
-                ])
-                results['successful'] += 1
+        # Generate embeddings in batch
+        embeddings = _embed_batch(texts)
 
-                # Update cache if available
-                if _cache_available():
-                    _cache_conn().execute(
-                        "UPDATE memory_full SET embedding = ? WHERE id = ?",
-                        (json.dumps(embedding), mem_id)
-                    )
-                    _cache_conn().commit()
-            except Exception as e:
+        # Store results
+        for mem_id, embedding in zip(mem_ids, embeddings):
+            if embedding is not None:
+                # Update memory with embedding
+                try:
+                    _exec_batch([
+                        ("UPDATE memories SET embedding = vector32(?) WHERE id = ?",
+                         [json.dumps(embedding), mem_id])
+                    ])
+                    results['successful'] += 1
+
+                    # Update cache if available
+                    if _cache_available():
+                        _cache_conn().execute(
+                            "UPDATE memory_full SET embedding = ? WHERE id = ?",
+                            (json.dumps(embedding), mem_id)
+                        )
+                        _cache_conn().commit()
+                except Exception as e:
+                    results['failed'] += 1
+                    results['errors'].append(f"{mem_id[:8]}: Failed to store embedding - {str(e)}")
+            else:
                 results['failed'] += 1
-                results['errors'].append(f"{mem_id[:8]}: Failed to store embedding - {str(e)}")
-        else:
-            results['failed'] += 1
-            results['errors'].append(f"{mem_id[:8]}: Embedding generation failed (likely API error)")
+                results['errors'].append(f"{mem_id[:8]}: Embedding generation failed (likely API error)")
 
     return results
 
