@@ -1729,6 +1729,184 @@ def handoff_complete(handoff_id: str, completion_notes: str, version: str = None
     completion_tags = ["handoff-completed", f"v{version}"]
     return supersede(handoff_id, completion_notes, "world", tags=completion_tags)
 
+def embedding_stats() -> dict:
+    """Get statistics on embedding coverage and failure rates.
+
+    Returns:
+        Dict with embedding statistics:
+        - total: Total active memories
+        - with_embeddings: Count of memories with embeddings
+        - without_embeddings: Count of memories without embeddings
+        - failure_rate: Percentage of memories without embeddings
+        - timeline: List of daily stats (last 7 days)
+        - recent_failures: List of up to 10 most recent memories without embeddings
+
+    Example:
+        stats = embedding_stats()
+        if stats['failure_rate'] > 5.0:
+            print(f"Alert: {stats['failure_rate']:.1f}% embedding failure rate")
+            retry_embeddings(limit=50)
+    """
+    _init()
+
+    # Overall stats
+    result = _exec("""
+        SELECT
+            COUNT(*) as total,
+            SUM(CASE WHEN embedding IS NULL THEN 1 ELSE 0 END) as missing,
+            SUM(CASE WHEN embedding IS NOT NULL THEN 1 ELSE 0 END) as has
+        FROM memories
+        WHERE deleted_at IS NULL
+    """)
+
+    stats = result[0]
+    total = int(stats['total'])
+    missing = int(stats['missing'])
+    has = int(stats['has'])
+    failure_rate = (missing / total * 100) if total > 0 else 0.0
+
+    # Timeline (last 7 days)
+    timeline_raw = _exec("""
+        SELECT
+            DATE(created_at) as date,
+            COUNT(*) as total,
+            SUM(CASE WHEN embedding IS NULL THEN 1 ELSE 0 END) as failed
+        FROM memories
+        WHERE deleted_at IS NULL
+        GROUP BY DATE(created_at)
+        ORDER BY date DESC
+        LIMIT 7
+    """)
+
+    timeline = []
+    for day in timeline_raw:
+        day_total = int(day['total'])
+        day_failed = int(day['failed'])
+        day_rate = (day_failed / day_total * 100) if day_total > 0 else 0.0
+        timeline.append({
+            'date': day['date'],
+            'total': day_total,
+            'failed': day_failed,
+            'failure_rate': day_rate
+        })
+
+    # Recent failures
+    recent_raw = _exec("""
+        SELECT id, type, created_at, tags, summary
+        FROM memories
+        WHERE deleted_at IS NULL
+          AND embedding IS NULL
+        ORDER BY created_at DESC
+        LIMIT 10
+    """)
+
+    recent_failures = [_parse_memory_row(m) for m in recent_raw]
+
+    return {
+        'total': total,
+        'with_embeddings': has,
+        'without_embeddings': missing,
+        'failure_rate': failure_rate,
+        'timeline': timeline,
+        'recent_failures': recent_failures
+    }
+
+def retry_embeddings(*, limit: int = 100, dry_run: bool = False) -> dict:
+    """Retry embedding generation for memories that are missing embeddings.
+
+    Useful for batch-processing memories that failed embedding generation due to:
+    - API outages (503 errors)
+    - Rate limiting (429 errors)
+    - Missing API key at time of creation
+
+    Args:
+        limit: Maximum number of memories to retry (default 100)
+        dry_run: If True, show what would be retried without actually doing it
+
+    Returns:
+        Dict with retry results:
+        - attempted: Number of memories attempted
+        - successful: Number that got embeddings
+        - failed: Number that still failed
+        - errors: List of error messages
+
+    Example:
+        # Check what would be retried
+        result = retry_embeddings(dry_run=True)
+        print(f"Would retry {result['attempted']} memories")
+
+        # Actually retry
+        result = retry_embeddings(limit=50)
+        print(f"Successfully added embeddings to {result['successful']} memories")
+    """
+    _init()
+
+    if not _EMBEDDING_API_KEY:
+        return {
+            'attempted': 0,
+            'successful': 0,
+            'failed': 0,
+            'errors': ['EMBEDDING_API_KEY not set - cannot generate embeddings']
+        }
+
+    # Get memories without embeddings
+    memories = _exec(f"""
+        SELECT id, summary
+        FROM memories
+        WHERE deleted_at IS NULL
+          AND embedding IS NULL
+        ORDER BY created_at DESC
+        LIMIT {limit}
+    """)
+
+    if dry_run:
+        return {
+            'attempted': len(memories),
+            'successful': 0,
+            'failed': 0,
+            'errors': [],
+            'dry_run': True
+        }
+
+    results = {
+        'attempted': len(memories),
+        'successful': 0,
+        'failed': 0,
+        'errors': []
+    }
+
+    for mem in memories:
+        mem_id = mem['id']
+        summary = mem['summary']
+
+        # Try to generate embedding
+        embedding = _embed(summary)
+
+        if embedding is not None:
+            # Update memory with embedding
+            try:
+                _exec_batch([
+                    ("UPDATE memories SET embedding = vector32(?) WHERE id = ?",
+                     [json.dumps(embedding), mem_id])
+                ])
+                results['successful'] += 1
+
+                # Update cache if available
+                if _cache_available():
+                    _cache_conn().execute(
+                        "UPDATE memory_full SET embedding = ? WHERE id = ?",
+                        (json.dumps(embedding), mem_id)
+                    )
+                    _cache_conn().commit()
+            except Exception as e:
+                results['failed'] += 1
+                results['errors'].append(f"{mem_id[:8]}: Failed to store embedding - {str(e)}")
+        else:
+            results['failed'] += 1
+            results['errors'].append(f"{mem_id[:8]}: Embedding generation failed (likely API error)")
+
+    return results
+
 def muninn_import(data: dict, *, merge: bool = False) -> dict:
     """Import Muninn state from exported JSON.
 
@@ -1806,5 +1984,7 @@ __all__ = [
     "handoff_pending", "handoff_complete",  # handoff workflow
     "muninn_export", "muninn_import",  # export/import
     "cache_stats",  # v0.7.0 cache diagnostics
+    "strengthen", "weaken",  # v0.10.0 salience adjustment
+    "embedding_stats", "retry_embeddings",  # v0.10.1 embedding reliability
     "r", "q", "j", "TYPES"  # aliases & constants
 ]

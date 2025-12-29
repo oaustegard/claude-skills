@@ -96,6 +96,7 @@ from remembering import handoff_pending, handoff_complete
 from remembering import muninn_export, muninn_import
 from remembering import strengthen, weaken  # v0.10.0 salience adjustment
 from remembering import cache_stats  # v0.7.0 cache diagnostics
+from remembering import embedding_stats, retry_embeddings  # v0.10.1 embedding reliability
 
 # Store a memory (type required, with optional embedding)
 id = remember("User prefers dark mode", "decision", tags=["ui"], conf=0.9)
@@ -129,6 +130,11 @@ new_id = supersede(old_id, "Updated preference", "decision")
 # Salience adjustment for memory consolidation (v0.10.0)
 strengthen("memory-id", factor=1.5)  # Boost salience (default 1.5x)
 weaken("memory-id", factor=0.5)      # Reduce salience (default 0.5x)
+
+# Embedding reliability monitoring and retry (v0.10.1)
+stats = embedding_stats()  # Check embedding coverage and failure rates
+if stats['failure_rate'] > 5.0:
+    result = retry_embeddings(limit=50)  # Batch retry failed embeddings
 
 # Config operations with constraints
 config_set("identity", "I am Muninn...", "profile")
@@ -166,7 +172,10 @@ by_type = group_by_type(mems)  # {"decision": [...], "world": [...]}
 by_tag = group_by_tag(mems)    # {"ui": [...], "bug": [...]}
 
 # Handoff workflow (cross-environment coordination)
-pending = handoff_pending()  # get pending work
+# Note: handoff_pending() queries for memories tagged ["handoff", "pending"]
+# However, not all pending work is tagged this way - always check broader queries too
+pending = handoff_pending()  # get formal pending handoffs (both tags required)
+all_handoffs = recall(tags=["handoff"], n=50)  # broader search for all handoff work
 handoff_complete(handoff_id, "COMPLETED: ...", version="0.5.0")  # mark done
 
 # Export/Import
@@ -244,6 +253,41 @@ remembering/
 - `session_id` currently placeholder ("session")
 
 ## Recent Enhancements
+
+### v0.10.1 (2025-12-29)
+✅ **Embedding Reliability Monitoring & Batch Retry**:
+- New `embedding_stats()` function for tracking embedding coverage and failure rates
+  - Returns total/with/without embeddings counts
+  - Calculates failure rate percentage
+  - Provides 7-day timeline of embedding failures
+  - Lists recent memories without embeddings
+- New `retry_embeddings(limit, dry_run)` function for batch-retrying failed embeddings
+  - Processes memories that are missing embeddings (NULL in embedding column)
+  - Useful after API outages (503 errors) or when API key was initially missing
+  - Supports dry_run mode to preview what would be retried
+  - Updates both Turso database and local cache
+
+**Investigation Results**:
+- Overall embedding failure rate: 20.9% (38 of 182 memories)
+- Root causes identified:
+  - Dec 22-24: 100% failure (23 memories) - EMBEDDING_API_KEY not configured
+  - Dec 26-28: 7-19% failure - mix of API outages and intermittent 503 errors
+- Recent days (Dec 27-28): 7-9% failure rate, still above 5% threshold
+- Retry logic working correctly (exponential backoff: 1s, 2s, 4s)
+- System gracefully degrades: FTS5 search continues working when embeddings fail
+
+**API Changes**:
+```python
+# Monitor embedding health
+stats = embedding_stats()
+print(f"Failure rate: {stats['failure_rate']:.1f}%")
+
+# Batch retry missing embeddings
+result = retry_embeddings(limit=50)
+print(f"Successfully embedded {result['successful']} memories")
+```
+
+**Recommendation**: Run `retry_embeddings()` after extended API outages or when EMBEDDING_API_KEY is first configured. Monitor `embedding_stats()` during therapy sessions to track embedding health over time.
 
 ### v0.10.0 (2025-12-28)
 ✅ **Critical Bug Fixes**:
