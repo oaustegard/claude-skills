@@ -71,3 +71,41 @@ remember("Vector search implementation uses cosine similarity with 0.4 weight",
 ```
 
 This creates a feedback loop where the skill improves itself while tracking its own improvement.
+
+## Remembering Skill and Handoff Process
+
+**CRITICAL**: When working with the `remembering` skill OR discussing handoffs, ALWAYS read `/home/user/claude-skills/remembering/CLAUDE.md` FIRST.
+
+Why:
+- The remembering skill's CLAUDE.md contains comprehensive documentation about handoff workflows
+- Handoffs are stored IN the remembering system as memories
+- Querying handoffs requires using the remembering skill itself
+- The remembering/CLAUDE.md has critical context about how to query and complete handoffs
+
+**Do this immediately** when:
+- User mentions "remembering" skill
+- User asks about handoffs
+- User asks to check handoff status
+- User references Muninn (the memory system)
+
+```bash
+# ALWAYS do this first:
+cat /home/user/claude-skills/remembering/CLAUDE.md
+```
+
+Then use the remembering skill to query handoffs:
+```python
+import sys
+sys.path.insert(0, '/home/user/claude-skills')
+from remembering import recall, handoff_pending
+
+# Check for handoffs - multiple approaches:
+# 1. Formal pending handoffs (tagged "handoff" + "pending")
+pending = handoff_pending()
+
+# 2. All handoff-related memories (broader search)
+all_handoffs = recall(tags=["handoff"], n=50)
+
+# 3. Specific handoff topics
+topic_handoffs = recall(tags=["handoff", "openai"], n=10)
+```
