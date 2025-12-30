@@ -108,6 +108,19 @@ def _init_local_cache() -> bool:
                 value TEXT
             );
 
+            -- Query logging for retrieval instrumentation (v0.12.0)
+            CREATE TABLE IF NOT EXISTS recall_logs (
+                id TEXT PRIMARY KEY,
+                t TEXT NOT NULL,
+                query TEXT,
+                filters TEXT,             -- JSON: {type, tags, conf, tag_mode}
+                n_requested INTEGER,
+                n_returned INTEGER,
+                exec_time_ms REAL,
+                used_cache BOOLEAN,
+                used_semantic_fallback BOOLEAN
+            );
+
             -- Indexes for common queries
             CREATE INDEX IF NOT EXISTS idx_memory_index_type ON memory_index(type);
             CREATE INDEX IF NOT EXISTS idx_memory_index_t ON memory_index(t);
@@ -132,6 +145,38 @@ def _init_local_cache() -> bool:
 def _cache_available() -> bool:
     """Check if local cache is initialized and healthy."""
     return _cache_conn is not None and _cache_enabled
+
+
+def _log_recall_query(query: str, filters: dict, n_requested: int, n_returned: int,
+                      exec_time_ms: float, used_cache: bool, used_semantic_fallback: bool) -> None:
+    """Log recall query for retrieval instrumentation (Phase 0).
+
+    Args:
+        query: Search query text (or None)
+        filters: Dict of filters {type, tags, conf, tag_mode}
+        n_requested: Number of results requested
+        n_returned: Number of results actually returned
+        exec_time_ms: Execution time in milliseconds
+        used_cache: Whether cache was used
+        used_semantic_fallback: Whether semantic fallback was triggered
+    """
+    if not _cache_available():
+        return  # Logging requires cache
+
+    try:
+        log_id = str(uuid.uuid4())
+        now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        filters_json = json.dumps(filters)
+
+        _cache_conn.execute("""
+            INSERT INTO recall_logs
+            (id, t, query, filters, n_requested, n_returned, exec_time_ms, used_cache, used_semantic_fallback)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (log_id, now, query, filters_json, n_requested, n_returned, exec_time_ms,
+              used_cache, used_semantic_fallback))
+        _cache_conn.commit()
+    except Exception:
+        pass  # Don't fail recall() if logging fails
 
 
 # Auto-init cache on module import if DB exists (v0.9.2 fix for cross-process cache)
@@ -967,6 +1012,7 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
     v0.7.0: Uses local cache with progressive disclosure when available.
     v0.9.0: Uses FTS5 for ranked text search instead of LIKE.
             Adds semantic fallback when FTS5 returns few results.
+    v0.12.0: Logs queries for retrieval instrumentation.
 
     Args:
         search: Text to search for in memory summaries (FTS5 ranked search)
@@ -981,6 +1027,10 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
         semantic_threshold: Trigger semantic fallback when FTS5 returns fewer
                            than this many results (default 2)
     """
+    # Track timing for logging (v0.12.0)
+    start_time = time.time()
+    used_semantic = False
+
     if isinstance(search, int):
         return _query(limit=search)
 
@@ -993,6 +1043,7 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
         if search and semantic_fallback and len(results) < semantic_threshold:
             try:
                 semantic_results = semantic_recall(search, n=n, type=type, conf=conf, tags=tags)
+                used_semantic = True  # Track for logging
                 # Merge results, preferring FTS5 matches (already ranked by relevance)
                 seen_ids = {r['id'] for r in results}
                 for sr in semantic_results:
@@ -1038,10 +1089,36 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
                 _update_access_tracking([r['id'] for r in results])
             threading.Thread(target=_bg_track, daemon=True).start()
 
+            # Log query (v0.12.0)
+            exec_time = (time.time() - start_time) * 1000  # Convert to ms
+            _log_recall_query(
+                query=search,
+                filters={'type': type, 'tags': tags, 'conf': conf, 'tag_mode': tag_mode},
+                n_requested=n,
+                n_returned=len(results),
+                exec_time_ms=exec_time,
+                used_cache=True,
+                used_semantic_fallback=used_semantic
+            )
+
             return results
 
     # Fallback to direct Turso query
-    return _query(search=search, tags=tags, type=type, conf=conf, limit=n, tag_mode=tag_mode)
+    results = _query(search=search, tags=tags, type=type, conf=conf, limit=n, tag_mode=tag_mode)
+
+    # Log query (v0.12.0)
+    exec_time = (time.time() - start_time) * 1000  # Convert to ms
+    _log_recall_query(
+        query=search,
+        filters={'type': type, 'tags': tags, 'conf': conf, 'tag_mode': tag_mode},
+        n_requested=n,
+        n_returned=len(results),
+        exec_time_ms=exec_time,
+        used_cache=False,
+        used_semantic_fallback=False
+    )
+
+    return results
 
 def semantic_recall(query: str, *, n: int = 5, type: str = None,
                     conf: float = None, tags: list = None) -> list:

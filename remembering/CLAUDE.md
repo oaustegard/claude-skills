@@ -254,6 +254,71 @@ remembering/
 
 ## Recent Enhancements
 
+### v0.12.0 (2025-12-30)
+✅ **Query Logging for Retrieval Instrumentation (Phase 0)**:
+- New `recall_logs` table in local cache tracks all recall() queries
+- Automatically logs: query text, filters, result counts, execution time, cache/semantic usage
+- Foundation for future relevance scoring and filtering (Phases 1-4)
+- Enables retrieval quality analysis and optimization
+
+**Schema**:
+```sql
+CREATE TABLE recall_logs (
+    id TEXT PRIMARY KEY,
+    t TEXT NOT NULL,
+    query TEXT,
+    filters TEXT,              -- JSON: {type, tags, conf, tag_mode}
+    n_requested INTEGER,
+    n_returned INTEGER,
+    exec_time_ms REAL,
+    used_cache BOOLEAN,
+    used_semantic_fallback BOOLEAN
+);
+```
+
+**Usage**:
+```python
+# Query logs are written automatically by recall()
+# View logs directly from cache DB at ~/.muninn/cache.db
+
+import sqlite3
+from pathlib import Path
+
+conn = sqlite3.connect(str(Path.home() / ".muninn" / "cache.db"))
+logs = conn.execute("SELECT * FROM recall_logs ORDER BY t DESC LIMIT 10").fetchall()
+```
+
+**Next Steps**: Phases 1-4 will add relevance scoring, filtering, outcome tracking, and calibration based on these logs.
+
+### v0.11.0 (2025-12-30)
+✅ **Compressed Boot Output**:
+- Modified `boot()` function to return formatted string instead of raw tuples
+- Output format: key + first line for config entries
+- Token reduction: ~4.3K chars (~1073 tokens) vs previous multi-line format
+- Simplified usage: `print(boot())` replaces 15-line boot_fast() + formatting block
+- Still populates local cache for fast subsequent recall() queries
+
+**API Change**:
+```python
+# Old (v0.10.x and earlier)
+profile, ops, journal, decisions = boot()
+for p in profile:
+    print(p['value'])
+
+# New (v0.11.0+)
+output = boot()
+print(output)  # Shows compressed key + first line format
+
+# Access full content when needed
+from remembering import config_get
+full_text = config_get("identity")
+```
+
+**Performance**:
+- Execution: ~150ms (single HTTP request)
+- Output: ~4.3K chars (~1073 tokens)
+- Subsequent recall(): ~2ms via local cache
+
 ### v0.10.1 (2025-12-29)
 ✅ **Embedding Reliability Monitoring & Batch Retry**:
 - New `embedding_stats()` function for tracking embedding coverage and failure rates
