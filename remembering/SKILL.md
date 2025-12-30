@@ -33,29 +33,10 @@ from remembering import boot
 print(boot())
 ```
 
-Output format:
-```
-=== PROFILE ===
-identity: I am Muninn, your persistent memory...
-bio: Claude instance with long-term memory...
-
-=== OPS ===
-memory-rules:
-Store important facts and decisions. Use appropriate types...
-skill-delivery:
-Skills are delivered via project instructions...
-```
-
-**Progressive disclosure:** Profile shows first line only. Retrieve full content when needed:
-
-```python
-from remembering import config_get
-full_text = config_get("identity")  # Fetch full profile entry
-```
+Output: Complete profile and ops values for full context at boot.
 
 **Performance:**
 - Execution: ~150ms (single HTTP request)
-- Profile compressed (first line), ops complete
 - Populates local cache for fast subsequent recall()
 
 ### Advanced: boot_fast() for Programmatic Access

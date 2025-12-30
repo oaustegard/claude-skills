@@ -1643,25 +1643,19 @@ def boot_fast(journal_n: int = 5, index_n: int = 500,
 
 
 def boot() -> str:
-    """Boot sequence returning profile (compressed) and ops (complete).
+    """Boot sequence returning complete profile and ops.
 
     Returns formatted string ready to print. Populates local cache for fast recall().
-
-    Returns:
-        Formatted string with PROFILE (key + first line) and OPS (complete values)
     """
     profile, ops, _ = boot_fast(journal_n=5, index_n=500, use_cache=True)
 
     output = []
 
-    # Profile (key + first line)
     if profile:
         output.append("=== PROFILE ===")
         for p in profile:
-            first_line = p['value'].split('\n')[0] if p['value'] else ''
-            output.append(f"{p['key']}: {first_line}")
+            output.append(f"{p['key']}:\n{p['value']}")
 
-    # Ops (complete values)
     if ops:
         output.append("\n=== OPS ===")
         for o in ops:
