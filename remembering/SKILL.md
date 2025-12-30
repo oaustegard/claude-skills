@@ -26,42 +26,36 @@ Load context at conversation start to maintain continuity across sessions.
 
 ### Optimized: Compressed Boot (Recommended)
 
-Use `boot()` for fast startup with minimal tokens (~150ms, ~700 tokens):
+Use `boot()` for fast startup (~150ms):
 
 ```python
 from remembering import boot
 print(boot())
 ```
 
-Output format (compressed - key + first line):
+Output format:
 ```
 === PROFILE ===
 identity: I am Muninn, your persistent memory...
 bio: Claude instance with long-term memory...
 
 === OPS ===
-memory-rules: Store important facts and decisions...
-skill-delivery: Skills are delivered via...
-
-=== JOURNAL ===
-[2025-12-29] muninn-v0.10.0: Added embedding retry logic
-[2025-12-28] performance: Optimized boot sequence
+memory-rules:
+Store important facts and decisions. Use appropriate types...
+skill-delivery:
+Skills are delivered via project instructions...
 ```
 
-**Progressive disclosure:** Headlines shown at boot. Retrieve full content when needed:
+**Progressive disclosure:** Profile shows first line only. Retrieve full content when needed:
 
 ```python
-# Later in conversation, when topic becomes relevant
 from remembering import config_get
-full_text = config_get("identity")  # Fetch full profile entry from cache
+full_text = config_get("identity")  # Fetch full profile entry
 ```
-
-**Parameters:**
-- `journal_n=5`: Number of recent journal entries (default 5)
 
 **Performance:**
 - Execution: ~150ms (single HTTP request)
-- Output: ~2.8K chars (~700 tokens, 84% reduction from uncompressed)
+- Profile compressed (first line), ops complete
 - Populates local cache for fast subsequent recall()
 
 ### Advanced: boot_fast() for Programmatic Access

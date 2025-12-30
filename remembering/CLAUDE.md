@@ -156,9 +156,9 @@ session_count = therapy_session_count()  # count therapy sessions
 profile, ops, journal = boot_fast()  # single HTTP request, 3 queries
 # Returns: (profile_list, ops_list, journal_list)
 
-# Boot sequence - compressed output (~150ms, ~700 tokens)
+# Boot sequence - compressed output (~150ms)
 output = boot()  # single HTTP request, returns formatted string
-print(output)  # Shows profile/ops/journal with key + first line format
+print(output)  # Profile (first line) + Ops (complete values)
 
 # Boot sequence - individual calls (SLOW: ~1100ms, 3 HTTP requests)
 # Only use if you need fine-grained control
@@ -253,6 +253,19 @@ remembering/
 - `session_id` currently placeholder ("session")
 
 ## Recent Enhancements
+
+### v0.12.3 (2025-12-30)
+✅ **Boot Output Refinement**:
+- Ops now shows complete values (not just first line) - actionable rules need full context
+- Profile remains compressed (key + first line) - identity context can be summarized
+- Removed `journal_n` parameter from `boot()` - journals not shown in output
+- Cleaned up docstring
+
+### v0.12.2 (2025-12-30)
+✅ **Remove Journal from Boot**:
+- Removed journal section from `boot()` output
+- Journals exist for `recall()`, not boot context - they added ~200 tokens of noise
+- `boot_fast()` unchanged (still returns journal for cache population)
 
 ### v0.12.1 (2025-12-30)
 ✅ **Strict Query Mode for therapy_scope() Bug Fix**:
