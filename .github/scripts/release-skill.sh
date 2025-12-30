@@ -34,9 +34,13 @@ update_changelog() {
   local fixed_items=""
   local other_items=""
 
-  local git_range="HEAD~10..HEAD"
+  # Build git log command - use tag range if available, otherwise get recent skill commits
+  local git_log_cmd=""
   if [ -n "$last_tag" ]; then
-    git_range="$last_tag..HEAD"
+    git_log_cmd="git log --oneline ${last_tag}..HEAD -- ${skill_dir}/"
+  else
+    # No previous tag - get last 20 commits that touched this skill
+    git_log_cmd="git log --oneline -20 -- ${skill_dir}/"
   fi
 
   # Parse commits and categorize
@@ -63,7 +67,7 @@ update_changelog() {
       # Non-conventional commits go to Other
       other_items="${other_items}- ${msg}\n"
     fi
-  done < <(git log --oneline "$git_range" -- "$skill_dir/" 2>/dev/null)
+  done < <(eval "$git_log_cmd" 2>/dev/null)
 
   # Build the new version entry
   local version_entry="## [$version] - $release_date\n"

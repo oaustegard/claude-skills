@@ -1,5 +1,36 @@
 @AGENTS.md
 
+## Claude Code on the Web Development
+
+This repository is frequently developed via Claude Code on the web. Key workflow considerations:
+
+### Branch and PR Lifecycle
+
+When making follow-up changes within a session after a PR has been created:
+
+1. **Check PR status first** - The user may have already merged and deleted the working branch
+2. **Fetch latest from main** - `git fetch origin main` to see current state
+3. **Create a new branch if needed** - If the previous branch was deleted, create a fresh branch from main
+4. **Don't assume your branch still exists** - PRs are often merged quickly in this workflow
+
+```bash
+# Before making secondary changes, always check:
+git fetch origin main
+git log --oneline origin/main -3  # See if your PR was merged
+
+# If branch was deleted, start fresh:
+git checkout main
+git pull origin main
+git checkout -b claude/new-feature-<session-id>
+```
+
+### Why This Matters
+
+- Claude Code web sessions can span user interactions where PRs get merged between messages
+- The user may merge and delete branches without explicitly telling Claude
+- Attempting to push to a deleted branch will fail with 403 errors
+- Always verify branch state before assuming continuity
+
 ## Environment-Specific Tips
 
 ### Environment Variable Access
