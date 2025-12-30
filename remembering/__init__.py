@@ -1642,29 +1642,15 @@ def boot_fast(journal_n: int = 5, index_n: int = 500,
     return profile_data, ops_data, journal_data
 
 
-def boot(journal_n: int = 5) -> str:
-    """Optimized boot with compressed output (~500 tokens vs ~4400).
+def boot() -> str:
+    """Boot sequence returning profile (compressed) and ops (complete).
 
-    Returns formatted string ready to print. Full content available via config_get().
-    Populates local cache for fast subsequent recall() queries.
-
-    Args:
-        journal_n: Number of recent journal entries for cache (default 5)
+    Returns formatted string ready to print. Populates local cache for fast recall().
 
     Returns:
-        Formatted string with PROFILE and OPS sections (key + first line)
-
-    Performance:
-        - Execution: ~150ms
-        - Output: ~2K chars (~500 tokens, 89% reduction from uncompressed)
-        - Subsequent recall(): ~2ms via local cache
-
-    Example:
-        from remembering import boot
-        print(boot())
+        Formatted string with PROFILE (key + first line) and OPS (complete values)
     """
-    # Load data and populate cache
-    profile, ops, journal = boot_fast(journal_n=journal_n, index_n=500, use_cache=True)
+    profile, ops, _ = boot_fast(journal_n=5, index_n=500, use_cache=True)
 
     output = []
 
@@ -1675,12 +1661,11 @@ def boot(journal_n: int = 5) -> str:
             first_line = p['value'].split('\n')[0] if p['value'] else ''
             output.append(f"{p['key']}: {first_line}")
 
-    # Ops (key + first line)
+    # Ops (complete values)
     if ops:
         output.append("\n=== OPS ===")
         for o in ops:
-            first_line = o['value'].split('\n')[0] if o['value'] else ''
-            output.append(f"{o['key']}: {first_line}")
+            output.append(f"{o['key']}:\n{o['value']}")
 
     return '\n'.join(output)
 
