@@ -1565,122 +1565,72 @@ def ops() -> list:
     """Load operational config for conversation start."""
     return config_list("ops")
 
-def boot_fast(journal_n: int = 5, index_n: int = 500,
-              use_cache: bool = True) -> tuple[list, list, list]:
-    """Optimized boot: returns (profile, ops, journal) in one HTTP request (~130ms).
 
-    Use this instead of calling profile(), ops(), journal_recent() separately,
-    which would make 3 HTTP requests (~1100ms total).
+def _warm_cache():
+    """Background cache population - fetches all memories from Turso."""
+    try:
+        results = _exec_batch([
+            """SELECT * FROM memories
+               WHERE deleted_at IS NULL
+               ORDER BY t DESC LIMIT 500"""
+        ])
+        full_memories = results[0]
 
-    v0.7.0: Also populates local SQLite cache with memory index for fast recall().
+        if _cache_available():
+            memory_index = []
+            for m in full_memories:
+                memory_index.append({
+                    'id': m.get('id'),
+                    'type': m.get('type'),
+                    't': m.get('t'),
+                    'tags': m.get('tags'),
+                    'summary_preview': m.get('summary', '')[:100],
+                    'confidence': m.get('confidence'),
+                    'importance': m.get('importance')
+                })
+            _cache_populate_index(memory_index)
+            _cache_populate_full(full_memories)
+    except Exception:
+        pass  # Cache warming is best-effort
 
-    Args:
-        journal_n: Number of recent journal entries (default 5)
-        index_n: Number of memory headlines to cache (default 500)
-        use_cache: If True, populate local cache for fast subsequent queries
 
-    Returns:
-        Tuple of (profile_list, ops_list, journal_list)
+def boot() -> str:
+    """Boot sequence: load profile + ops, start async cache population.
 
-    Performance:
-        - Separate calls: ~1100ms (3 HTTP requests)
-        - boot_fast(): ~130ms (1 HTTP request, 8x faster)
-        - Subsequent recall(): <5ms (local cache) vs ~150ms (network)
+    Returns formatted string with complete profile and ops values.
+    Spawns background thread to populate memory cache for fast recall().
     """
-    # Initialize local cache if enabled
-    if use_cache:
-        _init_local_cache()
+    import threading
 
-    # Fetch config + full memory content in single request
+    # Initialize cache
+    _init_local_cache()
+
+    # Fetch only profile + ops (fast, small query)
     results = _exec_batch([
         "SELECT * FROM config WHERE category = 'profile' ORDER BY key",
         "SELECT * FROM config WHERE category = 'ops' ORDER BY key",
-        ("SELECT * FROM config WHERE category = 'journal' ORDER BY key DESC LIMIT ?", [journal_n]),
-        # Full memory content: fetch everything to eliminate mid-conversation network calls
-        ("""SELECT *
-            FROM memories
-            WHERE deleted_at IS NULL
-              AND id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)
-            ORDER BY t DESC LIMIT ?""", [index_n]),
     ])
-
     profile_data = results[0]
     ops_data = results[1]
-    journal_raw = results[2]
-    full_memories = results[3]
 
-    # Parse journal entries
-    journal_data = []
-    for e in journal_raw:
-        try:
-            parsed = json.loads(e["value"])
-            parsed["_key"] = e["key"]
-            journal_data.append(parsed)
-        except json.JSONDecodeError:
-            continue
+    # Cache config immediately
+    if _cache_available():
+        _cache_config(profile_data + ops_data)
 
-    # Populate local cache with full content
-    if use_cache and _cache_available():
-        _cache_config(profile_data + ops_data + journal_raw)
+    # Start async cache warming
+    threading.Thread(target=_warm_cache, daemon=True).start()
 
-        # Create index entries from full memories
-        memory_index = []
-        for m in full_memories:
-            memory_index.append({
-                'id': m.get('id'),
-                'type': m.get('type'),
-                't': m.get('t'),
-                'tags': m.get('tags'),
-                'summary_preview': m.get('summary', '')[:100],
-                'confidence': m.get('confidence'),
-                'importance': m.get('importance')
-            })
-
-        _cache_populate_index(memory_index)
-        _cache_populate_full(full_memories)
-
-    return profile_data, ops_data, journal_data
-
-
-def boot(journal_n: int = 5) -> str:
-    """Optimized boot with compressed output (~500 tokens vs ~4400).
-
-    Returns formatted string ready to print. Full content available via config_get().
-    Populates local cache for fast subsequent recall() queries.
-
-    Args:
-        journal_n: Number of recent journal entries for cache (default 5)
-
-    Returns:
-        Formatted string with PROFILE and OPS sections (key + first line)
-
-    Performance:
-        - Execution: ~150ms
-        - Output: ~2K chars (~500 tokens, 89% reduction from uncompressed)
-        - Subsequent recall(): ~2ms via local cache
-
-    Example:
-        from remembering import boot
-        print(boot())
-    """
-    # Load data and populate cache
-    profile, ops, journal = boot_fast(journal_n=journal_n, index_n=500, use_cache=True)
-
+    # Format output
     output = []
-
-    # Profile (key + first line)
-    if profile:
+    if profile_data:
         output.append("=== PROFILE ===")
-        for p in profile:
-            first_line = p['value'].split('\n')[0] if p['value'] else ''
-            output.append(f"{p['key']}: {first_line}")
+        for p in profile_data:
+            output.append(f"{p['key']}:\n{p['value']}")
 
-    # Ops (key + first line)
-    if ops:
+    if ops_data:
         output.append("\n=== OPS ===")
-        for o in ops:
-            first_line = o['value'].split('\n')[0] if o['value'] else ''
-            output.append(f"{o['key']}: {first_line}")
+        for o in ops_data:
+            output.append(f"{o['key']}:\n{o['value']}")
 
     return '\n'.join(output)
 

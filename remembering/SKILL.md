@@ -26,78 +26,18 @@ Load context at conversation start to maintain continuity across sessions.
 
 ### Optimized: Compressed Boot (Recommended)
 
-Use `boot()` for fast startup with minimal tokens (~150ms, ~700 tokens):
+Use `boot()` for fast startup (~150ms):
 
 ```python
 from remembering import boot
 print(boot())
 ```
 
-Output format (compressed - key + first line):
-```
-=== PROFILE ===
-identity: I am Muninn, your persistent memory...
-bio: Claude instance with long-term memory...
-
-=== OPS ===
-memory-rules: Store important facts and decisions...
-skill-delivery: Skills are delivered via...
-
-=== JOURNAL ===
-[2025-12-29] muninn-v0.10.0: Added embedding retry logic
-[2025-12-28] performance: Optimized boot sequence
-```
-
-**Progressive disclosure:** Headlines shown at boot. Retrieve full content when needed:
-
-```python
-# Later in conversation, when topic becomes relevant
-from remembering import config_get
-full_text = config_get("identity")  # Fetch full profile entry from cache
-```
-
-**Parameters:**
-- `journal_n=5`: Number of recent journal entries (default 5)
+Output: Complete profile and ops values for full context at boot.
 
 **Performance:**
 - Execution: ~150ms (single HTTP request)
-- Output: ~2.8K chars (~700 tokens, 84% reduction from uncompressed)
 - Populates local cache for fast subsequent recall()
-
-### Advanced: boot_fast() for Programmatic Access
-
-For Claude Code environments, `boot_fast()` populates a local SQLite cache for dramatically faster subsequent queries:
-
-```python
-from remembering import boot_fast, recall, cache_stats
-
-# Boot loads config + memory index (headlines only)
-profile, ops, journal = boot_fast()  # ~150ms, populates local cache
-
-# Subsequent recalls are ~150x faster via cache
-memories = recall(type="decision", n=10)  # First call: ~300ms (fetches full content)
-memories = recall(type="decision", n=10)  # Second call: ~2ms (cache hit)
-
-# Check cache status
-print(cache_stats())
-# {'index_count': 79, 'full_count': 6, 'hit_rate': '6/79', ...}
-```
-
-**Cache Architecture (Progressive Disclosure):**
-- Index populated at boot with headlines (first 100 chars)
-- Full content lazy-loaded from Turso on first access
-- Writes go to both cache and Turso (write-through)
-- Cache is per-session (cleared on each boot_fast())
-
-**Parameters:**
-- `journal_n=5`: Number of recent journal entries
-- `index_n=500`: Number of memory headlines to cache
-- `use_cache=True`: Enable local cache (set False to bypass)
-
-**Adjusting the confidence threshold:**
-- `conf=0.7`: Include most decisions (default, balanced)
-- `conf=0.85`: Only high-confidence decisions (strict)
-- `conf=0.5`: Include more exploratory decisions (permissive)
 
 ## Journal System
 
