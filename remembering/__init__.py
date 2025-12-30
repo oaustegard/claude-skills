@@ -317,7 +317,8 @@ def _cache_config(config_entries: list):
 
 def _cache_query_index(search: str = None, type: str = None,
                        tags: list = None, n: int = 10,
-                       conf: float = None, tag_mode: str = "any") -> list:
+                       conf: float = None, tag_mode: str = "any",
+                       strict: bool = False) -> list:
     """Query memory_index using FTS5 for text search (v0.9.0).
 
     When search is provided, uses FTS5 MATCH for ranked full-text search
@@ -325,6 +326,7 @@ def _cache_query_index(search: str = None, type: str = None,
 
     Args:
         tag_mode: "any" (default) matches any tag, "all" requires all tags
+        strict: If True, skip ranking and order by timestamp DESC (v0.12.1)
 
     Returns list of dicts with cache data. If has_full=0,
     full content needs to be fetched from Turso.
@@ -333,6 +335,42 @@ def _cache_query_index(search: str = None, type: str = None,
         return []
 
     try:
+        # v0.12.1: Strict mode - plain SQL with timestamp ordering (no ranking)
+        if strict:
+            conditions = []
+            params = []
+
+            if type:
+                conditions.append("i.type = ?")
+                params.append(type)
+            if conf is not None:
+                conditions.append("i.confidence >= ?")
+                params.append(conf)
+            if tags:
+                # Match tags according to tag_mode
+                tag_conds = []
+                for t in tags:
+                    tag_conds.append("i.tags LIKE ?")
+                    params.append(f'%"{t}"%')
+                join_op = ' AND ' if tag_mode == "all" else ' OR '
+                conditions.append(f"({join_op.join(tag_conds)})")
+
+            where = " AND ".join(conditions) if conditions else "1=1"
+
+            # Plain timestamp ordering - newest first
+            cursor = _cache_conn.execute(f"""
+                SELECT i.*, f.summary, f.entities, f.refs, f.memory_class,
+                       f.valid_from, f.valid_to, f.access_count, f.last_accessed
+                FROM memory_index i
+                LEFT JOIN memory_full f ON i.id = f.id
+                WHERE {where}
+                ORDER BY i.t DESC
+                LIMIT ?
+            """, params + [n])
+
+            rows = cursor.fetchall()
+            return [_cache_row_to_dict(row) for row in rows]
+
         if search:
             # Use FTS5 for ranked text search (v0.9.0)
             # Escape FTS5 special characters and add prefix matching
@@ -1006,13 +1044,14 @@ def flush(timeout: float = 5.0) -> dict:
 def recall(search: str = None, *, n: int = 10, tags: list = None,
            type: str = None, conf: float = None, tag_mode: str = "any",
            use_cache: bool = True, semantic_fallback: bool = True,
-           semantic_threshold: int = 2) -> list:
+           semantic_threshold: int = 2, strict: bool = False) -> list:
     """Query memories with flexible filters.
 
     v0.7.0: Uses local cache with progressive disclosure when available.
     v0.9.0: Uses FTS5 for ranked text search instead of LIKE.
             Adds semantic fallback when FTS5 returns few results.
     v0.12.0: Logs queries for retrieval instrumentation.
+    v0.12.1: Adds strict mode for timestamp-only ordering (no ranking).
 
     Args:
         search: Text to search for in memory summaries (FTS5 ranked search)
@@ -1026,6 +1065,7 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
                           fewer than semantic_threshold results
         semantic_threshold: Trigger semantic fallback when FTS5 returns fewer
                            than this many results (default 2)
+        strict: If True, skip FTS5/ranking and order by timestamp DESC (v0.12.1)
     """
     # Track timing for logging (v0.12.0)
     start_time = time.time()
@@ -1036,11 +1076,12 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
 
     # Try cache first (progressive disclosure)
     if use_cache and _cache_available():
-        results = _cache_query_index(search=search, type=type, tags=tags, n=n, conf=conf, tag_mode=tag_mode)
+        results = _cache_query_index(search=search, type=type, tags=tags, n=n, conf=conf, tag_mode=tag_mode, strict=strict)
 
         # Semantic fallback: if FTS5 returns few results and search was provided,
         # try semantic search to find conceptually related memories (v0.9.0)
-        if search and semantic_fallback and len(results) < semantic_threshold:
+        # Skip semantic fallback in strict mode (v0.12.1)
+        if search and semantic_fallback and not strict and len(results) < semantic_threshold:
             try:
                 semantic_results = semantic_recall(search, n=n, type=type, conf=conf, tags=tags)
                 used_semantic = True  # Track for logging
@@ -1703,7 +1744,8 @@ def therapy_scope() -> tuple[str | None, list]:
         - cutoff_timestamp: Latest therapy session timestamp, or None if no sessions exist
         - memories_list: Memories since last therapy session (or all if no sessions)
     """
-    sessions = recall(search="Therapy Session", type="experience", tags=["therapy"], n=1)
+    # v0.12.1: Use strict=True to get newest session by timestamp, not by relevance ranking
+    sessions = recall(type="experience", tags=["therapy"], n=1, strict=True)
     cutoff = sessions[0]['t'] if sessions else None
     memories = recall_since(cutoff, n=100) if cutoff else recall(n=100)
     return cutoff, memories

@@ -254,6 +254,35 @@ remembering/
 
 ## Recent Enhancements
 
+### v0.12.1 (2025-12-30)
+✅ **Strict Query Mode for therapy_scope() Bug Fix**:
+- Fixed bug where `therapy_scope()` returned MOST RELEVANT therapy session instead of LATEST
+- Added `strict=True` parameter to `recall()` for timestamp-only ordering
+- Strict mode skips FTS5/BM25 ranking and uses plain SQL with `ORDER BY t DESC`
+- Updated `therapy_scope()` to use `strict=True` - now correctly returns newest session
+- Semantic fallback automatically disabled in strict mode
+
+**Bug Background**:
+- `recall()` always ordered by composite_rank (BM25 + salience + recency + access)
+- When `therapy_scope()` asked for n=1, it got best-ranked match, not newest
+- Example: Session #2 (2025-12-26) had composite_rank=-15.6, Session #4 (2025-12-28, newer) had composite_rank=-14.1
+- Result: Muninn kept thinking sessions were older than they actually were
+
+**Use Cases for Strict Mode**:
+- `therapy_scope()`: Get newest therapy session by timestamp
+- "All decisions from last week": Date filter + type, no ranking needed
+- "Latest handoff": Tag match with timestamp order
+- Any query where relevance ranking adds noise to chronological ordering
+
+**API Changes**:
+```python
+# Strict mode: timestamp ordering, no ranking
+sessions = recall(type="experience", tags=["therapy"], n=1, strict=True)
+
+# Regular mode: composite ranking (BM25 + salience + recency + access)
+sessions = recall(type="experience", tags=["therapy"], n=1)
+```
+
 ### v0.12.0 (2025-12-30)
 ✅ **Query Logging for Retrieval Instrumentation (Phase 0)**:
 - New `recall_logs` table in local cache tracks all recall() queries
