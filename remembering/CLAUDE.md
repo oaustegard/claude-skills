@@ -94,15 +94,15 @@ CREATE TABLE memories (
 ```python
 from remembering import remember, recall, forget, supersede, remember_bg, semantic_recall
 from remembering import recall_since, recall_between
-from remembering import config_get, config_set, config_list, profile, ops, boot, boot_fast
+from remembering import config_get, config_set, config_list, profile, ops, boot
 from remembering import journal, journal_recent, journal_prune
 from remembering import therapy_scope, therapy_session_count, decisions_recent
 from remembering import group_by_type, group_by_tag
 from remembering import handoff_pending, handoff_complete
 from remembering import muninn_export, muninn_import
-from remembering import strengthen, weaken  # v0.10.0 salience adjustment
-from remembering import cache_stats  # v0.7.0 cache diagnostics
-from remembering import embedding_stats, retry_embeddings  # v0.10.1 embedding reliability
+from remembering import strengthen, weaken
+from remembering import cache_stats
+from remembering import embedding_stats, retry_embeddings
 
 # Store a memory (type required, with optional embedding)
 id = remember("User prefers dark mode", "decision", tags=["ui"], conf=0.9)
@@ -111,7 +111,7 @@ id = remember("Quick note", "world", embed=False)  # Skip embedding
 # Background write (non-blocking)
 remember_bg("Project uses React", "world", tags=["tech"])
 
-# Query memories - FTS5 ranked search (v0.9.0)
+# Query memories
 memories = recall("dark mode")  # FTS5 search, ranked by BM25
 memories = recall(type="decision", conf=0.8)  # filtered
 memories = recall(tags=["ui"])  # by tag (any match)
@@ -133,11 +133,11 @@ forget(memory_id)
 # Version a memory (creates new, links to old)
 new_id = supersede(old_id, "Updated preference", "decision")
 
-# Salience adjustment for memory consolidation (v0.10.0)
+# Salience adjustment for memory consolidation
 strengthen("memory-id", factor=1.5)  # Boost salience (default 1.5x)
 weaken("memory-id", factor=0.5)      # Reduce salience (default 0.5x)
 
-# Embedding reliability monitoring and retry (v0.10.1)
+# Embedding reliability monitoring and retry
 stats = embedding_stats()  # Check embedding coverage and failure rates
 if stats['failure_rate'] > 5.0:
     result = retry_embeddings(limit=50)  # Batch retry failed embeddings (default: 100 per API call)
@@ -158,18 +158,8 @@ recent = journal_recent(5)
 cutoff, unprocessed = therapy_scope()  # get memories since last therapy session
 session_count = therapy_session_count()  # count therapy sessions
 
-# Boot sequence - programmatic access
-profile, ops, journal = boot_fast()  # Returns: (profile_list, ops_list, journal_list)
-
-# Boot sequence - formatted output (recommended)
-output = boot()  # Complete profile + ops values
-print(output)
-
-# Boot sequence - individual calls (slow, avoid)
-# Only use if you need fine-grained control
-recent_decisions = decisions_recent(10, conf=0.7)  # recent decisions with conf >= 0.7
-for d in recent_decisions:
-    print(f"[{d['t'][:10]}] {d['summary'][:80]}")
+# Boot - load context and populate cache
+print(boot())
 
 # Analysis helpers
 mems = recall(n=50)

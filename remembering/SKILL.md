@@ -39,41 +39,6 @@ Output: Complete profile and ops values for full context at boot.
 - Execution: ~150ms (single HTTP request)
 - Populates local cache for fast subsequent recall()
 
-### Advanced: boot_fast() for Programmatic Access
-
-For Claude Code environments, `boot_fast()` populates a local SQLite cache for dramatically faster subsequent queries:
-
-```python
-from remembering import boot_fast, recall, cache_stats
-
-# Boot loads config + memory index (headlines only)
-profile, ops, journal = boot_fast()  # ~150ms, populates local cache
-
-# Subsequent recalls are ~150x faster via cache
-memories = recall(type="decision", n=10)  # First call: ~300ms (fetches full content)
-memories = recall(type="decision", n=10)  # Second call: ~2ms (cache hit)
-
-# Check cache status
-print(cache_stats())
-# {'index_count': 79, 'full_count': 6, 'hit_rate': '6/79', ...}
-```
-
-**Cache Architecture (Progressive Disclosure):**
-- Index populated at boot with headlines (first 100 chars)
-- Full content lazy-loaded from Turso on first access
-- Writes go to both cache and Turso (write-through)
-- Cache is per-session (cleared on each boot_fast())
-
-**Parameters:**
-- `journal_n=5`: Number of recent journal entries
-- `index_n=500`: Number of memory headlines to cache
-- `use_cache=True`: Enable local cache (set False to bypass)
-
-**Adjusting the confidence threshold:**
-- `conf=0.7`: Include most decisions (default, balanced)
-- `conf=0.85`: Only high-confidence decisions (strict)
-- `conf=0.5`: Include more exploratory decisions (permissive)
-
 ## Journal System
 
 Temporal awareness via rolling journal entries in config. Inspired by Strix's journal.jsonl pattern.
