@@ -2,6 +2,18 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.13.0] - 2025-12-30
+
+### Changed
+
+- async cache warming, remove boot_fast
+- remove boot_fast from public API, clean up version comments
+
+### Fixed
+
+- show complete profile + ops, remove changelog from CLAUDE.md
+- show complete ops values, remove journal_n param
+
 ## [0.12.2] - 2025-12-30
 
 - Release 0.12.2
