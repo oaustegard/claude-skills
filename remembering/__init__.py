@@ -1643,20 +1643,20 @@ def boot_fast(journal_n: int = 5, index_n: int = 500,
 
 
 def boot(journal_n: int = 5) -> str:
-    """Optimized boot with compressed output (~700 tokens vs ~4400).
+    """Optimized boot with compressed output (~500 tokens vs ~4400).
 
     Returns formatted string ready to print. Full content available via config_get().
     Populates local cache for fast subsequent recall() queries.
 
     Args:
-        journal_n: Number of recent journal entries (default 5)
+        journal_n: Number of recent journal entries for cache (default 5)
 
     Returns:
-        Formatted string with key + first line for each config entry
+        Formatted string with PROFILE and OPS sections (key + first line)
 
     Performance:
         - Execution: ~150ms
-        - Output: ~2.8K chars (~700 tokens, 84% reduction from uncompressed)
+        - Output: ~2K chars (~500 tokens, 89% reduction from uncompressed)
         - Subsequent recall(): ~2ms via local cache
 
     Example:
@@ -1681,14 +1681,6 @@ def boot(journal_n: int = 5) -> str:
         for o in ops:
             first_line = o['value'].split('\n')[0] if o['value'] else ''
             output.append(f"{o['key']}: {first_line}")
-
-    # Journal (condensed format)
-    if journal:
-        output.append("\n=== JOURNAL ===")
-        for j in journal:
-            topics = ", ".join(j.get('topics', []))
-            intent = j.get('my_intent', j.get('user_stated', ''))
-            output.append(f"[{j['t'][:10]}] {topics}: {intent}")
 
     return '\n'.join(output)
 
