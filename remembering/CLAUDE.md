@@ -156,10 +156,9 @@ session_count = therapy_session_count()  # count therapy sessions
 profile, ops, journal = boot_fast()  # single HTTP request, 3 queries
 # Returns: (profile_list, ops_list, journal_list)
 
-# Boot sequence - with decision index (~200ms)
-profile, ops, journal, decisions = boot()  # single HTTP request, 4 queries
-# Returns: (profile_list, ops_list, journal_list, decision_index)
-# decision_index has headlines only: {id, t, tags, headline}
+# Boot sequence - compressed output (~150ms, ~700 tokens)
+output = boot()  # single HTTP request, returns formatted string
+print(output)  # Shows profile/ops/journal with key + first line format
 
 # Boot sequence - individual calls (SLOW: ~1100ms, 3 HTTP requests)
 # Only use if you need fine-grained control

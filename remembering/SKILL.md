@@ -24,84 +24,47 @@ Config loads fast at startup. Memories are queried as needed.
 
 Load context at conversation start to maintain continuity across sessions.
 
-### Optimized: Single-Call Boot (Recommended)
+### Optimized: Compressed Boot (Recommended)
 
-Use `boot()` for fast startup with batched queries (~200ms vs ~1.2s):
+Use `boot()` for fast startup with minimal tokens (~150ms, ~700 tokens):
 
 ```python
 from remembering import boot
-
-# Single HTTP request loads all boot data
-profile, ops, journal, decisions = boot()
-
-# Profile and ops (full text)
-for p in profile:
-    print(p['value'])
-
-for o in ops:
-    print(o['value'])
-
-# Decisions (headlines only - progressive disclosure)
-print(f"\n=== DECISIONS ({len(decisions)} available) ===")
-for d in decisions:
-    tags = ', '.join(d.get('tags', []))
-    print(f"[{d['t'][:10]}] {tags}")
-
-# Journal (recent activity)
-print("\n=== RECENT ===")
-for j in journal:
-    topics = ', '.join(j.get('topics', []))
-    intent = j.get('my_intent', '-')
-    stated = j.get('user_stated', '')
-    print(f"[{j['t'][:10]}] {topics}: {intent}" + (f" | user: {stated}" if stated else ""))
+print(boot())
 ```
 
-**Progressive disclosure:** Decision index shows date + tags only. Retrieve full text when relevant:
+Output format (compressed - key + first line):
+```
+=== PROFILE ===
+identity: I am Muninn, your persistent memory...
+bio: Claude instance with long-term memory...
+
+=== OPS ===
+memory-rules: Store important facts and decisions...
+skill-delivery: Skills are delivered via...
+
+=== JOURNAL ===
+[2025-12-29] muninn-v0.10.0: Added embedding retry logic
+[2025-12-28] performance: Optimized boot sequence
+```
+
+**Progressive disclosure:** Headlines shown at boot. Retrieve full content when needed:
 
 ```python
 # Later in conversation, when topic becomes relevant
-from remembering import recall
-full_decisions = recall("memory architecture", type="decision")
+from remembering import config_get
+full_text = config_get("identity")  # Fetch full profile entry from cache
 ```
 
 **Parameters:**
 - `journal_n=5`: Number of recent journal entries (default 5)
-- `decisions_n=10`: Number of decision headlines (default 10)
-- `decisions_conf=0.7`: Minimum confidence for decisions (default 0.7)
 
-### Alternative: Individual Calls
+**Performance:**
+- Execution: ~150ms (single HTTP request)
+- Output: ~2.8K chars (~700 tokens, 84% reduction from uncompressed)
+- Populates local cache for fast subsequent recall()
 
-If you need more control over loading:
-
-```python
-from remembering import profile, ops, journal_recent, decisions_recent
-
-# Load profile and ops configuration
-for p in profile():
-    print(p['value'])
-
-for o in ops():
-    print(o['value'])
-
-# Load recent high-confidence decisions (full text)
-print("\n=== RECENT DECISIONS ===")
-for d in decisions_recent(10, conf=0.7):
-    print(f"[{d['t'][:10]}] {d['summary'][:100]}")
-
-# Load recent journal entries
-print("\n=== RECENT ACTIVITY ===")
-for j in journal_recent(5):
-    print(f"[{j['t'][:10]}] {j.get('topics', [])}: {j.get('my_intent', '')}")
-```
-
-**Why load decisions at boot?**
-
-Decision memories capture important preferences and rules. Loading them at session start ensures:
-- Past mistakes aren't repeated
-- User preferences are immediately visible
-- Consistency across conversations
-
-### Fastest Boot: boot_fast() with Local Cache (v0.7.0)
+### Advanced: boot_fast() for Programmatic Access
 
 For Claude Code environments, `boot_fast()` populates a local SQLite cache for dramatically faster subsequent queries:
 
