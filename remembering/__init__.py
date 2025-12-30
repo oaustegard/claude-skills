@@ -1565,100 +1565,71 @@ def ops() -> list:
     """Load operational config for conversation start."""
     return config_list("ops")
 
-def boot_fast(journal_n: int = 5, index_n: int = 500,
-              use_cache: bool = True) -> tuple[list, list, list]:
-    """Optimized boot: returns (profile, ops, journal) in one HTTP request (~130ms).
 
-    Use this instead of calling profile(), ops(), journal_recent() separately,
-    which would make 3 HTTP requests (~1100ms total).
+def _warm_cache():
+    """Background cache population - fetches all memories from Turso."""
+    try:
+        results = _exec_batch([
+            """SELECT * FROM memories
+               WHERE deleted_at IS NULL
+               ORDER BY t DESC LIMIT 500"""
+        ])
+        full_memories = results[0]
 
-    v0.7.0: Also populates local SQLite cache with memory index for fast recall().
-
-    Args:
-        journal_n: Number of recent journal entries (default 5)
-        index_n: Number of memory headlines to cache (default 500)
-        use_cache: If True, populate local cache for fast subsequent queries
-
-    Returns:
-        Tuple of (profile_list, ops_list, journal_list)
-
-    Performance:
-        - Separate calls: ~1100ms (3 HTTP requests)
-        - boot_fast(): ~130ms (1 HTTP request, 8x faster)
-        - Subsequent recall(): <5ms (local cache) vs ~150ms (network)
-    """
-    # Initialize local cache if enabled
-    if use_cache:
-        _init_local_cache()
-
-    # Fetch config + full memory content in single request
-    results = _exec_batch([
-        "SELECT * FROM config WHERE category = 'profile' ORDER BY key",
-        "SELECT * FROM config WHERE category = 'ops' ORDER BY key",
-        ("SELECT * FROM config WHERE category = 'journal' ORDER BY key DESC LIMIT ?", [journal_n]),
-        # Full memory content: fetch everything to eliminate mid-conversation network calls
-        ("""SELECT *
-            FROM memories
-            WHERE deleted_at IS NULL
-              AND id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)
-            ORDER BY t DESC LIMIT ?""", [index_n]),
-    ])
-
-    profile_data = results[0]
-    ops_data = results[1]
-    journal_raw = results[2]
-    full_memories = results[3]
-
-    # Parse journal entries
-    journal_data = []
-    for e in journal_raw:
-        try:
-            parsed = json.loads(e["value"])
-            parsed["_key"] = e["key"]
-            journal_data.append(parsed)
-        except json.JSONDecodeError:
-            continue
-
-    # Populate local cache with full content
-    if use_cache and _cache_available():
-        _cache_config(profile_data + ops_data + journal_raw)
-
-        # Create index entries from full memories
-        memory_index = []
-        for m in full_memories:
-            memory_index.append({
-                'id': m.get('id'),
-                'type': m.get('type'),
-                't': m.get('t'),
-                'tags': m.get('tags'),
-                'summary_preview': m.get('summary', '')[:100],
-                'confidence': m.get('confidence'),
-                'importance': m.get('importance')
-            })
-
-        _cache_populate_index(memory_index)
-        _cache_populate_full(full_memories)
-
-    return profile_data, ops_data, journal_data
+        if _cache_available():
+            memory_index = []
+            for m in full_memories:
+                memory_index.append({
+                    'id': m.get('id'),
+                    'type': m.get('type'),
+                    't': m.get('t'),
+                    'tags': m.get('tags'),
+                    'summary_preview': m.get('summary', '')[:100],
+                    'confidence': m.get('confidence'),
+                    'importance': m.get('importance')
+                })
+            _cache_populate_index(memory_index)
+            _cache_populate_full(full_memories)
+    except Exception:
+        pass  # Cache warming is best-effort
 
 
 def boot() -> str:
-    """Boot sequence returning complete profile and ops.
+    """Boot sequence: load profile + ops, start async cache population.
 
-    Returns formatted string ready to print. Populates local cache for fast recall().
+    Returns formatted string with complete profile and ops values.
+    Spawns background thread to populate memory cache for fast recall().
     """
-    profile, ops, _ = boot_fast(journal_n=5, index_n=500, use_cache=True)
+    import threading
 
+    # Initialize cache
+    _init_local_cache()
+
+    # Fetch only profile + ops (fast, small query)
+    results = _exec_batch([
+        "SELECT * FROM config WHERE category = 'profile' ORDER BY key",
+        "SELECT * FROM config WHERE category = 'ops' ORDER BY key",
+    ])
+    profile_data = results[0]
+    ops_data = results[1]
+
+    # Cache config immediately
+    if _cache_available():
+        _cache_config(profile_data + ops_data)
+
+    # Start async cache warming
+    threading.Thread(target=_warm_cache, daemon=True).start()
+
+    # Format output
     output = []
-
-    if profile:
+    if profile_data:
         output.append("=== PROFILE ===")
-        for p in profile:
+        for p in profile_data:
             output.append(f"{p['key']}:\n{p['value']}")
 
-    if ops:
+    if ops_data:
         output.append("\n=== OPS ===")
-        for o in ops:
+        for o in ops_data:
             output.append(f"{o['key']}:\n{o['value']}")
 
     return '\n'.join(output)
