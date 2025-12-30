@@ -246,6 +246,7 @@ remembering/
 - Tags stored as JSON arrays
 - Soft delete via `deleted_at` column
 - `session_id` currently placeholder ("session")
+- **Always test changes before creating a PR**
 
 ## Lessons for Claude Code Agents
 
