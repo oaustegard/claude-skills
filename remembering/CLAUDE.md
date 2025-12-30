@@ -1,6 +1,12 @@
 # Muninn Memory System - Claude Code Context
 
-This repo contains the `remembering` skill for Muninn, a persistent memory system for Claude.
+**BOOT ON LAUNCH:** Run `boot()` at the start of every session:
+```python
+import sys
+sys.path.insert(0, '/home/user/claude-skills')
+from remembering import boot
+print(boot())
+```
 
 ## Meta: Using Muninn During Development
 
@@ -152,15 +158,14 @@ recent = journal_recent(5)
 cutoff, unprocessed = therapy_scope()  # get memories since last therapy session
 session_count = therapy_session_count()  # count therapy sessions
 
-# Boot sequence - fastest (recommended, ~130ms)
-profile, ops, journal = boot_fast()  # single HTTP request, 3 queries
-# Returns: (profile_list, ops_list, journal_list)
+# Boot sequence - programmatic access
+profile, ops, journal = boot_fast()  # Returns: (profile_list, ops_list, journal_list)
 
-# Boot sequence (~150ms)
-output = boot()  # single HTTP request, returns formatted string
-print(output)  # Complete profile + ops values
+# Boot sequence - formatted output (recommended)
+output = boot()  # Complete profile + ops values
+print(output)
 
-# Boot sequence - individual calls (SLOW: ~1100ms, 3 HTTP requests)
+# Boot sequence - individual calls (slow, avoid)
 # Only use if you need fine-grained control
 recent_decisions = decisions_recent(10, conf=0.7)  # recent decisions with conf >= 0.7
 for d in recent_decisions:
