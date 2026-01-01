@@ -2,7 +2,7 @@
 name: browsing-bluesky
 description: Browse Bluesky content via API and firehose - search posts, fetch user activity, sample trending topics, read feeds and lists. Use for Bluesky research, user monitoring, trend analysis, feed reading, firehose sampling.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Browsing Bluesky
