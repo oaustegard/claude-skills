@@ -16,7 +16,11 @@ Add skill directory to path and import:
 ```python
 import sys
 sys.path.insert(0, '/path/to/skills/browsing-bluesky')  # or use .claude/skills symlink path
-from browsing_bluesky import search_posts, get_user_posts, get_profile, get_feed_posts, sample_firehose
+from browsing_bluesky import (
+    search_posts, get_user_posts, get_profile, get_feed_posts, sample_firehose,
+    get_thread, get_quotes, get_likes, get_reposts,
+    get_followers, get_following, search_users
+)
 ```
 
 ## Research Workflows
@@ -63,6 +67,58 @@ Use for real-time zeitgeist, trending topic detection, or filtered stream analys
 - AT-URIs: `at://did:plc:xxx/app.bsky.graph.list/xyz`
 
 The function extracts the AT-URI from URLs automatically.
+
+### Explore a Thread
+
+Fetch full thread context for a post with parents and replies:
+
+```python
+thread = get_thread("https://bsky.app/profile/user/post/xyz", depth=10)
+# Returns: {post: {...}, parent: {...}, replies: [...]}
+```
+
+### Find Quote Posts
+
+Discover posts that quote a specific post:
+
+```python
+quotes = get_quotes("https://bsky.app/profile/user/post/xyz")
+for q in quotes:
+    print(f"@{q['author_handle']}: {q['text'][:80]}")
+```
+
+### Analyze Engagement
+
+Get users who engaged with a post:
+
+```python
+likes = get_likes(post_url)
+reposts = get_reposts(post_url)
+
+# Accepts both URLs and AT-URIs
+likes = get_likes("at://did:plc:.../app.bsky.feed.post/...")
+```
+
+### Explore Social Graph
+
+Navigate follower/following relationships:
+
+```python
+followers = get_followers("handle.bsky.social")
+following = get_following("handle.bsky.social")
+
+# Returns list of actor dicts with handle, display_name, did, description, etc.
+```
+
+### Find Users
+
+Search for users by name, handle, or bio:
+
+```python
+users = search_users("machine learning researcher")
+for u in users:
+    print(f"{u['display_name']} (@{u['handle']}): {u['description'][:100]}")
+```
 
 ## API Endpoint Notes
 
