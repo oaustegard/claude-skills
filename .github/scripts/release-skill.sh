@@ -1,7 +1,8 @@
 #!/bin/bash
 set -e
 
-# Release skills based on VERSION file changes or manual trigger
+# Release skills based on frontmatter version changes or manual trigger
+# Detects version changes in SKILL.md metadata.version (or VERSION file for backward compat)
 # This script is called by the skill-release.yml GitHub Actions workflow
 
 # Configure Git
@@ -129,9 +130,17 @@ if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
   fi
   echo "Manual trigger for skill: $SKILLS"
 else
-  # Auto-detect from push - find VERSION files that changed
-  CHANGED=$(git diff --name-only HEAD~1 HEAD | grep '^[^/]*/VERSION$' | cut -d'/' -f1 | tr '\n' ' ')
-  SKILLS="$CHANGED"
+  # Auto-detect from push - find skills with version changes in frontmatter
+  # Try Python script first (works with frontmatter), fall back to VERSION file detection
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+  if command -v python3 &> /dev/null && [ -f "$SCRIPT_DIR/detect-version-changes.py" ]; then
+    # Use Python script to detect frontmatter version changes
+    SKILLS=$(python3 "$SCRIPT_DIR/detect-version-changes.py" HEAD~1 HEAD)
+  else
+    # Fall back to VERSION file detection (backward compatibility)
+    SKILLS=$(git diff --name-only HEAD~1 HEAD | grep '^[^/]*/VERSION$' | cut -d'/' -f1 | tr '\n' ' ')
+  fi
 fi
 
 if [ -z "$SKILLS" ]; then
@@ -155,17 +164,31 @@ for SKILL_DIR in $SKILLS; do
     exit 1
   fi
 
-  # Read version from file or input
+  # Read version from frontmatter or VERSION file
   if [ -n "${WORKFLOW_DISPATCH_VERSION:-}" ]; then
     VERSION="$WORKFLOW_DISPATCH_VERSION"
     echo "Using manual version: $VERSION"
   else
-    if [ ! -f "$SKILL_DIR/VERSION" ]; then
-      echo "Error: No VERSION file found in $SKILL_DIR"
-      exit 1
+    # Try Python script first (reads frontmatter), fall back to VERSION file
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+    if command -v python3 &> /dev/null && [ -f "$SCRIPT_DIR/extract-version.py" ]; then
+      # Use Python script to extract version from frontmatter or VERSION file
+      VERSION=$(python3 "$SCRIPT_DIR/extract-version.py" "$SKILL_DIR")
+      if [ $? -ne 0 ] || [ -z "$VERSION" ]; then
+        echo "Error: Could not extract version from $SKILL_DIR"
+        exit 1
+      fi
+      echo "Using version: $VERSION (from frontmatter or VERSION file)"
+    else
+      # Fall back to VERSION file only (backward compatibility)
+      if [ ! -f "$SKILL_DIR/VERSION" ]; then
+        echo "Error: No VERSION file found in $SKILL_DIR"
+        exit 1
+      fi
+      VERSION=$(cat "$SKILL_DIR/VERSION" | tr -d '[:space:]')
+      echo "Using VERSION file: $VERSION"
     fi
-    VERSION=$(cat "$SKILL_DIR/VERSION" | tr -d '[:space:]')
-    echo "Using VERSION file: $VERSION"
   fi
 
   # Validate version format (basic semver check)
