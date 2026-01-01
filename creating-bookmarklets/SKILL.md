@@ -1,6 +1,8 @@
 ---
 name: creating-bookmarklets
 description: Creates browser-executable JavaScript bookmarklets with strict formatting requirements. Use when users mention bookmarklets, browser utilities, dragging code to bookmarks bar, or need JavaScript that runs when clicked in the browser toolbar.
+metadata:
+  version: 1.0.3
 ---
 
 # Bookmarklet Creation

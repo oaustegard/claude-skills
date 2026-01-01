@@ -1,6 +1,8 @@
 ---
 name: reviewing-ai-papers
 description: Analyze AI/ML technical content (papers, articles, blog posts) and extract actionable insights filtered through enterprise AI engineering lens. Use when user provides URL/document for AI/ML content analysis, asks to "review this paper", or mentions technical content in domains like RAG, embeddings, fine-tuning, prompt engineering, LLM deployment.
+metadata:
+  version: 0.1.0
 ---
 
 # Reviewing AI Papers

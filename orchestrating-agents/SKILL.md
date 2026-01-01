@@ -1,6 +1,8 @@
 ---
 name: orchestrating-agents
 description: Orchestrates parallel API instances, delegated sub-tasks, and multi-agent workflows with streaming and tool-enabled delegation patterns. Use for parallel analysis, multi-perspective reviews, or complex task decomposition.
+metadata:
+  version: 0.1.2
 ---
 
 # Orchestrating Agents

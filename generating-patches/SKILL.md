@@ -1,6 +1,8 @@
 ---
 name: generating-patches
 description: Generates git patch files from codebase modifications for local application. Use when user mentions patch, diff, export changes, bring changes back, apply locally, or after editing uploaded codebases.
+metadata:
+  version: 0.1.0
 ---
 
 # Generating Patches

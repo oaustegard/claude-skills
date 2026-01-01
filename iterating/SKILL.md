@@ -1,6 +1,8 @@
 ---
 name: iterating
 description: Multi-conversation methodology for iterative stateful work with context accumulation. Use when users request work that spans multiple sessions (research, debugging, refactoring, feature development), need to build on past progress, explicitly mention iterative work, work logs, project knowledge, or cross-conversation learning.
+metadata:
+  version: 1.1.0
 ---
 
 # Iterating
