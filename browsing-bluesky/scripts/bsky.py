@@ -145,14 +145,19 @@ def sample_firehose(duration: int = 10, filter: Optional[str] = None) -> Dict[st
     Returns:
         Dict with topWords, topPhrases, entities, samplePosts, stats
     """
-    script_dir = Path(__file__).parent.parent  # browsing-bluesky/
-    zeitgeist_script = script_dir.parent / "sampling-bluesky-zeitgeist" / "scripts" / "zeitgeist-sample.js"
+    script_dir = Path(__file__).parent  # browsing-bluesky/scripts/
+    zeitgeist_script = script_dir / "zeitgeist-sample.js"
 
     cmd = ["node", str(zeitgeist_script), "--duration", str(duration)]
     if filter:
         cmd.extend(["--filter", filter])
 
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    # Set NODE_PATH to include /home/claude/node_modules for dependencies
+    import os
+    env = os.environ.copy()
+    env["NODE_PATH"] = "/home/claude/node_modules"
+
+    result = subprocess.run(cmd, capture_output=True, text=True, check=True, env=env)
     return json.loads(result.stdout)
 
 
