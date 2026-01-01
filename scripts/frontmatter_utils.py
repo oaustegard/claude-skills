@@ -59,16 +59,19 @@ def write_skill_md(skill_md_path: Path, frontmatter: Dict[str, Any], body: str) 
         body: Body text (everything after frontmatter)
     """
     # Convert frontmatter to YAML
-    # Use default_flow_style=False for readable multi-line format
+    # Use width=float('inf') to prevent line wrapping and preserve single-line strings
     frontmatter_yaml = yaml.dump(
         frontmatter,
         default_flow_style=False,
         allow_unicode=True,
-        sort_keys=False  # Preserve order
+        sort_keys=False,  # Preserve order
+        width=float('inf')  # Prevent line wrapping
     )
 
     # Construct file content
-    content = f"---\n{frontmatter_yaml}---{body}"
+    # Preserve blank line after --- if original had one
+    separator = "---\n" if body.startswith("\n") else "---"
+    content = f"---\n{frontmatter_yaml}{separator}{body}"
 
     # Write to file
     skill_md_path.write_text(content)
