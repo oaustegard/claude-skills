@@ -152,13 +152,150 @@ def sample_firehose(duration: int = 10, filter: Optional[str] = None) -> Dict[st
     if filter:
         cmd.extend(["--filter", filter])
 
-    # Set NODE_PATH to include /home/claude/node_modules for dependencies
     import os
     env = os.environ.copy()
     env["NODE_PATH"] = "/home/claude/node_modules"
 
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True, env=env)
+    # Redirect stderr to devnull to prevent progress output from interfering
+    with open(os.devnull, 'w') as devnull:
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=devnull,
+                                text=True, check=True, env=env)
+
     return json.loads(result.stdout)
+
+
+def get_thread(post_uri_or_url: str, depth: int = 6, parent_height: int = 80) -> Dict[str, Any]:
+    """Get a post with its full thread context (parents and replies).
+
+    Args:
+        post_uri_or_url: AT-URI or bsky.app URL to a post
+        depth: How many levels of replies to fetch (default 6, max 1000)
+        parent_height: How many parent posts to fetch (default 80, max 1000)
+
+    Returns:
+        Dict with 'post' (the target), 'parent' chain, and 'replies' tree
+    """
+    uri = _ensure_post_uri(post_uri_or_url)
+    r = requests.get(f"{BASE}/app.bsky.feed.getPostThread", params={
+        "uri": uri,
+        "depth": min(depth, 1000),
+        "parentHeight": min(parent_height, 1000)
+    })
+    r.raise_for_status()
+    return _parse_thread(r.json().get("thread", {}))
+
+
+def get_quotes(post_uri_or_url: str, limit: int = 25) -> List[Dict[str, Any]]:
+    """Get posts that quote a specific post.
+
+    Args:
+        post_uri_or_url: AT-URI or bsky.app URL to the quoted post
+        limit: Max results (default 25, max 100)
+
+    Returns:
+        List of quote post dicts
+    """
+    uri = _ensure_post_uri(post_uri_or_url)
+    r = requests.get(f"{BASE}/app.bsky.feed.getQuotes", params={
+        "uri": uri,
+        "limit": min(limit, 100)
+    })
+    r.raise_for_status()
+    return [_parse_post(p) for p in r.json().get("posts", [])]
+
+
+def get_likes(post_uri_or_url: str, limit: int = 50) -> List[Dict[str, Any]]:
+    """Get users who liked a post.
+
+    Args:
+        post_uri_or_url: AT-URI or bsky.app URL
+        limit: Max results (default 50, max 100)
+
+    Returns:
+        List of actor dicts with handle, display_name, did
+    """
+    uri = _ensure_post_uri(post_uri_or_url)
+    r = requests.get(f"{BASE}/app.bsky.feed.getLikes", params={
+        "uri": uri,
+        "limit": min(limit, 100)
+    })
+    r.raise_for_status()
+    return [_parse_actor(like["actor"]) for like in r.json().get("likes", [])]
+
+
+def get_reposts(post_uri_or_url: str, limit: int = 50) -> List[Dict[str, Any]]:
+    """Get users who reposted a post.
+
+    Args:
+        post_uri_or_url: AT-URI or bsky.app URL
+        limit: Max results (default 50, max 100)
+
+    Returns:
+        List of actor dicts
+    """
+    uri = _ensure_post_uri(post_uri_or_url)
+    r = requests.get(f"{BASE}/app.bsky.feed.getRepostedBy", params={
+        "uri": uri,
+        "limit": min(limit, 100)
+    })
+    r.raise_for_status()
+    return [_parse_actor(a) for a in r.json().get("repostedBy", [])]
+
+
+def get_followers(handle: str, limit: int = 50) -> List[Dict[str, Any]]:
+    """Get accounts following a user.
+
+    Args:
+        handle: Bluesky handle (with or without @)
+        limit: Max results (default 50, max 100)
+
+    Returns:
+        List of actor dicts
+    """
+    handle = handle.lstrip("@")
+    r = requests.get(f"{BASE}/app.bsky.graph.getFollowers", params={
+        "actor": handle,
+        "limit": min(limit, 100)
+    })
+    r.raise_for_status()
+    return [_parse_actor(f) for f in r.json().get("followers", [])]
+
+
+def get_following(handle: str, limit: int = 50) -> List[Dict[str, Any]]:
+    """Get accounts a user follows.
+
+    Args:
+        handle: Bluesky handle (with or without @)
+        limit: Max results (default 50, max 100)
+
+    Returns:
+        List of actor dicts
+    """
+    handle = handle.lstrip("@")
+    r = requests.get(f"{BASE}/app.bsky.graph.getFollows", params={
+        "actor": handle,
+        "limit": min(limit, 100)
+    })
+    r.raise_for_status()
+    return [_parse_actor(f) for f in r.json().get("follows", [])]
+
+
+def search_users(query: str, limit: int = 25) -> List[Dict[str, Any]]:
+    """Search for users by handle, display name, or bio.
+
+    Args:
+        query: Search terms
+        limit: Max results (default 25, max 100)
+
+    Returns:
+        List of actor dicts with profile info
+    """
+    r = requests.get(f"{BASE}/app.bsky.actor.searchActors", params={
+        "q": query,
+        "limit": min(limit, 100)
+    })
+    r.raise_for_status()
+    return [_parse_actor(a) for a in r.json().get("actors", [])]
 
 
 def _parse_post(post: Dict) -> Dict[str, Any]:
@@ -206,3 +343,58 @@ def _url_to_aturi(url: str) -> str:
     }[resource_type]
 
     return f"at://{did}/{collection}/{resource_id}"
+
+
+def _ensure_post_uri(uri_or_url: str) -> str:
+    """Convert bsky.app post URL to AT-URI if needed."""
+    if uri_or_url.startswith("at://"):
+        return uri_or_url
+    if uri_or_url.startswith("http"):
+        return _url_to_post_uri(uri_or_url)
+    raise ValueError(f"Invalid post reference: {uri_or_url}")
+
+
+def _url_to_post_uri(url: str) -> str:
+    """Convert bsky.app/profile/X/post/Y to AT-URI."""
+    match = re.match(r"https://bsky\.app/profile/([^/]+)/post/([^/?]+)", url)
+    if not match:
+        raise ValueError(f"Invalid post URL: {url}")
+    actor, rkey = match.groups()
+
+    if not actor.startswith("did:"):
+        profile = get_profile(actor)
+        did = profile["did"]
+    else:
+        did = actor
+
+    return f"at://{did}/app.bsky.feed.post/{rkey}"
+
+
+def _parse_actor(actor: Dict) -> Dict[str, Any]:
+    """Extract useful fields from actor object."""
+    return {
+        "handle": actor.get("handle"),
+        "display_name": actor.get("displayName"),
+        "did": actor.get("did"),
+        "description": actor.get("description"),
+        "avatar": actor.get("avatar"),
+        "followers": actor.get("followersCount"),
+        "following": actor.get("followsCount"),
+    }
+
+
+def _parse_thread(thread: Dict, depth: int = 0) -> Dict[str, Any]:
+    """Parse thread response into clean structure."""
+    result = {}
+
+    if "post" in thread:
+        result["post"] = _parse_post(thread["post"])
+        result["post"]["quote_count"] = thread["post"].get("quoteCount", 0)
+
+    if "parent" in thread:
+        result["parent"] = _parse_thread(thread["parent"], depth + 1)
+
+    if "replies" in thread:
+        result["replies"] = [_parse_thread(r, depth + 1) for r in thread["replies"]]
+
+    return result

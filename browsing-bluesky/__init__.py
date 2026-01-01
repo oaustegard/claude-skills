@@ -5,7 +5,14 @@ from .scripts.bsky import (
     get_user_posts,
     get_profile,
     get_feed_posts,
-    sample_firehose
+    sample_firehose,
+    get_thread,
+    get_quotes,
+    get_likes,
+    get_reposts,
+    get_followers,
+    get_following,
+    search_users
 )
 
 __all__ = [
@@ -13,5 +20,12 @@ __all__ = [
     "get_user_posts",
     "get_profile",
     "get_feed_posts",
-    "sample_firehose"
+    "sample_firehose",
+    "get_thread",
+    "get_quotes",
+    "get_likes",
+    "get_reposts",
+    "get_followers",
+    "get_following",
+    "search_users"
 ]
