@@ -1,6 +1,8 @@
 ---
 name: cloning-project
 description: Exports project instructions and knowledge files from the current Claude project. Use when users want to clone, copy, backup, or export a project's configuration and files.
+metadata:
+  version: 1.0.0
 ---
 
 # Cloning Project

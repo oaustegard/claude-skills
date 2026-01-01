@@ -1,6 +1,8 @@
 ---
 name: making-waffles
 description: Generates WAFFLES Declarations for social media posts — preemptive lists of what a post does NOT say. Use when users mention WAFFLES, ask for clarifications on their post, want to prevent misinterpretation, or request disclaimers for controversial/nuanced takes.
+metadata:
+  version: 0.1.0
 ---
 
 # WAFFLES Declaration Generator

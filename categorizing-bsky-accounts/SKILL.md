@@ -1,6 +1,8 @@
 ---
 name: categorizing-bsky-accounts
 description: Analyze and categorize Bluesky accounts by topic using keyword extraction. Use when users mention Bluesky account analysis, following/follower lists, topic discovery, account curation, or network analysis.
+metadata:
+  version: 0.2.1
 ---
 
 # Categorizing Bluesky Accounts

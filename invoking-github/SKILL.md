@@ -1,6 +1,8 @@
 ---
 name: invoking-github
 description: Enables GitHub repository operations (read/write/commit/PR) for Claude.ai chat environments. Use when users request GitHub commits, repository updates, DEVLOG persistence, or cross-session state management via GitHub branches. Not needed in Claude Code (has native git access).
+metadata:
+  version: 0.0.3
 ---
 
 # Invoking GitHub

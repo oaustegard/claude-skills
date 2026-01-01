@@ -1,6 +1,8 @@
 ---
 name: versioning-skills
 description: REQUIRED for all skill development. Automatically version control every skill file modification for rollback/comparison. Use after init_skill.sh, after every str_replace/create_file, and before packaging.
+metadata:
+  version: 1.1.0
 ---
 
 # Versioning Skills

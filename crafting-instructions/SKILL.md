@@ -1,6 +1,8 @@
 ---
 name: crafting-instructions
 description: Generate optimized instructions for Claude (Project instructions, Skills, or standalone prompts). Use when users request creating project setups, writing effective prompts, building Skills, or need guidance on instruction types for Claude.ai.
+metadata:
+  version: 0.3.1
 ---
 
 # Crafting Instructions for Claude

@@ -2,14 +2,16 @@
 name: controlling-spotify
 description: Control Spotify playback and manage playlists via MCP server. Use when user requests playing music, controlling Spotify, creating playlists, searching songs, or managing their Spotify library.
 credentials:
-  - SPOTIFY_CLIENT_ID
-  - SPOTIFY_CLIENT_SECRET
-  - SPOTIFY_REFRESH_TOKEN
+- SPOTIFY_CLIENT_ID
+- SPOTIFY_CLIENT_SECRET
+- SPOTIFY_REFRESH_TOKEN
 domains:
-  - api.spotify.com
-  - accounts.spotify.com
-  - raw.githubusercontent.com
-  - github.com
+- api.spotify.com
+- accounts.spotify.com
+- raw.githubusercontent.com
+- github.com
+metadata:
+  version: 0.1.0
 ---
 
 # Controlling Spotify
