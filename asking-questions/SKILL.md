@@ -1,6 +1,8 @@
 ---
 name: asking-questions
 description: Guidance for asking clarifying questions when user requests are ambiguous, have multiple valid approaches, or require critical decisions. Use when implementation choices exist that could significantly affect outcomes.
+metadata:
+  version: 1.0.5
 ---
 
 # Asking Questions
