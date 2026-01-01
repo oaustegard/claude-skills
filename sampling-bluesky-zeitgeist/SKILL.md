@@ -1,11 +1,21 @@
 ---
 name: sampling-bluesky-zeitgeist
-description: Sample and analyze Bluesky firehose to identify trending topics and content clusters. Use when user asks about "what's happening on Bluesky", "Bluesky trends", "zeitgeist", "firehose analysis", or wants to see real-time topic clusters from the network.
+description: DEPRECATED - Use browsing-bluesky skill instead. Sample and analyze Bluesky firehose to identify trending topics and content clusters. Use when user asks about "what's happening on Bluesky", "Bluesky trends", "zeitgeist", "firehose analysis", or wants to see real-time topic clusters from the network.
 metadata:
   version: 0.1.0
+  deprecated: true
+  superseded_by: browsing-bluesky
 ---
 
 # Sampling Bluesky Zeitgeist
+
+**⚠️ DEPRECATED: This skill has been consolidated into the `browsing-bluesky` skill.**
+
+Use `browsing-bluesky` for firehose sampling via the `sample_firehose()` function.
+
+---
+
+## Legacy Documentation
 
 Capture and analyze multiple windows of Bluesky firehose data, identify content clusters, and present results showing both individual sample windows and aggregate trends.
 
