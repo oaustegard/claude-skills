@@ -103,6 +103,147 @@ remember("Vector search implementation uses cosine similarity with 0.4 weight",
 
 This creates a feedback loop where the skill improves itself while tracking its own improvement.
 
+## PR Reviews and Code Testing
+
+When asked to review a PR, follow this rigorous testing workflow:
+
+### Pre-Flight: Verify Branch Setup
+
+**CRITICAL**: Distinguish between the PR branch (source) and your development branch (target).
+
+```bash
+# 1. FIRST: Check what development branch you should use
+# (Usually specified in task instructions as claude/review-pr-XXX-<session-id>)
+
+# 2. Create or checkout your development branch
+git checkout -b claude/review-pr-XXX-<session-id>
+
+# 3. Fetch the PR branch for reading/testing
+git fetch origin pull/XXX/head:pr-XXX-review
+
+# 4. Verify you're on YOUR branch, not the PR branch
+git branch --show-current  # Should show claude/review-pr-XXX-<session-id>
+```
+
+**Never** checkout the PR branch directly and start making changes. Always work on your designated development branch.
+
+### Testing Workflow: NO STATIC REVIEWS
+
+**RULE**: Never write a code review without running the code. Static analysis misses critical issues.
+
+**CRITICAL**: If you encounter an error while attempting to run code:
+1. **DO NOT give up** - Try to fix it (install dependencies, check paths, etc.)
+2. **DO NOT proceed with static review** - Keep trying alternatives
+3. **DO report failures to the user** - "I tried to test but hit X error, attempted Y and Z solutions, still blocked. How should I proceed?"
+4. **NEVER NEVER NEVER** silently fail to test and not tell the user you didn't test
+
+Example of **INEXCUSABLE** behavior:
+```bash
+$ python3 script.py --help
+ModuleNotFoundError: No module named 'foo'
+
+# Then proceeding with static review without:
+# - Trying to install 'foo'
+# - Telling the user you couldn't run tests
+# - Asking for help
+```
+
+Example of **CORRECT** behavior:
+```bash
+$ python3 script.py --help
+ModuleNotFoundError: No module named 'foo'
+
+# Immediately try to fix:
+$ uv pip install --system foo
+# Or: pip install foo
+# Or: check if already installed but wrong name
+
+# If all attempts fail, REPORT:
+"I attempted to test the code but encountered ModuleNotFoundError.
+I tried:
+- uv pip install --system foo (failed: X)
+- pip install foo (failed: Y)
+- searching for alternative package names (found Z)
+Should I proceed differently or do you want to provide the dependency?"
+```
+
+**Required steps:**
+
+1. **Research dependencies first**
+   ```bash
+   # Check if packages are maintained
+   # Find latest versions
+   # Identify breaking changes
+   ```
+
+2. **Install dependencies**
+   ```bash
+   # Use uv (preferred) or pip
+   uv pip install --system <packages>
+
+   # Verify installation
+   python3 -c "import package_name; print(package_name.__version__)"
+   ```
+
+3. **Run the code with test inputs**
+   ```bash
+   # Don't just check --help
+   # Create test files and run actual operations
+
+   # Example for codemap.py:
+   mkdir -p /tmp/test
+   cat > /tmp/test/sample.py << 'EOF'
+   class TestClass:
+       def method(self): pass
+   EOF
+   python3 script.py --dry-run /tmp/test
+   ```
+
+4. **Test multiple scenarios**
+   - Happy path (normal inputs)
+   - Edge cases (empty files, malformed code)
+   - Multiple languages/formats if applicable
+   - Error conditions
+
+5. **Document actual behavior**
+   - Include input/output examples from real runs
+   - Note what works vs what doesn't
+   - Compare expected vs actual behavior
+
+### Review Document Format
+
+**Do**:
+- Include "Testing Results" section with actual outputs
+- Show concrete examples: Input → Output
+- Mark issues with severity: 🔴 Critical, 🟡 Important, 🟢 Nice-to-have
+- Provide fix recommendations with code snippets
+
+**Don't**:
+- Write purely theoretical reviews
+- Guess at behavior without testing
+- Create multiple review documents (iterate on one)
+- Assume code works because it "looks right"
+
+### Dependency Updates
+
+When finding unmaintained or outdated dependencies:
+
+1. **Research alternatives**
+   - Check if package is maintained
+   - Find recommended replacements
+   - Verify compatibility
+
+2. **Update proactively**
+   - Don't wait for user to ask
+   - Update import statements
+   - Update documentation (README, requirements)
+   - Test that updates work
+
+3. **Use modern tooling**
+   - Prefer `uv` over `pip` for this project
+   - Note Python version requirements
+   - Document why changes were made
+
 ## Remembering Skill and Handoff Process
 
 **CRITICAL**: When working with the `remembering` skill OR discussing handoffs, ALWAYS read `/home/user/claude-skills/remembering/CLAUDE.md` FIRST.

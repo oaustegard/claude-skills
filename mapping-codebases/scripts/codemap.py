@@ -2,13 +2,15 @@
 """
 codemap.py - Generate _MAP.md files for each directory in a codebase.
 Extracts exports/imports via tree-sitter. No LLM, deterministic, fast.
+Updated to support symbol hierarchy (Classes -> Methods) and Kinds.
+Requires Python 3.10+ and tree-sitter-language-pack.
 """
 
 import os
 import sys
 from pathlib import Path
 from dataclasses import dataclass, field
-from tree_sitter_languages import get_parser
+from tree_sitter_language_pack import get_parser
 
 # Language detection by extension
 EXT_TO_LANG = {
@@ -28,252 +30,315 @@ EXT_TO_LANG = {
 DEFAULT_SKIP_DIRS = {'.git', 'node_modules', '__pycache__', '.venv', 'venv', 'dist', 'build', '.next'}
 
 @dataclass
+class Symbol:
+    name: str
+    kind: str  # 'class', 'function', 'method', 'variable', 'interface'
+    signature: str | None = None
+    children: list['Symbol'] = field(default_factory=list)
+
+@dataclass
 class FileInfo:
     name: str
-    exports: list[str] = field(default_factory=list)
+    symbols: list[Symbol] = field(default_factory=list)
     imports: list[str] = field(default_factory=list)
 
 
 def get_language(filepath: Path) -> str | None:
     return EXT_TO_LANG.get(filepath.suffix.lower())
 
+def get_node_text(node, source: bytes) -> str:
+    return source[node.start_byte:node.end_byte].decode()
 
 def extract_python(tree, source: bytes) -> FileInfo:
     """Extract exports and imports from Python AST."""
-    exports = []
+    symbols = []
     imports = []
     
+    def get_signature(node) -> str | None:
+        for child in node.children:
+            if child.type == 'parameters':
+                return get_node_text(child, source)
+        return None
+
+    def visit_class_body(node) -> list[Symbol]:
+        members = []
+        for child in node.children:
+             if child.type == 'block':
+                 for subchild in child.children:
+                    if subchild.type == 'function_definition':
+                        members.append(process_function(subchild, kind='method'))
+        return members
+
+    def process_function(node, kind='function') -> Symbol:
+        name = ""
+        for child in node.children:
+            if child.type == 'identifier':
+                name = get_node_text(child, source)
+                break
+
+        signature = get_signature(node)
+        return Symbol(name=name, kind=kind, signature=signature)
+
+    def process_class(node) -> Symbol:
+        name = ""
+        for child in node.children:
+            if child.type == 'identifier':
+                name = get_node_text(child, source)
+                break
+
+        children = visit_class_body(node)
+        return Symbol(name=name, kind='class', children=children)
+
     def visit(node):
         # Imports
         if node.type == 'import_statement':
             for child in node.children:
                 if child.type == 'dotted_name':
-                    imports.append(source[child.start_byte:child.end_byte].decode())
+                    imports.append(get_node_text(child, source))
         elif node.type == 'import_from_statement':
             module = None
             for child in node.children:
                 if child.type == 'dotted_name':
-                    module = source[child.start_byte:child.end_byte].decode()
+                    module = get_node_text(child, source)
                     break
                 elif child.type == 'relative_import':
-                    module = source[child.start_byte:child.end_byte].decode()
+                    module = get_node_text(child, source)
                     break
             if module:
                 imports.append(module)
         
-        # Exports (top-level definitions)
-        elif node.type == 'function_definition' and node.parent.type == 'module':
-            for child in node.children:
-                if child.type == 'identifier':
-                    name = source[child.start_byte:child.end_byte].decode()
-                    if not name.startswith('_'):
-                        exports.append(name)
-                    break
-        elif node.type == 'class_definition' and node.parent.type == 'module':
-            for child in node.children:
-                if child.type == 'identifier':
-                    name = source[child.start_byte:child.end_byte].decode()
-                    if not name.startswith('_'):
-                        exports.append(name)
-                    break
+        # Top-level definitions
+        elif node.type == 'function_definition':
+            sym = process_function(node)
+            if not sym.name.startswith('_'):
+                symbols.append(sym)
         
-        for child in node.children:
-            visit(child)
+        elif node.type == 'class_definition':
+            sym = process_class(node)
+            if not sym.name.startswith('_'):
+                symbols.append(sym)
+
+        # Recurse only if module (don't recurse into functions/classes in the main loop)
+        if node.type == 'module':
+            for child in node.children:
+                visit(child)
     
     visit(tree.root_node)
-    return FileInfo(name="", exports=exports, imports=imports)
+    return FileInfo(name="", symbols=symbols, imports=imports)
 
 
 def extract_typescript(tree, source: bytes) -> FileInfo:
     """Extract exports and imports from TypeScript/JavaScript AST."""
-    exports = []
+    symbols = []
     imports = []
     
-    def get_text(node):
-        return source[node.start_byte:node.end_byte].decode()
-    
+    def get_signature(node) -> str | None:
+        for child in node.children:
+            if child.type in ('formal_parameters', 'type_parameters'):
+                 # We might want to combine type params and formal params
+                 return get_node_text(child, source)
+        return None
+
+    def process_method(node) -> Symbol:
+        name = ""
+        for child in node.children:
+            if child.type in ('property_identifier', 'method_definition'):
+                 name = get_node_text(child, source)
+                 break
+        return Symbol(name=name, kind='method') # Signature extraction is harder in TS due to complexity
+
+    def process_class_body(node) -> list[Symbol]:
+        members = []
+        for child in node.children:
+            if child.type == 'class_body':
+                for subchild in child.children:
+                    if subchild.type == 'method_definition':
+                        # extract name
+                        name = ""
+                        for part in subchild.children:
+                            if part.type == 'property_identifier':
+                                name = get_node_text(part, source)
+                                break
+                        if name:
+                            members.append(Symbol(name=name, kind='method'))
+        return members
+
     def visit(node):
         # Import declarations
         if node.type == 'import_statement':
             for child in node.children:
                 if child.type == 'string':
-                    text = get_text(child).strip('"\'')
+                    text = get_node_text(child, source).strip('"\'')
                     imports.append(text)
         
         # Export declarations
         elif node.type == 'export_statement':
             for child in node.children:
                 if child.type == 'function_declaration':
+                    name = ""
                     for subchild in child.children:
                         if subchild.type == 'identifier':
-                            exports.append(get_text(subchild))
+                            name = get_node_text(subchild, source)
                             break
+                    if name:
+                        symbols.append(Symbol(name=name, kind='function'))
+
                 elif child.type == 'class_declaration':
+                    name = ""
                     for subchild in child.children:
                         if subchild.type == 'type_identifier':
-                            exports.append(get_text(subchild))
+                            name = get_node_text(subchild, source)
                             break
-                elif child.type == 'lexical_declaration':
-                    for subchild in child.children:
-                        if subchild.type == 'variable_declarator':
-                            for id_node in subchild.children:
-                                if id_node.type == 'identifier':
-                                    exports.append(get_text(id_node))
-                                    break
+                    if name:
+                        members = process_class_body(child)
+                        symbols.append(Symbol(name=name, kind='class', children=members))
+
+        # TODO: Handle non-exported top-level items if desired, or `export default`
         
         for child in node.children:
             visit(child)
     
     visit(tree.root_node)
-    return FileInfo(name="", exports=exports, imports=imports)
+    return FileInfo(name="", symbols=symbols, imports=imports)
 
 
 def extract_go(tree, source: bytes) -> FileInfo:
-    """Extract exports and imports from Go AST."""
-    exports = []
+    symbols = []
     imports = []
     
-    def get_text(node):
-        return source[node.start_byte:node.end_byte].decode()
-    
     def visit(node):
-        # Imports
         if node.type == 'import_spec':
             for child in node.children:
                 if child.type == 'interpreted_string_literal':
-                    text = get_text(child).strip('"')
-                    imports.append(text)
-        
-        # Exports (capitalized top-level)
+                    imports.append(get_node_text(child, source).strip('"'))
         elif node.type in ('function_declaration', 'type_declaration'):
             for child in node.children:
                 if child.type == 'identifier':
-                    name = get_text(child)
+                    name = get_node_text(child, source)
                     if name[0].isupper():
-                        exports.append(name)
+                        symbols.append(Symbol(name=name, kind='func' if node.type == 'function_declaration' else 'type'))
                     break
-        
         for child in node.children:
             visit(child)
     
     visit(tree.root_node)
-    return FileInfo(name="", exports=exports, imports=imports)
+    return FileInfo(name="", symbols=symbols, imports=imports)
 
 
 def extract_rust(tree, source: bytes) -> FileInfo:
     """Extract exports and imports from Rust AST."""
-    exports = []
+    symbols = []
     imports = []
-    
-    def get_text(node):
-        return source[node.start_byte:node.end_byte].decode()
     
     def visit(node):
         # Use statements
         if node.type == 'use_declaration':
             for child in node.children:
                 if child.type in ('scoped_identifier', 'identifier'):
-                    imports.append(get_text(child))
+                    imports.append(get_node_text(child, source))
         
         # Public items
-        elif node.type == 'attribute_item':
-            is_pub = False
-            for child in node.children:
-                if child.type == 'visibility_modifier' and get_text(child) == 'pub':
-                    is_pub = True
-            if is_pub:
-                for child in node.children:
-                    if child.type in ('function_item', 'struct_item', 'enum_item', 'trait_item'):
-                        for subchild in child.children:
-                            if subchild.type in ('identifier', 'type_identifier'):
-                                exports.append(get_text(subchild))
-                                break
-        
+        elif node.type in ('function_item', 'struct_item', 'enum_item', 'trait_item'):
+             # Check for public visibility in parent attribute item if needed,
+             # but tree-sitter structure for rust can be: attribute_item -> visibility_modifier
+             # or direct if it's top level.
+             # Wait, the previous logic handled `attribute_item` which wrapped the declaration.
+             # But sometimes `pub fn` is directly a `function_item` with a `visibility_modifier` child.
+
+             is_pub = False
+             for child in node.children:
+                 if child.type == 'visibility_modifier' and get_node_text(child, source) == 'pub':
+                     is_pub = True
+
+             if is_pub:
+                 name = ""
+                 for child in node.children:
+                     if child.type in ('identifier', 'type_identifier'):
+                         name = get_node_text(child, source)
+                         break
+                 if name:
+                    kind = node.type.replace('_item', '')
+                    symbols.append(Symbol(name=name, kind=kind))
+
         for child in node.children:
             visit(child)
     
     visit(tree.root_node)
-    return FileInfo(name="", exports=exports, imports=imports)
+    return FileInfo(name="", symbols=symbols, imports=imports)
 
 
 def extract_ruby(tree, source: bytes) -> FileInfo:
     """Extract exports and imports from Ruby AST."""
-    exports = []
+    symbols = []
     imports = []
-    
-    def get_text(node):
-        return source[node.start_byte:node.end_byte].decode()
     
     def visit(node):
         # Requires
         if node.type == 'call' and any(
-            child.type == 'identifier' and get_text(child) == 'require' 
+            child.type == 'identifier' and get_node_text(child, source) == 'require'
             for child in node.children
         ):
             for child in node.children:
                 if child.type == 'argument_list':
                     for arg in child.children:
                         if arg.type == 'string':
-                            text = get_text(arg).strip('"\'')
+                            text = get_node_text(arg, source).strip('"\'')
                             imports.append(text)
         
         # Top-level definitions
         elif node.type in ('method', 'class', 'module'):
             for child in node.children:
                 if child.type in ('identifier', 'constant'):
-                    exports.append(get_text(child))
+                    name = get_node_text(child, source)
+                    symbols.append(Symbol(name=name, kind=node.type))
                     break
         
         for child in node.children:
             visit(child)
     
     visit(tree.root_node)
-    return FileInfo(name="", exports=exports, imports=imports)
+    return FileInfo(name="", symbols=symbols, imports=imports)
 
 
 def extract_java(tree, source: bytes) -> FileInfo:
     """Extract exports and imports from Java AST."""
-    exports = []
+    symbols = []
     imports = []
-    
-    def get_text(node):
-        return source[node.start_byte:node.end_byte].decode()
     
     def visit(node):
         # Imports
         if node.type == 'import_declaration':
             for child in node.children:
                 if child.type == 'scoped_identifier':
-                    imports.append(get_text(child))
+                    imports.append(get_node_text(child, source))
         
         # Public classes/interfaces
         elif node.type in ('class_declaration', 'interface_declaration'):
             is_public = False
             for child in node.children:
                 if child.type == 'modifiers':
-                    mod_text = get_text(child)
+                    mod_text = get_node_text(child, source)
                     if 'public' in mod_text:
                         is_public = True
             if is_public:
                 for child in node.children:
                     if child.type == 'identifier':
-                        exports.append(get_text(child))
+                        name = get_node_text(child, source)
+                        kind = node.type.replace('_declaration', '')
+                        symbols.append(Symbol(name=name, kind=kind))
                         break
         
         for child in node.children:
             visit(child)
     
     visit(tree.root_node)
-    return FileInfo(name="", exports=exports, imports=imports)
+    return FileInfo(name="", symbols=symbols, imports=imports)
 
 
 def extract_html_javascript(tree, source: bytes) -> FileInfo:
     """Extract JavaScript functions and imports from HTML <script> tags."""
-    functions = []
+    symbols = []
     imports = []
-
-    def get_text(node):
-        return source[node.start_byte:node.end_byte].decode()
 
     def find_script_elements(node):
         """Recursively find all script elements in HTML."""
@@ -284,7 +349,7 @@ def extract_html_javascript(tree, source: bytes) -> FileInfo:
             has_src = False
             for child in node.children:
                 if child.type == 'start_tag':
-                    tag_text = get_text(child)
+                    tag_text = get_node_text(child, source)
                     if 'src=' in tag_text:
                         has_src = True
                         # Extract the src value for imports
@@ -296,7 +361,7 @@ def extract_html_javascript(tree, source: bytes) -> FileInfo:
                             pass
                 elif child.type == 'raw_text':
                     # This is inline JavaScript code
-                    js_code = get_text(child)
+                    js_code = get_node_text(child, source)
                     if js_code.strip():
                         script_contents.append(js_code)
 
@@ -318,15 +383,16 @@ def extract_html_javascript(tree, source: bytes) -> FileInfo:
                 # Extract function declarations
                 def visit_js(node):
                     js_source = script_code.encode()
-                    node_text = js_source[node.start_byte:node.end_byte].decode()
+                    # Helper since we have different source here
+                    def get_js_text(n):
+                        return js_source[n.start_byte:n.end_byte].decode()
 
                     # Function declarations: function foo() {}
                     if node.type == 'function_declaration':
                         for child in node.children:
                             if child.type == 'identifier':
-                                func_name = js_source[child.start_byte:child.end_byte].decode()
-                                if func_name not in functions:
-                                    functions.append(func_name)
+                                func_name = get_js_text(child)
+                                symbols.append(Symbol(name=func_name, kind='function'))
                                 break
 
                     # Variable declarations with functions: const foo = function() {}
@@ -336,17 +402,17 @@ def extract_html_javascript(tree, source: bytes) -> FileInfo:
                         is_function = False
                         for child in node.children:
                             if child.type == 'identifier':
-                                identifier = js_source[child.start_byte:child.end_byte].decode()
+                                identifier = get_js_text(child)
                             elif child.type in ('function', 'arrow_function', 'function_expression'):
                                 is_function = True
-                        if identifier and is_function and identifier not in functions:
-                            functions.append(identifier)
+                        if identifier and is_function:
+                             symbols.append(Symbol(name=identifier, kind='function'))
 
                     # Import statements
                     elif node.type == 'import_statement':
                         for child in node.children:
                             if child.type == 'string':
-                                import_path = js_source[child.start_byte:child.end_byte].decode().strip('"\'')
+                                import_path = get_js_text(child).strip('"\'')
                                 if import_path not in imports:
                                     imports.append(import_path)
 
@@ -358,7 +424,7 @@ def extract_html_javascript(tree, source: bytes) -> FileInfo:
             # If JavaScript parsing fails, silently continue
             pass
 
-    return FileInfo(name="", exports=functions, imports=imports)
+    return FileInfo(name="", symbols=symbols, imports=imports)
 
 
 EXTRACTORS = {
@@ -372,7 +438,6 @@ EXTRACTORS = {
     'java': extract_java,
     'html': extract_html_javascript,
 }
-
 
 def analyze_file(filepath: Path) -> FileInfo | None:
     """Analyze a single file and return its info."""
@@ -392,15 +457,37 @@ def analyze_file(filepath: Path) -> FileInfo | None:
         info = extractor(tree, source)
         info.name = filepath.name
         return info
-    except Exception:
+    except Exception as e:
+        # print(f"Error parsing {filepath}: {e}", file=sys.stderr)
         return None
 
+
+def format_symbol(symbol: Symbol, indent: int = 0) -> list[str]:
+    lines = []
+    prefix = "  " * indent
+
+    kind_marker = ""
+    if symbol.kind == 'class': kind_marker = "(C)"
+    elif symbol.kind == 'method': kind_marker = "(m)"
+    elif symbol.kind == 'function': kind_marker = "(f)"
+    else: kind_marker = f"({symbol.kind})"
+
+    sig = f"`{symbol.signature}`" if symbol.signature else ""
+
+    lines.append(f"{prefix}- **{symbol.name}** {kind_marker} {sig}")
+
+    for child in symbol.children:
+        lines.extend(format_symbol(child, indent + 1))
+
+    return lines
 
 def generate_map_for_directory(dirpath: Path, skip_dirs: set[str]) -> str | None:
     """Generate _MAP.md content for a single directory."""
     files_info = []
     subdirs = []
     
+    # print(f"Processing directory: {dirpath}", file=sys.stderr)
+
     for entry in sorted(dirpath.iterdir()):
         if entry.name.startswith('.') or entry.name == '_MAP.md':
             continue
@@ -408,11 +495,17 @@ def generate_map_for_directory(dirpath: Path, skip_dirs: set[str]) -> str | None
             if entry.name not in skip_dirs:
                 subdirs.append(entry.name)
         elif entry.is_file():
+            # print(f"  Analyzing file: {entry}", file=sys.stderr)
             info = analyze_file(entry)
             if info:
+                # print(f"    Found info for {entry.name}: {len(info.symbols)} symbols", file=sys.stderr)
                 files_info.append(info)
+            else:
+                # print(f"    No info for {entry.name}", file=sys.stderr)
+                pass
     
     if not files_info and not subdirs:
+        # print("    No content for map.", file=sys.stderr)
         return None
     
     # Header with stats
@@ -438,27 +531,25 @@ def generate_map_for_directory(dirpath: Path, skip_dirs: set[str]) -> str | None
     if files_info:
         lines.append("## Files\n")
         for info in files_info:
-            parts = [f"**{info.name}**"]
+            lines.append(f"### {info.name}")
             
-            # Show export count if truncated
-            if info.exports:
-                export_preview = ', '.join(info.exports[:8])
-                if len(info.exports) > 8:
-                    parts.append(f"exports ({len(info.exports)}): `{export_preview}`...")
-                else:
-                    parts.append(f"exports: `{export_preview}`")
-            
-            # Show import count if truncated
+            # Imports
             if info.imports:
-                # Shorten imports for readability
                 short_imports = [i.split('/')[-1] for i in info.imports[:5]]
                 import_preview = ', '.join(short_imports)
                 if len(info.imports) > 5:
-                    parts.append(f"imports ({len(info.imports)}): `{import_preview}`...")
+                    lines.append(f"> Imports: `{import_preview}`...")
                 else:
-                    parts.append(f"imports: `{import_preview}`")
+                    lines.append(f"> Imports: `{import_preview}`")
+
+            # Symbols
+            if info.symbols:
+                for sym in info.symbols:
+                    lines.extend(format_symbol(sym))
+            else:
+                lines.append("- *No top-level symbols*")
             
-            lines.append(f"- {' — '.join(parts)}")
+            lines.append("") # Spacer
     
     return '\n'.join(lines) + '\n'
 
