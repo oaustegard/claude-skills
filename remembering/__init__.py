@@ -700,8 +700,10 @@ def _embed(text: str) -> list[float] | None:
     try:
         return _retry_with_backoff(_do_embed, max_retries=3, base_delay=1.0)
     except Exception as e:
-        # Fail gracefully - embedding is optional
+        # Fail gracefully - embedding is optional (v0.13.0: improved warning)
         print(f"Warning: Embedding generation failed after retries: {e}")
+        print(f"  Memory will be stored but semantic search won't find it.")
+        print(f"  Use retry_embeddings() later to retry failed embeddings.")
         return None
 
 def _embed_batch(texts: list[str]) -> list[list[float] | None]:
@@ -1395,6 +1397,17 @@ def forget(memory_id: str) -> bool:
     """Soft-delete a memory."""
     now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     _exec("UPDATE memories SET deleted_at = ? WHERE id = ?", [now, memory_id])
+
+    # Invalidate cache (v0.13.0 bugfix)
+    if _cache_available():
+        try:
+            _cache_conn.execute("DELETE FROM memory_index WHERE id = ?", (memory_id,))
+            _cache_conn.execute("DELETE FROM memory_full WHERE id = ?", (memory_id,))
+            _cache_conn.execute("DELETE FROM memory_fts WHERE id = ?", (memory_id,))
+            _cache_conn.commit()
+        except Exception as e:
+            print(f"Warning: Failed to invalidate cache for {memory_id}: {e}")
+
     return True
 
 def supersede(original_id: str, summary: str, type: str, *,
