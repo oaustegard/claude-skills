@@ -2,13 +2,14 @@
 """
 codemap.py - Generate _MAP.md files for each directory in a codebase.
 Extracts exports/imports via tree-sitter. No LLM, deterministic, fast.
+Requires Python 3.10+ and tree-sitter-language-pack.
 """
 
 import os
 import sys
 from pathlib import Path
 from dataclasses import dataclass, field
-from tree_sitter_languages import get_parser
+from tree_sitter_language_pack import get_parser
 
 # Language detection by extension
 EXT_TO_LANG = {
