@@ -129,6 +129,18 @@ grep -n "tree-sitter" skill-name/*.md skill-name/scripts/*.py
 - Bug fixes = patch bump (0.2.0 → 0.2.1)
 - Breaking changes = major bump (0.2.0 → 1.0.0)
 
+### Skill Naming and Metadata Guidelines
+
+**CRITICAL Requirements:**
+
+1. **Always use `metadata.version` in the frontmatter** - Not just `version`, but specifically `metadata.version` field
+2. **Never name a skill with "Claude" in it** - Skill names must not contain "Claude" (e.g., avoid "claude-helper", "invoking-claude")
+3. **Always use gerund form as the first word** - Skill names must start with a gerund (verb+ing form):
+   - ✅ CORRECT: `creating-mcp-servers`, `processing-pdfs`, `updating-knowledge`
+   - ❌ WRONG: `mcp-creator`, `pdf-processor`, `knowledge-update`
+
+These are non-negotiable requirements for all skills in this repository.
+
 ### CLAUDE.md Files Take Priority
 
 If a skill has a `CLAUDE.md` file:
