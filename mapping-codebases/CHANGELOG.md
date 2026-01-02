@@ -6,6 +6,16 @@ All notable changes to the `mapping-codebases` skill are documented in this file
 
 ### Added
 
+- Update mapping-codebases to v0.4.0 with uv and CLAUDE.md integration
+
+### Fixed
+
+- Correct ephemeral environment instructions for map persistence
+
+## [0.4.0] - 2026-01-02
+
+### Added
+
 - **Post-generation CLAUDE.md integration**: After generating `_MAP.md` files, Claude now updates or creates the repository's CLAUDE.md to document map usage and maintenance
 - **Environment-aware workflow**: Distinguishes between Claude Code (persistent repos) and Claude.ai chat (ephemeral) to provide appropriate guidance
 - **Map persistence documentation**: Instructions for keeping maps fresh and avoiding drift from source code
