@@ -2,6 +2,23 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.13.1] - 2026-01-02
+
+### Added
+
+- Add browsing-bluesky skill and update remembering docs
+- Delete VERSION files, complete migration to frontmatter
+- Migrate all 27 skills from VERSION files to frontmatter
+
+### Fixed
+
+- supersede() cache invalidation
+- remembering skill cache invalidation and embedding warnings
+
+### Other
+
+- Update version to 0.13.1 in SKILL.md
+
 ## [0.13.0] - 2025-12-30
 
 ### Changed
