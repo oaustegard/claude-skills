@@ -2,7 +2,7 @@
 name: mapping-codebases
 description: Generate navigable code maps for unfamiliar codebases. Use when exploring a new codebase, needing to understand project structure, or before diving into code modifications. Extracts exports/imports via AST (tree-sitter) to create _MAP.md files per directory. Triggers on "map this codebase", "understand this project structure", "generate code map", or when starting work on an unfamiliar repository.
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # Mapping Codebases
@@ -13,7 +13,7 @@ Generate `_MAP.md` files that provide a hierarchical view of code structure with
 
 ```bash
 # Install dependencies (once per session)
-uv pip install tree-sitter==0.21.3 tree-sitter-languages==1.10.2
+uv pip install tree-sitter-language-pack
 
 # Generate maps for a codebase
 python scripts/codemap.py /path/to/repo
@@ -24,8 +24,9 @@ python scripts/codemap.py /path/to/repo
 Per-directory `_MAP.md` files listing:
 - Directory statistics (file count, subdirectory count)
 - Subdirectories (with links to their maps)
-- Files with exports and imports
-- Counts when lists are truncated (e.g., "exports (23)" when showing 8 of 23)
+- **Symbol hierarchy** with kind markers: (C) class, (m) method, (f) function
+- **Function signatures** extracted from AST (Python, partial TypeScript)
+- Import previews
 
 Example output:
 ```markdown
@@ -36,8 +37,15 @@ Example output:
 - [middleware/](./middleware/_MAP.md)
 
 ## Files
-- **jwt.go** — exports: `Claims, ValidateToken` — imports: `context, jwt`
-- **handlers.py** — exports (12): `login, logout, refresh_token`... — imports (8): `flask, .models`...
+
+### handlers.py
+> Imports: `flask, functools, jwt, .models`...
+- **login** (f) `(username: str, password: str)`
+- **logout** (f) `()`
+- **AuthHandler** (C)
+  - **__init__** (m) `(self, config: dict)`
+  - **validate_token** (m) `(self, token: str)`
+  - **refresh_session** (m) `(self, user_id: int)`
 ```
 
 ## Supported Languages
@@ -77,9 +85,11 @@ Maps use hierarchical disclosure - you only load what you need. Even massive cod
 
 ## Features
 
-**Directory Statistics**: Each map header shows file and subdirectory counts, helping you quickly assess scope.
+**Symbol Hierarchy**: Shows classes with nested methods, not just flat lists. See the structure at a glance with kind markers (C/m/f).
 
-**Export/Import Counts**: When truncated, shows total count (e.g., "exports (23)") so you know how much detail exists without cluttering the view.
+**Function Signatures**: Extracts parameter lists from Python and partial TypeScript, showing what functions expect without reading the source.
+
+**Directory Statistics**: Each map header shows file and subdirectory counts, helping you quickly assess scope.
 
 **Hierarchical Navigation**: Links between maps let you traverse the codebase structure naturally without overwhelming context windows.
 
@@ -98,6 +108,8 @@ git add '*/_MAP.md'
 
 ## Limitations
 
-- Extracts structural info only (exports/imports), not semantic descriptions
+- Extracts structural info only (symbols/imports), not semantic descriptions
+- Method extraction: Full support for Python/TypeScript, partial for other languages
+- Signatures: Python (full), TypeScript (partial), others (not extracted)
 - Skips: `.git`, `node_modules`, `__pycache__`, `venv`, `dist`, `build` (plus user-specified patterns)
-- Private symbols (Python `_prefix`) excluded from exports
+- Private symbols (Python `_prefix`) excluded from top-level exports (methods not filtered yet)
