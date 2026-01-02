@@ -131,6 +131,42 @@ git branch --show-current  # Should show claude/review-pr-XXX-<session-id>
 
 **RULE**: Never write a code review without running the code. Static analysis misses critical issues.
 
+**CRITICAL**: If you encounter an error while attempting to run code:
+1. **DO NOT give up** - Try to fix it (install dependencies, check paths, etc.)
+2. **DO NOT proceed with static review** - Keep trying alternatives
+3. **DO report failures to the user** - "I tried to test but hit X error, attempted Y and Z solutions, still blocked. How should I proceed?"
+4. **NEVER NEVER NEVER** silently fail to test and not tell the user you didn't test
+
+Example of **INEXCUSABLE** behavior:
+```bash
+$ python3 script.py --help
+ModuleNotFoundError: No module named 'foo'
+
+# Then proceeding with static review without:
+# - Trying to install 'foo'
+# - Telling the user you couldn't run tests
+# - Asking for help
+```
+
+Example of **CORRECT** behavior:
+```bash
+$ python3 script.py --help
+ModuleNotFoundError: No module named 'foo'
+
+# Immediately try to fix:
+$ uv pip install --system foo
+# Or: pip install foo
+# Or: check if already installed but wrong name
+
+# If all attempts fail, REPORT:
+"I attempted to test the code but encountered ModuleNotFoundError.
+I tried:
+- uv pip install --system foo (failed: X)
+- pip install foo (failed: Y)
+- searching for alternative package names (found Z)
+Should I proceed differently or do you want to provide the dependency?"
+```
+
 **Required steps:**
 
 1. **Research dependencies first**
