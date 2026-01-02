@@ -18,6 +18,7 @@ All notable changes to the `mapping-codebases` skill are documented in this file
 ### Fixed
 
 - Claude Code now uses `uv` by default instead of attempting `pip` first (addresses user feedback from third-party testing)
+- Ephemeral environment instructions now correctly tell users to invoke the skill (to regenerate maps) rather than assuming _MAP.md files persist
 
 ## [0.3.0] - 2026-01-02
 

@@ -146,15 +146,16 @@ Consider adding a git pre-commit hook to auto-update maps (see mapping-codebases
 If working in a Claude.ai chat session (web/mobile):
 
 1. **Use the maps immediately** - the session is ephemeral, so use them while they exist
-2. **Tell the user** to add instructions to their Project Instructions if they want to use maps across conversations:
+2. **Tell the user** to add instructions to their Project Instructions if they want to use maps in future conversations:
 
 ```
 I've generated _MAP.md files for this codebase. Since this is an ephemeral session,
-these maps won't persist. If you want to use code maps in future conversations,
-add this to your Project Instructions:
+these maps won't persist to the next conversation. If you want to use code maps in
+future conversations, add this to your Project Instructions:
 
-"When exploring this codebase, start by reading _MAP.md files for hierarchical
-navigation rather than reading all source files directly."
+"When exploring this codebase, first invoke the mapping-codebases skill to generate
+_MAP.md files, then navigate using those hierarchical maps rather than reading all
+source files directly."
 ```
 
 ### Environment Detection
