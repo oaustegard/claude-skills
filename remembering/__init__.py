@@ -700,8 +700,10 @@ def _embed(text: str) -> list[float] | None:
     try:
         return _retry_with_backoff(_do_embed, max_retries=3, base_delay=1.0)
     except Exception as e:
-        # Fail gracefully - embedding is optional
+        # Fail gracefully - embedding is optional (v0.13.0: improved warning)
         print(f"Warning: Embedding generation failed after retries: {e}")
+        print(f"  Memory will be stored but semantic search won't find it.")
+        print(f"  Use retry_embeddings() later to retry failed embeddings.")
         return None
 
 def _embed_batch(texts: list[str]) -> list[list[float] | None]:
@@ -1395,6 +1397,17 @@ def forget(memory_id: str) -> bool:
     """Soft-delete a memory."""
     now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     _exec("UPDATE memories SET deleted_at = ? WHERE id = ?", [now, memory_id])
+
+    # Invalidate cache (v0.13.0 bugfix)
+    if _cache_available():
+        try:
+            _cache_conn.execute("DELETE FROM memory_index WHERE id = ?", (memory_id,))
+            _cache_conn.execute("DELETE FROM memory_full WHERE id = ?", (memory_id,))
+            _cache_conn.execute("DELETE FROM memory_fts WHERE id = ?", (memory_id,))
+            _cache_conn.commit()
+        except Exception as e:
+            print(f"Warning: Failed to invalidate cache for {memory_id}: {e}")
+
     return True
 
 def supersede(original_id: str, summary: str, type: str, *,
@@ -1402,11 +1415,23 @@ def supersede(original_id: str, summary: str, type: str, *,
     """Create a patch that supersedes an existing memory. Type required. Returns new memory ID.
 
     v0.4.0: Sets valid_to on original memory and valid_from on new memory for bitemporal tracking.
+    v0.13.0: Invalidates cache for superseded memory.
     """
     now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
     # Set valid_to on original memory to mark when it stopped being true
     _exec("UPDATE memories SET valid_to = ? WHERE id = ?", [now, original_id])
+
+    # Invalidate cache for superseded memory (v0.13.0 bugfix)
+    # Superseded memories should not appear in recall() results
+    if _cache_available():
+        try:
+            _cache_conn.execute("DELETE FROM memory_index WHERE id = ?", (original_id,))
+            _cache_conn.execute("DELETE FROM memory_full WHERE id = ?", (original_id,))
+            _cache_conn.execute("DELETE FROM memory_fts WHERE id = ?", (original_id,))
+            _cache_conn.commit()
+        except Exception as e:
+            print(f"Warning: Failed to invalidate cache for superseded memory {original_id}: {e}")
 
     # Create new memory with valid_from set to now
     return remember(summary, type, tags=tags, conf=conf, refs=[original_id], valid_from=now)
