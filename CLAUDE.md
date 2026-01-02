@@ -78,6 +78,57 @@ find skill-name/ -name "*.py" -o -name "*.md"
 ls -la .claude/skills/skill-name 2>/dev/null
 ```
 
+### CRITICAL: Skills Have Multiple Documentation Files
+
+**SKILL.md is the source of truth** - it's what users see and what triggers releases.
+
+When updating a skill, you MUST update ALL relevant files:
+- `SKILL.md` - User-facing documentation, version in frontmatter, installation instructions
+- `README.md` - Auto-generated but may exist in development
+- Implementation files (scripts/*.py, etc.)
+- Any other documentation
+
+**Common FAILURE pattern:**
+```bash
+# Update implementation
+Edit codemap.py (✓)
+
+# Update README.md
+Edit README.md (✓)
+
+# Forget SKILL.md (✗ CRITICAL FAILURE)
+# - Users get outdated installation instructions
+# - Version not bumped → no release triggered
+# - Frontmatter description outdated
+```
+
+**CORRECT workflow:**
+```bash
+# 1. Update implementation files
+Edit scripts/codemap.py
+
+# 2. Update README.md (if exists)
+Edit README.md
+
+# 3. Update SKILL.md (REQUIRED)
+Edit SKILL.md:
+  - Bump version in frontmatter
+  - Update installation instructions
+  - Update examples to match new features
+  - Update limitations section
+
+# 4. Verify all files consistent
+grep -n "tree-sitter" skill-name/*.md skill-name/scripts/*.py
+# All should show updated package names
+```
+
+**Version bumping triggers releases:**
+- Change `metadata.version` in SKILL.md frontmatter
+- Semantic versioning: major.minor.patch
+- New features = minor bump (0.2.0 → 0.3.0)
+- Bug fixes = patch bump (0.2.0 → 0.2.1)
+- Breaking changes = major bump (0.2.0 → 1.0.0)
+
 ### CLAUDE.md Files Take Priority
 
 If a skill has a `CLAUDE.md` file:
