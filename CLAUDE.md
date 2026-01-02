@@ -332,3 +332,7 @@ all_handoffs = recall(tags=["handoff"], n=50)
 # 3. Specific handoff topics
 topic_handoffs = recall(tags=["handoff", "openai"], n=10)
 ```
+
+### Handoff Execution Expectations
+
+**When the user gives you a handoff, execute it immediately.** Handoffs are actionable work items that should be completed, not deferred or questioned. If a handoff seems irrelevant to the current environment (e.g., Claude.ai-specific features while in Claude Code), remember that this repository serves multiple Claude environments and the handoff may be relevant for other contexts.
