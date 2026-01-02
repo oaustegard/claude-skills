@@ -1,17 +1,17 @@
 ---
-name: using-git-in-claude-ai
-description: Git repository access in Claude.ai container environments. Use when user requests git clone, repo fetching, or GitHub operations in Claude.ai chat (web, iOS, Android).
+name: git-in-containers
+description: Git repository access in containerized AI chat environments. Use when user requests git clone, repo fetching, or GitHub operations in web/mobile AI chat sessions.
 metadata:
   version: 1.0.0
 ---
 
-# Using Git in Claude.ai
+# Git in Container Environments
 
-**IMPORTANT**: This skill is for Claude.ai chat environments (web, iOS, Android) only. Claude Code has native git access and does not need these workarounds.
+**IMPORTANT**: This skill is for containerized AI chat environments (web, iOS, Android) only. Native development environments have direct git access and do not need these workarounds.
 
 ## The Problem
 
-**git clone does not work** in Claude.ai containers. The egress proxy blocks git protocol even for whitelisted domains (401 on CONNECT tunnel).
+**git clone does not work** in containerized AI environments. The egress proxy blocks git protocol even for whitelisted domains (401 on CONNECT tunnel).
 
 ## Workaround: raw.githubusercontent.com
 
@@ -69,6 +69,6 @@ If available, the MCP GitHub server provides programmatic access to repositories
 
 ## When This Skill Does Not Apply
 
-- **Claude Code**: Has native git access via proxy, use standard git commands
+- **Native development environments**: Have direct git access via proxy, use standard git commands
 - **Local environments**: git clone works normally
 - **Environments with git protocol access**: Use native git tools
