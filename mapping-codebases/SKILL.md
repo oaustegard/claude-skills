@@ -2,19 +2,29 @@
 name: mapping-codebases
 description: Generate navigable code maps for unfamiliar codebases. Use when exploring a new codebase, needing to understand project structure, or before diving into code modifications. Extracts exports/imports via AST (tree-sitter) to create _MAP.md files per directory. Triggers on "map this codebase", "understand this project structure", "generate code map", or when starting work on an unfamiliar repository.
 metadata:
-  version: 0.3.0
+  version: 0.4.0
 ---
 
 # Mapping Codebases
 
 Generate `_MAP.md` files that provide a hierarchical view of code structure without reading every file.
 
+## Installation
+
+**CRITICAL - Use uv for dependency installation in Claude Code:**
+
+```bash
+# In Claude Code environments, ALWAYS use uv with --system flag:
+uv pip install --system tree-sitter-language-pack
+
+# Only fall back to pip if uv is not available
+```
+
+**Why uv?** Claude Code environments have uv pre-installed for efficient package management. Using uv is faster and preferred.
+
 ## Quick Start
 
 ```bash
-# Install dependencies (once per session)
-uv pip install tree-sitter-language-pack
-
 # Generate maps for a codebase
 python scripts/codemap.py /path/to/repo
 ```
@@ -82,6 +92,79 @@ Default skip patterns: `.git`, `node_modules`, `__pycache__`, `.venv`, `venv`, `
 4. Read actual source files only when necessary
 
 Maps use hierarchical disclosure - you only load what you need. Even massive codebases (1000+ files) stay navigable because each map remains focused on its directory.
+
+## Post-Generation: Making Maps Persistent
+
+**CRITICAL - After generating maps, integrate them into the development workflow:**
+
+### In Claude Code Environments (Persistent Repos)
+
+After generating `_MAP.md` files, **ALWAYS** update or create the repository's `CLAUDE.md` file to document the maps:
+
+```bash
+# Check if CLAUDE.md exists in the repo root
+if [ -f CLAUDE.md ]; then
+    # Add a section about the code maps (if not already present)
+    echo "Found existing CLAUDE.md - will add _MAP.md documentation"
+else
+    # Create CLAUDE.md with map documentation
+    echo "No CLAUDE.md found - will create one with map documentation"
+fi
+```
+
+**Add this section to CLAUDE.md:**
+
+```markdown
+## Code Maps
+
+This repository has navigable code maps generated via the mapping-codebases skill.
+
+### Using the Maps
+
+- Start with `_MAP.md` at the repository root for a high-level overview
+- Each directory has its own `_MAP.md` showing:
+  - Subdirectory links for hierarchical navigation
+  - File-level symbol exports (classes, functions, methods)
+  - Import previews
+  - Function signatures (Python, partial TypeScript)
+
+### Keeping Maps Fresh
+
+Maps are generated from AST analysis and can drift from source code. To refresh:
+
+```bash
+python /path/to/mapping-codebases/scripts/codemap.py .
+```
+
+Consider adding a git pre-commit hook to auto-update maps (see mapping-codebases skill documentation).
+```
+
+**Why this matters:** Claude Code sessions are persistent. Documenting the maps in CLAUDE.md ensures future Claude instances (and developers) know the maps exist and how to use/maintain them.
+
+### In Claude.ai Chat Environments (Ephemeral)
+
+If working in a Claude.ai chat session (web/mobile):
+
+1. **Use the maps immediately** - the session is ephemeral, so use them while they exist
+2. **Tell the user** to add instructions to their Project Instructions if they want to use maps across conversations:
+
+```
+I've generated _MAP.md files for this codebase. Since this is an ephemeral session,
+these maps won't persist. If you want to use code maps in future conversations,
+add this to your Project Instructions:
+
+"When exploring this codebase, start by reading _MAP.md files for hierarchical
+navigation rather than reading all source files directly."
+```
+
+### Environment Detection
+
+To determine which environment you're in:
+
+- **Claude Code**: Working directory is a git repository with persistent filesystem access
+- **Claude.ai Chat**: Files are uploaded/temporary, no git context, ephemeral session
+
+Use this to decide whether to update CLAUDE.md (Claude Code) or recommend Project Instructions (Claude.ai).
 
 ## Features
 

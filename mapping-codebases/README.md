@@ -16,14 +16,23 @@ Generate navigable code maps for unfamiliar codebases. Use when exploring a new 
 
 ## Installation
 
+**In Claude Code environments (preferred):**
+
 ```bash
-uv pip install tree-sitter-language-pack
+uv pip install --system tree-sitter-language-pack
 ```
 
-Or with pip:
+**In other environments:**
+
 ```bash
+# With uv
+uv pip install tree-sitter-language-pack
+
+# Or with pip
 pip install tree-sitter-language-pack
 ```
+
+**Why uv?** Claude Code environments have uv pre-installed for efficient package management. Using uv with `--system` flag is faster and preferred.
 
 ## Usage
 
