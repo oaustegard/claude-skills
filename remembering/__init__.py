@@ -13,7 +13,6 @@ from pathlib import Path
 _URL = "https://assistant-memory-oaustegard.aws-us-east-1.turso.io"
 _TOKEN = None
 _HEADERS = None
-_EMBEDDING_API_KEY = None
 
 # Valid memory types (profile now lives in config table)
 TYPES = {"decision", "world", "anomaly", "experience"}
@@ -88,11 +87,13 @@ def _init_local_cache() -> bool:
             );
 
             -- FTS5 virtual table for fast ranked text search (v0.9.0)
+            -- v0.13.0: Added Porter stemmer for morphological variants (beads→bead, running→run)
             -- Standalone table (not contentless) for simpler sync
             CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(
                 id UNINDEXED,
                 summary,
-                tags
+                tags,
+                tokenize='porter unicode61'
             );
 
             -- Config: full mirror (small)
@@ -127,6 +128,36 @@ def _init_local_cache() -> bool:
             CREATE INDEX IF NOT EXISTS idx_config_cache_category ON config_cache(category);
         """)
         _cache_conn.commit()
+
+        # v0.13.0: Migrate FTS5 to Porter stemmer if needed
+        # Check if FTS5 table needs rebuilding (check for porter tokenizer)
+        try:
+            # Try to get the FTS5 table info - if it exists with wrong tokenizer, rebuild
+            meta_check = _cache_conn.execute(
+                "SELECT value FROM cache_meta WHERE key = 'fts5_porter_migrated'"
+            ).fetchone()
+
+            if not meta_check:
+                # Migration needed - rebuild FTS5 with Porter stemmer
+                print("Migrating FTS5 to Porter stemmer...")
+                _cache_conn.execute("DROP TABLE IF EXISTS memory_fts")
+                _cache_conn.execute("""
+                    CREATE VIRTUAL TABLE memory_fts USING fts5(
+                        id UNINDEXED,
+                        summary,
+                        tags,
+                        tokenize='porter unicode61'
+                    )
+                """)
+                # Mark migration complete
+                _cache_conn.execute(
+                    "INSERT OR REPLACE INTO cache_meta (key, value) VALUES (?, ?)",
+                    ("fts5_porter_migrated", "true")
+                )
+                _cache_conn.commit()
+                print("FTS5 migration complete. Cache will repopulate on next boot.")
+        except Exception as e:
+            print(f"Warning: FTS5 migration check failed: {e}")
 
         # Store initialization timestamp
         now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
@@ -611,34 +642,28 @@ def _load_env_file(path: Path) -> dict[str, str]:
 
 def _init():
     """Lazy-load credentials from environment, .env file, or legacy project file."""
-    global _TOKEN, _HEADERS, _EMBEDDING_API_KEY
+    global _TOKEN, _HEADERS
     if _TOKEN is None:
         # 1. Prefer environment variable (for Claude Code)
         _TOKEN = os.environ.get("TURSO_TOKEN")
-        
+
         # 2. Fall back to .env file in project knowledge
         if not _TOKEN:
             env_file = _load_env_file(Path("/mnt/project/muninn.env"))
             _TOKEN = env_file.get("TURSO_TOKEN")
-            # Also load embedding key from .env if present
-            if _EMBEDDING_API_KEY is None:
-                _EMBEDDING_API_KEY = env_file.get("EMBEDDING_API_KEY")
-        
+
         # 3. Legacy fallback to separate token file
         if not _TOKEN:
             token_path = Path("/mnt/project/turso-token.txt")
             if token_path.exists():
                 _TOKEN = token_path.read_text().strip()
-        
+
         if not _TOKEN:
             raise RuntimeError("No TURSO_TOKEN in environment, /mnt/project/muninn.env, or /mnt/project/turso-token.txt")
-        
+
         # Clean token: remove whitespace that may be present
         _TOKEN = _TOKEN.strip().replace(" ", "")
         _HEADERS = {"Authorization": f"Bearer {_TOKEN}", "Content-Type": "application/json"}
-
-    if _EMBEDDING_API_KEY is None:
-        _EMBEDDING_API_KEY = os.environ.get("EMBEDDING_API_KEY")
 
 def _retry_with_backoff(fn, max_retries=3, base_delay=1.0):
     """Retry a function with exponential backoff on 503/429 errors.
@@ -670,87 +695,6 @@ def _retry_with_backoff(fn, max_retries=3, base_delay=1.0):
             else:
                 # Non-retriable error, fail immediately
                 raise
-
-def _embed(text: str) -> list[float] | None:
-    """Generate embedding vector for text using OpenAI text-embedding-3-small.
-
-    Returns list of 1536 floats, or None if API key not configured.
-    Uses exponential backoff retry for 503/429 errors.
-    """
-    _init()
-    if not _EMBEDDING_API_KEY:
-        return None
-
-    def _do_embed():
-        response = requests.post(
-            "https://api.openai.com/v1/embeddings",
-            headers={
-                "Authorization": f"Bearer {_EMBEDDING_API_KEY}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "text-embedding-3-small",
-                "input": text
-            },
-            timeout=10
-        )
-        response.raise_for_status()
-        return response.json()["data"][0]["embedding"]
-
-    try:
-        return _retry_with_backoff(_do_embed, max_retries=3, base_delay=1.0)
-    except Exception as e:
-        # Fail gracefully - embedding is optional (v0.13.0: improved warning)
-        print(f"Warning: Embedding generation failed after retries: {e}")
-        print(f"  Memory will be stored but semantic search won't find it.")
-        print(f"  Use retry_embeddings() later to retry failed embeddings.")
-        return None
-
-def _embed_batch(texts: list[str]) -> list[list[float] | None]:
-    """Generate embedding vectors for multiple texts in a single API call.
-
-    Args:
-        texts: List of text strings to embed (max 2048 per OpenAI limit)
-
-    Returns:
-        List of embeddings (1536 floats each) or None for failures.
-        Maintains input order even if some embeddings fail.
-    """
-    _init()
-    if not _EMBEDDING_API_KEY:
-        return [None] * len(texts)
-
-    if not texts:
-        return []
-
-    # OpenAI supports up to 2048 inputs per request
-    if len(texts) > 2048:
-        raise ValueError(f"Cannot embed {len(texts)} texts in one batch (max 2048)")
-
-    def _do_embed_batch():
-        response = requests.post(
-            "https://api.openai.com/v1/embeddings",
-            headers={
-                "Authorization": f"Bearer {_EMBEDDING_API_KEY}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": "text-embedding-3-small",
-                "input": texts  # Array of strings
-            },
-            timeout=30  # Longer timeout for batch
-        )
-        response.raise_for_status()
-        data = response.json()["data"]
-        # Response includes index field to maintain order
-        return [item["embedding"] for item in sorted(data, key=lambda x: x["index"])]
-
-    try:
-        return _retry_with_backoff(_do_embed_batch, max_retries=3, base_delay=1.0)
-    except Exception as e:
-        # Fail gracefully - return None for all
-        print(f"Warning: Batch embedding generation failed after retries: {e}")
-        return [None] * len(texts)
 
 def _parse_memory_row(row: dict) -> dict:
     """Parse JSON fields in a memory row (tags, entities, refs).
@@ -895,35 +839,24 @@ def _exec(sql, args=None, parse_json: bool = True):
     return rows
 
 def _write_memory(mem_id: str, what: str, type: str, now: str, conf: float,
-                  tags: list, entities: list, refs: list, embedding: list,
+                  tags: list, entities: list, refs: list,
                   importance: float, memory_class: str, valid_from: str) -> None:
     """Internal helper: write memory to Turso (blocking)."""
-    # vector32() doesn't accept NULL, so we use conditional SQL
-    if embedding:
-        _exec(
-            """INSERT INTO memories (id, type, t, summary, confidence, tags, entities, refs,
-               session_id, created_at, updated_at, embedding, importance, memory_class, valid_from, access_count, salience)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, vector32(?), ?, ?, ?, 0, 1.0)""",
-            [mem_id, type, now, what, conf,
-             json.dumps(tags or []), json.dumps(entities or []), json.dumps(refs or []),
-             "session", now, now, json.dumps(embedding), importance, memory_class, valid_from]
-        )
-    else:
-        # Insert without embedding when not available
-        _exec(
-            """INSERT INTO memories (id, type, t, summary, confidence, tags, entities, refs,
-               session_id, created_at, updated_at, embedding, importance, memory_class, valid_from, access_count, salience)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, 0, 1.0)""",
-            [mem_id, type, now, what, conf,
-             json.dumps(tags or []), json.dumps(entities or []), json.dumps(refs or []),
-             "session", now, now, importance, memory_class, valid_from]
-        )
+    # Insert without embedding (embeddings removed in v0.13.0)
+    _exec(
+        """INSERT INTO memories (id, type, t, summary, confidence, tags, entities, refs,
+           session_id, created_at, updated_at, embedding, importance, memory_class, valid_from, access_count, salience)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, 0, 1.0)""",
+        [mem_id, type, now, what, conf,
+         json.dumps(tags or []), json.dumps(entities or []), json.dumps(refs or []),
+         "session", now, now, importance, memory_class, valid_from]
+    )
 
 def remember(what: str, type: str, *, tags: list = None, conf: float = None,
-             entities: list = None, refs: list = None, embed: bool = True,
+             entities: list = None, refs: list = None,
              importance: float = None, memory_class: str = None, valid_from: str = None,
              sync: bool = True) -> str:
-    """Store a memory with optional embedding. Type is required. Returns memory ID.
+    """Store a memory. Type is required. Returns memory ID.
 
     Args:
         what: Memory content/summary
@@ -932,7 +865,6 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
         conf: Optional confidence score (0.0-1.0)
         entities: Optional list of entities
         refs: Optional list of referenced memory IDs
-        embed: Generate and store embedding for semantic search (default True)
         importance: Optional importance score (0.0-1.0, default 0.5)
         memory_class: Optional classification ('episodic' or 'semantic', default 'episodic')
         valid_from: Optional timestamp when fact became true (defaults to creation time)
@@ -944,6 +876,7 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
         Memory ID (UUID)
 
     v0.6.0: Added sync parameter for background writes. Use flush() to wait for all pending writes.
+    v0.13.0: Removed embedding generation (OpenAI dependency removed).
     """
     if type not in TYPES:
         raise ValueError(f"Invalid type '{type}'. Must be one of: {', '.join(sorted(TYPES))}")
@@ -962,11 +895,6 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
     if valid_from is None:
         valid_from = now
 
-    # Generate embedding if requested
-    embedding = None
-    if embed:
-        embedding = _embed(what)
-
     # Write to local cache immediately (if available) - v0.7.0
     if _cache_available():
         _cache_memory(mem_id, what, type, now, conf, tags, importance,
@@ -976,13 +904,13 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
     if sync:
         # Blocking write to Turso
         _write_memory(mem_id, what, type, now, conf, tags, entities, refs,
-                     embedding, importance, memory_class, valid_from)
+                     importance, memory_class, valid_from)
     else:
         # Background write to Turso
         def _bg_write():
             try:
                 _write_memory(mem_id, what, type, now, conf, tags, entities, refs,
-                            embedding, importance, memory_class, valid_from)
+                            importance, memory_class, valid_from)
             finally:
                 # Remove from pending list when done
                 with _pending_writes_lock:
@@ -994,10 +922,34 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
             _pending_writes.append(thread)
         thread.start()
 
+    # v0.13.0: Auto-append novel tags to recall-triggers config
+    # This helps build up a vocabulary of searchable terms over time
+    if tags:
+        try:
+            # Get current recall-triggers list
+            current_triggers = config_get("recall-triggers")
+            if current_triggers:
+                try:
+                    trigger_list = json.loads(current_triggers) if isinstance(current_triggers, str) else current_triggers
+                except json.JSONDecodeError:
+                    trigger_list = []
+            else:
+                trigger_list = []
+
+            # Add novel tags
+            trigger_set = set(trigger_list)
+            new_tags = [t for t in tags if t not in trigger_set]
+            if new_tags:
+                trigger_set.update(new_tags)
+                config_set("recall-triggers", json.dumps(sorted(trigger_set)), "ops")
+        except Exception:
+            # Don't fail remember() if trigger update fails
+            pass
+
     return mem_id
 
 def remember_bg(what: str, type: str, *, tags: list = None, conf: float = None,
-                entities: list = None, refs: list = None, embed: bool = True,
+                entities: list = None, refs: list = None,
                 importance: float = None, memory_class: str = None, valid_from: str = None) -> str:
     """Deprecated: Use remember(..., sync=False) instead.
 
@@ -1009,7 +961,7 @@ def remember_bg(what: str, type: str, *, tags: list = None, conf: float = None,
     Returns:
         Memory ID (UUID)
     """
-    return remember(what, type, tags=tags, conf=conf, entities=entities, refs=refs, embed=embed,
+    return remember(what, type, tags=tags, conf=conf, entities=entities, refs=refs,
                     importance=importance, memory_class=memory_class, valid_from=valid_from, sync=False)
 
 def flush(timeout: float = 5.0) -> dict:
@@ -1045,13 +997,11 @@ def flush(timeout: float = 5.0) -> dict:
 
 def recall(search: str = None, *, n: int = 10, tags: list = None,
            type: str = None, conf: float = None, tag_mode: str = "any",
-           use_cache: bool = True, semantic_fallback: bool = True,
-           semantic_threshold: int = 2, strict: bool = False) -> list:
+           use_cache: bool = True, strict: bool = False) -> list:
     """Query memories with flexible filters.
 
     v0.7.0: Uses local cache with progressive disclosure when available.
     v0.9.0: Uses FTS5 for ranked text search instead of LIKE.
-            Adds semantic fallback when FTS5 returns few results.
     v0.12.0: Logs queries for retrieval instrumentation.
     v0.12.1: Adds strict mode for timestamp-only ordering (no ranking).
 
@@ -1063,15 +1013,10 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
         conf: Minimum confidence threshold
         tag_mode: "any" (default) matches any tag, "all" requires all tags
         use_cache: If True (default), check local cache first (much faster)
-        semantic_fallback: If True (default), use semantic search when FTS5 returns
-                          fewer than semantic_threshold results
-        semantic_threshold: Trigger semantic fallback when FTS5 returns fewer
-                           than this many results (default 2)
         strict: If True, skip FTS5/ranking and order by timestamp DESC (v0.12.1)
     """
     # Track timing for logging (v0.12.0)
     start_time = time.time()
-    used_semantic = False
 
     if isinstance(search, int):
         return _query(limit=search)
@@ -1080,24 +1025,31 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
     if use_cache and _cache_available():
         results = _cache_query_index(search=search, type=type, tags=tags, n=n, conf=conf, tag_mode=tag_mode, strict=strict)
 
-        # Semantic fallback: if FTS5 returns few results and search was provided,
-        # try semantic search to find conceptually related memories (v0.9.0)
-        # Skip semantic fallback in strict mode (v0.12.1)
-        if search and semantic_fallback and not strict and len(results) < semantic_threshold:
-            try:
-                semantic_results = semantic_recall(search, n=n, type=type, conf=conf, tags=tags)
-                used_semantic = True  # Track for logging
-                # Merge results, preferring FTS5 matches (already ranked by relevance)
+        # v0.13.0: Query expansion fallback - if FTS5 returns few results and search was provided,
+        # extract tags from partial results and search for those tags to find related memories
+        # Skip in strict mode
+        if search and not strict and len(results) < 3:
+            # Extract unique tags from partial results
+            expansion_tags = set()
+            for r in results:
+                result_tags = r.get('tags', [])
+                if isinstance(result_tags, list):
+                    expansion_tags.update(result_tags)
+
+            # Search for memories with those tags (exclude already found)
+            if expansion_tags:
                 seen_ids = {r['id'] for r in results}
-                for sr in semantic_results:
-                    if sr['id'] not in seen_ids:
-                        results.append(sr)
-                        seen_ids.add(sr['id'])
-                        if len(results) >= n:
-                            break
-            except RuntimeError:
-                # Semantic search not available (no API key) - continue with FTS5 results only
-                pass
+                for tag in expansion_tags:
+                    # Search for this tag as a term (handles concept relationships)
+                    tag_results = _cache_query_index(search=tag, type=type, tags=tags, n=n-len(results), conf=conf, tag_mode=tag_mode, strict=strict)
+                    for tr in tag_results:
+                        if tr['id'] not in seen_ids:
+                            results.append(tr)
+                            seen_ids.add(tr['id'])
+                            if len(results) >= n:
+                                break
+                    if len(results) >= n:
+                        break
 
         if results:
             # Check if we need to fetch full content for any results
@@ -1141,7 +1093,7 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
                 n_returned=len(results),
                 exec_time_ms=exec_time,
                 used_cache=True,
-                used_semantic_fallback=used_semantic
+                used_semantic_fallback=False
             )
 
             return results
@@ -1163,79 +1115,6 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
 
     return results
 
-def semantic_recall(query: str, *, n: int = 5, type: str = None,
-                    conf: float = None, tags: list = None) -> list:
-    """Find memories semantically similar to query using vector search.
-
-    Requires EMBEDDING_API_KEY environment variable to be set.
-    Returns memories ranked by cosine similarity.
-
-    Args:
-        query: Natural language query
-        n: Max number of results (default 5)
-        type: Filter by memory type
-        conf: Minimum confidence threshold
-        tags: Filter by tags (any match)
-
-    Returns:
-        List of memory dicts with added 'similarity' field (0.0-1.0)
-    """
-    # Generate embedding for query
-    query_embedding = _embed(query)
-    if not query_embedding:
-        raise RuntimeError(
-            "Semantic search requires EMBEDDING_API_KEY environment variable. "
-            "Set it to an OpenAI API key to use text-embedding-3-small."
-        )
-
-    # Build WHERE clause for filters
-    # Exclude soft-deleted memories, memories without embeddings, and superseded memories
-    conditions = [
-        "memories.deleted_at IS NULL",
-        "memories.embedding IS NOT NULL",
-        # Exclude memories that are superseded (appear in any other memory's refs field)
-        "memories.id NOT IN (SELECT value FROM memories m2, json_each(m2.refs) WHERE m2.deleted_at IS NULL)"
-    ]
-    if type:
-        conditions.append(f"memories.type = '{type}'")
-    if conf is not None:
-        conditions.append(f"memories.confidence >= {conf}")
-    if tags:
-        tag_conds = " OR ".join(f"memories.tags LIKE '%\"{t}\"%'" for t in tags)
-        conditions.append(f"({tag_conds})")
-
-    where = " AND ".join(conditions)
-
-    # Use vector_top_k with index for efficient similarity search
-    try:
-        sql = f"""
-            SELECT memories.*,
-                   1 - vector_distance_cos(memories.embedding, vector32(?)) AS similarity
-            FROM vector_top_k('memories_embedding_idx', vector32(?), {n * 2}) AS v
-            JOIN memories ON memories.rowid = v.id
-            WHERE {where}
-            ORDER BY similarity DESC
-            LIMIT {n}
-        """
-        results = _exec(sql, [json.dumps(query_embedding), json.dumps(query_embedding)])
-    except Exception as e:
-        # Fallback: If vector index not available, use brute-force similarity
-        print(f"Warning: Vector index search failed, using fallback: {e}")
-        sql = f"""
-            SELECT memories.*,
-                   1 - vector_distance_cos(memories.embedding, vector32(?)) AS similarity
-            FROM memories
-            WHERE {where}
-            ORDER BY similarity DESC
-            LIMIT {n}
-        """
-        results = _exec(sql, [json.dumps(query_embedding)])
-
-    # Track access for returned memories
-    if results:
-        _update_access_tracking([m["id"] for m in results])
-
-    return results
 
 def _update_access_tracking(memory_ids: list):
     """Update access_count and last_accessed for memories (v0.4.0, updated v0.10.0 for cache sync)."""
@@ -1828,198 +1707,6 @@ def handoff_complete(handoff_id: str, completion_notes: str, version: str = None
     completion_tags = ["handoff-completed", f"v{version}"]
     return supersede(handoff_id, completion_notes, "world", tags=completion_tags)
 
-def embedding_stats() -> dict:
-    """Get statistics on embedding coverage and failure rates.
-
-    Returns:
-        Dict with embedding statistics:
-        - total: Total active memories
-        - with_embeddings: Count of memories with embeddings
-        - without_embeddings: Count of memories without embeddings
-        - failure_rate: Percentage of memories without embeddings
-        - timeline: List of daily stats (last 7 days)
-        - recent_failures: List of up to 10 most recent memories without embeddings
-
-    Example:
-        stats = embedding_stats()
-        if stats['failure_rate'] > 5.0:
-            print(f"Alert: {stats['failure_rate']:.1f}% embedding failure rate")
-            retry_embeddings(limit=50)
-    """
-    _init()
-
-    # Overall stats
-    result = _exec("""
-        SELECT
-            COUNT(*) as total,
-            SUM(CASE WHEN embedding IS NULL THEN 1 ELSE 0 END) as missing,
-            SUM(CASE WHEN embedding IS NOT NULL THEN 1 ELSE 0 END) as has
-        FROM memories
-        WHERE deleted_at IS NULL
-    """)
-
-    stats = result[0]
-    total = int(stats['total'])
-    missing = int(stats['missing'])
-    has = int(stats['has'])
-    failure_rate = (missing / total * 100) if total > 0 else 0.0
-
-    # Timeline (last 7 days)
-    timeline_raw = _exec("""
-        SELECT
-            DATE(created_at) as date,
-            COUNT(*) as total,
-            SUM(CASE WHEN embedding IS NULL THEN 1 ELSE 0 END) as failed
-        FROM memories
-        WHERE deleted_at IS NULL
-        GROUP BY DATE(created_at)
-        ORDER BY date DESC
-        LIMIT 7
-    """)
-
-    timeline = []
-    for day in timeline_raw:
-        day_total = int(day['total'])
-        day_failed = int(day['failed'])
-        day_rate = (day_failed / day_total * 100) if day_total > 0 else 0.0
-        timeline.append({
-            'date': day['date'],
-            'total': day_total,
-            'failed': day_failed,
-            'failure_rate': day_rate
-        })
-
-    # Recent failures
-    recent_raw = _exec("""
-        SELECT id, type, created_at, tags, summary
-        FROM memories
-        WHERE deleted_at IS NULL
-          AND embedding IS NULL
-        ORDER BY created_at DESC
-        LIMIT 10
-    """)
-
-    recent_failures = [_parse_memory_row(m) for m in recent_raw]
-
-    return {
-        'total': total,
-        'with_embeddings': has,
-        'without_embeddings': missing,
-        'failure_rate': failure_rate,
-        'timeline': timeline,
-        'recent_failures': recent_failures
-    }
-
-def retry_embeddings(*, limit: int = 100, dry_run: bool = False, batch_size: int = 100) -> dict:
-    """Retry embedding generation for memories that are missing embeddings.
-
-    Uses OpenAI's batch embedding API for efficient processing (up to 2048 texts per request).
-
-    Useful for batch-processing memories that failed embedding generation due to:
-    - API outages (503 errors)
-    - Rate limiting (429 errors)
-    - Missing API key at time of creation
-
-    Args:
-        limit: Maximum number of memories to retry (default 100)
-        dry_run: If True, show what would be retried without actually doing it
-        batch_size: Number of memories to embed per API call (default 100, max 2048)
-
-    Returns:
-        Dict with retry results:
-        - attempted: Number of memories attempted
-        - successful: Number that got embeddings
-        - failed: Number that still failed
-        - errors: List of error messages
-        - batches: Number of API calls made
-
-    Example:
-        # Check what would be retried
-        result = retry_embeddings(dry_run=True)
-        print(f"Would retry {result['attempted']} memories")
-
-        # Actually retry (fast batch mode)
-        result = retry_embeddings(limit=50)
-        print(f"Successfully added embeddings to {result['successful']} memories in {result['batches']} API calls")
-    """
-    _init()
-
-    if not _EMBEDDING_API_KEY:
-        return {
-            'attempted': 0,
-            'successful': 0,
-            'failed': 0,
-            'errors': ['EMBEDDING_API_KEY not set - cannot generate embeddings'],
-            'batches': 0
-        }
-
-    # Get memories without embeddings
-    memories = _exec(f"""
-        SELECT id, summary
-        FROM memories
-        WHERE deleted_at IS NULL
-          AND embedding IS NULL
-        ORDER BY created_at DESC
-        LIMIT {limit}
-    """)
-
-    if dry_run:
-        num_batches = (len(memories) + batch_size - 1) // batch_size
-        return {
-            'attempted': len(memories),
-            'successful': 0,
-            'failed': 0,
-            'errors': [],
-            'batches': num_batches,
-            'dry_run': True
-        }
-
-    results = {
-        'attempted': len(memories),
-        'successful': 0,
-        'failed': 0,
-        'errors': [],
-        'batches': 0
-    }
-
-    # Process in batches
-    for i in range(0, len(memories), batch_size):
-        batch = memories[i:i + batch_size]
-        results['batches'] += 1
-
-        # Extract texts and IDs
-        texts = [mem['summary'] for mem in batch]
-        mem_ids = [mem['id'] for mem in batch]
-
-        # Generate embeddings in batch
-        embeddings = _embed_batch(texts)
-
-        # Store results
-        for mem_id, embedding in zip(mem_ids, embeddings):
-            if embedding is not None:
-                # Update memory with embedding
-                try:
-                    _exec_batch([
-                        ("UPDATE memories SET embedding = vector32(?) WHERE id = ?",
-                         [json.dumps(embedding), mem_id])
-                    ])
-                    results['successful'] += 1
-
-                    # Update cache if available
-                    if _cache_available():
-                        _cache_conn().execute(
-                            "UPDATE memory_full SET embedding = ? WHERE id = ?",
-                            (json.dumps(embedding), mem_id)
-                        )
-                        _cache_conn().commit()
-                except Exception as e:
-                    results['failed'] += 1
-                    results['errors'].append(f"{mem_id[:8]}: Failed to store embedding - {str(e)}")
-            else:
-                results['failed'] += 1
-                results['errors'].append(f"{mem_id[:8]}: Embedding generation failed (likely API error)")
-
-    return results
 
 def muninn_import(data: dict, *, merge: bool = False) -> dict:
     """Import Muninn state from exported JSON.
@@ -2066,16 +1753,14 @@ def muninn_import(data: dict, *, merge: bool = False) -> dict:
             entities = json.loads(m.get("entities", "[]")) if isinstance(m.get("entities"), str) else m.get("entities", [])
             refs = json.loads(m.get("refs", "[]")) if isinstance(m.get("refs"), str) else m.get("refs", [])
 
-            # Note: embeddings are NOT regenerated on import - they're preserved from export
-            # To regenerate embeddings, export without embedding field or set embed=True manually
+            # v0.13.0: Embeddings no longer supported
             remember(
                 m["summary"],
                 m["type"],
                 tags=tags,
                 conf=m.get("confidence"),
                 entities=entities,
-                refs=refs,
-                embed=False  # Don't regenerate embeddings on import
+                refs=refs
             )
             stats["memory_count"] += 1
         except Exception as e:
@@ -2089,7 +1774,7 @@ q = recall
 j = journal
 
 __all__ = [
-    "remember", "recall", "forget", "supersede", "remember_bg", "flush", "semantic_recall",  # memories
+    "remember", "recall", "forget", "supersede", "remember_bg", "flush",  # memories
     "recall_since", "recall_between",  # date-filtered queries
     "config_get", "config_set", "config_delete", "config_list",  # config
     "profile", "ops", "boot", "boot_fast", "journal", "journal_recent", "journal_prune",  # convenience loaders
@@ -2099,6 +1784,5 @@ __all__ = [
     "muninn_export", "muninn_import",  # export/import
     "cache_stats",  # v0.7.0 cache diagnostics
     "strengthen", "weaken",  # v0.10.0 salience adjustment
-    "embedding_stats", "retry_embeddings",  # v0.10.1 embedding reliability
     "r", "q", "j", "TYPES"  # aliases & constants
 ]
