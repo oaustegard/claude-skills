@@ -2,7 +2,7 @@
 name: remembering
 description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, and edge cases.
 metadata:
-  version: 0.13.1
+  version: 0.14.0
 ---
 
 > **⚠️ IMPORTANT FOR CLAUDE CODE AGENTS**
@@ -289,35 +289,29 @@ for tag, tagged_mems in sorted_tags[:5]:
     print(f"  {tag}: {len(tagged_mems)} memories")
 ```
 
-## Semantic Search (Vector Similarity)
+## FTS5 Search with Porter Stemmer (v0.13.0)
 
-Find memories by meaning, not just keywords. Requires `EMBEDDING_API_KEY` environment variable (OpenAI API key).
+Full-text search uses FTS5 with Porter stemmer for morphological variant matching:
 
 ```python
-from remembering import semantic_recall
+from remembering import recall
 
-# Find memories semantically similar to a concept
-similar = semantic_recall("performance optimization strategies")
+# Searches match word variants automatically
+# "running" matches "run", "runs", "runner"
+# "beads" matches "bead"
+results = recall("running performance")
 
-# With filters
-similar_decisions = semantic_recall("user preferences", type="decision", n=3)
+# Query expansion fallback
+# When FTS5 returns < 3 results, automatically extracts tags from
+# partial results and searches for related memories
+sparse_results = recall("rare term")  # Auto-expands if < 3 matches
 ```
 
 **How it works:**
-- Stores 1536-dim embeddings (OpenAI `text-embedding-3-small`) with each memory
-- Uses Turso's DiskANN vector index for efficient cosine similarity search
-- Returns results with `similarity` field (0.0-1.0)
-- Gracefully degrades if embeddings not available
-
-**Enable semantic search:**
-```bash
-export EMBEDDING_API_KEY="sk-..."  # OpenAI API key
-```
-
-**Disable embeddings for a specific write:**
-```python
-remember("No embedding needed", "world", embed=False)
-```
+- FTS5 tokenizer: `porter unicode61` handles stemming
+- BM25 ranking for relevance scoring
+- Query expansion extracts tags from partial results when < 3 matches found
+- Composite ranking: BM25 × salience × recency × access patterns
 
 ## Soft Delete
 
@@ -455,7 +449,6 @@ stats = muninn_import(data, merge=False)
 **Notes:**
 - `merge=False` deletes all existing data before import (use with caution!)
 - Memory IDs are regenerated on import to avoid conflicts
-- Embeddings are preserved from export (not regenerated)
 - Returns stats dict with counts and any errors
 
 ## Edge Cases
@@ -474,16 +467,16 @@ stats = muninn_import(data, merge=False)
 
 **Journal pruning:** Call `journal_prune()` periodically to prevent unbounded growth. Default keeps 40 entries.
 
-**Semantic search without API key:** `semantic_recall()` raises `RuntimeError` if `EMBEDDING_API_KEY` not set. Regular `recall()` works without it.
-
 **Tag mode:** `tag_mode="all"` requires all specified tags to be present. `tag_mode="any"` (default) matches if any tag present.
+
+**Query expansion:** When FTS5 returns < 3 results, tags are automatically extracted from partial matches and used to find related memories.
 
 ## Implementation Notes
 
 - Backend: Turso SQLite HTTP API
 - Token: `TURSO_TOKEN` environment variable or `/mnt/project/turso-token.txt`
-- Embedding API: `EMBEDDING_API_KEY` environment variable (OpenAI)
 - Two tables: `config` (KV) and `memories` (observations)
-- Vector search: 1536-dim embeddings with DiskANN index
+- FTS5 search: Porter stemmer tokenizer with BM25 ranking
 - HTTP API required (libsql SDK bypasses egress proxy)
+- Local SQLite cache for fast recall (< 5ms vs 150ms+ network)
 - Thread-safe for background writes

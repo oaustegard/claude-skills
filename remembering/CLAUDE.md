@@ -13,22 +13,22 @@ print(boot())
 **When working on this skill, USE IT for tracking development progress!** Examples:
 
 ```python
-from remembering import remember, journal, semantic_recall
+from remembering import remember, journal, recall
 
 # Record design decisions
-remember("Vector search uses DiskANN index for sub-100ms latency at scale", "decision",
-         tags=["vector-search", "performance"], conf=0.9)
+remember("FTS5 Porter stemmer handles morphological variants automatically", "decision",
+         tags=["fts5", "search", "performance"], conf=0.9)
 
 # Track implementation progress
-journal(topics=["muninn-v0.1.0"],
-        my_intent="Adding semantic search and export/import capabilities")
+journal(topics=["muninn-v0.13.0"],
+        my_intent="Removed embeddings, added Porter stemmer and query expansion")
 
 # Remember discovered issues
 remember("Config read_only flag should be checked before updates", "anomaly",
          tags=["bug", "config"], conf=0.7)
 
 # Recall related context when debugging
-issues = semantic_recall("configuration constraints and validation")
+issues = recall("configuration", tags=["bug"], n=10)
 ```
 
 This creates a **feedback loop**: improve the skill while using it to track improvements.
@@ -46,7 +46,6 @@ Set these in Claude Code's environment settings:
 | Variable | Purpose |
 |----------|---------|
 | `TURSO_TOKEN` | JWT auth token for Turso HTTP API (required) |
-| `EMBEDDING_API_KEY` | API key for embedding generation (OpenAI, for vector search) |
 
 ## Architecture
 
@@ -92,7 +91,7 @@ CREATE TABLE memories (
 ## Core API
 
 ```python
-from remembering import remember, recall, forget, supersede, remember_bg, semantic_recall
+from remembering import remember, recall, forget, supersede, remember_bg
 from remembering import recall_since, recall_between
 from remembering import config_get, config_set, config_list, profile, ops, boot
 from remembering import journal, journal_recent, journal_prune
@@ -102,30 +101,24 @@ from remembering import handoff_pending, handoff_complete
 from remembering import muninn_export, muninn_import
 from remembering import strengthen, weaken
 from remembering import cache_stats
-from remembering import embedding_stats, retry_embeddings
 
-# Store a memory (type required, with optional embedding)
+# Store a memory (type required)
 id = remember("User prefers dark mode", "decision", tags=["ui"], conf=0.9)
-id = remember("Quick note", "world", embed=False)  # Skip embedding
+id = remember("Quick note", "world")
 
 # Background write (non-blocking)
 remember_bg("Project uses React", "world", tags=["tech"])
 
-# Query memories
-memories = recall("dark mode")  # FTS5 search, ranked by BM25
-memories = recall(type="decision", conf=0.8)  # filtered
+# Query memories - FTS5 with Porter stemmer for morphological variants
+memories = recall("dark mode")  # FTS5 search with BM25 ranking
+memories = recall(type="decision", conf=0.8)  # filtered by type and confidence
 memories = recall(tags=["ui"])  # by tag (any match)
 memories = recall(tags=["urgent", "task"], tag_mode="all")  # require all tags
-memories = recall("concept", semantic_fallback=True)  # auto-fallback to semantic
-memories = recall("exact term", semantic_fallback=False)  # FTS5 only
+# v0.13.0: Query expansion fallback automatically extracts tags from partial results
 
 # Query memories - date-filtered
 recent = recall_since("2025-12-01T00:00:00Z", n=50)  # after timestamp
 range_mems = recall_between("2025-12-01T00:00:00Z", "2025-12-26T00:00:00Z")
-
-# Query memories - semantic search (requires EMBEDDING_API_KEY)
-similar = semantic_recall("user interface preferences", n=5)
-similar = semantic_recall("performance issues", type="anomaly")
 
 # Soft delete
 forget(memory_id)
@@ -136,12 +129,6 @@ new_id = supersede(old_id, "Updated preference", "decision")
 # Salience adjustment for memory consolidation
 strengthen("memory-id", factor=1.5)  # Boost salience (default 1.5x)
 weaken("memory-id", factor=0.5)      # Reduce salience (default 0.5x)
-
-# Embedding reliability monitoring and retry
-stats = embedding_stats()  # Check embedding coverage and failure rates
-if stats['failure_rate'] > 5.0:
-    result = retry_embeddings(limit=50)  # Batch retry failed embeddings (default: 100 per API call)
-    # Or customize batch size: retry_embeddings(limit=200, batch_size=50)
 
 # Config operations with constraints
 config_set("identity", "I am Muninn...", "profile")
@@ -311,7 +298,5 @@ python3 -c "import sys; sys.path.insert(0, '/home/user/claude-skills'); import r
 
 ## Known Limitations
 
-- Semantic search requires OpenAI API key (paid service)
-- Vector index creation requires newer Turso versions (falls back to brute-force)
-- Embeddings not automatically regenerated on import
 - Session ID currently hardcoded to "session" (not per-conversation tracking)
+- Query expansion fallback threshold is fixed at 3 results (not configurable)
