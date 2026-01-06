@@ -4,6 +4,12 @@ All notable changes to the `accessing-github-repos` skill are documented in this
 
 ## [2.0.0] - 2026-01-06
 
+### Added
+
+- Rename git-in-containers to accessing-github-repos with credential-aware API
+
+## [2.0.0] - 2026-01-06
+
 ### Changed
 
 - **BREAKING**: Renamed skill from `git-in-containers` to `accessing-github-repos` (gerund naming convention)
