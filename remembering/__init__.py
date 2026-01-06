@@ -139,7 +139,6 @@ def _init_local_cache() -> bool:
 
             if not meta_check:
                 # Migration needed - rebuild FTS5 with Porter stemmer
-                print("Migrating FTS5 to Porter stemmer...")
                 _cache_conn.execute("DROP TABLE IF EXISTS memory_fts")
                 _cache_conn.execute("""
                     CREATE VIRTUAL TABLE memory_fts USING fts5(
@@ -155,9 +154,8 @@ def _init_local_cache() -> bool:
                     ("fts5_porter_migrated", "true")
                 )
                 _cache_conn.commit()
-                print("FTS5 migration complete. Cache will repopulate on next boot.")
         except Exception as e:
-            print(f"Warning: FTS5 migration check failed: {e}")
+            pass  # Silent fail - migration will retry on next boot
 
         # Store initialization timestamp
         now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
