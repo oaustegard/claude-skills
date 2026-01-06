@@ -4,6 +4,12 @@ All notable changes to the `remembering` skill (Muninn) are documented in this f
 
 ## [0.14.1] - 2026-01-06
 
+### Added
+
+- Rename git-in-containers to accessing-github-repos with credential-aware API
+
+## [0.14.1] - 2026-01-06
+
 ### Fixed
 
 - Clean boot output - removed FTS5 migration status messages from stdout
