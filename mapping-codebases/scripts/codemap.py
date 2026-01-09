@@ -24,6 +24,17 @@ EXT_TO_LANG = {
     '.rb': 'ruby',
     '.java': 'java',
     '.html': 'html',
+    '.md': 'markdown',
+}
+
+# Non-code file extensions to list (without parsing)
+NON_CODE_EXTENSIONS = {
+    '.json', '.yml', '.yaml', '.toml', '.ini', '.cfg', '.conf',
+    '.txt', '.csv', '.xml', '.svg',
+    '.sh', '.bash', '.zsh',
+    '.dockerfile', '.gitignore', '.gitattributes',
+    '.env', '.env.example',
+    '.lock', '.sum',
 }
 
 # Default directories to skip
@@ -32,8 +43,9 @@ DEFAULT_SKIP_DIRS = {'.git', 'node_modules', '__pycache__', '.venv', 'venv', 'di
 @dataclass
 class Symbol:
     name: str
-    kind: str  # 'class', 'function', 'method', 'variable', 'interface'
+    kind: str  # 'class', 'function', 'method', 'variable', 'interface', 'heading'
     signature: str | None = None
+    line: int | None = None  # 1-indexed line number
     children: list['Symbol'] = field(default_factory=list)
 
 @dataclass
@@ -77,7 +89,8 @@ def extract_python(tree, source: bytes) -> FileInfo:
                 break
 
         signature = get_signature(node)
-        return Symbol(name=name, kind=kind, signature=signature)
+        line = node.start_point[0] + 1  # Convert 0-indexed to 1-indexed
+        return Symbol(name=name, kind=kind, signature=signature, line=line)
 
     def process_class(node) -> Symbol:
         name = ""
@@ -87,7 +100,8 @@ def extract_python(tree, source: bytes) -> FileInfo:
                 break
 
         children = visit_class_body(node)
-        return Symbol(name=name, kind='class', children=children)
+        line = node.start_point[0] + 1  # Convert 0-indexed to 1-indexed
+        return Symbol(name=name, kind='class', line=line, children=children)
 
     def visit(node):
         # Imports
@@ -145,7 +159,8 @@ def extract_typescript(tree, source: bytes) -> FileInfo:
             if child.type in ('property_identifier', 'method_definition'):
                  name = get_node_text(child, source)
                  break
-        return Symbol(name=name, kind='method') # Signature extraction is harder in TS due to complexity
+        line = node.start_point[0] + 1
+        return Symbol(name=name, kind='method', line=line)
 
     def process_class_body(node) -> list[Symbol]:
         members = []
@@ -160,7 +175,8 @@ def extract_typescript(tree, source: bytes) -> FileInfo:
                                 name = get_node_text(part, source)
                                 break
                         if name:
-                            members.append(Symbol(name=name, kind='method'))
+                            line = subchild.start_point[0] + 1
+                            members.append(Symbol(name=name, kind='method', line=line))
         return members
 
     def visit(node):
@@ -181,7 +197,8 @@ def extract_typescript(tree, source: bytes) -> FileInfo:
                             name = get_node_text(subchild, source)
                             break
                     if name:
-                        symbols.append(Symbol(name=name, kind='function'))
+                        line = child.start_point[0] + 1
+                        symbols.append(Symbol(name=name, kind='function', line=line))
 
                 elif child.type == 'class_declaration':
                     name = ""
@@ -191,7 +208,8 @@ def extract_typescript(tree, source: bytes) -> FileInfo:
                             break
                     if name:
                         members = process_class_body(child)
-                        symbols.append(Symbol(name=name, kind='class', children=members))
+                        line = child.start_point[0] + 1
+                        symbols.append(Symbol(name=name, kind='class', line=line, children=members))
 
         # TODO: Handle non-exported top-level items if desired, or `export default`
         
@@ -205,7 +223,7 @@ def extract_typescript(tree, source: bytes) -> FileInfo:
 def extract_go(tree, source: bytes) -> FileInfo:
     symbols = []
     imports = []
-    
+
     def visit(node):
         if node.type == 'import_spec':
             for child in node.children:
@@ -216,11 +234,12 @@ def extract_go(tree, source: bytes) -> FileInfo:
                 if child.type == 'identifier':
                     name = get_node_text(child, source)
                     if name[0].isupper():
-                        symbols.append(Symbol(name=name, kind='func' if node.type == 'function_declaration' else 'type'))
+                        line = node.start_point[0] + 1
+                        symbols.append(Symbol(name=name, kind='func' if node.type == 'function_declaration' else 'type', line=line))
                     break
         for child in node.children:
             visit(child)
-    
+
     visit(tree.root_node)
     return FileInfo(name="", symbols=symbols, imports=imports)
 
@@ -258,7 +277,8 @@ def extract_rust(tree, source: bytes) -> FileInfo:
                          break
                  if name:
                     kind = node.type.replace('_item', '')
-                    symbols.append(Symbol(name=name, kind=kind))
+                    line = node.start_point[0] + 1
+                    symbols.append(Symbol(name=name, kind=kind, line=line))
 
         for child in node.children:
             visit(child)
@@ -290,7 +310,8 @@ def extract_ruby(tree, source: bytes) -> FileInfo:
             for child in node.children:
                 if child.type in ('identifier', 'constant'):
                     name = get_node_text(child, source)
-                    symbols.append(Symbol(name=name, kind=node.type))
+                    line = node.start_point[0] + 1
+                    symbols.append(Symbol(name=name, kind=node.type, line=line))
                     break
         
         for child in node.children:
@@ -325,7 +346,8 @@ def extract_java(tree, source: bytes) -> FileInfo:
                     if child.type == 'identifier':
                         name = get_node_text(child, source)
                         kind = node.type.replace('_declaration', '')
-                        symbols.append(Symbol(name=name, kind=kind))
+                        line = node.start_point[0] + 1
+                        symbols.append(Symbol(name=name, kind=kind, line=line))
                         break
         
         for child in node.children:
@@ -392,7 +414,8 @@ def extract_html_javascript(tree, source: bytes) -> FileInfo:
                         for child in node.children:
                             if child.type == 'identifier':
                                 func_name = get_js_text(child)
-                                symbols.append(Symbol(name=func_name, kind='function'))
+                                line = node.start_point[0] + 1
+                                symbols.append(Symbol(name=func_name, kind='function', line=line))
                                 break
 
                     # Variable declarations with functions: const foo = function() {}
@@ -406,7 +429,8 @@ def extract_html_javascript(tree, source: bytes) -> FileInfo:
                             elif child.type in ('function', 'arrow_function', 'function_expression'):
                                 is_function = True
                         if identifier and is_function:
-                             symbols.append(Symbol(name=identifier, kind='function'))
+                             line = node.start_point[0] + 1
+                             symbols.append(Symbol(name=identifier, kind='function', line=line))
 
                     # Import statements
                     elif node.type == 'import_statement':
@@ -427,6 +451,51 @@ def extract_html_javascript(tree, source: bytes) -> FileInfo:
     return FileInfo(name="", symbols=symbols, imports=imports)
 
 
+def extract_markdown(tree, source: bytes) -> FileInfo:
+    """Extract heading structure from Markdown for ToC-style navigation.
+
+    Only extracts h1 and h2 headings for brevity - deeper levels add noise
+    without proportional navigation value.
+    """
+    symbols = []
+
+    def get_heading_level(marker_type: str) -> int:
+        """Convert atx_h1_marker, atx_h2_marker, etc. to level number."""
+        if marker_type.startswith('atx_h') and marker_type.endswith('_marker'):
+            try:
+                return int(marker_type[5])  # Extract number from 'atx_h1_marker'
+            except ValueError:
+                return 1
+        return 1
+
+    def visit(node):
+        if node.type == 'atx_heading':
+            level = 1
+            text = ""
+            line = node.start_point[0] + 1
+
+            for child in node.children:
+                if child.type.startswith('atx_h') and child.type.endswith('_marker'):
+                    level = get_heading_level(child.type)
+                elif child.type == 'inline':
+                    text = get_node_text(child, source).strip()
+
+            # Only include h1 and h2 for brevity
+            if text and level <= 2:
+                symbols.append(Symbol(
+                    name=text,
+                    kind='heading',
+                    signature=f"h{level}",
+                    line=line
+                ))
+
+        for child in node.children:
+            visit(child)
+
+    visit(tree.root_node)
+    return FileInfo(name="", symbols=symbols, imports=[])
+
+
 EXTRACTORS = {
     'python': extract_python,
     'javascript': extract_typescript,
@@ -437,6 +506,7 @@ EXTRACTORS = {
     'ruby': extract_ruby,
     'java': extract_java,
     'html': extract_html_javascript,
+    'markdown': extract_markdown,
 }
 
 def analyze_file(filepath: Path) -> FileInfo | None:
@@ -470,11 +540,17 @@ def format_symbol(symbol: Symbol, indent: int = 0) -> list[str]:
     if symbol.kind == 'class': kind_marker = "(C)"
     elif symbol.kind == 'method': kind_marker = "(m)"
     elif symbol.kind == 'function': kind_marker = "(f)"
+    elif symbol.kind == 'heading': kind_marker = ""  # Headings don't need kind marker
     else: kind_marker = f"({symbol.kind})"
 
-    sig = f"`{symbol.signature}`" if symbol.signature else ""
+    sig = f" `{symbol.signature}`" if symbol.signature else ""
+    line_ref = f" :{symbol.line}" if symbol.line else ""
 
-    lines.append(f"{prefix}- **{symbol.name}** {kind_marker} {sig}")
+    # For headings, format differently (no bold, include level info in signature)
+    if symbol.kind == 'heading':
+        lines.append(f"{prefix}- {symbol.name}{sig}{line_ref}")
+    else:
+        lines.append(f"{prefix}- **{symbol.name}** {kind_marker}{sig}{line_ref}")
 
     for child in symbol.children:
         lines.extend(format_symbol(child, indent + 1))
@@ -484,9 +560,8 @@ def format_symbol(symbol: Symbol, indent: int = 0) -> list[str]:
 def generate_map_for_directory(dirpath: Path, skip_dirs: set[str]) -> str | None:
     """Generate _MAP.md content for a single directory."""
     files_info = []
+    other_files = []  # Non-code files to list
     subdirs = []
-    
-    # print(f"Processing directory: {dirpath}", file=sys.stderr)
 
     for entry in sorted(dirpath.iterdir()):
         if entry.name.startswith('.') or entry.name == '_MAP.md':
@@ -495,45 +570,46 @@ def generate_map_for_directory(dirpath: Path, skip_dirs: set[str]) -> str | None
             if entry.name not in skip_dirs:
                 subdirs.append(entry.name)
         elif entry.is_file():
-            # print(f"  Analyzing file: {entry}", file=sys.stderr)
             info = analyze_file(entry)
             if info:
-                # print(f"    Found info for {entry.name}: {len(info.symbols)} symbols", file=sys.stderr)
                 files_info.append(info)
             else:
-                # print(f"    No info for {entry.name}", file=sys.stderr)
-                pass
-    
-    if not files_info and not subdirs:
-        # print("    No content for map.", file=sys.stderr)
+                # Check if it's a known non-code file type worth listing
+                ext = entry.suffix.lower()
+                # List files with known extensions OR no extension (like Makefile, Dockerfile)
+                if ext in NON_CODE_EXTENSIONS or (not ext and entry.name not in {'LICENSE'}):
+                    other_files.append(entry.name)
+
+    if not files_info and not subdirs and not other_files:
         return None
     
     # Header with stats
     lines = [f"# {dirpath.name}/"]
-    
+
     # Add summary stats
     stats = []
-    if files_info:
-        stats.append(f"Files: {len(files_info)}")
+    total_files = len(files_info) + len(other_files)
+    if total_files:
+        stats.append(f"Files: {total_files}")
     if subdirs:
         stats.append(f"Subdirectories: {len(subdirs)}")
     if stats:
         lines.append(f"*{' | '.join(stats)}*\n")
     else:
         lines.append("")
-    
+
     if subdirs:
         lines.append("## Subdirectories\n")
         for d in subdirs:
             lines.append(f"- [{d}/](./{d}/_MAP.md)")
         lines.append("")
-    
+
     if files_info:
         lines.append("## Files\n")
         for info in files_info:
             lines.append(f"### {info.name}")
-            
-            # Imports
+
+            # Imports (skip for markdown files)
             if info.imports:
                 short_imports = [i.split('/')[-1] for i in info.imports[:5]]
                 import_preview = ', '.join(short_imports)
@@ -548,9 +624,15 @@ def generate_map_for_directory(dirpath: Path, skip_dirs: set[str]) -> str | None
                     lines.extend(format_symbol(sym))
             else:
                 lines.append("- *No top-level symbols*")
-            
-            lines.append("") # Spacer
-    
+
+            lines.append("")  # Spacer
+
+    if other_files:
+        lines.append("## Other Files\n")
+        for name in sorted(other_files):
+            lines.append(f"- {name}")
+        lines.append("")
+
     return '\n'.join(lines) + '\n'
 
 
