@@ -2,6 +2,26 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.2.1] - 2026-01-09
+
+### Added
+
+- add code maps and CLAUDE.md integration guidance
+
+### Changed
+
+- split monolith into SRP modules
+- simplify Muninn project instructions
+
+### Fixed
+
+- make boot() resilient to SSL handshake failures
+
+### Other
+
+- Update version number to 2.2.1 in SKILL.md
+- Merge pull request #184 from oaustegard/claude/iterative-refactor-testing-84eGE
+
 ## [2.1.1] - 2026-01-09
 
 ### Added
