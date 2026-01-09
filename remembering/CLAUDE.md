@@ -2,13 +2,21 @@
 
 **VERSION:** 2.1.0 (ops topic organization in boot())
 
-**BOOT ON LAUNCH:** Run `boot()` at the start of every session:
-```python
+## Boot
+
+Unless message contains "skip boot", IMMEDIATELY execute:
+
+```bash
+set -a; . /mnt/project/muninn.env 2>/dev/null; set +a
+python3 << 'EOF'
 import sys
 sys.path.insert(0, '/home/user/claude-skills')
 from remembering import boot
 print(boot())
+EOF
 ```
+
+**Note:** For Claude.ai projects, see `claude-ai-project-instructions.md` which uses `/mnt/skills/user` paths.
 
 ## v2.0.0 Migration
 
