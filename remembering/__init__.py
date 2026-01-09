@@ -40,6 +40,7 @@ _CACHE_DIR = Path.home() / ".muninn"
 _CACHE_DB = _CACHE_DIR / "cache.db"
 _cache_conn = None
 _cache_enabled = True  # Can be disabled for testing
+_cache_warmed = False  # Track if background warming completed
 
 
 def _init_local_cache() -> bool:
@@ -128,9 +129,8 @@ def _init_local_cache() -> bool:
         _cache_conn.commit()
 
         # v0.13.0: Migrate FTS5 to Porter stemmer if needed
-        # Check if FTS5 table needs rebuilding (check for porter tokenizer)
+        # v2.0.1: Silent migration - no output to avoid polluting boot()
         try:
-            # Try to get the FTS5 table info - if it exists with wrong tokenizer, rebuild
             meta_check = _cache_conn.execute(
                 "SELECT value FROM cache_meta WHERE key = 'fts5_porter_migrated'"
             ).fetchone()
@@ -146,14 +146,13 @@ def _init_local_cache() -> bool:
                         tokenize='porter unicode61'
                     )
                 """)
-                # Mark migration complete
                 _cache_conn.execute(
                     "INSERT OR REPLACE INTO cache_meta (key, value) VALUES (?, ?)",
                     ("fts5_porter_migrated", "true")
                 )
                 _cache_conn.commit()
-        except Exception as e:
-            pass  # Silent fail - migration will retry on next boot
+        except Exception:
+            pass  # Silent - migration will retry on next boot
 
         # Store initialization timestamp
         now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
@@ -163,8 +162,8 @@ def _init_local_cache() -> bool:
         )
         _cache_conn.commit()
         return True
-    except Exception as e:
-        print(f"Warning: Cache initialization failed: {e}")
+    except Exception:
+        # v2.0.1: Silent failure - cache is optional, don't pollute boot() output
         _cache_conn = None
         return False
 
@@ -261,8 +260,8 @@ def _cache_populate_index(memories: list):
                 m.get('access_count', 0)
             ))
         _cache_conn.commit()
-    except Exception as e:
-        print(f"Warning: Cache index population failed: {e}")
+    except Exception:
+        pass  # Silent - cache is optional, don't pollute output
 
 
 def _cache_populate_full(memories: list):
@@ -320,8 +319,8 @@ def _cache_populate_full(memories: list):
                 (mem_id, summary, tags_str)
             )
         _cache_conn.commit()
-    except Exception as e:
-        print(f"Warning: Cache full population failed: {e}")
+    except Exception:
+        pass  # Silent - cache is optional, don't pollute output
 
 
 def _cache_config(config_entries: list):
@@ -336,8 +335,8 @@ def _cache_config(config_entries: list):
                 VALUES (?, ?, ?)
             """, (c.get('key'), c.get('value'), c.get('category')))
         _cache_conn.commit()
-    except Exception as e:
-        print(f"Warning: Config caching failed: {e}")
+    except Exception:
+        pass  # Silent - cache is optional, don't pollute output
 
 
 def _cache_query_index(search: str = None, type: str = None,
@@ -1016,8 +1015,25 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
         return _query(limit=search)
 
     # Try cache first (progressive disclosure)
+    # v2.0.1: Only trust empty cache results if warming completed, otherwise fall back to Turso
     if use_cache and _cache_available():
         results = _cache_query_index(search=search, type=type, tags=tags, n=n, conf=conf, tag_mode=tag_mode, strict=strict)
+
+        # v2.0.1: If cache returns no results and warming isn't complete, fall back to Turso
+        # This fixes race condition where recall() called immediately after boot() returns 0 results
+        if not results and not _cache_warmed:
+            results = _query(search=search, tags=tags, type=type, conf=conf, limit=n, tag_mode=tag_mode)
+            exec_time = (time.time() - start_time) * 1000
+            _log_recall_query(
+                query=search,
+                filters={'type': type, 'tags': tags, 'conf': conf, 'tag_mode': tag_mode},
+                n_requested=n,
+                n_returned=len(results),
+                exec_time_ms=exec_time,
+                used_cache=False,
+                used_semantic_fallback=False
+            )
+            return results
 
         # v0.13.0: Query expansion fallback - if FTS5 returns few results and search was provided,
         # extract tags from partial results and search for those tags to find related memories
@@ -1432,7 +1448,9 @@ def _warm_cache():
     """Background cache population - fetches all memories from Turso.
 
     v2.0.0: Uses priority instead of importance.
+    v2.0.1: Sets _cache_warmed flag when complete to fix race condition.
     """
+    global _cache_warmed
     try:
         results = _exec_batch([
             """SELECT * FROM memories
@@ -1455,6 +1473,7 @@ def _warm_cache():
                 })
             _cache_populate_index(memory_index)
             _cache_populate_full(full_memories)
+            _cache_warmed = True  # Mark as complete
     except Exception:
         pass  # Cache warming is best-effort
 
