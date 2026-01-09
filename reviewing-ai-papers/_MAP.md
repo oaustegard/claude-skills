@@ -8,8 +8,6 @@
 - Contextual Priorities `h2` :12
 - Analytical Standards `h2` :32
 - Analysis Structure `h2` :40
-- For Substantive Content `h3` :42
-- For Thin Content `h3` :67
 - Memory Integration `h2` :74
 - Output Standards `h2` :105
 - Constraints `h2` :112

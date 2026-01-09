@@ -15,9 +15,9 @@
 - **extract_java** (f) `(tree, source: bytes)` :324
 - **extract_html_javascript** (f) `(tree, source: bytes)` :360
 - **extract_markdown** (f) `(tree, source: bytes)` :454
-- **analyze_file** (f) `(filepath: Path)` :508
-- **format_symbol** (f) `(symbol: Symbol, indent: int = 0)` :531
-- **generate_map_for_directory** (f) `(dirpath: Path, skip_dirs: set[str])` :556
-- **generate_maps** (f) `(root: Path, skip_dirs: set[str], dry_run: bool = False)` :635
-- **main** (f) `()` :660
+- **analyze_file** (f) `(filepath: Path)` :512
+- **format_symbol** (f) `(symbol: Symbol, indent: int = 0)` :535
+- **generate_map_for_directory** (f) `(dirpath: Path, skip_dirs: set[str])` :560
+- **generate_maps** (f) `(root: Path, skip_dirs: set[str], dry_run: bool = False)` :639
+- **main** (f) `()` :664
 

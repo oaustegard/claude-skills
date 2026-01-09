@@ -20,9 +20,6 @@
 - Documentation Retrieval Workflow `h2` :65
 - Progressive Disclosure Pattern `h2` :78
 - Implementation Phases `h2` :89
-- Phase 1: Research `h3` :91
-- Phase 2: Implement `h3` :94
-- Phase 3: Package (Optional) `h3` :97
 - Reference Library `h2` :106
 - Verification Checklist `h2` :122
 - Tool Description Pattern `h2` :144

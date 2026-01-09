@@ -21,8 +21,6 @@
 - Parallel Invocation `h2` :125
 - Error Handling `h2` :154
 - Advanced Features `h2` :177
-- Custom Generation Config `h3` :179
-- Multi-modal Input `h3` :191
 - Comparison: Gemini vs Claude `h2` :211
 - Token Efficiency Pattern `h2` :230
 - Limitations `h2` :251

@@ -38,7 +38,7 @@ Per-directory `_MAP.md` files listing:
 - **Function signatures** extracted from AST (Python, partial TypeScript)
 - **Line number references** (`:42` format) for direct navigation
 - Import previews
-- **Markdown ToC** for `.md` files (heading structure with levels)
+- **Markdown ToC** for `.md` files (h1/h2 headings only for brevity)
 - **Other Files** section listing non-code files (JSON, YAML, shell scripts, etc.)
 
 Example output:
@@ -64,7 +64,6 @@ Example output:
 - Authentication Module `h1` :1
 - Installation `h2` :5
 - Configuration `h2` :12
-- API Reference `h2` :28
 
 ## Other Files
 - config.yaml
@@ -188,7 +187,7 @@ Use this to decide whether to update CLAUDE.md (Claude Code) or recommend Projec
 
 **Line Number References**: Every symbol includes its line number (`:42` format), enabling direct navigation to definitions using `file:line` patterns.
 
-**Markdown ToC**: Extracts heading structure from `.md` files with heading levels (`h1`, `h2`, etc.) and line numbers, creating navigable documentation maps.
+**Markdown ToC**: Extracts h1 and h2 headings from `.md` files with line numbers, creating navigable documentation maps without the noise of deeper heading levels.
 
 **Other Files Section**: Lists non-code files (JSON, YAML, shell scripts, config files) that exist in the directory but aren't parsed for symbols.
 
@@ -214,6 +213,6 @@ git add '*/_MAP.md'
 - Extracts structural info only (symbols/imports), not semantic descriptions
 - Method extraction: Full support for Python/TypeScript, partial for other languages
 - Signatures: Python (full), TypeScript (partial), others (not extracted)
-- Markdown: Extracts heading structure only (no code blocks, links, or other elements)
+- Markdown: Extracts h1/h2 headings only (deeper levels excluded for brevity)
 - Skips: `.git`, `node_modules`, `__pycache__`, `venv`, `dist`, `build` (plus user-specified patterns)
 - Private symbols (Python `_prefix`) excluded from top-level exports (methods not filtered yet)

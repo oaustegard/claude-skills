@@ -452,7 +452,11 @@ def extract_html_javascript(tree, source: bytes) -> FileInfo:
 
 
 def extract_markdown(tree, source: bytes) -> FileInfo:
-    """Extract heading structure from Markdown for ToC-style navigation."""
+    """Extract heading structure from Markdown for ToC-style navigation.
+
+    Only extracts h1 and h2 headings for brevity - deeper levels add noise
+    without proportional navigation value.
+    """
     symbols = []
 
     def get_heading_level(marker_type: str) -> int:
@@ -464,7 +468,7 @@ def extract_markdown(tree, source: bytes) -> FileInfo:
                 return 1
         return 1
 
-    def visit(node, parent_level: int = 0):
+    def visit(node):
         if node.type == 'atx_heading':
             level = 1
             text = ""
@@ -476,8 +480,8 @@ def extract_markdown(tree, source: bytes) -> FileInfo:
                 elif child.type == 'inline':
                     text = get_node_text(child, source).strip()
 
-            if text:
-                # Use heading level as "signature" for display
+            # Only include h1 and h2 for brevity
+            if text and level <= 2:
                 symbols.append(Symbol(
                     name=text,
                     kind='heading',
@@ -486,7 +490,7 @@ def extract_markdown(tree, source: bytes) -> FileInfo:
                 ))
 
         for child in node.children:
-            visit(child, parent_level)
+            visit(child)
 
     visit(tree.root_node)
     return FileInfo(name="", symbols=symbols, imports=[])

@@ -11,9 +11,6 @@
 - Implementation Patterns `h2` :56
 - Cross-Session Analysis `h2` :74
 - Handoff Pattern Examples `h2` :91
-- Research → Implementation Handoff `h3` :93
-- Parallel Workstreams `h3` :126
-- Long-Running Project Template (10+ sessions) `h3` :144
 - Blocked → Unblocked Pattern `h2` :205
 - Review Cycle Pattern `h2` :243
 - Token Budget Management `h2` :289

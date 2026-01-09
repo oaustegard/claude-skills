@@ -70,7 +70,7 @@ This repository has navigable code maps generated via the mapping-codebases skil
    - Import previews showing dependencies
    - Function signatures (Python, partial TypeScript)
    - **Line number references** (`:42` format) for direct navigation
-   - **Markdown heading ToC** for documentation files
+   - **Markdown heading ToC** (h1/h2 only) for documentation files
    - **Other Files** section for non-code files (JSON, YAML, configs)
 3. **Read source files only when necessary** - After identifying relevant files via maps
 
