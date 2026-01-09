@@ -2,7 +2,7 @@
 name: remembering
 description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, and edge cases.
 metadata:
-  version: 0.14.1
+  version: 2.0.0
 ---
 
 > **⚠️ IMPORTANT FOR CLAUDE CODE AGENTS**
@@ -116,6 +116,35 @@ Note: `profile` is no longer a memory type—use `config_set(key, value, "profil
 ```python
 from remembering import TYPES  # {'decision', 'world', 'anomaly', 'experience'}
 ```
+
+## Priority System (v2.0.0)
+
+Memories have a priority field that affects ranking in search results:
+
+| Priority | Value | Description |
+|----------|-------|-------------|
+| Background | -1 | Low-value, can age out first |
+| Normal | 0 | Default for new memories |
+| Important | 1 | Boosted in ranking |
+| Critical | 2 | Always surface, never auto-age |
+
+```python
+from remembering import remember, reprioritize
+
+# Set priority at creation
+remember("Critical security finding", "anomaly", tags=["security"], priority=2)
+
+# Adjust priority later
+reprioritize("memory-uuid", priority=1)  # Upgrade to important
+reprioritize("memory-uuid", priority=-1)  # Demote to background
+```
+
+**Ranking formula:**
+```
+score = bm25_score * recency_weight * (1 + priority * 0.5)
+```
+
+Priority affects composite ranking score - higher priority memories surface more readily in search results.
 
 ## Background Writes (Agentic Pattern)
 
@@ -474,7 +503,8 @@ stats = muninn_import(data, merge=False)
 ## Implementation Notes
 
 - Backend: Turso SQLite HTTP API
-- Token: `TURSO_TOKEN` environment variable or `/mnt/project/turso-token.txt`
+- URL: `TURSO_URL` environment variable or `/mnt/project/muninn.env`, falls back to default
+- Token: `TURSO_TOKEN` environment variable, `/mnt/project/muninn.env`, or `/mnt/project/turso-token.txt`
 - Two tables: `config` (KV) and `memories` (observations)
 - FTS5 search: Porter stemmer tokenizer with BM25 ranking
 - HTTP API required (libsql SDK bypasses egress proxy)

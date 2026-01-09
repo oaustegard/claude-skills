@@ -10,7 +10,8 @@ import sqlite3
 from datetime import datetime, UTC
 from pathlib import Path
 
-_URL = "https://assistant-memory-oaustegard.aws-us-east-1.turso.io"
+_DEFAULT_URL = "https://assistant-memory-oaustegard.aws-us-east-1.turso.io"
+_URL = None
 _TOKEN = None
 _HEADERS = None
 
@@ -56,6 +57,8 @@ def _init_local_cache() -> bool:
         _cache_conn.row_factory = sqlite3.Row
 
         # Create schema
+        # v2.0.0: Simplified schema - removed importance, salience, entities, memory_class, valid_to
+        #         Added priority field
         _cache_conn.executescript("""
             -- Index: populated at boot, headlines only
             CREATE TABLE IF NOT EXISTS memory_index (
@@ -65,10 +68,9 @@ def _init_local_cache() -> bool:
                 tags TEXT,              -- JSON array
                 summary_preview TEXT,   -- First 100 chars
                 confidence REAL,
-                importance REAL,
-                salience REAL,          -- v0.9.2: for composite ranking
-                last_accessed TEXT,     -- v0.9.2: for recency weight
-                access_count INTEGER,   -- v0.9.2: for access weight
+                priority INTEGER DEFAULT 0,  -- v2.0.0: -1=bg, 0=normal, 1=important, 2=critical
+                last_accessed TEXT,
+                access_count INTEGER,
                 has_full INTEGER DEFAULT 0
             );
 
@@ -76,14 +78,10 @@ def _init_local_cache() -> bool:
             CREATE TABLE IF NOT EXISTS memory_full (
                 id TEXT PRIMARY KEY,
                 summary TEXT,
-                entities TEXT,
                 refs TEXT,
-                memory_class TEXT,
                 valid_from TEXT,
-                valid_to TEXT,
                 access_count INTEGER,
-                last_accessed TEXT,
-                salience REAL
+                last_accessed TEXT
             );
 
             -- FTS5 virtual table for fast ranked text search (v0.9.0)
@@ -234,7 +232,10 @@ def _cache_clear():
 
 
 def _cache_populate_index(memories: list):
-    """Populate memory_index from boot data (headlines only)."""
+    """Populate memory_index from boot data (headlines only).
+
+    v2.0.0: Uses priority instead of importance/salience.
+    """
     if not _cache_available() or not memories:
         return
 
@@ -246,8 +247,8 @@ def _cache_populate_index(memories: list):
 
             _cache_conn.execute("""
                 INSERT OR REPLACE INTO memory_index
-                (id, type, t, tags, summary_preview, confidence, importance, salience, last_accessed, access_count, has_full)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+                (id, type, t, tags, summary_preview, confidence, priority, last_accessed, access_count, has_full)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
             """, (
                 m.get('id'),
                 m.get('type'),
@@ -255,8 +256,7 @@ def _cache_populate_index(memories: list):
                 tags,
                 m.get('summary_preview', m.get('summary', '')[:100]),
                 m.get('confidence'),
-                m.get('importance'),
-                m.get('salience', 1.0),
+                m.get('priority', 0),
                 m.get('last_accessed'),
                 m.get('access_count', 0)
             ))
@@ -266,7 +266,10 @@ def _cache_populate_index(memories: list):
 
 
 def _cache_populate_full(memories: list):
-    """Populate memory_full and FTS5 with complete content (lazy-load target)."""
+    """Populate memory_full and FTS5 with complete content (lazy-load target).
+
+    v2.0.0: Simplified schema - removed entities, memory_class, valid_to, salience.
+    """
     if not _cache_available() or not memories:
         return
 
@@ -292,28 +295,21 @@ def _cache_populate_full(memories: list):
             )
 
             # Store full content
-            entities = m.get('entities')
-            if isinstance(entities, list):
-                entities = json.dumps(entities)
             refs = m.get('refs')
             if isinstance(refs, list):
                 refs = json.dumps(refs)
 
             _cache_conn.execute("""
                 INSERT OR REPLACE INTO memory_full
-                (id, summary, entities, refs, memory_class, valid_from, valid_to, access_count, last_accessed, salience)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (id, summary, refs, valid_from, access_count, last_accessed)
+                VALUES (?, ?, ?, ?, ?, ?)
             """, (
                 mem_id,
                 summary,
-                entities,
                 refs,
-                m.get('memory_class'),
                 m.get('valid_from'),
-                m.get('valid_to'),
                 m.get('access_count'),
-                m.get('last_accessed'),
-                m.get('salience', 1.0)
+                m.get('last_accessed')
             ))
 
             # Populate FTS5 for fast text search (v0.9.0)
@@ -388,8 +384,7 @@ def _cache_query_index(search: str = None, type: str = None,
 
             # Plain timestamp ordering - newest first
             cursor = _cache_conn.execute(f"""
-                SELECT i.*, f.summary, f.entities, f.refs, f.memory_class,
-                       f.valid_from, f.valid_to, f.access_count, f.last_accessed
+                SELECT i.*, f.summary, f.refs, f.valid_from, f.access_count, f.last_accessed
                 FROM memory_index i
                 LEFT JOIN memory_full f ON i.id = f.id
                 WHERE {where}
@@ -425,22 +420,19 @@ def _cache_query_index(search: str = None, type: str = None,
 
             where = " AND ".join(conditions)
 
-            # v0.10.0: Composite ranking = BM25 * recency_weight * access_weight * salience
+            # v2.0.0: Composite ranking = BM25 * recency_weight * priority_weight
             # - recency_weight: 1 / (1 + days_since_access / 30)
-            # - access_weight: log(access_count + 1)  [natural log]
-            # - salience: therapy-adjustable multiplier
+            # - priority_weight: 1 + priority * 0.5 (so priority=-1 gives 0.5, priority=2 gives 2.0)
             cursor = _cache_conn.execute(f"""
-                SELECT i.*, f.summary, f.entities, f.refs, f.memory_class,
-                       f.valid_from, f.valid_to, f.access_count, f.last_accessed,
+                SELECT i.*, f.summary, f.refs, f.valid_from, f.access_count, f.last_accessed,
                        bm25(memory_fts) as bm25_score,
                        bm25(memory_fts) *
-                       COALESCE(i.salience, 1.0) *
                        (CASE
                            WHEN i.last_accessed IS NOT NULL
                            THEN 1.0 / (1.0 + (julianday('now') - julianday(i.last_accessed)) / 30.0)
                            ELSE 0.5
                        END) *
-                       (1.0 + ln(1.0 + COALESCE(i.access_count, 0))) as composite_rank
+                       (1.0 + COALESCE(i.priority, 0) * 0.5) as composite_rank
                 FROM memory_fts fts
                 JOIN memory_index i ON fts.id = i.id
                 LEFT JOIN memory_full f ON i.id = f.id
@@ -471,18 +463,16 @@ def _cache_query_index(search: str = None, type: str = None,
 
             where = " AND ".join(conditions) if conditions else "1=1"
 
-            # v0.10.0: When no search, order by composite score using recency from 't'
-            # composite_score = salience * recency_weight * access_weight
+            # v2.0.0: When no search, order by composite score using recency and priority
+            # composite_score = recency_weight * priority_weight
             cursor = _cache_conn.execute(f"""
-                SELECT i.*, f.summary, f.entities, f.refs, f.memory_class,
-                       f.valid_from, f.valid_to, f.access_count, f.last_accessed,
-                       COALESCE(i.salience, 1.0) *
+                SELECT i.*, f.summary, f.refs, f.valid_from, f.access_count, f.last_accessed,
                        (CASE
                            WHEN i.last_accessed IS NOT NULL
                            THEN 1.0 / (1.0 + (julianday('now') - julianday(i.last_accessed)) / 30.0)
                            ELSE 1.0 / (1.0 + (julianday('now') - julianday(i.t)) / 30.0)
                        END) *
-                       (1.0 + ln(1.0 + COALESCE(i.access_count, 0))) as composite_score
+                       (1.0 + COALESCE(i.priority, 0) * 0.5) as composite_score
                 FROM memory_index i
                 LEFT JOIN memory_full f ON i.id = f.id
                 WHERE {where}
@@ -535,8 +525,11 @@ def _cache_row_to_dict(row: sqlite3.Row) -> dict:
 
 
 def _cache_memory(mem_id: str, what: str, type: str, now: str,
-                  conf: float, tags: list, importance: float, **kwargs):
-    """Cache a new memory (write-through), including FTS5 index."""
+                  conf: float, tags: list, priority: int, **kwargs):
+    """Cache a new memory (write-through), including FTS5 index.
+
+    v2.0.0: Replaced importance/salience with priority field.
+    """
     if not _cache_available():
         return
 
@@ -548,25 +541,21 @@ def _cache_memory(mem_id: str, what: str, type: str, now: str,
         # Insert into index
         _cache_conn.execute("""
             INSERT OR REPLACE INTO memory_index
-            (id, type, t, tags, summary_preview, confidence, importance, salience, last_accessed, access_count, has_full)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-        """, (mem_id, type, now, tags_json, what[:100], conf, importance, 1.0, None, 0))
+            (id, type, t, tags, summary_preview, confidence, priority, last_accessed, access_count, has_full)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+        """, (mem_id, type, now, tags_json, what[:100], conf, priority, None, 0))
 
         # Insert full content
-        entities = kwargs.get('entities')
         refs = kwargs.get('refs')
-        if isinstance(entities, list):
-            entities = json.dumps(entities)
         if isinstance(refs, list):
             refs = json.dumps(refs)
 
         _cache_conn.execute("""
             INSERT OR REPLACE INTO memory_full
-            (id, summary, entities, refs, memory_class, valid_from, access_count, salience)
-            VALUES (?, ?, ?, ?, ?, ?, 0, 1.0)
+            (id, summary, refs, valid_from, access_count)
+            VALUES (?, ?, ?, ?, 0)
         """, (
-            mem_id, what, entities, refs,
-            kwargs.get('memory_class', 'episodic'),
+            mem_id, what, refs,
             kwargs.get('valid_from', now)
         ))
 
@@ -639,15 +628,22 @@ def _load_env_file(path: Path) -> dict[str, str]:
 
 
 def _init():
-    """Lazy-load credentials from environment, .env file, or legacy project file."""
-    global _TOKEN, _HEADERS
+    """Lazy-load credentials and URL from environment, .env file, or legacy project file."""
+    global _URL, _TOKEN, _HEADERS
     if _TOKEN is None:
-        # 1. Prefer environment variable (for Claude Code)
-        _TOKEN = os.environ.get("TURSO_TOKEN")
+        # Load .env file once for both URL and TOKEN
+        env_file = _load_env_file(Path("/mnt/project/muninn.env"))
 
-        # 2. Fall back to .env file in project knowledge
+        # 1. Load TURSO_URL (prefer env var, fall back to .env, then default)
+        _URL = os.environ.get("TURSO_URL")
+        if not _URL:
+            _URL = env_file.get("TURSO_URL")
+        if not _URL:
+            _URL = _DEFAULT_URL
+
+        # 2. Load TURSO_TOKEN (prefer env var, fall back to .env, then legacy file)
+        _TOKEN = os.environ.get("TURSO_TOKEN")
         if not _TOKEN:
-            env_file = _load_env_file(Path("/mnt/project/muninn.env"))
             _TOKEN = env_file.get("TURSO_TOKEN")
 
         # 3. Legacy fallback to separate token file
@@ -837,23 +833,26 @@ def _exec(sql, args=None, parse_json: bool = True):
     return rows
 
 def _write_memory(mem_id: str, what: str, type: str, now: str, conf: float,
-                  tags: list, entities: list, refs: list,
-                  importance: float, memory_class: str, valid_from: str) -> None:
-    """Internal helper: write memory to Turso (blocking)."""
-    # Insert without embedding (embeddings removed in v0.13.0)
+                  tags: list, refs: list, priority: int, valid_from: str) -> None:
+    """Internal helper: write memory to Turso (blocking).
+
+    v2.0.0: Simplified schema - removed entities, importance, salience, memory_class,
+            session_id, embedding. Added priority field.
+    """
     _exec(
-        """INSERT INTO memories (id, type, t, summary, confidence, tags, entities, refs,
-           session_id, created_at, updated_at, embedding, importance, memory_class, valid_from, access_count, salience)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, 0, 1.0)""",
+        """INSERT INTO memories (id, type, t, summary, confidence, tags, refs, priority,
+           created_at, updated_at, valid_from, access_count, last_accessed)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)""",
         [mem_id, type, now, what, conf,
-         json.dumps(tags or []), json.dumps(entities or []), json.dumps(refs or []),
-         "session", now, now, importance, memory_class, valid_from]
+         json.dumps(tags or []), json.dumps(refs or []),
+         priority, now, now, valid_from]
     )
 
 def remember(what: str, type: str, *, tags: list = None, conf: float = None,
-             entities: list = None, refs: list = None,
-             importance: float = None, memory_class: str = None, valid_from: str = None,
-             sync: bool = True) -> str:
+             refs: list = None, priority: int = 0, valid_from: str = None,
+             sync: bool = True,
+             # Deprecated parameters (ignored in v2.0.0, kept for backward compat)
+             entities: list = None, importance: float = None, memory_class: str = None) -> str:
     """Store a memory. Type is required. Returns memory ID.
 
     Args:
@@ -861,20 +860,22 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
         type: Memory type (decision, world, anomaly, experience)
         tags: Optional list of tags
         conf: Optional confidence score (0.0-1.0)
-        entities: Optional list of entities
         refs: Optional list of referenced memory IDs
-        importance: Optional importance score (0.0-1.0, default 0.5)
-        memory_class: Optional classification ('episodic' or 'semantic', default 'episodic')
+        priority: Priority level (-1=background, 0=normal, 1=important, 2=critical)
         valid_from: Optional timestamp when fact became true (defaults to creation time)
         sync: If True (default), block until write completes. If False, write in background.
                Use sync=True for critical memories (handoffs, decisions). Use sync=False for
                fast writes where eventual consistency is acceptable.
+
+    Deprecated args (v2.0.0 - ignored but accepted for backward compat):
+        entities, importance, memory_class
 
     Returns:
         Memory ID (UUID)
 
     v0.6.0: Added sync parameter for background writes. Use flush() to wait for all pending writes.
     v0.13.0: Removed embedding generation (OpenAI dependency removed).
+    v2.0.0: Simplified schema. Added priority. Removed entities, importance, memory_class.
     """
     if type not in TYPES:
         raise ValueError(f"Invalid type '{type}'. Must be one of: {', '.join(sorted(TYPES))}")
@@ -885,30 +886,25 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
     if type == "decision" and conf is None:
         conf = 0.8
 
-    # Set v0.4.0 defaults
-    if importance is None:
-        importance = 0.5
-    if memory_class is None:
-        memory_class = 'episodic'
     if valid_from is None:
         valid_from = now
 
+    # Clamp priority to valid range
+    priority = max(-1, min(2, priority))
+
     # Write to local cache immediately (if available) - v0.7.0
     if _cache_available():
-        _cache_memory(mem_id, what, type, now, conf, tags, importance,
-                     entities=entities, refs=refs, memory_class=memory_class,
-                     valid_from=valid_from)
+        _cache_memory(mem_id, what, type, now, conf, tags, priority,
+                     refs=refs, valid_from=valid_from)
 
     if sync:
         # Blocking write to Turso
-        _write_memory(mem_id, what, type, now, conf, tags, entities, refs,
-                     importance, memory_class, valid_from)
+        _write_memory(mem_id, what, type, now, conf, tags, refs, priority, valid_from)
     else:
         # Background write to Turso
         def _bg_write():
             try:
-                _write_memory(mem_id, what, type, now, conf, tags, entities, refs,
-                            importance, memory_class, valid_from)
+                _write_memory(mem_id, what, type, now, conf, tags, refs, priority, valid_from)
             finally:
                 # Remove from pending list when done
                 with _pending_writes_lock:
@@ -1313,92 +1309,56 @@ def supersede(original_id: str, summary: str, type: str, *,
     # Create new memory with valid_from set to now
     return remember(summary, type, tags=tags, conf=conf, refs=[original_id], valid_from=now)
 
-# --- Salience adjustment functions (v0.10.0) ---
+# --- Priority adjustment functions (v2.0.0) ---
 
-def strengthen(memory_id: str, factor: float = 1.5) -> None:
-    """Boost salience for a memory (therapy/consolidation use).
+def reprioritize(memory_id: str, priority: int) -> None:
+    """Adjust priority for a memory.
 
-    Increases salience by multiplying current value by factor.
-    Used during therapy sessions to reinforce confirmed patterns.
+    Priority levels:
+        -1: Background (low-value, can age out first)
+         0: Normal (default)
+         1: Important (boost in ranking)
+         2: Critical (always surface, never auto-age)
 
     Args:
         memory_id: Memory UUID
-        factor: Multiplication factor (default 1.5, higher = stronger boost)
+        priority: New priority level (-1 to 2)
 
     Example:
-        strengthen("abc-123", factor=2.0)  # Double the salience
+        reprioritize("abc-123", priority=2)  # Mark as critical
+        reprioritize("xyz-789", priority=-1)  # Demote to background
     """
-    if factor <= 0:
-        raise ValueError("Factor must be positive")
+    priority = max(-1, min(2, priority))
 
     # Update Turso database
     _exec("""
         UPDATE memories
-        SET salience = COALESCE(salience, 1.0) * ?
+        SET priority = ?
         WHERE id = ?
-    """, [factor, memory_id])
+    """, [priority, memory_id])
 
     # Update cache if available
     if _cache_available():
         try:
             _cache_conn.execute("""
                 UPDATE memory_index
-                SET salience = COALESCE(salience, 1.0) * ?
+                SET priority = ?
                 WHERE id = ?
-            """, (factor, memory_id))
-
-            _cache_conn.execute("""
-                UPDATE memory_full
-                SET salience = COALESCE(salience, 1.0) * ?
-                WHERE id = ?
-            """, (factor, memory_id))
-
+            """, (priority, memory_id))
             _cache_conn.commit()
         except Exception as e:
-            print(f"Warning: Cache salience update failed: {e}")
+            print(f"Warning: Cache priority update failed: {e}")
+
+
+# Deprecated functions (v2.0.0) - kept for backward compatibility
+def strengthen(memory_id: str, factor: float = 1.5) -> None:
+    """DEPRECATED: Use reprioritize() instead. This is a no-op in v2.0.0."""
+    pass
 
 
 def weaken(memory_id: str, factor: float = 0.5) -> None:
-    """Reduce salience for a memory (therapy/consolidation use).
-
-    Decreases salience by multiplying current value by factor.
-    Used during therapy sessions to downrank noise or obsolete memories.
-
-    Args:
-        memory_id: Memory UUID
-        factor: Multiplication factor (default 0.5, lower = weaker)
-
-    Example:
-        weaken("xyz-789", factor=0.25)  # Reduce to 25% salience
-    """
-    if factor <= 0 or factor >= 1:
-        raise ValueError("Factor must be between 0 and 1")
-
-    # Update Turso database
-    _exec("""
-        UPDATE memories
-        SET salience = COALESCE(salience, 1.0) * ?
-        WHERE id = ?
-    """, [factor, memory_id])
-
-    # Update cache if available
-    if _cache_available():
-        try:
-            _cache_conn.execute("""
-                UPDATE memory_index
-                SET salience = COALESCE(salience, 1.0) * ?
-                WHERE id = ?
-            """, (factor, memory_id))
-
-            _cache_conn.execute("""
-                UPDATE memory_full
-                SET salience = COALESCE(salience, 1.0) * ?
-                WHERE id = ?
-            """, (factor, memory_id))
-
-            _cache_conn.commit()
-        except Exception as e:
-            print(f"Warning: Cache salience update failed: {e}")
+    """DEPRECATED: Use reprioritize() instead. This is a no-op in v2.0.0."""
+    pass
 
 
 # --- Config table functions (profile + ops) ---
@@ -1469,7 +1429,10 @@ def ops() -> list:
 
 
 def _warm_cache():
-    """Background cache population - fetches all memories from Turso."""
+    """Background cache population - fetches all memories from Turso.
+
+    v2.0.0: Uses priority instead of importance.
+    """
     try:
         results = _exec_batch([
             """SELECT * FROM memories
@@ -1488,7 +1451,7 @@ def _warm_cache():
                     'tags': m.get('tags'),
                     'summary_preview': m.get('summary', '')[:100],
                     'confidence': m.get('confidence'),
-                    'importance': m.get('importance')
+                    'priority': m.get('priority', 0)
                 })
             _cache_populate_index(memory_index)
             _cache_populate_full(full_memories)
@@ -1781,6 +1744,7 @@ __all__ = [
     "handoff_pending", "handoff_complete",  # handoff workflow
     "muninn_export", "muninn_import",  # export/import
     "cache_stats",  # v0.7.0 cache diagnostics
-    "strengthen", "weaken",  # v0.10.0 salience adjustment
+    "reprioritize",  # v2.0.0 priority adjustment
+    "strengthen", "weaken",  # deprecated (v2.0.0) - no-op, kept for compat
     "r", "q", "j", "TYPES"  # aliases & constants
 ]
