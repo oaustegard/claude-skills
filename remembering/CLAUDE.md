@@ -1,6 +1,6 @@
 # Muninn Memory System - Claude Code Context
 
-**VERSION:** 2.1.0 (ops topic organization in boot())
+**VERSION:** See SKILL.md frontmatter
 
 ## Boot
 
@@ -18,29 +18,6 @@ EOF
 
 **Note:** For Claude.ai projects, see `claude-ai-project-instructions.md` which uses `/mnt/skills/user` paths.
 
-## v2.0.0 Migration
-
-**IMPORTANT:** Run migration before using v2.0.0 features:
-
-```python
-from remembering.bootstrap import migrate_v2, migrate_config_v2
-
-# Preview what will happen (dry run)
-migrate_v2(dry_run=True)
-
-# Execute migration (backs up data first)
-migrate_v2(dry_run=False)
-migrate_config_v2(dry_run=False)
-```
-
-**Schema changes:**
-- Removed: importance, salience, memory_class, session_id, embedding, entities, valid_to
-- Added: priority INTEGER (-1=background, 0=normal, 1=important, 2=critical)
-
-**API changes:**
-- `remember()` now accepts `priority` parameter (default 0)
-- New `reprioritize(id, priority)` function replaces strengthen/weaken
-- `strengthen()` and `weaken()` are deprecated no-ops
 
 ## Meta: Using Muninn During Development
 
