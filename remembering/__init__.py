@@ -651,11 +651,23 @@ def _init():
             if token_path.exists():
                 _TOKEN = token_path.read_text().strip()
 
-        if not _TOKEN:
-            raise RuntimeError("No TURSO_TOKEN in environment, /mnt/project/muninn.env, or /mnt/project/turso-token.txt")
-
         # Clean token: remove whitespace that may be present
-        _TOKEN = _TOKEN.strip().replace(" ", "")
+        if _TOKEN:
+            _TOKEN = _TOKEN.strip().replace(" ", "")
+
+        # Final validation after cleaning
+        if not _TOKEN:
+            raise RuntimeError(
+                "Missing TURSO_TOKEN credential.\n"
+                "Set TURSO_TOKEN in:\n"
+                "  1. Environment variables, OR\n"
+                "  2. /mnt/project/muninn.env (recommended), OR\n"
+                "  3. /mnt/project/turso-token.txt (legacy)\n"
+                "\nFor /mnt/project/muninn.env, format should be:\n"
+                "  TURSO_TOKEN=your_token_here\n"
+                "  TURSO_URL=https://assistant-memory-oaustegard.aws-us-east-1.turso.io"
+            )
+
         _HEADERS = {"Authorization": f"Bearer {_TOKEN}", "Content-Type": "application/json"}
 
 def _retry_with_backoff(fn, max_retries=3, base_delay=1.0):
@@ -761,11 +773,25 @@ def _exec_batch(statements: list) -> list:
     # Add close request
     requests_list.append({"type": "close"})
 
-    resp = requests.post(
-        f"{_URL}/v2/pipeline",
-        headers=_HEADERS,
-        json={"requests": requests_list}
-    ).json()
+    try:
+        resp = requests.post(
+            f"{_URL}/v2/pipeline",
+            headers=_HEADERS,
+            json={"requests": requests_list},
+            timeout=30
+        ).json()
+    except requests.exceptions.SSLError as e:
+        raise RuntimeError(
+            f"SSL error connecting to Turso database. This often indicates missing or invalid credentials.\n"
+            f"Check that TURSO_TOKEN is set in environment or /mnt/project/muninn.env\n"
+            f"Original error: {e}"
+        ) from e
+    except requests.exceptions.RequestException as e:
+        raise RuntimeError(
+            f"Network error connecting to Turso database at {_URL}\n"
+            f"Check network connectivity and credentials (TURSO_TOKEN).\n"
+            f"Original error: {e}"
+        ) from e
 
     # Parse results (exclude the close response)
     results = []
@@ -806,11 +832,26 @@ def _exec(sql, args=None, parse_json: bool = True):
             {"type": "text", "value": str(v)} if v is not None else {"type": "null"}
             for v in args
         ]
-    resp = requests.post(
-        f"{_URL}/v2/pipeline",
-        headers=_HEADERS,
-        json={"requests": [{"type": "execute", "stmt": stmt}]}
-    ).json()
+
+    try:
+        resp = requests.post(
+            f"{_URL}/v2/pipeline",
+            headers=_HEADERS,
+            json={"requests": [{"type": "execute", "stmt": stmt}]},
+            timeout=30
+        ).json()
+    except requests.exceptions.SSLError as e:
+        raise RuntimeError(
+            f"SSL error connecting to Turso database. This often indicates missing or invalid credentials.\n"
+            f"Check that TURSO_TOKEN is set in environment or /mnt/project/muninn.env\n"
+            f"Original error: {e}"
+        ) from e
+    except requests.exceptions.RequestException as e:
+        raise RuntimeError(
+            f"Network error connecting to Turso database at {_URL}\n"
+            f"Check network connectivity and credentials (TURSO_TOKEN).\n"
+            f"Original error: {e}"
+        ) from e
 
     r = resp["results"][0]
     if r["type"] != "ok":
@@ -1483,6 +1524,9 @@ def boot() -> str:
 
     Returns formatted string with complete profile and ops values.
     Spawns background thread to populate memory cache for fast recall().
+
+    Filters reference-only ops from output to reduce token usage at boot.
+    Reference material (API docs, container limits, etc.) can be queried via config_get().
     """
     import threading
 
@@ -1497,12 +1541,24 @@ def boot() -> str:
     profile_data = results[0]
     ops_data = results[1]
 
-    # Cache config immediately
+    # Cache config immediately (cache ALL config, even reference material)
     if _cache_available():
         _cache_config(profile_data + ops_data)
 
     # Start async cache warming
     threading.Thread(target=_warm_cache, daemon=True).start()
+
+    # Filter ops: exclude reference-only material from boot output
+    # These can still be accessed via config_get() when needed
+    REFERENCE_ONLY_OPS = {
+        'github-api-endpoints', 'github-pat-permissions', 'github-container-access',
+        'container-limits', 'bsky-api-endpoints', 'network-tools',
+        'recall-return-fields', 'recall-triggers',  # API reference material
+        'mapping-codebases-usage',  # Skill-specific reference
+        'use-review-skill',  # Skill-specific reference
+    }
+
+    core_ops = [o for o in ops_data if o['key'] not in REFERENCE_ONLY_OPS]
 
     # Format output
     output = []
@@ -1511,9 +1567,9 @@ def boot() -> str:
         for p in profile_data:
             output.append(f"{p['key']}:\n{p['value']}")
 
-    if ops_data:
+    if core_ops:
         output.append("\n=== OPS ===")
-        for o in ops_data:
+        for o in core_ops:
             output.append(f"{o['key']}:\n{o['value']}")
 
     return '\n'.join(output)
