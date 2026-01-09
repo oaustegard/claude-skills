@@ -69,7 +69,12 @@ This repository has navigable code maps generated via the mapping-codebases skil
    - File-level symbol exports (classes, functions, methods)
    - Import previews showing dependencies
    - Function signatures (Python, partial TypeScript)
+   - **Line number references** (`:42` format) for direct navigation
+   - **Markdown heading ToC** for documentation files
+   - **Other Files** section for non-code files (JSON, YAML, configs)
 3. **Read source files only when necessary** - After identifying relevant files via maps
+
+**Best Practice**: Start with `_MAP.md` for orientation, then use targeted Grep/Read for specific details. The maps answer "what functions does this module expose and how do I call them?" in one read, but you still need direct tools for implementation details, line-specific searches, and non-Python files not covered by maps.
 
 **Why this matters**: This repository has 36 skills with scripts, references, and supporting files. Maps provide structure without overwhelming context windows.
 

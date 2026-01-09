@@ -1,0 +1,91 @@
+# references/
+*Files: 1*
+
+## Files
+
+### tool-categories.md
+- Development Tool Categories Reference `h1` :1
+- Python Ecosystem `h2` :5
+- Interpreters `h3` :7
+- python3 / python `h4` :9
+- Package Managers `h3` :24
+- pip `h4` :26
+- poetry `h4` :39
+- uv `h4` :51
+- Development Tools `h3` :63
+- black `h4` :65
+- mypy `h4` :73
+- pytest `h4` :81
+- ruff `h4` :89
+- Node.js Ecosystem `h2` :101
+- Runtime & Package Managers `h3` :103
+- node `h4` :105
+- nvm `h4` :122
+- npm `h4` :131
+- yarn `h4` :136
+- pnpm `h4` :149
+- Development Tools `h3` :161
+- eslint `h4` :163
+- prettier `h4` :171
+- chromedriver `h4` :179
+- Java Ecosystem `h2` :194
+- Runtime & Compiler `h3` :196
+- java `h4` :198
+- Build Tools `h3` :213
+- mvn (Maven) `h4` :215
+- gradle `h4` :232
+- Go Ecosystem `h2` :247
+- go `h4` :249
+- Rust Ecosystem `h2` :267
+- Toolchain `h3` :269
+- rustc `h4` :271
+- cargo `h4` :281
+- C/C++ Ecosystem `h2` :286
+- Compilers `h3` :288
+- gcc `h4` :290
+- clang `h4` :302
+- Build Tools `h3` :314
+- cmake `h4` :316
+- ninja `h4` :331
+- conan `h4` :346
+- System Utilities `h2` :358
+- Version Control `h3` :360
+- git `h4` :362
+- Data Transfer & Processing `h3` :377
+- curl `h4` :379
+- jq `h4` :391
+- yq `h4` :408
+- Text Processing `h3` :423
+- awk `h4` :425
+- sed `h4` :430
+- grep `h4` :435
+- rg (ripgrep) `h4` :440
+- Compression & Archiving `h3` :455
+- gzip `h4` :457
+- tar `h4` :462
+- Build Tools `h3` :467
+- make `h4` :469
+- Terminal Multiplexers `h3` :481
+- tmux `h4` :483
+- Text Editors `h3` :502
+- vim `h4` :504
+- nano `h4` :516
+- Validation Patterns by Tool Type `h2` :528
+- Standard Version Flag `h3` :530
+- Version to Stderr `h3` :536
+- Version Command Without Dash `h3` :542
+- Short Version Flag `h3` :548
+- Subcommand Version `h3` :553
+- First Line Only `h3` :559
+- Regex Version Extraction `h3` :565
+- Tool Dependency Chains `h2` :571
+- Python Project (Full Stack) `h3` :573
+- Node.js Project (Full Stack) `h3` :582
+- Rust Project `h3` :590
+- C/C++ Project `h3` :594
+- Polyglot Project `h3` :600
+- Exit Code Conventions `h2` :608
+- Environment Variable Patterns `h2` :616
+- Tool Location Discovery `h3` :618
+- Version Manager Environment Loading `h3` :632
+

@@ -1,5 +1,5 @@
 # scripts/
-*Files: 2*
+*Files: 3*
 
 ## Files
 
@@ -8,4 +8,8 @@
 
 ### get-refresh-token.js
 - *No top-level symbols*
+
+## Other Files
+
+- install-mcp-server.sh
 

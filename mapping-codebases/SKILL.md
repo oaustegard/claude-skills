@@ -2,7 +2,7 @@
 name: mapping-codebases
 description: Generate navigable code maps for unfamiliar codebases. Use when exploring a new codebase, needing to understand project structure, or before diving into code modifications. Extracts exports/imports via AST (tree-sitter) to create _MAP.md files per directory. Triggers on "map this codebase", "understand this project structure", "generate code map", or when starting work on an unfamiliar repository.
 metadata:
-  version: 0.4.0
+  version: 0.5.0
 ---
 
 # Mapping Codebases
@@ -36,12 +36,15 @@ Per-directory `_MAP.md` files listing:
 - Subdirectories (with links to their maps)
 - **Symbol hierarchy** with kind markers: (C) class, (m) method, (f) function
 - **Function signatures** extracted from AST (Python, partial TypeScript)
+- **Line number references** (`:42` format) for direct navigation
 - Import previews
+- **Markdown ToC** for `.md` files (heading structure with levels)
+- **Other Files** section listing non-code files (JSON, YAML, shell scripts, etc.)
 
 Example output:
 ```markdown
 # auth/
-*Files: 3 | Subdirectories: 1*
+*Files: 5 | Subdirectories: 1*
 
 ## Subdirectories
 - [middleware/](./middleware/_MAP.md)
@@ -50,17 +53,27 @@ Example output:
 
 ### handlers.py
 > Imports: `flask, functools, jwt, .models`...
-- **login** (f) `(username: str, password: str)`
-- **logout** (f) `()`
-- **AuthHandler** (C)
-  - **__init__** (m) `(self, config: dict)`
-  - **validate_token** (m) `(self, token: str)`
-  - **refresh_session** (m) `(self, user_id: int)`
+- **login** (f) `(username: str, password: str)` :15
+- **logout** (f) `()` :42
+- **AuthHandler** (C) :58
+  - **__init__** (m) `(self, config: dict)` :59
+  - **validate_token** (m) `(self, token: str)` :72
+  - **refresh_session** (m) `(self, user_id: int)` :95
+
+### README.md
+- Authentication Module `h1` :1
+- Installation `h2` :5
+- Configuration `h2` :12
+- API Reference `h2` :28
+
+## Other Files
+- config.yaml
+- setup.sh
 ```
 
 ## Supported Languages
 
-Python, JavaScript, TypeScript, TSX, Go, Rust, Ruby, Java, HTML.
+Python, JavaScript, TypeScript, TSX, Go, Rust, Ruby, Java, HTML, Markdown.
 
 ## Commands
 
@@ -173,6 +186,12 @@ Use this to decide whether to update CLAUDE.md (Claude Code) or recommend Projec
 
 **Function Signatures**: Extracts parameter lists from Python and partial TypeScript, showing what functions expect without reading the source.
 
+**Line Number References**: Every symbol includes its line number (`:42` format), enabling direct navigation to definitions using `file:line` patterns.
+
+**Markdown ToC**: Extracts heading structure from `.md` files with heading levels (`h1`, `h2`, etc.) and line numbers, creating navigable documentation maps.
+
+**Other Files Section**: Lists non-code files (JSON, YAML, shell scripts, config files) that exist in the directory but aren't parsed for symbols.
+
 **Directory Statistics**: Each map header shows file and subdirectory counts, helping you quickly assess scope.
 
 **Hierarchical Navigation**: Links between maps let you traverse the codebase structure naturally without overwhelming context windows.
@@ -195,5 +214,6 @@ git add '*/_MAP.md'
 - Extracts structural info only (symbols/imports), not semantic descriptions
 - Method extraction: Full support for Python/TypeScript, partial for other languages
 - Signatures: Python (full), TypeScript (partial), others (not extracted)
+- Markdown: Extracts heading structure only (no code blocks, links, or other elements)
 - Skips: `.git`, `node_modules`, `__pycache__`, `venv`, `dist`, `build` (plus user-specified patterns)
 - Private symbols (Python `_prefix`) excluded from top-level exports (methods not filtered yet)
