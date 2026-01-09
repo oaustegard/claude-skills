@@ -55,7 +55,8 @@ def create_tables():
             category TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             char_limit INTEGER,
-            read_only BOOLEAN DEFAULT FALSE
+            read_only BOOLEAN DEFAULT FALSE,
+            boot_load INTEGER DEFAULT 1
         )
     """)
 
@@ -82,6 +83,13 @@ def migrate_schema():
     try:
         _exec("ALTER TABLE config ADD COLUMN read_only BOOLEAN DEFAULT FALSE")
         print("Added read_only column to config table")
+    except:
+        pass  # Column already exists
+
+    # v2.1.0: Add boot_load column for progressive disclosure
+    try:
+        _exec("ALTER TABLE config ADD COLUMN boot_load INTEGER DEFAULT 1")
+        print("Added boot_load column to config table")
     except:
         pass  # Column already exists
 
