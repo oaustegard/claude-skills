@@ -2,6 +2,17 @@
 
 All notable changes to the `mapping-codebases` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.5.0] - 2026-01-09
+
+### Added
+
+- add line numbers, markdown ToC, and other files listing
+- add code maps and CLAUDE.md integration guidance
+
+### Fixed
+
+- limit markdown ToC to h1/h2 headings only
+
 ## [0.4.0] - 2026-01-02
 
 ### Added
