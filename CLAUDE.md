@@ -55,6 +55,44 @@ api_key = os.environ.get('MY_VAR', '')
 
 **Why**: Bash variable expansion can behave unpredictably in different contexts (subshells, heredocs, quotes, etc.). Python's environment variable access is consistent and reliable. If bash isn't working after 1-2 attempts, switch to Python immediately rather than trying multiple shell workarounds.
 
+## Code Maps
+
+This repository has navigable code maps generated via the mapping-codebases skill.
+
+### Using the Maps
+
+**When exploring this codebase, ALWAYS start with `_MAP.md` files** rather than directly reading source files:
+
+1. **Start at the root** - Read `/home/user/claude-skills/_MAP.md` for a high-level overview
+2. **Navigate hierarchically** - Each directory has its own `_MAP.md` with:
+   - Subdirectory links for drilling down
+   - File-level symbol exports (classes, functions, methods)
+   - Import previews showing dependencies
+   - Function signatures (Python, partial TypeScript)
+3. **Read source files only when necessary** - After identifying relevant files via maps
+
+**Why this matters**: This repository has 36 skills with scripts, references, and supporting files. Maps provide structure without overwhelming context windows.
+
+### Keeping Maps Fresh
+
+**CRITICAL - Before ANY git commit:**
+
+```bash
+# Refresh all _MAP.md files to reflect code changes
+python /home/user/claude-skills/mapping-codebases/scripts/codemap.py /home/user/claude-skills --skip uploads,assets
+
+# Then stage and commit
+git add .
+git commit -m "your commit message"
+```
+
+**Why**: _MAP.md files are generated from AST analysis and drift from source code as files change. Outdated maps mislead future Claude instances and developers.
+
+**Integration with commit workflow:**
+- Run mapping BEFORE staging files
+- Include updated _MAP.md files in your commit
+- This ensures maps always reflect the committed code state
+
 ## Skill Development Workflow
 
 When modifying skills in this repository, follow this sequence:
