@@ -1,6 +1,6 @@
 # Muninn Memory System - Claude Code Context
 
-**VERSION:** 2.0.0 (schema rebuild with priority system)
+**VERSION:** 2.0.1 (boot reliability fixes)
 
 **BOOT ON LAUNCH:** Run `boot()` at the start of every session:
 ```python
@@ -67,11 +67,26 @@ This creates a **feedback loop**: improve the skill while using it to track impr
 
 ## Environment Variables
 
-Set these in Claude Code's environment settings:
+**Option 1: Using muninn.env file (recommended for Claude Code)**
 
-| Variable | Purpose |
-|----------|---------|
-| `TURSO_TOKEN` | JWT auth token for Turso HTTP API (required) |
+Create `/mnt/project/muninn.env` with your credentials:
+```bash
+TURSO_TOKEN=your_token_here
+TURSO_URL=https://assistant-memory-oaustegard.aws-us-east-1.turso.io
+```
+
+The skill will automatically load this file on first use.
+
+**Option 2: Environment variables**
+
+Set these in your environment or Claude Code settings:
+
+| Variable | Purpose | Default |
+|----------|---------|---------|
+| `TURSO_TOKEN` | JWT auth token for Turso HTTP API | (required) |
+| `TURSO_URL` | Turso database URL | `https://assistant-memory-oaustegard.aws-us-east-1.turso.io` |
+
+**Priority**: Environment variables → muninn.env → defaults
 
 ## Architecture
 
