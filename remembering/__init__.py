@@ -1061,13 +1061,11 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
                 for r in results:
                     if r['id'] in full_by_id:
                         full = full_by_id[r['id']]
+                        # v2.0.0: Removed entities, memory_class, valid_to from schema
                         r.update({
                             'summary': full.get('summary'),
-                            'entities': full.get('entities'),
                             'refs': full.get('refs'),
-                            'memory_class': full.get('memory_class'),
                             'valid_from': full.get('valid_from'),
-                            'valid_to': full.get('valid_to'),
                             'access_count': full.get('access_count'),
                             'last_accessed': full.get('last_accessed'),
                             'has_full': 1
@@ -1289,11 +1287,13 @@ def supersede(original_id: str, summary: str, type: str, *,
 
     v0.4.0: Sets valid_to on original memory and valid_from on new memory for bitemporal tracking.
     v0.13.0: Invalidates cache for superseded memory.
+    v2.0.0: Soft-deletes original memory (valid_to column removed from schema).
     """
     now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
-    # Set valid_to on original memory to mark when it stopped being true
-    _exec("UPDATE memories SET valid_to = ? WHERE id = ?", [now, original_id])
+    # Soft-delete original memory to mark when it stopped being true
+    # v2.0.0: valid_to column removed, using deleted_at for supersession tracking
+    _exec("UPDATE memories SET deleted_at = ? WHERE id = ?", [now, original_id])
 
     # Invalidate cache for superseded memory (v0.13.0 bugfix)
     # Superseded memories should not appear in recall() results
