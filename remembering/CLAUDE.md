@@ -1,6 +1,6 @@
 # Muninn Memory System - Claude Code Context
 
-**VERSION:** 2.0.2 (error handling improvements + boot filtering)
+**VERSION:** 2.1.0 (ops topic organization in boot())
 
 **BOOT ON LAUNCH:** Run `boot()` at the start of every session:
 ```python
