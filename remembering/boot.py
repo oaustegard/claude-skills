@@ -91,21 +91,48 @@ def boot() -> str:
     Reference material (API docs, container limits, etc.) can be queried via config_get().
 
     Organizes ops by topic for better cognitive navigation.
+
+    Resilience: Retries transient errors (SSL, 503, 429) with exponential backoff.
+    Falls back to cached config if remote fetch fails after retries.
     """
     # Initialize cache
     _init_local_cache()
 
-    # Fetch only profile + ops (fast, small query)
-    results = _exec_batch([
-        "SELECT * FROM config WHERE category = 'profile' ORDER BY key",
-        "SELECT * FROM config WHERE category = 'ops' ORDER BY key",
-    ])
-    profile_data = results[0]
-    ops_data = results[1]
+    # Fetch profile + ops with retry logic for transient errors
+    try:
+        from .turso import _retry_with_backoff
 
-    # Cache config immediately (cache ALL config, even reference material)
-    if _cache_available():
-        _cache_config(profile_data + ops_data)
+        def _fetch_config():
+            return _exec_batch([
+                "SELECT * FROM config WHERE category = 'profile' ORDER BY key",
+                "SELECT * FROM config WHERE category = 'ops' ORDER BY key",
+            ])
+
+        results = _retry_with_backoff(_fetch_config, max_retries=3, base_delay=1.0)
+        profile_data = results[0]
+        ops_data = results[1]
+
+        # Cache config immediately (cache ALL config, even reference material)
+        if _cache_available():
+            _cache_config(profile_data + ops_data)
+
+    except Exception as e:
+        # Fallback to cached config if remote fetch fails
+        print(f"Warning: Remote config fetch failed, using cached data: {e}")
+        if _cache_available():
+            # Read directly from cache, not remote
+            profile_data = state._cache_conn.execute(
+                "SELECT * FROM config_cache WHERE category = 'profile' ORDER BY key"
+            ).fetchall()
+            profile_data = [dict(row) for row in profile_data]
+
+            ops_data = state._cache_conn.execute(
+                "SELECT * FROM config_cache WHERE category = 'ops' ORDER BY key"
+            ).fetchall()
+            ops_data = [dict(row) for row in ops_data]
+        else:
+            # No cache available and remote failed - return error message
+            return f"ERROR: Unable to load config (remote failed: {e}, no cache available)"
 
     # Start async cache warming
     threading.Thread(target=_warm_cache, daemon=True).start()

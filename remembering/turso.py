@@ -77,7 +77,7 @@ def _init():
 
 
 def _retry_with_backoff(fn, max_retries=3, base_delay=1.0):
-    """Retry a function with exponential backoff on 503/429 errors.
+    """Retry a function with exponential backoff on transient errors.
 
     Args:
         fn: Callable that may raise exceptions
@@ -97,9 +97,17 @@ def _retry_with_backoff(fn, max_retries=3, base_delay=1.0):
             if attempt == max_retries - 1:
                 # Last attempt failed, re-raise
                 raise
-            # Check if it's a retriable error (503 Service Unavailable, 429 Too Many Requests)
+            # Check if it's a retriable error (503, 429, SSL handshake failures)
             error_str = str(e)
-            if '503' in error_str or '429' in error_str or 'Service Unavailable' in error_str:
+            is_retriable = (
+                '503' in error_str or
+                '429' in error_str or
+                'Service Unavailable' in error_str or
+                'SSL' in error_str or
+                'SSLError' in error_str or
+                'HANDSHAKE_FAILURE' in error_str
+            )
+            if is_retriable:
                 delay = base_delay * (2 ** attempt)
                 print(f"Warning: API request failed (attempt {attempt + 1}/{max_retries}), retrying in {delay}s: {e}")
                 time.sleep(delay)
