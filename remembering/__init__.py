@@ -1527,6 +1527,8 @@ def boot() -> str:
 
     Filters reference-only ops from output to reduce token usage at boot.
     Reference material (API docs, container limits, etc.) can be queried via config_get().
+
+    Organizes ops by topic for better cognitive navigation.
     """
     import threading
 
@@ -1560,6 +1562,59 @@ def boot() -> str:
 
     core_ops = [o for o in ops_data if o['key'] not in REFERENCE_ONLY_OPS]
 
+    # Organize ops by topic for cognitive efficiency
+    OPS_TOPICS = {
+        'Core Boot & Behavior': [
+            'boot-behavior', 'boot-output-hygiene', 'dev-workflow'
+        ],
+        'Memory Operations': [
+            'remembering-api', 'memory-types', 'memory-backup',
+            'storage-rules', 'storage-initiative', 'think-then-store',
+            'recall-before-speculation'
+        ],
+        'Communication & Voice': [
+            'communication-patterns', 'question-style', 'language-precision',
+            'anti-psychogenic-behavior', 'voice'
+        ],
+        'Handoff Workflow': [
+            'handoff-pattern', 'handoff-discipline', 'self_improvement_handoffs'
+        ],
+        'Development & Technical': [
+            'skill-workflow', 'python-path-setup', 'heredoc-for-multiline',
+            'token-efficiency', 'token_conservation', 'error-handling',
+            'batch-processing-drift', 'cache-testing-lesson'
+        ],
+        'Environment & Infrastructure': [
+            'env-file-handling', 'muninn-env-loading', 'austegard-com-hosting'
+        ],
+        'Commands & Shortcuts': [
+            'fly-command', 'rem-command'
+        ],
+        'Therapy & Self-Improvement': [
+            'therapy'
+        ]
+    }
+
+    # Build reverse lookup for quick topic assignment
+    key_to_topic = {}
+    for topic, keys in OPS_TOPICS.items():
+        for key in keys:
+            key_to_topic[key] = topic
+
+    # Group ops by topic
+    ops_by_topic = {}
+    uncategorized = []
+
+    for o in core_ops:
+        key = o['key']
+        topic = key_to_topic.get(key)
+        if topic:
+            if topic not in ops_by_topic:
+                ops_by_topic[topic] = []
+            ops_by_topic[topic].append(o)
+        else:
+            uncategorized.append(o)
+
     # Format output
     output = []
     if profile_data:
@@ -1569,8 +1624,19 @@ def boot() -> str:
 
     if core_ops:
         output.append("\n=== OPS ===")
-        for o in core_ops:
-            output.append(f"{o['key']}:\n{o['value']}")
+
+        # Output ops by topic in defined order
+        for topic in OPS_TOPICS.keys():
+            if topic in ops_by_topic:
+                output.append(f"\n## {topic}")
+                for o in ops_by_topic[topic]:
+                    output.append(f"{o['key']}:\n{o['value']}")
+
+        # Output uncategorized ops last (alphabetically)
+        if uncategorized:
+            output.append("\n## Other")
+            for o in sorted(uncategorized, key=lambda x: x['key']):
+                output.append(f"{o['key']}:\n{o['value']}")
 
     return '\n'.join(output)
 
