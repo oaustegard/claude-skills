@@ -99,7 +99,8 @@ def _init_local_cache() -> bool:
             CREATE TABLE IF NOT EXISTS config_cache (
                 key TEXT PRIMARY KEY,
                 value TEXT,
-                category TEXT
+                category TEXT,
+                boot_load INTEGER DEFAULT 1  -- 1=load at boot, 0=reference only
             );
 
             -- Track cache freshness
@@ -150,6 +151,17 @@ def _init_local_cache() -> bool:
                     "INSERT OR REPLACE INTO cache_meta (key, value) VALUES (?, ?)",
                     ("fts5_porter_migrated", "true")
                 )
+                _cache_conn.commit()
+        except Exception:
+            pass  # Silent - migration will retry on next boot
+
+        # v2.1.0: Add boot_load column to config_cache if needed
+        try:
+            cursor = _cache_conn.cursor()
+            cursor.execute("PRAGMA table_info(config_cache)")
+            columns = [col[1] for col in cursor.fetchall()]
+            if 'boot_load' not in columns:
+                cursor.execute("ALTER TABLE config_cache ADD COLUMN boot_load INTEGER DEFAULT 1")
                 _cache_conn.commit()
         except Exception:
             pass  # Silent - migration will retry on next boot
@@ -331,9 +343,9 @@ def _cache_config(config_entries: list):
     try:
         for c in config_entries:
             _cache_conn.execute("""
-                INSERT OR REPLACE INTO config_cache (key, value, category)
-                VALUES (?, ?, ?)
-            """, (c.get('key'), c.get('value'), c.get('category')))
+                INSERT OR REPLACE INTO config_cache (key, value, category, boot_load)
+                VALUES (?, ?, ?, ?)
+            """, (c.get('key'), c.get('value'), c.get('category'), c.get('boot_load', 1)))
         _cache_conn.commit()
     except Exception:
         pass  # Silent - cache is optional, don't pollute output
@@ -1470,6 +1482,32 @@ def config_delete(key: str) -> bool:
     _exec("DELETE FROM config WHERE key = ?", [key])
     return True
 
+def config_set_boot_load(key: str, boot_load: bool) -> bool:
+    """Set whether a config entry loads at boot or is reference-only.
+
+    Args:
+        key: Config key to update
+        boot_load: True to load at boot, False for reference-only
+
+    Returns:
+        True if successful
+
+    Example:
+        config_set_boot_load('github-api-endpoints', False)  # Make reference-only
+        config_set_boot_load('storage-discipline', True)      # Load at boot
+    """
+    val = 1 if boot_load else 0
+
+    # Update remote
+    _exec("UPDATE config SET boot_load = ? WHERE key = ?", [val, key])
+
+    # Update local cache if available
+    if _cache_available():
+        _cache_conn.execute("UPDATE config_cache SET boot_load = ? WHERE key = ?", (val, key))
+        _cache_conn.commit()
+
+    return True
+
 def config_list(category: str = None) -> list:
     """List config entries, optionally filtered by category."""
     if category:
@@ -1480,9 +1518,24 @@ def profile() -> list:
     """Load profile config for conversation start."""
     return config_list("profile")
 
-def ops() -> list:
-    """Load operational config for conversation start."""
-    return config_list("ops")
+def ops(include_reference: bool = False) -> list:
+    """Load operational config for conversation start.
+
+    Args:
+        include_reference: If True, include reference-only entries.
+                          If False (default), only return entries marked for boot loading.
+
+    Returns:
+        List of config dicts with ops entries
+    """
+    entries = config_list("ops")
+
+    # Filter by boot_load unless include_reference=True
+    # Note: Turso returns boot_load as string ('0' or '1')
+    if not include_reference:
+        entries = [e for e in entries if e.get('boot_load', 1) in (1, '1')]
+
+    return entries
 
 
 def _warm_cache():
@@ -1550,17 +1603,11 @@ def boot() -> str:
     # Start async cache warming
     threading.Thread(target=_warm_cache, daemon=True).start()
 
-    # Filter ops: exclude reference-only material from boot output
-    # These can still be accessed via config_get() when needed
-    REFERENCE_ONLY_OPS = {
-        'github-api-endpoints', 'github-pat-permissions', 'github-container-access',
-        'container-limits', 'bsky-api-endpoints', 'network-tools',
-        'recall-return-fields', 'recall-triggers',  # API reference material
-        'mapping-codebases-usage',  # Skill-specific reference
-        'use-review-skill',  # Skill-specific reference
-    }
-
-    core_ops = [o for o in ops_data if o['key'] not in REFERENCE_ONLY_OPS]
+    # Filter ops by boot_load flag (progressive disclosure)
+    # Reference-only entries (boot_load=0) excluded from boot output but accessible via config_get()
+    # Note: Turso returns boot_load as string ('0' or '1')
+    core_ops = [o for o in ops_data if o.get('boot_load', 1) in (1, '1')]
+    reference_ops = [o for o in ops_data if o.get('boot_load', 1) in (0, '0')]
 
     # Organize ops by topic for cognitive efficiency
     OPS_TOPICS = {
@@ -1637,6 +1684,12 @@ def boot() -> str:
             output.append("\n## Other")
             for o in sorted(uncategorized, key=lambda x: x['key']):
                 output.append(f"{o['key']}:\n{o['value']}")
+
+        # Reference index: show what's available but not loaded
+        if reference_ops:
+            output.append("\n## Reference Entries (load via config_get)")
+            ref_keys = sorted([o['key'] for o in reference_ops])
+            output.append(", ".join(ref_keys))
 
     return '\n'.join(output)
 
@@ -1878,7 +1931,7 @@ j = journal
 __all__ = [
     "remember", "recall", "forget", "supersede", "remember_bg", "flush",  # memories
     "recall_since", "recall_between",  # date-filtered queries
-    "config_get", "config_set", "config_delete", "config_list",  # config
+    "config_get", "config_set", "config_delete", "config_list", "config_set_boot_load",  # config
     "profile", "ops", "boot", "boot_fast", "journal", "journal_recent", "journal_prune",  # convenience loaders
     "therapy_scope", "therapy_session_count", "decisions_recent",  # therapy helpers
     "group_by_type", "group_by_tag",  # analysis helpers

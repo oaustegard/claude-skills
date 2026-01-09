@@ -76,7 +76,7 @@ pruned = journal_prune(keep=40)
 Key-value store for profile (behavioral), ops (operational), and journal (temporal) settings.
 
 ```python
-from remembering import config_get, config_set, config_delete, config_list, profile, ops
+from remembering import config_get, config_set, config_delete, config_list, config_set_boot_load, profile, ops
 
 # Read
 config_get("identity")                    # Single key
@@ -99,6 +99,43 @@ config_delete("old-key")
 **Config constraints:**
 - `char_limit`: Enforces maximum character count on writes (raises `ValueError` if exceeded)
 - `read_only`: Prevents modifications (raises `ValueError` on attempted updates)
+
+### Progressive Disclosure (v2.1.0)
+
+Ops entries can be marked as **boot-loaded** (default) or **reference-only** to reduce boot() output size:
+
+```python
+from remembering import config_set_boot_load, ops
+
+# Mark entry as reference-only (won't load at boot)
+config_set_boot_load('github-api-endpoints', False)
+config_set_boot_load('container-limits', False)
+
+# Mark entry as boot-loaded (loads at boot)
+config_set_boot_load('storage-discipline', True)
+
+# Query ops with filtering
+boot_ops = ops()                          # Only boot-loaded entries (default)
+all_ops = ops(include_reference=True)     # All entries (boot + reference)
+```
+
+**How it works:**
+- `boot()` outputs only ops with `boot_load=1` (reduces token usage at boot)
+- Reference-only ops (`boot_load=0`) appear in a **Reference Entries** index at the end of boot output
+- Reference entries remain fully accessible via `config_get(key)` when needed
+- Ideal for: API documentation, container specs, rarely-triggered guidance
+
+**Example boot output:**
+```
+=== OPS ===
+
+## Core Boot & Behavior
+storage-discipline:
+[Full content here...]
+
+## Reference Entries (load via config_get)
+container-limits, github-api-endpoints, network-tools, recall-triggers
+```
 
 ## Memory Type System
 
