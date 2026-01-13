@@ -1,5 +1,5 @@
 # remembering/
-*Files: 13 | Subdirectories: 1*
+*Files: 14 | Subdirectories: 1*
 
 ## Subdirectories
 
@@ -80,6 +80,11 @@
 - Export/Import for Portability `h2` :489
 - Edge Cases `h2` :520
 - Implementation Notes `h2` :540
+
+### WORK_SESSION_PLAN.md
+- Remembering skill augmentation plan (Claude Code session) `h1` :1
+- Quick review (current behavior) `h2` :5
+- Augmentation ideas (plan only) `h2` :10
 
 ### __init__.py
 > Imports: `requests, json, uuid, threading, os`...
