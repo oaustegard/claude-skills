@@ -23,6 +23,96 @@ from .memory import recall, recall_since, remember, supersede
 from .config import config_list, config_set, config_delete
 
 
+# --- Ops Topic Classification ---
+# This mapping organizes operational configs by cognitive domain for boot output.
+# When storing new ops entries, assign to an existing topic or add to 'Other'.
+# Future: This could be stored in config and managed dynamically.
+
+OPS_TOPICS = {
+    'Core Boot & Behavior': [
+        'boot-behavior', 'boot-output-hygiene', 'dev-workflow'
+    ],
+    'Memory Operations': [
+        'remembering-api', 'memory-types', 'memory-backup',
+        'storage-rules', 'storage-initiative', 'think-then-store',
+        'recall-before-speculation'
+    ],
+    'Communication & Voice': [
+        'communication-patterns', 'question-style', 'language-precision',
+        'anti-psychogenic-behavior', 'voice'
+    ],
+    'Handoff Workflow': [
+        'handoff-pattern', 'handoff-discipline', 'self_improvement_handoffs'
+    ],
+    'Development & Technical': [
+        'skill-workflow', 'python-path-setup', 'heredoc-for-multiline',
+        'token-efficiency', 'token_conservation', 'error-handling',
+        'batch-processing-drift', 'cache-testing-lesson'
+    ],
+    'Environment & Infrastructure': [
+        'env-file-handling', 'muninn-env-loading', 'austegard-com-hosting'
+    ],
+    'Commands & Shortcuts': [
+        'fly-command', 'rem-command'
+    ],
+    'Therapy & Self-Improvement': [
+        'therapy'
+    ]
+}
+
+# Build reverse lookup at module load time
+_OPS_KEY_TO_TOPIC = {}
+for _topic, _keys in OPS_TOPICS.items():
+    for _key in _keys:
+        _OPS_KEY_TO_TOPIC[_key] = _topic
+
+
+def classify_ops_key(key: str) -> str | None:
+    """Classify an ops key into its topic category.
+
+    Args:
+        key: The ops config key (e.g., 'boot-behavior', 'voice')
+
+    Returns:
+        Topic name if classified, None if uncategorized.
+        Uncategorized keys appear under 'Other' in boot output.
+
+    Note:
+        When adding new ops entries, either:
+        1. Add the key to OPS_TOPICS above
+        2. Let it appear under 'Other' (acceptable for one-off entries)
+        3. Create a new topic category if warranted
+    """
+    return _OPS_KEY_TO_TOPIC.get(key)
+
+
+def group_ops_by_topic(ops_entries: list) -> tuple[dict, list]:
+    """Group ops entries by topic for organized output.
+
+    Args:
+        ops_entries: List of ops config dicts with 'key' field
+
+    Returns:
+        Tuple of (ops_by_topic dict, uncategorized list)
+        - ops_by_topic: {topic_name: [entries...]} in OPS_TOPICS order
+        - uncategorized: entries with keys not in any topic
+    """
+    ops_by_topic = {}
+    uncategorized = []
+
+    for o in ops_entries:
+        key = o['key']
+        topic = classify_ops_key(key)
+        if topic:
+            if topic not in ops_by_topic:
+                ops_by_topic[topic] = []
+            ops_by_topic[topic].append(o)
+        else:
+            uncategorized.append(o)
+
+    return ops_by_topic, uncategorized
+
+
 def profile() -> list:
     """Load profile config for conversation start."""
     return config_list("profile")
@@ -117,21 +207,32 @@ def boot() -> str:
             _cache_config(profile_data + ops_data)
 
     except Exception as e:
-        # Fallback to cached config if remote fetch fails
-        print(f"Warning: Remote config fetch failed, using cached data: {e}")
+        # Fallback to PREVIOUS SESSION's cached config if remote fetch fails
+        # Note: The cache file persists on disk between sessions. This fallback
+        # only works if a prior session successfully populated config_cache.
+        # On a fresh install with no prior cache, this will fail gracefully.
         if _cache_available():
-            # Read directly from cache, not remote
-            profile_data = state._cache_conn.execute(
-                "SELECT * FROM config_cache WHERE category = 'profile' ORDER BY key"
-            ).fetchall()
-            profile_data = [dict(row) for row in profile_data]
+            # Check if previous session cached any config
+            cached_count = state._cache_conn.execute(
+                "SELECT COUNT(*) FROM config_cache"
+            ).fetchone()[0]
 
-            ops_data = state._cache_conn.execute(
-                "SELECT * FROM config_cache WHERE category = 'ops' ORDER BY key"
-            ).fetchall()
-            ops_data = [dict(row) for row in ops_data]
+            if cached_count > 0:
+                print(f"Warning: Remote config fetch failed, using previous session's cache: {e}")
+                profile_data = state._cache_conn.execute(
+                    "SELECT * FROM config_cache WHERE category = 'profile' ORDER BY key"
+                ).fetchall()
+                profile_data = [dict(row) for row in profile_data]
+
+                ops_data = state._cache_conn.execute(
+                    "SELECT * FROM config_cache WHERE category = 'ops' ORDER BY key"
+                ).fetchall()
+                ops_data = [dict(row) for row in ops_data]
+            else:
+                # Cache exists but is empty (fresh session) - cannot fallback
+                return f"ERROR: Unable to load config (remote failed: {e}, cache empty - no previous session data)"
         else:
-            # No cache available and remote failed - return error message
+            # No cache file at all - cannot fallback
             return f"ERROR: Unable to load config (remote failed: {e}, no cache available)"
 
     # Start async cache warming
@@ -143,81 +244,60 @@ def boot() -> str:
     core_ops = [o for o in ops_data if o.get('boot_load', 1) in (1, '1')]
     reference_ops = [o for o in ops_data if o.get('boot_load', 1) in (0, '0')]
 
-    # Organize ops by topic for cognitive efficiency
-    OPS_TOPICS = {
-        'Core Boot & Behavior': [
-            'boot-behavior', 'boot-output-hygiene', 'dev-workflow'
-        ],
-        'Memory Operations': [
-            'remembering-api', 'memory-types', 'memory-backup',
-            'storage-rules', 'storage-initiative', 'think-then-store',
-            'recall-before-speculation'
-        ],
-        'Communication & Voice': [
-            'communication-patterns', 'question-style', 'language-precision',
-            'anti-psychogenic-behavior', 'voice'
-        ],
-        'Handoff Workflow': [
-            'handoff-pattern', 'handoff-discipline', 'self_improvement_handoffs'
-        ],
-        'Development & Technical': [
-            'skill-workflow', 'python-path-setup', 'heredoc-for-multiline',
-            'token-efficiency', 'token_conservation', 'error-handling',
-            'batch-processing-drift', 'cache-testing-lesson'
-        ],
-        'Environment & Infrastructure': [
-            'env-file-handling', 'muninn-env-loading', 'austegard-com-hosting'
-        ],
-        'Commands & Shortcuts': [
-            'fly-command', 'rem-command'
-        ],
-        'Therapy & Self-Improvement': [
-            'therapy'
-        ]
-    }
+    # Group ops by topic using module-level classification
+    ops_by_topic, uncategorized = group_ops_by_topic(core_ops)
 
-    # Build reverse lookup for quick topic assignment
-    key_to_topic = {}
-    for topic, keys in OPS_TOPICS.items():
-        for key in keys:
-            key_to_topic[key] = topic
+    # Format output with markdown headings
+    return _format_boot_output(profile_data, ops_by_topic, uncategorized, reference_ops)
 
-    # Group ops by topic
-    ops_by_topic = {}
-    uncategorized = []
 
-    for o in core_ops:
-        key = o['key']
-        topic = key_to_topic.get(key)
-        if topic:
-            if topic not in ops_by_topic:
-                ops_by_topic[topic] = []
-            ops_by_topic[topic].append(o)
-        else:
-            uncategorized.append(o)
+def _format_entry(entry: dict) -> str:
+    """Format a single config entry with markdown heading.
 
-    # Format output
+    Args:
+        entry: Config dict with 'key' and 'value' fields
+
+    Returns:
+        Formatted string with key as heading and value as content
+    """
+    return f"### {entry['key']}\n{entry['value']}"
+
+
+def _format_boot_output(profile_data: list, ops_by_topic: dict,
+                        uncategorized: list, reference_ops: list) -> str:
+    """Format boot output with organized sections.
+
+    Args:
+        profile_data: List of profile config entries
+        ops_by_topic: Dict of {topic: [entries]} from group_ops_by_topic()
+        uncategorized: List of ops entries not in any topic
+        reference_ops: List of reference-only ops (boot_load=0)
+
+    Returns:
+        Formatted boot output string with markdown headings
+    """
     output = []
-    if profile_data:
-        output.append("=== PROFILE ===")
-        for p in profile_data:
-            output.append(f"{p['key']}:\n{p['value']}")
 
-    if core_ops:
-        output.append("\n=== OPS ===")
+    # Profile section
+    if profile_data:
+        output.append("# PROFILE")
+        output.extend(_format_entry(p) for p in profile_data)
+
+    # Ops section
+    if ops_by_topic or uncategorized:
+        output.append("\n# OPS")
 
         # Output ops by topic in defined order
         for topic in OPS_TOPICS.keys():
             if topic in ops_by_topic:
                 output.append(f"\n## {topic}")
-                for o in ops_by_topic[topic]:
-                    output.append(f"{o['key']}:\n{o['value']}")
+                output.extend(_format_entry(o) for o in ops_by_topic[topic])
 
         # Output uncategorized ops last (alphabetically)
         if uncategorized:
             output.append("\n## Other")
-            for o in sorted(uncategorized, key=lambda x: x['key']):
-                output.append(f"{o['key']}:\n{o['value']}")
+            sorted_uncategorized = sorted(uncategorized, key=lambda x: x['key'])
+            output.extend(_format_entry(o) for o in sorted_uncategorized)
 
         # Reference index: show what's available but not loaded
         if reference_ops:
