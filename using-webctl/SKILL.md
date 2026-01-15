@@ -1,6 +1,8 @@
 ---
 name: using-webctl
 description: Browser automation via webctl CLI in Claude.ai containers with authenticated proxy support. Use when users mention webctl, browser automation, Playwright browsing, web scraping, or headless Chrome in container environments.
+metadata:
+  version: 0.0.1
 ---
 
 # Using webctl in Claude.ai Containers
