@@ -263,6 +263,11 @@ remembering/
 - Soft delete via `deleted_at` column
 - `session_id` currently placeholder ("session")
 - **Always test changes before creating a PR**
+- **Always update SKILL.md version when making changes**:
+  - Bug fixes: Patch bump (3.0.0 → 3.0.1)
+  - New features/improvements: Minor bump (3.0.0 → 3.1.0)
+  - Breaking changes: Major bump (3.0.0 → 4.0.0)
+  - Version is in `metadata.version` field in SKILL.md frontmatter
 
 ## Lessons for Claude Code Agents
 
