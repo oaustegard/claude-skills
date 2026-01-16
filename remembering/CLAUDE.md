@@ -327,7 +327,24 @@ test -f /home/user/claude-skills/remembering/__init__.py && echo "Found" || echo
 python3 -c "import sys; sys.path.insert(0, '/home/user/claude-skills'); import remembering; print('Success')"
 ```
 
+## What's New in v3.2.0
+
+**Session Scoping**: Filter memories by conversation or work session using `session_id` parameter.
+
+**Security Hardening**: All SQL queries now use parameterized statements (SQL injection protection).
+
+**Automatic Flush**: Background writes automatically flush on process exit (atexit hook prevents data loss).
+
+**Observability**: New helpers for monitoring retrieval performance and query patterns:
+- `recall_stats()` - cache hit rate, avg query time, performance metrics
+- `top_queries()` - most common search patterns
+
+**Retention Management**: New helpers for analyzing and pruning memories:
+- `memory_histogram()` - distribution by type, priority, age
+- `prune_by_age()` - delete old memories with priority filters
+- `prune_by_priority()` - delete low-priority memories
+
 ## Known Limitations
 
-- Session ID currently hardcoded to "session" (not per-conversation tracking)
+- Session filtering bypasses cache (queries Turso directly) - cache support planned for future release
 - Query expansion fallback threshold is fixed at 3 results (not configurable)

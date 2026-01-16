@@ -12,7 +12,7 @@ from pathlib import Path
 
 # Import module state and constants
 from . import state
-from .state import TYPES
+from .state import TYPES, get_session_id, set_session_id
 
 # Import Turso HTTP layer
 from .turso import (
@@ -26,7 +26,8 @@ from .cache import (
     _cache_populate_index, _cache_populate_full, _cache_config,
     _cache_query_index, _escape_fts5_query, _cache_row_to_dict,
     _cache_memory, _fetch_full_content, cache_stats,
-    _log_recall_query
+    _log_recall_query,
+    recall_stats, top_queries  # v3.2.0: observability
 )
 
 # Import memory layer
@@ -35,7 +36,8 @@ from .memory import (
     recall, _update_access_tracking, _query,
     recall_since, recall_between,
     forget, supersede, reprioritize,
-    strengthen, weaken
+    strengthen, weaken,
+    memory_histogram, prune_by_age, prune_by_priority  # v3.2.0: retention helpers
 )
 
 # Import config layer
@@ -75,5 +77,8 @@ __all__ = [
     "reprioritize",  # priority adjustment
     "strengthen", "weaken",  # deprecated (v2.0.0) - no-op, kept for compat
     "install_utilities", "UTIL_DIR",  # utilities
+    "get_session_id", "set_session_id",  # session management (v3.2.0)
+    "recall_stats", "top_queries",  # retrieval observability (v3.2.0)
+    "memory_histogram", "prune_by_age", "prune_by_priority",  # retention helpers (v3.2.0)
     "r", "q", "j", "TYPES"  # aliases & constants
 ]

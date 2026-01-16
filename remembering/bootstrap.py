@@ -93,6 +93,20 @@ def migrate_schema():
     except:
         pass  # Column already exists
 
+    # v3.2.0: Re-enable session_id column (was removed in v2.0.0, now re-added)
+    try:
+        _exec("ALTER TABLE memories ADD COLUMN session_id TEXT")
+        print("Added session_id column to memories table")
+    except:
+        pass  # Column already exists
+
+    # v3.2.0: Add index for session_id for better query performance
+    try:
+        _exec("CREATE INDEX IF NOT EXISTS idx_memories_session_id ON memories(session_id)")
+        print("Added index on session_id column")
+    except:
+        pass  # Index already exists
+
     # v0.4.0: Add importance tracking columns
     try:
         _exec("ALTER TABLE memories ADD COLUMN importance REAL DEFAULT 0.5")
