@@ -401,7 +401,7 @@ def decisions_recent(n: int = 10, conf: float = 0.7) -> list:
     Returns:
         List of decision memories sorted by timestamp (newest first)
     """
-    return recall(type="decision", conf=conf, n=n)
+    return recall(type="decision", conf=conf, n=n, strict=True)
 
 
 # --- Analysis helpers ---
@@ -462,10 +462,13 @@ def handoff_pending() -> list:
     Returns handoffs tagged with BOTH 'handoff' AND 'pending', excluding superseded ones.
     Use handoff_complete() to mark a handoff as done.
 
+    Uses strict=True to bypass FTS5 search and use direct SQL tag matching with
+    timestamp ordering for deterministic results.
+
     Returns:
-        List of pending handoff memories, most recent first
+        List of pending handoff memories, most recent first (by timestamp, not relevance)
     """
-    return recall(tags=["handoff", "pending"], tag_mode="all", n=50)
+    return recall(tags=["handoff", "pending"], tag_mode="all", n=50, strict=True)
 
 
 def handoff_complete(handoff_id: str, completion_notes: str, version: str = None) -> str:
