@@ -6,6 +6,24 @@ All notable changes to the `remembering` skill (Muninn) are documented in this f
 
 ### Added
 
+- Bump to v3.0.0 for utility auto-installation
+- Integrate utility installation into boot.py
+- Add 'interaction' memory type to remembering skill
+- add line numbers, markdown ToC, and other files listing
+
+### Fixed
+
+- improve boot.py cache fallback, extract OPS_TOPICS, use markdown headings
+- limit markdown ToC to h1/h2 headings only
+
+### Other
+
+- Revise version info and remove migration instructions
+
+## [3.0.0] - 2026-01-16
+
+### Added
+
 - **BREAKING**: Integrated utility code installation into `boot()` - utilities now auto-install during boot sequence
 - Created `remembering/utilities.py` module with `install_utilities()` function
 - Added UTILITIES section to boot output showing installed utility count and names
