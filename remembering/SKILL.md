@@ -1,8 +1,8 @@
 ---
 name: remembering
-description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, and edge cases.
+description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, and retention management.
 metadata:
-  version: 3.1.0
+  version: 3.2.0
 ---
 
 > **⚠️ IMPORTANT FOR CLAUDE CODE AGENTS**
@@ -485,6 +485,69 @@ completed = recall(tags=["handoff-completed"], n=50)
 - Planning work that needs Claude Code execution
 - Coordinating between environments
 - Leaving detailed instructions for future sessions
+
+## Session Scoping (v3.2.0)
+
+Filter memories by conversation or work session using `session_id`:
+
+```python
+from remembering import remember, recall, set_session_id
+
+# Set session for all subsequent remember() calls
+set_session_id("project-alpha-sprint-1")
+remember("Feature spec approved", "decision", tags=["project-alpha"])
+
+# Query by session
+alpha_memories = recall(session_id="project-alpha-sprint-1", n=50)
+
+# Session ID defaults to MUNINN_SESSION_ID env var or 'default-session'
+import os
+os.environ['MUNINN_SESSION_ID'] = 'my-session'
+```
+
+**Note**: Session filtering bypasses cache (queries Turso directly). Cache support planned for future release.
+
+## Retrieval Observability (v3.2.0)
+
+Monitor query performance and usage patterns:
+
+```python
+from remembering import recall_stats, top_queries
+
+# Get retrieval statistics
+stats = recall_stats(limit=100)
+print(f"Cache hit rate: {stats['cache_hit_rate']:.1%}")
+print(f"Avg query time: {stats['avg_exec_time_ms']:.1f}ms")
+
+# Find most common searches
+for query_info in top_queries(n=10):
+    print(f"{query_info['query']}: {query_info['count']} times")
+```
+
+## Retention Management (v3.2.0)
+
+Analyze memory distribution and prune old/low-priority memories:
+
+```python
+from remembering import memory_histogram, prune_by_age, prune_by_priority
+
+# Get memory distribution
+hist = memory_histogram()
+print(f"Total: {hist['total']}")
+print(f"By type: {hist['by_type']}")
+print(f"By priority: {hist['by_priority']}")
+print(f"By age: {hist['by_age_days']}")
+
+# Preview what would be deleted (dry run)
+result = prune_by_age(older_than_days=90, priority_floor=0, dry_run=True)
+print(f"Would delete {result['count']} memories")
+
+# Actually delete old low-priority memories
+result = prune_by_age(older_than_days=90, priority_floor=0, dry_run=False)
+
+# Delete all background-priority memories
+result = prune_by_priority(max_priority=-1, dry_run=False)
+```
 
 ## Export/Import for Portability
 

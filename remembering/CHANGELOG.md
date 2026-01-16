@@ -2,6 +2,35 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [3.2.0] - 2026-01-16
+
+### Added
+
+- **Session Scoping**: Added `session_id` parameter to `remember()`, `recall()`, `recall_since()`, and `recall_between()` for filtering memories by conversation or work session
+- **Session Management**: New `get_session_id()` and `set_session_id()` functions for managing session context
+- **Security Hardening**: Converted all SQL queries to parameterized statements, eliminating SQL injection vulnerabilities in `_query()`, `recall_since()`, and `recall_between()`
+- **Automatic Flush**: Added atexit hook that automatically flushes pending background writes on process exit to prevent data loss
+- **Retrieval Observability**: New `recall_stats()` function for monitoring query performance (cache hit rate, avg exec time, etc.)
+- **Query Analytics**: New `top_queries()` function for identifying most common search patterns
+- **Memory Distribution**: New `memory_histogram()` function for analyzing memory distribution by type, priority, and age
+- **Retention Management**: New `prune_by_age()` and `prune_by_priority()` functions for managing memory lifecycle
+
+### Changed
+
+- Session ID column re-enabled in memories table (was removed in v2.0.0, now restored with index for performance)
+- `_write_memory()` now accepts and persists session_id parameter
+- Environment variable `MUNINN_SESSION_ID` can be used to set default session ID
+
+### Fixed
+
+- SQL injection vulnerabilities in query construction (all queries now use parameterized statements)
+- Data loss risk from background writes not flushing on abnormal process termination
+
+### Security
+
+- **CRITICAL**: All SQL queries now use parameterized statements instead of string interpolation
+- Eliminated SQL injection attack surface in search, tag filtering, and session filtering
+
 ## [3.1.0] - 2026-01-16
 
 ### Fixed

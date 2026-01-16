@@ -15,10 +15,11 @@ import json
 import uuid
 import threading
 import time
+import atexit
 from datetime import datetime, UTC
 
 from . import state
-from .state import TYPES
+from .state import TYPES, get_session_id
 from .turso import _exec
 from .cache import (
     _cache_available, _cache_memory, _cache_query_index,
@@ -27,27 +28,47 @@ from .cache import (
 # Import config_get and config_set for recall-triggers management
 from .config import config_get, config_set
 
+# v3.2.0: Register automatic flush on exit to prevent data loss from background writes
+@atexit.register
+def _auto_flush_on_exit():
+    """Automatically flush pending background writes on process exit.
+
+    This prevents data loss when background writes are pending and the process terminates.
+    Registered with atexit to ensure it runs even on abnormal exits.
+    """
+    with state._pending_writes_lock:
+        pending_count = len(state._pending_writes)
+
+    if pending_count > 0:
+        # Only print if there are actually pending writes
+        result = flush(timeout=10.0)
+        completed = result.get('completed', 0)
+        timed_out = result.get('timed_out', 0)
+        if completed > 0 or timed_out > 0:
+            print(f"Muninn: Auto-flushed {completed} background writes on exit ({timed_out} timed out)")
+
+
 
 def _write_memory(mem_id: str, what: str, type: str, now: str, conf: float,
-                  tags: list, refs: list, priority: int, valid_from: str) -> None:
+                  tags: list, refs: list, priority: int, valid_from: str, session_id: str) -> None:
     """Internal helper: write memory to Turso (blocking).
 
-    v2.0.0: Simplified schema - removed entities, importance, salience, memory_class,
-            session_id, embedding. Added priority field.
+    v2.0.0: Simplified schema - removed entities, importance, salience, memory_class, embedding. Added priority field.
+    v3.2.0: Re-enabled session_id tracking.
     """
     _exec(
         """INSERT INTO memories (id, type, t, summary, confidence, tags, refs, priority,
-           created_at, updated_at, valid_from, access_count, last_accessed)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)""",
+           session_id, created_at, updated_at, valid_from, access_count, last_accessed)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)""",
         [mem_id, type, now, what, conf,
          json.dumps(tags or []), json.dumps(refs or []),
-         priority, now, now, valid_from]
+         priority, session_id, now, now, valid_from]
     )
 
 
 def remember(what: str, type: str, *, tags: list = None, conf: float = None,
              refs: list = None, priority: int = 0, valid_from: str = None,
-             sync: bool = True,
+             sync: bool = True, session_id: str = None,
              # Deprecated parameters (ignored in v2.0.0, kept for backward compat)
              entities: list = None, importance: float = None, memory_class: str = None) -> str:
     """Store a memory. Type is required. Returns memory ID.
@@ -63,6 +84,7 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
         sync: If True (default), block until write completes. If False, write in background.
                Use sync=True for critical memories (handoffs, decisions). Use sync=False for
                fast writes where eventual consistency is acceptable.
+        session_id: Optional session identifier. Defaults to MUNINN_SESSION_ID env var or 'default-session'.
 
     Deprecated args (v2.0.0 - ignored but accepted for backward compat):
         entities, importance, memory_class
@@ -73,6 +95,7 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
     v0.6.0: Added sync parameter for background writes. Use flush() to wait for all pending writes.
     v0.13.0: Removed embedding generation (OpenAI dependency removed).
     v2.0.0: Simplified schema. Added priority. Removed entities, importance, memory_class.
+    v3.2.0: Added session_id parameter for session scoping.
     """
     if type not in TYPES:
         raise ValueError(f"Invalid type '{type}'. Must be one of: {', '.join(sorted(TYPES))}")
@@ -86,6 +109,9 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
     if valid_from is None:
         valid_from = now
 
+    if session_id is None:
+        session_id = get_session_id()
+
     # Clamp priority to valid range
     priority = max(-1, min(2, priority))
 
@@ -96,12 +122,12 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
 
     if sync:
         # Blocking write to Turso
-        _write_memory(mem_id, what, type, now, conf, tags, refs, priority, valid_from)
+        _write_memory(mem_id, what, type, now, conf, tags, refs, priority, valid_from, session_id)
     else:
         # Background write to Turso
         def _bg_write():
             try:
-                _write_memory(mem_id, what, type, now, conf, tags, refs, priority, valid_from)
+                _write_memory(mem_id, what, type, now, conf, tags, refs, priority, valid_from, session_id)
             finally:
                 # Remove from pending list when done
                 with state._pending_writes_lock:
@@ -191,13 +217,14 @@ def flush(timeout: float = 5.0) -> dict:
 
 def recall(search: str = None, *, n: int = 10, tags: list = None,
            type: str = None, conf: float = None, tag_mode: str = "any",
-           use_cache: bool = True, strict: bool = False) -> list:
+           use_cache: bool = True, strict: bool = False, session_id: str = None) -> list:
     """Query memories with flexible filters.
 
     v0.7.0: Uses local cache with progressive disclosure when available.
     v0.9.0: Uses FTS5 for ranked text search instead of LIKE.
     v0.12.0: Logs queries for retrieval instrumentation.
     v0.12.1: Adds strict mode for timestamp-only ordering (no ranking).
+    v3.2.0: Added session_id filter for session scoping.
 
     Args:
         search: Text to search for in memory summaries (FTS5 ranked search)
@@ -208,6 +235,7 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
         tag_mode: "any" (default) matches any tag, "all" requires all tags
         use_cache: If True (default), check local cache first (much faster)
         strict: If True, skip FTS5/ranking and order by timestamp DESC (v0.12.1)
+        session_id: Filter by session identifier (optional)
     """
     # Track timing for logging (v0.12.0)
     start_time = time.time()
@@ -223,11 +251,11 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
         # v2.0.1: If cache returns no results and warming isn't complete, fall back to Turso
         # This fixes race condition where recall() called immediately after boot() returns 0 results
         if not results and not state._cache_warmed:
-            results = _query(search=search, tags=tags, type=type, conf=conf, limit=n, tag_mode=tag_mode)
+            results = _query(search=search, tags=tags, type=type, conf=conf, limit=n, tag_mode=tag_mode, session_id=session_id)
             exec_time = (time.time() - start_time) * 1000
             _log_recall_query(
                 query=search,
-                filters={'type': type, 'tags': tags, 'conf': conf, 'tag_mode': tag_mode},
+                filters={'type': type, 'tags': tags, 'conf': conf, 'tag_mode': tag_mode, 'session_id': session_id},
                 n_requested=n,
                 n_returned=len(results),
                 exec_time_ms=exec_time,
@@ -297,7 +325,7 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
             exec_time = (time.time() - start_time) * 1000  # Convert to ms
             _log_recall_query(
                 query=search,
-                filters={'type': type, 'tags': tags, 'conf': conf, 'tag_mode': tag_mode},
+                filters={'type': type, 'tags': tags, 'conf': conf, 'tag_mode': tag_mode, 'session_id': session_id},
                 n_requested=n,
                 n_returned=len(results),
                 exec_time_ms=exec_time,
@@ -308,13 +336,13 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
             return results
 
     # Fallback to direct Turso query
-    results = _query(search=search, tags=tags, type=type, conf=conf, limit=n, tag_mode=tag_mode)
+    results = _query(search=search, tags=tags, type=type, conf=conf, limit=n, tag_mode=tag_mode, session_id=session_id)
 
     # Log query (v0.12.0)
     exec_time = (time.time() - start_time) * 1000  # Convert to ms
     _log_recall_query(
         query=search,
-        filters={'type': type, 'tags': tags, 'conf': conf, 'tag_mode': tag_mode},
+        filters={'type': type, 'tags': tags, 'conf': conf, 'tag_mode': tag_mode, 'session_id': session_id},
         n_requested=n,
         n_returned=len(results),
         exec_time_ms=exec_time,
@@ -366,40 +394,64 @@ def _update_access_tracking(memory_ids: list):
 
 
 def _query(search: str = None, tags: list = None, type: str = None,
-           conf: float = None, limit: int = 10, tag_mode: str = "any") -> list:
-    """Internal query implementation.
+           conf: float = None, limit: int = 10, tag_mode: str = "any", session_id: str = None) -> list:
+    """Internal query implementation with parameterized queries.
 
     Args:
         tag_mode: "any" (default) matches any tag, "all" requires all tags
+        session_id: Optional session filter (v3.2.0)
 
     v0.4.0: Tracks access_count and last_accessed for retrieved memories.
+    v3.2.0: Added session_id filter. Converted to parameterized queries for SQL injection protection.
     """
-    # Exclude soft-deleted memories and superseded memories (those referenced in refs)
+    # Build parameterized WHERE clause
     conditions = [
         "deleted_at IS NULL",
         # Exclude memories that are superseded (appear in any other memory's refs field)
         "id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)"
     ]
+    params = []
 
     if search:
-        conditions.append(f"summary LIKE '%{search}%'")
+        conditions.append("summary LIKE ?")
+        params.append(f"%{search}%")
+
     if tags:
         if tag_mode == "all":
             # Require all tags to be present
-            tag_conds = " AND ".join(f"tags LIKE '%\"{t}\"%'" for t in tags)
+            tag_conds = []
+            for t in tags:
+                tag_conds.append("tags LIKE ?")
+                params.append(f'%"{t}"%')
+            conditions.append(f"({' AND '.join(tag_conds)})")
         else:  # "any"
             # Match any of the tags
-            tag_conds = " OR ".join(f"tags LIKE '%\"{t}\"%'" for t in tags)
-        conditions.append(f"({tag_conds})")
+            tag_conds = []
+            for t in tags:
+                tag_conds.append("tags LIKE ?")
+                params.append(f'%"{t}"%')
+            conditions.append(f"({' OR '.join(tag_conds)})")
+
     if type:
-        conditions.append(f"type = '{type}'")
+        conditions.append("type = ?")
+        params.append(type)
+
     if conf is not None:
-        conditions.append(f"confidence >= {conf}")
+        conditions.append("confidence >= ?")
+        params.append(conf)
+
+    if session_id is not None:
+        conditions.append("session_id = ?")
+        params.append(session_id)
 
     where = " AND ".join(conditions)
     order = "confidence DESC" if conf else "t DESC"
 
-    results = _exec(f"SELECT * FROM memories WHERE {where} ORDER BY {order} LIMIT {limit}")
+    # Add limit as parameter
+    query = f"SELECT * FROM memories WHERE {where} ORDER BY {order} LIMIT ?"
+    params.append(limit)
+
+    results = _exec(query, params)
 
     # Track access for returned memories
     if results:
@@ -409,8 +461,8 @@ def _query(search: str = None, tags: list = None, type: str = None,
 
 
 def recall_since(after: str, *, search: str = None, n: int = 50,
-                 type: str = None, tags: list = None, tag_mode: str = "any") -> list:
-    """Query memories created after a given timestamp.
+                 type: str = None, tags: list = None, tag_mode: str = "any", session_id: str = None) -> list:
+    """Query memories created after a given timestamp with parameterized queries.
 
     Args:
         after: ISO timestamp (e.g., '2025-12-26T00:00:00Z')
@@ -419,24 +471,48 @@ def recall_since(after: str, *, search: str = None, n: int = 50,
         type: Filter by memory type
         tags: Filter by tags
         tag_mode: "any" (default) matches any tag, "all" requires all tags
+        session_id: Filter by session identifier (optional, v3.2.0)
+
+    v3.2.0: Converted to parameterized queries for SQL injection protection.
     """
     conditions = [
         "deleted_at IS NULL",
-        f"t > '{after}'",
+        "t > ?",
         "id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)"
     ]
+    params = [after]
+
     if search:
-        conditions.append(f"summary LIKE '%{search}%'")
+        conditions.append("summary LIKE ?")
+        params.append(f"%{search}%")
+
     if type:
-        conditions.append(f"type = '{type}'")
+        conditions.append("type = ?")
+        params.append(type)
+
     if tags:
         if tag_mode == "all":
-            tag_conds = " AND ".join(f"tags LIKE '%\"{t}\"%'" for t in tags)
+            tag_conds = []
+            for t in tags:
+                tag_conds.append("tags LIKE ?")
+                params.append(f'%"{t}"%')
+            conditions.append(f"({' AND '.join(tag_conds)})")
         else:  # "any"
-            tag_conds = " OR ".join(f"tags LIKE '%\"{t}\"%'" for t in tags)
-        conditions.append(f"({tag_conds})")
+            tag_conds = []
+            for t in tags:
+                tag_conds.append("tags LIKE ?")
+                params.append(f'%"{t}"%')
+            conditions.append(f"({' OR '.join(tag_conds)})")
+
+    if session_id is not None:
+        conditions.append("session_id = ?")
+        params.append(session_id)
+
     where = " AND ".join(conditions)
-    results = _exec(f"SELECT * FROM memories WHERE {where} ORDER BY t DESC LIMIT {n}")
+    query = f"SELECT * FROM memories WHERE {where} ORDER BY t DESC LIMIT ?"
+    params.append(n)
+
+    results = _exec(query, params)
 
     # Track access for returned memories
     if results:
@@ -447,8 +523,8 @@ def recall_since(after: str, *, search: str = None, n: int = 50,
 
 def recall_between(after: str, before: str, *, search: str = None,
                    n: int = 100, type: str = None, tags: list = None,
-                   tag_mode: str = "any") -> list:
-    """Query memories within a time range.
+                   tag_mode: str = "any", session_id: str = None) -> list:
+    """Query memories within a time range with parameterized queries.
 
     Args:
         after: Start timestamp (exclusive)
@@ -458,25 +534,49 @@ def recall_between(after: str, before: str, *, search: str = None,
         type: Filter by memory type
         tags: Filter by tags
         tag_mode: "any" (default) matches any tag, "all" requires all tags
+        session_id: Filter by session identifier (optional, v3.2.0)
+
+    v3.2.0: Converted to parameterized queries for SQL injection protection.
     """
     conditions = [
         "deleted_at IS NULL",
-        f"t > '{after}'",
-        f"t < '{before}'",
+        "t > ?",
+        "t < ?",
         "id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)"
     ]
+    params = [after, before]
+
     if search:
-        conditions.append(f"summary LIKE '%{search}%'")
+        conditions.append("summary LIKE ?")
+        params.append(f"%{search}%")
+
     if type:
-        conditions.append(f"type = '{type}'")
+        conditions.append("type = ?")
+        params.append(type)
+
     if tags:
         if tag_mode == "all":
-            tag_conds = " AND ".join(f"tags LIKE '%\"{t}\"%'" for t in tags)
+            tag_conds = []
+            for t in tags:
+                tag_conds.append("tags LIKE ?")
+                params.append(f'%"{t}"%')
+            conditions.append(f"({' AND '.join(tag_conds)})")
         else:  # "any"
-            tag_conds = " OR ".join(f"tags LIKE '%\"{t}\"%'" for t in tags)
-        conditions.append(f"({tag_conds})")
+            tag_conds = []
+            for t in tags:
+                tag_conds.append("tags LIKE ?")
+                params.append(f'%"{t}"%')
+            conditions.append(f"({' OR '.join(tag_conds)})")
+
+    if session_id is not None:
+        conditions.append("session_id = ?")
+        params.append(session_id)
+
     where = " AND ".join(conditions)
-    results = _exec(f"SELECT * FROM memories WHERE {where} ORDER BY t DESC LIMIT {n}")
+    query = f"SELECT * FROM memories WHERE {where} ORDER BY t DESC LIMIT ?"
+    params.append(n)
+
+    results = _exec(query, params)
 
     # Track access for returned memories
     if results:
@@ -571,6 +671,148 @@ def reprioritize(memory_id: str, priority: int) -> None:
             state._cache_conn.commit()
         except Exception as e:
             print(f"Warning: Cache priority update failed: {e}")
+
+
+# --- Retrieval observability and retention helpers (v3.2.0) ---
+
+def memory_histogram() -> dict:
+    """Get distribution of memories by type, priority, and age.
+
+    Returns:
+        Dict with memory count breakdowns
+
+    Example:
+        >>> hist = memory_histogram()
+        >>> print(f"Total memories: {hist['total']}")
+        >>> print(f"By type: {hist['by_type']}")
+        >>> print(f"By priority: {hist['by_priority']}")
+    """
+    # Get all active memories
+    results = _exec("""
+        SELECT type, priority, created_at
+        FROM memories
+        WHERE deleted_at IS NULL
+          AND id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)
+    """)
+
+    if not results:
+        return {
+            "total": 0,
+            "by_type": {},
+            "by_priority": {},
+            "by_age_days": {}
+        }
+
+    from collections import Counter
+    now = datetime.now(UTC)
+
+    by_type = Counter(m['type'] for m in results)
+    by_priority = Counter(m.get('priority', 0) for m in results)
+
+    # Age buckets: 0-7 days, 8-30 days, 31-90 days, 90+ days
+    age_buckets = {"0-7d": 0, "8-30d": 0, "31-90d": 0, "90d+": 0}
+    for m in results:
+        created = datetime.fromisoformat(m['created_at'].replace('Z', '+00:00'))
+        age_days = (now - created).days
+        if age_days <= 7:
+            age_buckets["0-7d"] += 1
+        elif age_days <= 30:
+            age_buckets["8-30d"] += 1
+        elif age_days <= 90:
+            age_buckets["31-90d"] += 1
+        else:
+            age_buckets["90d+"] += 1
+
+    return {
+        "total": len(results),
+        "by_type": dict(by_type),
+        "by_priority": dict(by_priority),
+        "by_age_days": age_buckets
+    }
+
+
+def prune_by_age(older_than_days: int, priority_floor: int = 0, dry_run: bool = True) -> dict:
+    """Soft-delete old memories with priority at or below a threshold.
+
+    Args:
+        older_than_days: Delete memories older than this many days
+        priority_floor: Only delete memories with priority <= this (default 0)
+        dry_run: If True (default), return what would be deleted without deleting
+
+    Returns:
+        Dict with count and list of memory IDs that were (or would be) deleted
+
+    Example:
+        >>> # See what would be deleted
+        >>> result = prune_by_age(older_than_days=90, priority_floor=0)
+        >>> print(f"Would delete {result['count']} memories")
+        >>> # Actually delete
+        >>> result = prune_by_age(older_than_days=90, priority_floor=0, dry_run=False)
+    """
+    cutoff = datetime.now(UTC) - __import__('datetime').timedelta(days=older_than_days)
+    cutoff_iso = cutoff.isoformat().replace("+00:00", "Z")
+
+    # Find candidates
+    results = _exec("""
+        SELECT id, summary, type, priority, created_at
+        FROM memories
+        WHERE deleted_at IS NULL
+          AND created_at < ?
+          AND priority <= ?
+          AND id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)
+    """, [cutoff_iso, priority_floor])
+
+    ids = [m['id'] for m in results]
+
+    if not dry_run and ids:
+        # Actually delete
+        for memory_id in ids:
+            forget(memory_id)
+
+    return {
+        "count": len(ids),
+        "ids": ids,
+        "dry_run": dry_run,
+        "criteria": f"older_than={older_than_days}d, priority<={priority_floor}"
+    }
+
+
+def prune_by_priority(max_priority: int = -1, dry_run: bool = True) -> dict:
+    """Soft-delete memories with priority at or below a threshold.
+
+    Args:
+        max_priority: Delete memories with priority <= this (default -1, background only)
+        dry_run: If True (default), return what would be deleted without deleting
+
+    Returns:
+        Dict with count and list of memory IDs that were (or would be) deleted
+
+    Example:
+        >>> # Delete all background priority memories
+        >>> result = prune_by_priority(max_priority=-1, dry_run=False)
+    """
+    # Find candidates
+    results = _exec("""
+        SELECT id, summary, type, priority
+        FROM memories
+        WHERE deleted_at IS NULL
+          AND priority <= ?
+          AND id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)
+    """, [max_priority])
+
+    ids = [m['id'] for m in results]
+
+    if not dry_run and ids:
+        # Actually delete
+        for memory_id in ids:
+            forget(memory_id)
+
+    return {
+        "count": len(ids),
+        "ids": ids,
+        "dry_run": dry_run,
+        "criteria": f"priority<={max_priority}"
+    }
 
 
 # Deprecated functions (v2.0.0) - kept for backward compatibility

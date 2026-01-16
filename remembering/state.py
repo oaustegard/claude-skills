@@ -8,6 +8,7 @@ This module contains:
 """
 
 import threading
+import os
 from pathlib import Path
 
 # Default Turso database URL
@@ -31,3 +32,32 @@ _CACHE_DB = _CACHE_DIR / "cache.db"
 _cache_conn = None
 _cache_enabled = True  # Can be disabled for testing
 _cache_warmed = False  # Track if background warming completed
+
+# Session tracking (v3.2.0)
+_session_id = None  # Lazy-initialized from env or default
+
+
+def get_session_id() -> str:
+    """Get current session ID from environment variable or default.
+
+    Priority:
+    1. MUNINN_SESSION_ID environment variable
+    2. Fallback to 'default-session'
+
+    Returns:
+        Session ID string
+    """
+    global _session_id
+    if _session_id is None:
+        _session_id = os.environ.get('MUNINN_SESSION_ID', 'default-session')
+    return _session_id
+
+
+def set_session_id(session_id: str) -> None:
+    """Manually set session ID for current process.
+
+    Args:
+        session_id: Session identifier string
+    """
+    global _session_id
+    _session_id = session_id

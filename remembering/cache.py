@@ -595,6 +595,93 @@ def cache_stats() -> dict:
         return {"enabled": state._cache_enabled, "available": False, "error": str(e)}
 
 
+# v3.2.0: Retrieval observability helpers
+def recall_stats(limit: int = 100) -> dict:
+    """Get retrieval statistics from query logs.
+
+    Returns aggregated statistics about recall queries including:
+    - Total queries logged
+    - Average execution time
+    - Cache hit rate
+    - Most common filters
+
+    Args:
+        limit: Maximum number of recent queries to analyze (default 100)
+
+    Returns:
+        Dict with aggregated statistics
+
+    Example:
+        >>> stats = recall_stats()
+        >>> print(f"Cache hit rate: {stats['cache_hit_rate']:.1%}")
+        >>> print(f"Avg query time: {stats['avg_exec_time_ms']:.1f}ms")
+    """
+    if not _cache_available():
+        return {"error": "Cache not available"}
+
+    try:
+        # Get recent queries
+        logs = state._cache_conn.execute(f"""
+            SELECT * FROM recall_logs
+            ORDER BY t DESC
+            LIMIT ?
+        """, (limit,)).fetchall()
+
+        if not logs:
+            return {
+                "total_queries": 0,
+                "cache_hit_rate": 0.0,
+                "avg_exec_time_ms": 0.0,
+                "queries_analyzed": 0
+            }
+
+        total = len(logs)
+        cache_hits = sum(1 for log in logs if log['used_cache'])
+        exec_times = [log['exec_time_ms'] for log in logs if log['exec_time_ms']]
+
+        return {
+            "total_queries": total,
+            "cache_hit_rate": cache_hits / total if total > 0 else 0.0,
+            "avg_exec_time_ms": sum(exec_times) / len(exec_times) if exec_times else 0.0,
+            "min_exec_time_ms": min(exec_times) if exec_times else 0.0,
+            "max_exec_time_ms": max(exec_times) if exec_times else 0.0,
+            "queries_analyzed": total
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def top_queries(n: int = 10) -> list:
+    """Get most common search queries from logs.
+
+    Args:
+        n: Number of top queries to return (default 10)
+
+    Returns:
+        List of dicts with query text and frequency
+
+    Example:
+        >>> for query_info in top_queries(5):
+        ...     print(f"{query_info['query']}: {query_info['count']} times")
+    """
+    if not _cache_available():
+        return []
+
+    try:
+        results = state._cache_conn.execute("""
+            SELECT query, COUNT(*) as count
+            FROM recall_logs
+            WHERE query IS NOT NULL AND query != ''
+            GROUP BY query
+            ORDER BY count DESC
+            LIMIT ?
+        """, (n,)).fetchall()
+
+        return [{"query": row['query'], "count": row['count']} for row in results]
+    except Exception as e:
+        return [{"error": str(e)}]
+
+
 # Auto-init cache on module import if DB exists (v0.9.2 fix for cross-process cache)
 # Fixes: remember() and recall() work across bash_tool calls
 if state._CACHE_DB.exists() and state._cache_conn is None:
