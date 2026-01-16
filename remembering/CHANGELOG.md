@@ -6,6 +6,12 @@ All notable changes to the `remembering` skill (Muninn) are documented in this f
 
 ### Added
 
+- v3.2.0 - session scoping, security hardening, and observability
+
+## [3.2.0] - 2026-01-16
+
+### Added
+
 - **Session Scoping**: Added `session_id` parameter to `remember()`, `recall()`, `recall_since()`, and `recall_between()` for filtering memories by conversation or work session
 - **Session Management**: New `get_session_id()` and `set_session_id()` functions for managing session context
 - **Security Hardening**: Converted all SQL queries to parameterized statements, eliminating SQL injection vulnerabilities in `_query()`, `recall_since()`, and `recall_between()`
