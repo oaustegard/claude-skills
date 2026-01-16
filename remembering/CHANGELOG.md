@@ -2,6 +2,28 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [3.0.0] - 2026-01-16
+
+### Added
+
+- **BREAKING**: Integrated utility code installation into `boot()` - utilities now auto-install during boot sequence
+- Created `remembering/utilities.py` module with `install_utilities()` function
+- Added UTILITIES section to boot output showing installed utility count and names
+- Exported `install_utilities` and `UTIL_DIR` in `__init__.py`
+
+### Changed
+
+- **BREAKING**: `boot()` now automatically materializes utility-code memories to disk at `/home/claude/muninn_utils/`
+- Updated `utility-code-storage` ops entry to reflect automatic installation (removed manual bootstrap instructions)
+
+### Removed
+
+- Manual utility bootstrap code no longer needed in project instructions (now handled by skill)
+
+### Significance
+
+This is a major version bump because the skill can now manage its own utility code - a significant architectural capability. The skill is no longer just about memory storage; it can self-update operational code through the utility system.
+
 ## [2.2.1] - 2026-01-09
 
 ### Added
