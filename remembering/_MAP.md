@@ -1,5 +1,5 @@
 # remembering/
-*Files: 14 | Subdirectories: 1*
+*Files: 15 | Subdirectories: 1*
 
 ## Subdirectories
 
@@ -92,21 +92,23 @@
 
 ### boot.py
 > Imports: `json, threading, datetime, ., .turso`...
-- **profile** (f) `()` :26
-- **ops** (f) `(include_reference: bool = False)` :31
-- **boot** (f) `()` :84
-- **journal** (f) `(topics: list = None, user_stated: str = None, my_intent: str = None)` :231
-- **journal_recent** (f) `(n: int = 10)` :248
-- **journal_prune** (f) `(keep: int = 40)` :264
-- **therapy_scope** (f) `()` :278
-- **therapy_session_count** (f) `()` :293
-- **decisions_recent** (f) `(n: int = 10, conf: float = 0.7)` :302
-- **group_by_type** (f) `(memories: list)` :317
-- **group_by_tag** (f) `(memories: list)` :333
-- **muninn_export** (f) `()` :353
-- **handoff_pending** (f) `()` :367
-- **handoff_complete** (f) `(handoff_id: str, completion_notes: str, version: str = None)` :379
-- **muninn_import** (f) `(data: dict, *, merge: bool = False)` :411
+- **classify_ops_key** (f) `(key: str)` :71
+- **group_ops_by_topic** (f) `(ops_entries: list)` :90
+- **profile** (f) `()` :117
+- **ops** (f) `(include_reference: bool = False)` :122
+- **boot** (f) `()` :175
+- **journal** (f) `(topics: list = None, user_stated: str = None, my_intent: str = None)` :323
+- **journal_recent** (f) `(n: int = 10)` :340
+- **journal_prune** (f) `(keep: int = 40)` :356
+- **therapy_scope** (f) `()` :370
+- **therapy_session_count** (f) `()` :385
+- **decisions_recent** (f) `(n: int = 10, conf: float = 0.7)` :394
+- **group_by_type** (f) `(memories: list)` :409
+- **group_by_tag** (f) `(memories: list)` :425
+- **muninn_export** (f) `()` :445
+- **handoff_pending** (f) `()` :459
+- **handoff_complete** (f) `(handoff_id: str, completion_notes: str, version: str = None)` :471
+- **muninn_import** (f) `(data: dict, *, merge: bool = False)` :503
 
 ### bootstrap.py
 > Imports: `sys, os`
@@ -167,4 +169,8 @@
 ### turso.py
 > Imports: `requests, json, os, time, pathlib`...
 - *No top-level symbols*
+
+### utilities.py
+> Imports: `os, sys`
+- **install_utilities** (f) `()` :8
 

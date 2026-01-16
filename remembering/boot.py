@@ -21,6 +21,7 @@ from .turso import _exec, _exec_batch
 from .cache import _init_local_cache, _cache_available, _cache_config, _cache_populate_index, _cache_populate_full
 from .memory import recall, recall_since, remember, supersede
 from .config import config_list, config_set, config_delete
+from .utilities import install_utilities
 
 
 # --- Ops Topic Classification ---
@@ -238,6 +239,9 @@ def boot() -> str:
     # Start async cache warming
     threading.Thread(target=_warm_cache, daemon=True).start()
 
+    # Install utility code memories to disk
+    installed_utils = install_utilities()
+
     # Filter ops by boot_load flag (progressive disclosure)
     # Reference-only entries (boot_load=0) excluded from boot output but accessible via config_get()
     # Note: Turso returns boot_load as string ('0' or '1')
@@ -248,7 +252,7 @@ def boot() -> str:
     ops_by_topic, uncategorized = group_ops_by_topic(core_ops)
 
     # Format output with markdown headings
-    return _format_boot_output(profile_data, ops_by_topic, uncategorized, reference_ops)
+    return _format_boot_output(profile_data, ops_by_topic, uncategorized, reference_ops, installed_utils)
 
 
 def _format_entry(entry: dict) -> str:
@@ -264,7 +268,8 @@ def _format_entry(entry: dict) -> str:
 
 
 def _format_boot_output(profile_data: list, ops_by_topic: dict,
-                        uncategorized: list, reference_ops: list) -> str:
+                        uncategorized: list, reference_ops: list,
+                        installed_utils: dict) -> str:
     """Format boot output with organized sections.
 
     Args:
@@ -272,6 +277,7 @@ def _format_boot_output(profile_data: list, ops_by_topic: dict,
         ops_by_topic: Dict of {topic: [entries]} from group_ops_by_topic()
         uncategorized: List of ops entries not in any topic
         reference_ops: List of reference-only ops (boot_load=0)
+        installed_utils: Dict of {name: path} from install_utilities()
 
     Returns:
         Formatted boot output string with markdown headings
@@ -304,6 +310,12 @@ def _format_boot_output(profile_data: list, ops_by_topic: dict,
             output.append("\n## Reference Entries (load via config_get)")
             ref_keys = sorted([o['key'] for o in reference_ops])
             output.append(", ".join(ref_keys))
+
+    # Utilities section
+    if installed_utils:
+        output.append(f"\n# UTILITIES ({len(installed_utils)})")
+        for name in sorted(installed_utils.keys()):
+            output.append(f"  {name}")
 
     return '\n'.join(output)
 

@@ -54,6 +54,9 @@ from .boot import (
     muninn_export, muninn_import
 )
 
+# Import utilities layer
+from .utilities import install_utilities, UTIL_DIR
+
 # Short aliases
 r = remember
 q = recall
@@ -71,5 +74,6 @@ __all__ = [
     "cache_stats",  # cache diagnostics
     "reprioritize",  # priority adjustment
     "strengthen", "weaken",  # deprecated (v2.0.0) - no-op, kept for compat
+    "install_utilities", "UTIL_DIR",  # utilities
     "r", "q", "j", "TYPES"  # aliases & constants
 ]
