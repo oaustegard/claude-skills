@@ -1,0 +1,176 @@
+{
+  "name": "json-render-ui",
+  "version": "1.0.0",
+  "components": {
+    "Card": {
+      "description": "Container with optional header",
+      "hasChildren": true,
+      "props": {
+        "title": { "type": "string", "required": false },
+        "description": { "type": "string", "required": false },
+        "padding": { "type": "enum", "values": ["sm", "md", "lg"], "default": "md" }
+      }
+    },
+    "Grid": {
+      "description": "CSS grid layout",
+      "hasChildren": true,
+      "props": {
+        "columns": { "type": "number", "min": 1, "max": 4, "default": 2 },
+        "gap": { "type": "enum", "values": ["sm", "md", "lg"], "default": "md" }
+      }
+    },
+    "Stack": {
+      "description": "Flexbox stack for layouts",
+      "hasChildren": true,
+      "props": {
+        "direction": { "type": "enum", "values": ["horizontal", "vertical"], "default": "vertical" },
+        "gap": { "type": "enum", "values": ["sm", "md", "lg"], "default": "md" },
+        "align": { "type": "enum", "values": ["start", "center", "end", "stretch"], "default": "stretch" }
+      }
+    },
+    "Metric": {
+      "description": "Single KPI display with optional trend",
+      "hasChildren": false,
+      "props": {
+        "label": { "type": "string", "required": true },
+        "valuePath": { "type": "string", "required": true, "description": "JSON Pointer to data value" },
+        "format": { "type": "enum", "values": ["number", "currency", "percent"], "default": "number" },
+        "trend": { "type": "enum", "values": ["up", "down", "neutral"], "required": false },
+        "trendValue": { "type": "string", "required": false }
+      }
+    },
+    "Chart": {
+      "description": "Data visualization from array data",
+      "hasChildren": false,
+      "props": {
+        "type": { "type": "enum", "values": ["bar", "line", "pie", "area"], "required": true },
+        "dataPath": { "type": "string", "required": true, "description": "JSON Pointer to array of {label, value} or {x, y}" },
+        "title": { "type": "string", "required": false },
+        "height": { "type": "number", "default": 200 }
+      }
+    },
+    "Table": {
+      "description": "Tabular data display",
+      "hasChildren": false,
+      "props": {
+        "dataPath": { "type": "string", "required": true },
+        "columns": {
+          "type": "array",
+          "required": true,
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": { "type": "string", "required": true },
+              "label": { "type": "string", "required": true },
+              "format": { "type": "enum", "values": ["text", "currency", "date", "badge"], "default": "text" }
+            }
+          }
+        }
+      }
+    },
+    "List": {
+      "description": "Rendered list from array data",
+      "hasChildren": true,
+      "props": {
+        "dataPath": { "type": "string", "required": true },
+        "emptyMessage": { "type": "string", "default": "No items" }
+      }
+    },
+    "Button": {
+      "description": "Clickable action button",
+      "hasChildren": false,
+      "props": {
+        "label": { "type": "string", "required": true },
+        "action": { "type": "string", "required": true, "description": "Action identifier passed to onAction handler" },
+        "variant": { "type": "enum", "values": ["primary", "secondary", "danger", "ghost"], "default": "primary" },
+        "size": { "type": "enum", "values": ["sm", "md", "lg"], "default": "md" },
+        "disabled": { "type": "boolean", "default": false }
+      }
+    },
+    "Select": {
+      "description": "Dropdown select input with two-way binding",
+      "hasChildren": false,
+      "props": {
+        "label": { "type": "string", "required": false },
+        "bindPath": { "type": "string", "required": true, "description": "JSON Pointer for two-way data binding" },
+        "options": {
+          "type": "array",
+          "required": true,
+          "items": {
+            "type": "object",
+            "properties": {
+              "value": { "type": "string", "required": true },
+              "label": { "type": "string", "required": true }
+            }
+          }
+        },
+        "placeholder": { "type": "string", "required": false }
+      }
+    },
+    "DatePicker": {
+      "description": "Date input with two-way binding",
+      "hasChildren": false,
+      "props": {
+        "label": { "type": "string", "required": false },
+        "bindPath": { "type": "string", "required": true },
+        "placeholder": { "type": "string", "required": false }
+      }
+    },
+    "Heading": {
+      "description": "Section heading",
+      "hasChildren": false,
+      "props": {
+        "text": { "type": "string", "required": true },
+        "level": { "type": "enum", "values": ["h1", "h2", "h3", "h4"], "default": "h2" }
+      }
+    },
+    "Text": {
+      "description": "Text paragraph",
+      "hasChildren": false,
+      "props": {
+        "content": { "type": "string", "required": true },
+        "variant": { "type": "enum", "values": ["body", "caption", "label"], "default": "body" },
+        "color": { "type": "enum", "values": ["default", "muted", "success", "warning", "danger"], "default": "default" }
+      }
+    },
+    "Badge": {
+      "description": "Small status indicator",
+      "hasChildren": false,
+      "props": {
+        "text": { "type": "string", "required": true },
+        "variant": { "type": "enum", "values": ["default", "success", "warning", "danger", "info"], "default": "default" }
+      }
+    },
+    "Alert": {
+      "description": "Notification banner",
+      "hasChildren": false,
+      "props": {
+        "type": { "type": "enum", "values": ["info", "success", "warning", "error"], "required": true },
+        "title": { "type": "string", "required": true },
+        "message": { "type": "string", "required": false },
+        "dismissible": { "type": "boolean", "default": false }
+      }
+    },
+    "Divider": {
+      "description": "Visual separator",
+      "hasChildren": false,
+      "props": {
+        "label": { "type": "string", "required": false }
+      }
+    },
+    "Empty": {
+      "description": "Empty state placeholder",
+      "hasChildren": false,
+      "props": {
+        "title": { "type": "string", "required": true },
+        "description": { "type": "string", "required": false },
+        "action": { "type": "string", "required": false, "description": "Action identifier for CTA button" },
+        "actionLabel": { "type": "string", "required": false, "description": "Label for CTA button" }
+      }
+    }
+  },
+  "actions": {
+    "description": "Actions are string identifiers passed to the onAction handler. Define handlers in your app.",
+    "examples": ["export_report", "refresh_data", "view_details", "apply_filter", "delete_item"]
+  }
+}
