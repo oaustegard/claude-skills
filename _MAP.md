@@ -1,5 +1,5 @@
 # claude-skills/
-*Files: 5 | Subdirectories: 35*
+*Files: 5 | Subdirectories: 36*
 
 ## Subdirectories
 
@@ -27,6 +27,7 @@
 - [invoking-gemini/](./invoking-gemini/_MAP.md)
 - [invoking-github/](./invoking-github/_MAP.md)
 - [iterating/](./iterating/_MAP.md)
+- [json-render-ui/](./json-render-ui/_MAP.md)
 - [making-waffles/](./making-waffles/_MAP.md)
 - [mapping-codebases/](./mapping-codebases/_MAP.md)
 - [orchestrating-agents/](./orchestrating-agents/_MAP.md)

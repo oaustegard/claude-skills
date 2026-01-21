@@ -37,7 +37,6 @@ def create_tables():
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             deleted_at TEXT,
-            embedding F32_BLOB(1536),
             importance REAL DEFAULT 0.5,
             access_count INTEGER DEFAULT 0,
             last_accessed TEXT,
@@ -65,13 +64,6 @@ def create_tables():
 def migrate_schema():
     """Add new columns to existing tables if needed."""
     _init()
-
-    # Add embedding column to memories if it doesn't exist
-    try:
-        _exec("ALTER TABLE memories ADD COLUMN embedding F32_BLOB(1536)")
-        print("Added embedding column to memories table")
-    except:
-        pass  # Column already exists
 
     # Add char_limit and read_only columns to config if they don't exist
     try:
@@ -152,17 +144,6 @@ def migrate_schema():
         print("Added salience column to memories table")
     except:
         pass  # Column already exists
-
-    # Create vector index for efficient semantic search
-    try:
-        _exec("""
-            CREATE INDEX IF NOT EXISTS memories_embedding_idx ON memories (
-                libsql_vector_idx(embedding, 'type=diskann', 'metric=cosine')
-            )
-        """)
-        print("Created vector index on memories.embedding")
-    except Exception as e:
-        print(f"Note: Vector index creation skipped (may require newer Turso version): {e}")
 
     print("Schema migration complete")
 
@@ -284,12 +265,6 @@ def migrate_v2(dry_run: bool = True):
 
     # Step 2: Drop old schema
     print("\nStep 2: Dropping old schema...")
-    try:
-        _exec("DROP INDEX IF EXISTS memories_embedding_idx")
-        print("  Dropped embedding index")
-    except Exception as e:
-        print(f"  Note: Index drop skipped ({e})")
-
     _exec("DROP TABLE IF EXISTS memories")
     print("  Dropped memories table")
 
