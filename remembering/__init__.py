@@ -75,7 +75,7 @@ __all__ = [
     "muninn_export", "muninn_import",  # export/import
     "cache_stats",  # cache diagnostics
     "reprioritize",  # priority adjustment
-    "strengthen", "weaken",  # deprecated (v2.0.0) - no-op, kept for compat
+    "strengthen", "weaken",  # memory consolidation (v3.3.0) - working implementations
     "install_utilities", "UTIL_DIR",  # utilities
     "get_session_id", "set_session_id",  # session management (v3.2.0)
     "recall_stats", "top_queries",  # retrieval observability (v3.2.0)

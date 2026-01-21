@@ -20,7 +20,11 @@ else:
     from __init__ import _exec, _init, config_set
 
 def create_tables():
-    """Create memories and config tables if they don't exist."""
+    """Create memories and config tables if they don't exist.
+
+    Schema reflects v2.0.0+ with session_id re-added in v3.2.0.
+    Removed columns (from v2.0.0): entities, importance, memory_class, valid_to, salience
+    """
     _init()
 
     _exec("""
@@ -29,23 +33,24 @@ def create_tables():
             type TEXT NOT NULL,
             t TEXT NOT NULL,
             summary TEXT NOT NULL,
-            confidence REAL,
+            confidence REAL DEFAULT 0.8,
             tags TEXT DEFAULT '[]',
-            entities TEXT DEFAULT '[]',
             refs TEXT DEFAULT '[]',
+            priority INTEGER DEFAULT 0,
             session_id TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             deleted_at TEXT,
-            importance REAL DEFAULT 0.5,
-            access_count INTEGER DEFAULT 0,
-            last_accessed TEXT,
-            memory_class TEXT DEFAULT 'episodic',
             valid_from TEXT,
-            valid_to TEXT,
-            salience REAL DEFAULT 1.0
+            access_count INTEGER DEFAULT 0,
+            last_accessed TEXT
         )
     """)
+
+    # Create indexes for memories table
+    _exec("CREATE INDEX IF NOT EXISTS idx_memories_t ON memories(t DESC)")
+    _exec("CREATE INDEX IF NOT EXISTS idx_memories_priority ON memories(priority DESC, t DESC)")
+    _exec("CREATE INDEX IF NOT EXISTS idx_memories_session_id ON memories(session_id)")
 
     _exec("""
         CREATE TABLE IF NOT EXISTS config (
@@ -62,10 +67,13 @@ def create_tables():
     print("Tables created/verified")
 
 def migrate_schema():
-    """Add new columns to existing tables if needed."""
+    """Add new columns to existing v2.0.0+ tables if needed.
+
+    Only includes migrations for current schema. Pre-v2.0.0 migrations removed.
+    """
     _init()
 
-    # Add char_limit and read_only columns to config if they don't exist
+    # Config table migrations
     try:
         _exec("ALTER TABLE config ADD COLUMN char_limit INTEGER")
         print("Added char_limit column to config table")
@@ -78,7 +86,6 @@ def migrate_schema():
     except:
         pass  # Column already exists
 
-    # v2.1.0: Add boot_load column for progressive disclosure
     try:
         _exec("ALTER TABLE config ADD COLUMN boot_load INTEGER DEFAULT 1")
         print("Added boot_load column to config table")
@@ -99,51 +106,18 @@ def migrate_schema():
     except:
         pass  # Index already exists
 
-    # v0.4.0: Add importance tracking columns
+    # Ensure core indexes exist (in case database was created before indexes were added)
     try:
-        _exec("ALTER TABLE memories ADD COLUMN importance REAL DEFAULT 0.5")
-        print("Added importance column to memories table")
+        _exec("CREATE INDEX IF NOT EXISTS idx_memories_t ON memories(t DESC)")
+        print("Added index on t column")
     except:
-        pass  # Column already exists
+        pass  # Index already exists
 
     try:
-        _exec("ALTER TABLE memories ADD COLUMN access_count INTEGER DEFAULT 0")
-        print("Added access_count column to memories table")
+        _exec("CREATE INDEX IF NOT EXISTS idx_memories_priority ON memories(priority DESC, t DESC)")
+        print("Added index on priority column")
     except:
-        pass  # Column already exists
-
-    try:
-        _exec("ALTER TABLE memories ADD COLUMN last_accessed TEXT")
-        print("Added last_accessed column to memories table")
-    except:
-        pass  # Column already exists
-
-    # v0.4.0: Add episodic/semantic memory classification
-    try:
-        _exec("ALTER TABLE memories ADD COLUMN memory_class TEXT DEFAULT 'episodic'")
-        print("Added memory_class column to memories table")
-    except:
-        pass  # Column already exists
-
-    # v0.4.0: Add bitemporal tracking columns
-    try:
-        _exec("ALTER TABLE memories ADD COLUMN valid_from TEXT")
-        print("Added valid_from column to memories table")
-    except:
-        pass  # Column already exists
-
-    try:
-        _exec("ALTER TABLE memories ADD COLUMN valid_to TEXT")
-        print("Added valid_to column to memories table")
-    except:
-        pass  # Column already exists
-
-    # v0.9.2: Add salience decay for memory ranking
-    try:
-        _exec("ALTER TABLE memories ADD COLUMN salience REAL DEFAULT 1.0")
-        print("Added salience column to memories table")
-    except:
-        pass  # Column already exists
+        pass  # Index already exists
 
     print("Schema migration complete")
 
@@ -209,224 +183,9 @@ def verify():
         print(f"  {o['key']}")
 
 
-def migrate_v2(dry_run: bool = True):
-    """v2.0.0 schema rebuild: Remove dead columns, add priority field.
-
-    Dead columns removed: importance, salience, memory_class, occurred,
-                         session_id, valid_to, embedding, entities
-
-    New column: priority INTEGER DEFAULT 0
-      - -1: Background (low-value, can age out first)
-      -  0: Normal (default)
-      -  1: Important (boost in ranking)
-      -  2: Critical (always surface, never auto-age)
-
-    Args:
-        dry_run: If True (default), only show what would be done without executing.
-                 Set to False to actually perform the migration.
-
-    Returns:
-        dict with export data (for backup) and migration stats
-    """
-    import json
-    _init()
-
-    print("=== MUNINN v2.0.0 SCHEMA MIGRATION ===")
-    print(f"Mode: {'DRY RUN (no changes)' if dry_run else 'LIVE (making changes)'}")
-    print()
-
-    # Step 1: Export all non-deleted memories
-    print("Step 1: Exporting memories...")
-    memories = _exec("SELECT * FROM memories WHERE deleted_at IS NULL ORDER BY t DESC")
-    print(f"  Found {len(memories)} active memories")
-
-    # Also export deleted for archive
-    deleted = _exec("SELECT * FROM memories WHERE deleted_at IS NOT NULL")
-    print(f"  Found {len(deleted)} deleted memories (will be preserved)")
-
-    # Create backup structure
-    backup = {
-        "version": "1.0",
-        "migration": "v2.0.0",
-        "active_memories": memories,
-        "deleted_memories": deleted,
-        "timestamp": _exec("SELECT datetime('now')")[0].get("datetime('now')")
-    }
-
-    if dry_run:
-        print("\n[DRY RUN] Would execute the following:")
-        print("  - DROP INDEX IF EXISTS memories_embedding_idx")
-        print("  - DROP TABLE memories")
-        print("  - CREATE TABLE memories (new schema with priority, without dead columns)")
-        print(f"  - INSERT {len(memories)} active memories with priority=0")
-        print(f"  - INSERT {len(deleted)} deleted memories")
-        print("\nTo execute migration, call: migrate_v2(dry_run=False)")
-        return {"backup": backup, "dry_run": True}
-
-    # Step 2: Drop old schema
-    print("\nStep 2: Dropping old schema...")
-    _exec("DROP TABLE IF EXISTS memories")
-    print("  Dropped memories table")
-
-    # Step 3: Create new schema
-    print("\nStep 3: Creating new schema...")
-    _exec("""
-        CREATE TABLE memories (
-            id TEXT PRIMARY KEY,
-            type TEXT NOT NULL,
-            t TEXT NOT NULL,
-            summary TEXT NOT NULL,
-            confidence REAL DEFAULT 0.8,
-            tags TEXT DEFAULT '[]',
-            refs TEXT DEFAULT '[]',
-            priority INTEGER DEFAULT 0,
-            created_at TEXT NOT NULL,
-            updated_at TEXT NOT NULL,
-            deleted_at TEXT,
-            valid_from TEXT,
-            access_count INTEGER DEFAULT 0,
-            last_accessed TEXT
-        )
-    """)
-    print("  Created new memories table")
-
-    # Create indexes
-    _exec("CREATE INDEX IF NOT EXISTS idx_memories_t ON memories(t DESC)")
-    _exec("CREATE INDEX IF NOT EXISTS idx_memories_priority ON memories(priority DESC, t DESC)")
-    print("  Created indexes")
-
-    # Step 4: Import active memories
-    print(f"\nStep 4: Importing {len(memories)} active memories...")
-    imported = 0
-    errors = []
-    for m in memories:
-        try:
-            _exec("""
-                INSERT INTO memories
-                (id, type, t, summary, confidence, tags, refs, priority,
-                 created_at, updated_at, deleted_at, valid_from, access_count, last_accessed)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, NULL, ?, ?, ?)
-            """, [
-                m.get('id'),
-                m.get('type'),
-                m.get('t'),
-                m.get('summary'),
-                m.get('confidence'),
-                json.dumps(m.get('tags', [])) if isinstance(m.get('tags'), list) else m.get('tags', '[]'),
-                json.dumps(m.get('refs', [])) if isinstance(m.get('refs'), list) else m.get('refs', '[]'),
-                m.get('created_at'),
-                m.get('updated_at'),
-                m.get('valid_from'),
-                m.get('access_count', 0),
-                m.get('last_accessed')
-            ])
-            imported += 1
-        except Exception as e:
-            errors.append(f"Memory {m.get('id')}: {e}")
-
-    print(f"  Imported {imported} memories")
-    if errors:
-        print(f"  Errors: {len(errors)}")
-        for e in errors[:5]:
-            print(f"    {e}")
-
-    # Step 5: Import deleted memories (preserve for archaeology)
-    print(f"\nStep 5: Importing {len(deleted)} deleted memories...")
-    deleted_imported = 0
-    for m in deleted:
-        try:
-            _exec("""
-                INSERT INTO memories
-                (id, type, t, summary, confidence, tags, refs, priority,
-                 created_at, updated_at, deleted_at, valid_from, access_count, last_accessed)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)
-            """, [
-                m.get('id'),
-                m.get('type'),
-                m.get('t'),
-                m.get('summary'),
-                m.get('confidence'),
-                json.dumps(m.get('tags', [])) if isinstance(m.get('tags'), list) else m.get('tags', '[]'),
-                json.dumps(m.get('refs', [])) if isinstance(m.get('refs'), list) else m.get('refs', '[]'),
-                m.get('created_at'),
-                m.get('updated_at'),
-                m.get('deleted_at'),
-                m.get('valid_from'),
-                m.get('access_count', 0),
-                m.get('last_accessed')
-            ])
-            deleted_imported += 1
-        except Exception as e:
-            pass  # Deleted memories are best-effort
-
-    print(f"  Imported {deleted_imported} deleted memories")
-
-    # Verify
-    print("\nStep 6: Verifying migration...")
-    count = _exec("SELECT COUNT(*) as cnt FROM memories WHERE deleted_at IS NULL")[0]['cnt']
-    print(f"  Active memories in new schema: {count}")
-
-    if int(count) == len(memories):
-        print("\n✅ MIGRATION COMPLETE")
-    else:
-        print(f"\n⚠️  WARNING: Count mismatch (expected {len(memories)}, got {count})")
-
-    return {
-        "backup": backup,
-        "imported": imported,
-        "deleted_imported": deleted_imported,
-        "errors": errors,
-        "dry_run": False
-    }
-
-
-def migrate_config_v2(dry_run: bool = True):
-    """v2.0.0 config schema: Add load_at_boot and group_order columns.
-
-    Args:
-        dry_run: If True (default), only show what would be done.
-    """
-    _init()
-
-    print("=== CONFIG SCHEMA MIGRATION ===")
-    print(f"Mode: {'DRY RUN' if dry_run else 'LIVE'}")
-
-    if dry_run:
-        print("\nWould add columns:")
-        print("  - load_at_boot BOOLEAN DEFAULT TRUE")
-        print("  - group_order INTEGER DEFAULT 50")
-        return
-
-    try:
-        _exec("ALTER TABLE config ADD COLUMN load_at_boot BOOLEAN DEFAULT TRUE")
-        print("Added load_at_boot column")
-    except:
-        print("load_at_boot column already exists")
-
-    try:
-        _exec("ALTER TABLE config ADD COLUMN group_order INTEGER DEFAULT 50")
-        print("Added group_order column")
-    except:
-        print("group_order column already exists")
-
-    print("Config schema migration complete")
-
-
 if __name__ == "__main__":
-    import sys
-
-    if len(sys.argv) > 1 and sys.argv[1] == "v2":
-        # Run v2.0.0 migration
-        if len(sys.argv) > 2 and sys.argv[2] == "--live":
-            migrate_v2(dry_run=False)
-            migrate_config_v2(dry_run=False)
-        else:
-            migrate_v2(dry_run=True)
-            migrate_config_v2(dry_run=True)
-    else:
-        # Normal bootstrap
-        create_tables()
-        migrate_schema()
-        seed_config()
-        verify()
-        print("\nBootstrap complete")
+    create_tables()
+    migrate_schema()
+    seed_config()
+    verify()
+    print("\nBootstrap complete")
