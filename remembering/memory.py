@@ -20,7 +20,7 @@ from datetime import datetime, UTC
 
 from . import state
 from .state import TYPES, get_session_id
-from .turso import _exec
+from .turso import _exec, _exec_batch
 from .cache import (
     _cache_available, _cache_memory, _cache_query_index,
     _fetch_full_content, _cache_populate_full, _log_recall_query
@@ -217,7 +217,8 @@ def flush(timeout: float = 5.0) -> dict:
 
 def recall(search: str = None, *, n: int = 10, tags: list = None,
            type: str = None, conf: float = None, tag_mode: str = "any",
-           use_cache: bool = True, strict: bool = False, session_id: str = None) -> list:
+           use_cache: bool = True, strict: bool = False, session_id: str = None,
+           auto_strengthen: bool = False) -> list:
     """Query memories with flexible filters.
 
     v0.7.0: Uses local cache with progressive disclosure when available.
@@ -225,6 +226,7 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
     v0.12.0: Logs queries for retrieval instrumentation.
     v0.12.1: Adds strict mode for timestamp-only ordering (no ranking).
     v3.2.0: Added session_id filter for session scoping.
+    v3.3.0: Added auto_strengthen for biological memory consolidation pattern.
 
     Args:
         search: Text to search for in memory summaries (FTS5 ranked search)
@@ -236,6 +238,7 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
         use_cache: If True (default), check local cache first (much faster)
         strict: If True, skip FTS5/ranking and order by timestamp DESC (v0.12.1)
         session_id: Filter by session identifier (optional)
+        auto_strengthen: If True, automatically strengthen top 3 results (v3.3.0)
     """
     # Track timing for logging (v0.12.0)
     start_time = time.time()
@@ -321,6 +324,13 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
                 _update_access_tracking([r['id'] for r in results])
             threading.Thread(target=_bg_track, daemon=True).start()
 
+            # Auto-strengthen returned memories if requested (v3.3.0)
+            # Biological parallel: memories that participate in cognition consolidate
+            if auto_strengthen and results:
+                for r in results[:3]:  # Only top 3 to avoid over-strengthening
+                    if r.get('priority', 0) < 2:
+                        strengthen(r['id'], boost=1)
+
             # Log query (v0.12.0)
             exec_time = (time.time() - start_time) * 1000  # Convert to ms
             _log_recall_query(
@@ -337,6 +347,13 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
 
     # Fallback to direct Turso query
     results = _query(search=search, tags=tags, type=type, conf=conf, limit=n, tag_mode=tag_mode, session_id=session_id)
+
+    # Auto-strengthen returned memories if requested (v3.3.0)
+    # Biological parallel: memories that participate in cognition consolidate
+    if auto_strengthen and results:
+        for r in results[:3]:  # Only top 3 to avoid over-strengthening
+            if r.get('priority', 0) < 2:
+                strengthen(r['id'], boost=1)
 
     # Log query (v0.12.0)
     exec_time = (time.time() - start_time) * 1000  # Convert to ms
@@ -610,15 +627,26 @@ def supersede(original_id: str, summary: str, type: str, *,
     v0.4.0: Sets valid_to on original memory and valid_from on new memory for bitemporal tracking.
     v0.13.0: Invalidates cache for superseded memory.
     v2.0.0: Soft-deletes original memory (valid_to column removed from schema).
+    v3.3.0: Uses _exec_batch for single HTTP request (2x efficiency improvement).
     """
     now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    new_id = str(uuid.uuid4())
+    session_id = get_session_id()
 
-    # Soft-delete original memory to mark when it stopped being true
-    # v2.0.0: valid_to column removed, using deleted_at for supersession tracking
-    _exec("UPDATE memories SET deleted_at = ? WHERE id = ?", [now, original_id])
+    # Batch both operations in single HTTP request (v3.3.0)
+    _exec_batch([
+        # Soft-delete original
+        ("UPDATE memories SET deleted_at = ? WHERE id = ?", [now, original_id]),
+        # Insert new memory
+        ("""INSERT INTO memories (id, type, t, summary, confidence, tags, refs, priority,
+               session_id, created_at, updated_at, valid_from, access_count, last_accessed)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, 0, NULL)""",
+         [new_id, type, now, summary, conf or 0.8,
+          json.dumps(tags or []), json.dumps([original_id]),
+          session_id, now, now, now])
+    ])
 
-    # Invalidate cache for superseded memory (v0.13.0 bugfix)
-    # Superseded memories should not appear in recall() results
+    # Cache invalidation (unchanged)
     if _cache_available():
         try:
             state._cache_conn.execute("DELETE FROM memory_index WHERE id = ?", (original_id,))
@@ -628,8 +656,34 @@ def supersede(original_id: str, summary: str, type: str, *,
         except Exception as e:
             print(f"Warning: Failed to invalidate cache for superseded memory {original_id}: {e}")
 
-    # Create new memory with valid_from set to now
-    return remember(summary, type, tags=tags, conf=conf, refs=[original_id], valid_from=now)
+    # Cache new memory
+    _cache_memory(new_id, summary, type, now, conf or 0.8, tags, priority=0,
+                 refs=[original_id], valid_from=now)
+
+    # Update recall-triggers (moved from remember() to avoid duplication)
+    if tags:
+        try:
+            # Get current recall-triggers list
+            current_triggers = config_get("recall-triggers")
+            if current_triggers:
+                try:
+                    trigger_list = json.loads(current_triggers) if isinstance(current_triggers, str) else current_triggers
+                except json.JSONDecodeError:
+                    trigger_list = []
+            else:
+                trigger_list = []
+
+            # Add novel tags
+            trigger_set = set(trigger_list)
+            new_tags = [t for t in tags if t not in trigger_set]
+            if new_tags:
+                trigger_set.update(new_tags)
+                config_set("recall-triggers", json.dumps(sorted(trigger_set)), "ops")
+        except Exception:
+            # Don't fail supersede() if trigger update fails
+            pass
+
+    return new_id
 
 
 # --- Priority adjustment functions (v2.0.0) ---
@@ -815,12 +869,74 @@ def prune_by_priority(max_priority: int = -1, dry_run: bool = True) -> dict:
     }
 
 
-# Deprecated functions (v2.0.0) - kept for backward compatibility
-def strengthen(memory_id: str, factor: float = 1.5) -> None:
-    """DEPRECATED: Use reprioritize() instead. This is a no-op in v2.0.0."""
-    pass
+# Priority adjustment with biological memory consolidation pattern (v3.3.0)
+def strengthen(memory_id: str, boost: int = 1) -> dict:
+    """Strengthen a memory by incrementing its priority.
+
+    Based on biological memory consolidation: memories that participate
+    in active cognition should consolidate more strongly.
+
+    Args:
+        memory_id: UUID of memory to strengthen
+        boost: Priority increment (default 1, max result is 2)
+
+    Returns:
+        dict with memory_id, old_priority, new_priority, changed
+    """
+    # Get current state
+    result = _exec(
+        "SELECT priority, access_count FROM memories WHERE id = ? AND deleted_at IS NULL",
+        [memory_id]
+    )
+
+    if not result:
+        return {"error": f"Memory {memory_id} not found"}
+
+    old_priority = int(result[0]['priority'] or 0)
+    access_count = int(result[0]['access_count'] or 0)
+
+    # Cap at priority=2
+    new_priority = min(2, old_priority + boost)
+
+    if new_priority != old_priority:
+        reprioritize(memory_id, new_priority)
+
+    return {
+        "memory_id": memory_id,
+        "old_priority": old_priority,
+        "new_priority": new_priority,
+        "access_count": access_count,
+        "changed": new_priority != old_priority
+    }
 
 
-def weaken(memory_id: str, factor: float = 0.5) -> None:
-    """DEPRECATED: Use reprioritize() instead. This is a no-op in v2.0.0."""
-    pass
+def weaken(memory_id: str, drop: int = 1) -> dict:
+    """Weaken a memory by decrementing its priority.
+
+    Args:
+        memory_id: UUID of memory to weaken
+        drop: Priority decrement (default 1, min result is -1)
+
+    Returns:
+        dict with memory_id, old_priority, new_priority, changed
+    """
+    result = _exec(
+        "SELECT priority FROM memories WHERE id = ? AND deleted_at IS NULL",
+        [memory_id]
+    )
+
+    if not result:
+        return {"error": f"Memory {memory_id} not found"}
+
+    old_priority = int(result[0]['priority'] or 0)
+    new_priority = max(-1, old_priority - drop)
+
+    if new_priority != old_priority:
+        reprioritize(memory_id, new_priority)
+
+    return {
+        "memory_id": memory_id,
+        "old_priority": old_priority,
+        "new_priority": new_priority,
+        "changed": new_priority != old_priority
+    }
