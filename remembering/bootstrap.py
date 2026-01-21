@@ -20,7 +20,11 @@ else:
     from __init__ import _exec, _init, config_set
 
 def create_tables():
-    """Create memories and config tables if they don't exist."""
+    """Create memories and config tables if they don't exist.
+
+    Schema reflects v2.0.0+ with session_id re-added in v3.2.0.
+    Removed columns (from v2.0.0): entities, importance, memory_class, valid_to, salience
+    """
     _init()
 
     _exec("""
@@ -29,23 +33,24 @@ def create_tables():
             type TEXT NOT NULL,
             t TEXT NOT NULL,
             summary TEXT NOT NULL,
-            confidence REAL,
+            confidence REAL DEFAULT 0.8,
             tags TEXT DEFAULT '[]',
-            entities TEXT DEFAULT '[]',
             refs TEXT DEFAULT '[]',
+            priority INTEGER DEFAULT 0,
             session_id TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             deleted_at TEXT,
-            importance REAL DEFAULT 0.5,
-            access_count INTEGER DEFAULT 0,
-            last_accessed TEXT,
-            memory_class TEXT DEFAULT 'episodic',
             valid_from TEXT,
-            valid_to TEXT,
-            salience REAL DEFAULT 1.0
+            access_count INTEGER DEFAULT 0,
+            last_accessed TEXT
         )
     """)
+
+    # Create indexes for memories table
+    _exec("CREATE INDEX IF NOT EXISTS idx_memories_t ON memories(t DESC)")
+    _exec("CREATE INDEX IF NOT EXISTS idx_memories_priority ON memories(priority DESC, t DESC)")
+    _exec("CREATE INDEX IF NOT EXISTS idx_memories_session_id ON memories(session_id)")
 
     _exec("""
         CREATE TABLE IF NOT EXISTS config (
@@ -62,10 +67,13 @@ def create_tables():
     print("Tables created/verified")
 
 def migrate_schema():
-    """Add new columns to existing tables if needed."""
+    """Add new columns to existing v2.0.0+ tables if needed.
+
+    Only includes migrations for current schema. Pre-v2.0.0 migrations removed.
+    """
     _init()
 
-    # Add char_limit and read_only columns to config if they don't exist
+    # Config table migrations
     try:
         _exec("ALTER TABLE config ADD COLUMN char_limit INTEGER")
         print("Added char_limit column to config table")
@@ -78,7 +86,6 @@ def migrate_schema():
     except:
         pass  # Column already exists
 
-    # v2.1.0: Add boot_load column for progressive disclosure
     try:
         _exec("ALTER TABLE config ADD COLUMN boot_load INTEGER DEFAULT 1")
         print("Added boot_load column to config table")
@@ -99,51 +106,18 @@ def migrate_schema():
     except:
         pass  # Index already exists
 
-    # v0.4.0: Add importance tracking columns
+    # Ensure core indexes exist (in case database was created before indexes were added)
     try:
-        _exec("ALTER TABLE memories ADD COLUMN importance REAL DEFAULT 0.5")
-        print("Added importance column to memories table")
+        _exec("CREATE INDEX IF NOT EXISTS idx_memories_t ON memories(t DESC)")
+        print("Added index on t column")
     except:
-        pass  # Column already exists
+        pass  # Index already exists
 
     try:
-        _exec("ALTER TABLE memories ADD COLUMN access_count INTEGER DEFAULT 0")
-        print("Added access_count column to memories table")
+        _exec("CREATE INDEX IF NOT EXISTS idx_memories_priority ON memories(priority DESC, t DESC)")
+        print("Added index on priority column")
     except:
-        pass  # Column already exists
-
-    try:
-        _exec("ALTER TABLE memories ADD COLUMN last_accessed TEXT")
-        print("Added last_accessed column to memories table")
-    except:
-        pass  # Column already exists
-
-    # v0.4.0: Add episodic/semantic memory classification
-    try:
-        _exec("ALTER TABLE memories ADD COLUMN memory_class TEXT DEFAULT 'episodic'")
-        print("Added memory_class column to memories table")
-    except:
-        pass  # Column already exists
-
-    # v0.4.0: Add bitemporal tracking columns
-    try:
-        _exec("ALTER TABLE memories ADD COLUMN valid_from TEXT")
-        print("Added valid_from column to memories table")
-    except:
-        pass  # Column already exists
-
-    try:
-        _exec("ALTER TABLE memories ADD COLUMN valid_to TEXT")
-        print("Added valid_to column to memories table")
-    except:
-        pass  # Column already exists
-
-    # v0.9.2: Add salience decay for memory ranking
-    try:
-        _exec("ALTER TABLE memories ADD COLUMN salience REAL DEFAULT 1.0")
-        print("Added salience column to memories table")
-    except:
-        pass  # Column already exists
+        pass  # Index already exists
 
     print("Schema migration complete")
 

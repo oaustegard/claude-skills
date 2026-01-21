@@ -118,11 +118,9 @@
 ### bootstrap.py
 > Imports: `sys, os`
 - **create_tables** (f) `()` :22
-- **migrate_schema** (f) `()` :64
-- **seed_config** (f) `()` :150
-- **verify** (f) `()` :196
-- **migrate_v2** (f) `(dry_run: bool = True)` :212
-- **migrate_config_v2** (f) `(dry_run: bool = True)` :383
+- **migrate_schema** (f) `()` :69
+- **seed_config** (f) `()` :124
+- **verify** (f) `()` :170
 
 ### cache.py
 > Imports: `sqlite3, json, uuid, datetime, .`...
