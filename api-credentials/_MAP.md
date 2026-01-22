@@ -8,7 +8,7 @@
 ## Files
 
 ### README.md
-- api-credentials `h1` :1
+- api-credentials - DEPRECATED `h1` :1
 
 ### SKILL.md
 - API Credentials Management `h1` :8

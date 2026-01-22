@@ -11,8 +11,9 @@ import threading
 import os
 from pathlib import Path
 
-# Default Turso database URL
-_DEFAULT_URL = "https://assistant-memory-oaustegard.aws-us-east-1.turso.io"
+# Default Turso database URL (hostname without protocol)
+_DEFAULT_URL_HOST = "assistant-memory-oaustegard.aws-us-east-1.turso.io"
+_DEFAULT_URL = f"https://{_DEFAULT_URL_HOST}"
 
 # Module globals - initialized by turso._init()
 _URL = None
