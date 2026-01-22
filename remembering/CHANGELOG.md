@@ -2,6 +2,12 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [3.3.3] - 2026-01-22
+
+### Fixed
+
+- remove stale _load_env_file import from remembering/__init__.py
+
 ## [3.3.2] - 2026-01-22
 
 ### Added
