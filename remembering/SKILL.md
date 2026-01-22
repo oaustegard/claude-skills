@@ -2,7 +2,7 @@
 name: remembering
 description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, and retention management.
 metadata:
-  version: 3.3.1
+  version: 3.3.2
 ---
 
 > **⚠️ IMPORTANT FOR CLAUDE CODE AGENTS**
