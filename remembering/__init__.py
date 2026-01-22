@@ -16,7 +16,7 @@ from .state import TYPES, get_session_id, set_session_id
 
 # Import Turso HTTP layer
 from .turso import (
-    _load_env_file, _init, _retry_with_backoff,
+    _init, _retry_with_backoff,
     _exec, _exec_batch, _parse_memory_row
 )
 
