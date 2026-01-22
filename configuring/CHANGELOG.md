@@ -4,6 +4,12 @@ All notable changes to the `configuring` skill are documented in this file. The 
 
 ## [2.0.0] - 2026-01-22
 
+### Added
+
+- rename getting-env to configuring for Python import compatibility
+
+## [2.0.0] - 2026-01-22
+
 ### Changed
 
 - **BREAKING**: Renamed skill from `getting-env` to `configuring` for Python import compatibility
