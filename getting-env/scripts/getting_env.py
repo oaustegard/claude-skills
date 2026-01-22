@@ -30,7 +30,7 @@ import json
 from pathlib import Path
 from typing import Optional, Dict, Any, List, Callable
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 # Module-level cache
 _cache: Dict[str, str] = {}
@@ -129,6 +129,49 @@ def _parse_env_file(path: Path) -> Dict[str, str]:
         
         env[key] = value
     
+    return env
+
+
+def _parse_shell_exports(path: Path) -> Dict[str, str]:
+    """
+    Parse exported environment variables from a shell script or snapshot.
+
+    Handles:
+    - export KEY=value
+    - declare -x KEY=value
+
+    Args:
+        path: Path to a shell file
+
+    Returns:
+        Dict of key-value pairs
+    """
+    env = {}
+    if not path.exists():
+        return env
+
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if line.startswith("export "):
+            line = line[len("export "):]
+        elif line.startswith("declare -x "):
+            line = line[len("declare -x "):]
+        else:
+            continue
+
+        if '=' not in line:
+            continue
+
+        key, _, value = line.partition('=')
+        key = key.strip()
+        value = value.strip()
+
+        if (value.startswith('"') and value.endswith('"')) or \
+           (value.startswith("'") and value.endswith("'")):
+            value = value[1:-1]
+
+        env[key] = value
+
     return env
 
 
@@ -301,6 +344,17 @@ def _load_codex() -> Dict[str, str]:
     codex_home = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex")))
     env.update(_parse_toml_env(codex_home / "config.toml"))
     
+    # Shell setup exports (~/.bashrc, ~/.profile)
+    for path in [Path.home() / ".bashrc", Path.home() / ".profile"]:
+        env.update(_parse_shell_exports(path))
+
+    # Shell snapshot exports (used by Codex)
+    snapshot_dir = codex_home / "shell_snapshots"
+    if snapshot_dir.is_dir():
+        snapshots = sorted(snapshot_dir.glob("*.sh"), key=lambda p: p.stat().st_mtime)
+        if snapshots:
+            env.update(_parse_shell_exports(snapshots[-1]))
+
     # Project config (higher priority)
     env.update(_parse_toml_env(Path.cwd() / ".codex" / "config.toml"))
     
@@ -394,7 +448,7 @@ def load_all(force_reload: bool = False) -> Dict[str, str]:
     
     if env_type == "codex":
         _cache.update(_load_codex())
-        _loaded_sources.append("codex:~/.codex/config.toml")
+        _loaded_sources.append("codex:config.toml + shell exports + shell_snapshots")
     
     if env_type == "jules":
         _cache.update(_load_jules())

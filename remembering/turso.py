@@ -11,10 +11,12 @@ This module handles:
 Imports from: state
 """
 
-import requests
+import importlib
+import importlib.util
 import json
 import os
 import time
+import requests
 from pathlib import Path
 
 from . import state
@@ -49,6 +51,19 @@ def _init():
         state._TOKEN = os.environ.get("TURSO_TOKEN")
         if not state._TOKEN:
             state._TOKEN = env_file.get("TURSO_TOKEN")
+
+        # 2b. Load TURSO credentials from getting-env if available
+        env_loader = None
+        spec = importlib.util.find_spec("getting_env")
+        if spec is not None:
+            env_module = importlib.import_module("getting_env")
+            env_loader = getattr(env_module, "get_env", None)
+
+        if env_loader is not None:
+            if not state._URL:
+                state._URL = env_loader("TURSO_URL", default=state._DEFAULT_URL)
+            if not state._TOKEN:
+                state._TOKEN = env_loader("TURSO_TOKEN")
 
         # 3. Legacy fallback to separate token file
         if not state._TOKEN:
