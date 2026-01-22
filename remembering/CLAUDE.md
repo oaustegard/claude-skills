@@ -2,6 +2,34 @@
 
 **VERSION:** See SKILL.md frontmatter
 
+---
+
+## ⚠️ CRITICAL REQUIREMENT: VERSION BUMPING ⚠️
+
+**BEFORE ANY COMMIT TO THIS SKILL:**
+
+You **MUST** update `metadata.version` in `SKILL.md` frontmatter:
+- Bug fixes/cleanup: Patch bump (3.3.3 → 3.3.4)
+- New features/improvements: Minor bump (3.3.3 → 3.4.0)
+- Breaking changes: Major bump (3.3.3 → 4.0.0)
+
+**This is MANDATORY and NON-NEGOTIABLE.**
+
+- Version changes trigger releases to users
+- Committing code changes without a version bump = users don't get the update
+- NO EXCEPTIONS - even trivial fixes require a version bump
+
+**Workflow:**
+1. Make code changes
+2. Update `SKILL.md` frontmatter: `metadata.version: X.Y.Z`
+3. Refresh code maps: `python mapping-codebases/scripts/codemap.py /home/user/claude-skills --skip uploads,assets`
+4. Commit with version bump included in the same commit or separate commit
+5. Push
+
+**If you forget:** The PR will be rejected and you'll have to amend.
+
+---
+
 ## Boot
 
 Unless message contains "skip boot", IMMEDIATELY execute:
@@ -257,14 +285,7 @@ remembering/
 
 ## Development Notes
 
-**🚨 CRITICAL: ALWAYS UPDATE SKILL VERSION WHEN MAKING CODE CHANGES 🚨**
-
-Before ANY commit to this skill, you MUST update `metadata.version` in SKILL.md frontmatter:
-- Bug fixes/cleanup: Patch bump (3.0.0 → 3.0.1)
-- New features/improvements: Minor bump (3.0.0 → 3.1.0)
-- Breaking changes: Major bump (3.0.0 → 4.0.0)
-
-**This is NON-NEGOTIABLE.** Version changes trigger releases. Committing code changes without a version bump means users won't get the update.
+**Version Bumping:** See critical requirement at top of this file.
 
 Other development guidelines:
 - Keep dependencies minimal (just `requests`)
