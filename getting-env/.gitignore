@@ -1,0 +1,21 @@
+# Credentials (never commit)
+*.env
+!assets/example.env
+*-token.txt
+*-key.txt
+*-secret.txt
+config.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
