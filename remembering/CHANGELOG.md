@@ -4,6 +4,17 @@ All notable changes to the `remembering` skill (Muninn) are documented in this f
 
 ## [3.3.2] - 2026-01-22
 
+### Added
+
+- rename getting-env to configuring for Python import compatibility
+
+### Changed
+
+- simplify turso.py by delegating env loading to configuring skill
+- use configuring skill for TURSO_URL with protocol-agnostic config
+
+## [3.3.2] - 2026-01-22
+
 ### Changed
 
 - **Simplified credential loading**: Removed redundant `muninn.env` fallback logic in `turso.py` since the `configuring` skill already loads all `.env` files in `/mnt/project`
