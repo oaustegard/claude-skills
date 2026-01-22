@@ -52,20 +52,21 @@
 
 ### CLAUDE.md
 - Muninn Memory System - Claude Code Context `h1` :1
-- Boot `h2` :5
-- Meta: Using Muninn During Development `h2` :22
-- Quick Reference `h2` :47
-- Environment Variables `h2` :53
-- Architecture `h2` :76
-- Core API `h2` :117
-- Memory Types `h2` :195
-- HTTP API Format `h2` :204
-- Testing `h2` :226
-- File Structure `h2` :245
-- Development Notes `h2` :258
-- Lessons for Claude Code Agents `h2` :277
-- What's New in v3.2.0 `h2` :335
-- Known Limitations `h2` :352
+- ⚠️ CRITICAL REQUIREMENT: VERSION BUMPING ⚠️ `h2` :7
+- Boot `h2` :33
+- Meta: Using Muninn During Development `h2` :50
+- Quick Reference `h2` :75
+- Environment Variables `h2` :81
+- Architecture `h2` :104
+- Core API `h2` :145
+- Memory Types `h2` :223
+- HTTP API Format `h2` :232
+- Testing `h2` :254
+- File Structure `h2` :273
+- Development Notes `h2` :286
+- Lessons for Claude Code Agents `h2` :298
+- What's New in v3.2.0 `h2` :356
+- Known Limitations `h2` :373
 
 ### README.md
 - remembering `h1` :1
