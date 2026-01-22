@@ -1,19 +1,21 @@
 ---
-name: getting-env
+name: configuring
 description: Universal environment variable loader for AI agent environments. Loads secrets and config from Claude.ai, Claude Code, OpenAI Codex, Jules, and standard .env files.
 metadata:
-  version: 1.0.1
-  replaces: api-credentials
+  version: 2.0.0
+  replaces: api-credentials, getting-env
 ---
 
-# Getting Env
+# Configuring
 
-Unified environment variable loading across AI coding environments.
+Unified configuration management across AI coding environments. Load environment variables, secrets, and other opinionated configuration setups from any AI coding platform.
 
 ## Quick Start
 
 ```python
-from getting_env import get_env, detect_environment
+import sys
+sys.path.insert(0, '/path/to/claude-skills')  # or wherever skills are installed
+from configuring import get_env, detect_environment
 
 # Get a variable (searches all sources automatically)
 token = get_env("TURSO_TOKEN", required=True)
@@ -84,26 +86,35 @@ Later sources override earlier:
 ## Debugging
 
 ```python
-from getting_env import debug_info
+import sys
+sys.path.insert(0, '/path/to/claude-skills')
+from configuring import debug_info
 print(debug_info())
 # {'environment': 'claude.ai', 'sources': ['os.environ', 'claude.ai:/mnt/project/'], ...}
 ```
 
 CLI:
 ```bash
-python getting_env.py                    # Show debug info
-python getting_env.py TURSO_TOKEN        # Get specific key
+cd /path/to/claude-skills/configuring
+python scripts/getting_env.py                    # Show debug info
+python scripts/getting_env.py TURSO_TOKEN        # Get specific key
 ```
 
-## Migration from api-credentials
+## Migration from api-credentials / getting-env
 
 Replace:
 ```python
-# Old
+# Old (api-credentials)
 from credentials import get_anthropic_api_key
 key = get_anthropic_api_key()
 
-# New
+# Old (getting-env)
 from getting_env import get_env
+key = get_env("ANTHROPIC_API_KEY")
+
+# New (configuring)
+import sys
+sys.path.insert(0, '/path/to/claude-skills')
+from configuring import get_env
 key = get_env("ANTHROPIC_API_KEY", required=True)
 ```

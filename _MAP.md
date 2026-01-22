@@ -1,5 +1,5 @@
 # claude-skills/
-*Files: 5 | Subdirectories: 36*
+*Files: 5 | Subdirectories: 37*
 
 ## Subdirectories
 
@@ -12,6 +12,7 @@
 - [charting-vega-lite/](./charting-vega-lite/_MAP.md)
 - [check-tools/](./check-tools/_MAP.md)
 - [cloning-project/](./cloning-project/_MAP.md)
+- [configuring/](./configuring/_MAP.md)
 - [controlling-spotify/](./controlling-spotify/_MAP.md)
 - [convening-experts/](./convening-experts/_MAP.md)
 - [crafting-instructions/](./crafting-instructions/_MAP.md)

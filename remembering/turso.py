@@ -52,11 +52,11 @@ def _init():
         if not state._TOKEN:
             state._TOKEN = env_file.get("TURSO_TOKEN")
 
-        # 2b. Load TURSO credentials from getting-env if available
+        # 2b. Load TURSO credentials from configuring skill if available
         env_loader = None
-        spec = importlib.util.find_spec("getting_env")
+        spec = importlib.util.find_spec("configuring")
         if spec is not None:
-            env_module = importlib.import_module("getting_env")
+            env_module = importlib.import_module("configuring")
             env_loader = getattr(env_module, "get_env", None)
 
         if env_loader is not None:
