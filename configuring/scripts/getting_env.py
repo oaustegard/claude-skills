@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Universal Environment Variable Loader for AI Agent Environments
+Universal Configuration Management for AI Agent Environments
 
-Loads environment variables and secrets from any supported AI coding environment:
+Loads environment variables, secrets, and configuration from any supported AI coding environment:
 - Claude.ai Projects (project knowledge files)
 - Claude Code (desktop & web)
 - OpenAI Codex
@@ -10,17 +10,19 @@ Loads environment variables and secrets from any supported AI coding environment
 - Standard environments (.env files, shell env vars)
 
 Usage:
-    from getting_env import get_env, load_env, detect_environment
-    
+    import sys
+    sys.path.insert(0, '/path/to/claude-skills')
+    from configuring import get_env, load_env, detect_environment
+
     # Get a single variable (searches all sources)
     api_key = get_env("MY_API_KEY")
-    
+
     # With default
     api_key = get_env("MY_API_KEY", default="")
-    
+
     # Detect current environment
     env_type = detect_environment()  # "claude.ai", "claude-code", "codex", "jules", "unknown"
-    
+
     # Bulk load from a specific file
     vars = load_env("/path/to/.env")
 """
@@ -30,7 +32,7 @@ import json
 from pathlib import Path
 from typing import Optional, Dict, Any, List, Callable
 
-__version__ = "1.0.1"
+__version__ = "2.0.0"
 
 # Module-level cache
 _cache: Dict[str, str] = {}

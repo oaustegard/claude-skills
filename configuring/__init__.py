@@ -1,9 +1,11 @@
 """
-getting-env: Universal environment variable loader for AI agent environments.
+configuring: Universal configuration management for AI agent environments.
 
 Usage:
-    from getting_env import get_env, detect_environment
-    
+    import sys
+    sys.path.insert(0, '/path/to/claude-skills')
+    from configuring import get_env, detect_environment
+
     token = get_env("MY_TOKEN", required=True)
     env = detect_environment()  # "claude.ai", "claude-code-desktop", etc.
 """

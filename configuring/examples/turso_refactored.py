@@ -2,30 +2,32 @@
 Turso HTTP API layer for remembering skill.
 
 This module handles:
-- Credential initialization via getting-env skill
+- Credential initialization via configuring skill
 - HTTP request retry logic (_retry_with_backoff)
 - SQL execution via Turso HTTP API (_exec, _exec_batch)
 - JSON field parsing (_parse_memory_row)
 
-Imports from: state, getting_env
+Imports from: state, configuring
 """
 
 import requests
 import json
 import os
+import sys
 import time
 
 from . import state
 
-# Import from getting-env skill (must be on Python path)
+# Import from configuring skill (must be on Python path)
 try:
-    from getting_env import get_env, detect_environment
+    sys.path.insert(0, '/path/to/claude-skills')  # Adjust path as needed
+    from configuring import get_env, detect_environment
 except ImportError:
-    # Fallback if getting-env not available
+    # Fallback if configuring skill not available
     from pathlib import Path
-    
+
     def _fallback_get_env(key, default=None, required=False):
-        """Minimal fallback if getting-env skill not installed."""
+        """Minimal fallback if configuring skill not installed."""
         value = os.environ.get(key)
         if not value:
             # Try /mnt/project/*.env
