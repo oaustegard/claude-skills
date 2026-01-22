@@ -2,6 +2,20 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [3.3.2] - 2026-01-22
+
+### Changed
+
+- **Simplified credential loading**: Removed redundant `muninn.env` fallback logic in `turso.py` since the `configuring` skill already loads all `.env` files in `/mnt/project`
+- **Protocol-agnostic TURSO_URL**: Support storing database URL without `https://` protocol (automatically added if missing)
+- **Cleaner dependencies**: Removed `_load_env_file()` function as `configuring` skill handles all environment file parsing
+- **Improved error messages**: Updated credential error messages to clarify that `configuring` skill auto-detects `.env` files
+
+### Technical
+
+- Priority order simplified: configuring skill → env vars → legacy files (removed redundant muninn.env check)
+- Configuration now fully delegated to `configuring` skill for consistency across all Claude environments
+
 ## [3.3.1] - 2026-01-22
 
 ### Added
