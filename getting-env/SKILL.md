@@ -2,7 +2,7 @@
 name: getting-env
 description: Universal environment variable loader for AI agent environments. Loads secrets and config from Claude.ai, Claude Code, OpenAI Codex, Jules, and standard .env files.
 metadata:
-  version: 1.0.0
+  version: 1.0.1
   replaces: api-credentials
 ---
 
@@ -31,7 +31,7 @@ env = detect_environment()  # "claude.ai", "claude-code-desktop", "codex", "jule
 |-------------|----------------|
 | **Claude.ai Projects** | `/mnt/project/*.env`, `/mnt/project/*-token.txt` |
 | **Claude Code** | `~/.claude/settings.json` (`env` block), `.claude/settings.json` |
-| **OpenAI Codex** | `~/.codex/config.toml`, setup script → `~/.bashrc` |
+| **OpenAI Codex** | `~/.codex/config.toml`, setup script → `~/.bashrc`, `shell_snapshots/*.sh` |
 | **Jules** | Environment settings UI, `.env` in repo |
 | **Universal** | `os.environ`, `.env`, `.env.local` |
 
