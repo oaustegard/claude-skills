@@ -1,13 +1,13 @@
 ---
 name: browsing-bluesky
-description: Browse Bluesky content via API and firehose - search posts, fetch user activity, sample trending topics, read feeds and lists. Use for Bluesky research, user monitoring, trend analysis, feed reading, firehose sampling.
+description: Browse Bluesky content via API and firehose - search posts, fetch user activity, sample trending topics, read feeds and lists. Supports authenticated access for personalized feeds. Use for Bluesky research, user monitoring, trend analysis, feed reading, firehose sampling.
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # Browsing Bluesky
 
-Access Bluesky content through public APIs and real-time firehose.
+Access Bluesky content through public APIs and real-time firehose. Supports optional authentication for personalized feeds.
 
 ## Implementation
 
@@ -19,8 +19,42 @@ sys.path.insert(0, '/path/to/skills/browsing-bluesky')  # or use .claude/skills 
 from browsing_bluesky import (
     search_posts, get_user_posts, get_profile, get_feed_posts, sample_firehose,
     get_thread, get_quotes, get_likes, get_reposts,
-    get_followers, get_following, search_users
+    get_followers, get_following, search_users,
+    # Authentication utilities
+    is_authenticated, get_authenticated_user, clear_session
 )
+```
+
+## Authentication (Optional)
+
+Authentication enables personalized feeds (like Paper Skygest) that require knowing who's asking.
+
+### Setup
+
+1. Create an app password at Bluesky: **Settings → Privacy and Security → App Passwords**
+2. Set environment variables:
+   ```bash
+   export BSKY_HANDLE="yourhandle.bsky.social"
+   export BSKY_APP_PASSWORD="xxxx-xxxx-xxxx-xxxx"
+   ```
+
+### Behavior
+
+- **Transparent**: All functions work identically with or without credentials
+- **Automatic**: Auth headers are added opportunistically when credentials exist
+- **Graceful**: Failed auth silently falls back to public access
+- **Secure**: Tokens cached in memory only, never logged or persisted
+
+### Check Auth Status
+
+```python
+if is_authenticated():
+    print(f"Logged in as: {get_authenticated_user()}")
+else:
+    print("Using public access")
+
+# Clear session if needed (e.g., switching accounts)
+clear_session()
 ```
 
 ## Research Workflows
@@ -123,8 +157,9 @@ for u in users:
 ## API Endpoint Notes
 
 - **Base**: `https://api.bsky.app/xrpc/` (NOT `public.api.bsky.app` which returns 403)
+- **Auth**: `https://bsky.social/xrpc/` for session creation/refresh
 - **Firehose**: `wss://jetstream1.us-east.bsky.network/subscribe`
-- **No authentication** required for public reads
+- **Authentication** optional for public reads, required for personalized feeds
 - **Rate limits** exist but are generous for read operations
 
 ## Return Format

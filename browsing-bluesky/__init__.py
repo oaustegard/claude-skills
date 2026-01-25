@@ -12,7 +12,11 @@ from .scripts.bsky import (
     get_reposts,
     get_followers,
     get_following,
-    search_users
+    search_users,
+    # Authentication utilities
+    is_authenticated,
+    get_authenticated_user,
+    clear_session
 )
 
 __all__ = [
@@ -27,5 +31,9 @@ __all__ = [
     "get_reposts",
     "get_followers",
     "get_following",
-    "search_users"
+    "search_users",
+    # Authentication utilities
+    "is_authenticated",
+    "get_authenticated_user",
+    "clear_session"
 ]

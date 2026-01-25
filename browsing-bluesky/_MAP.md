@@ -27,9 +27,10 @@
 ### SKILL.md
 - Browsing Bluesky `h1` :8
 - Implementation `h2` :12
-- Research Workflows `h2` :26
-- API Endpoint Notes `h2` :123
-- Return Format `h2` :130
+- Authentication (Optional) `h2` :28
+- Research Workflows `h2` :60
+- API Endpoint Notes `h2` :157
+- Return Format `h2` :165
 
 ### __init__.py
 > Imports: `.scripts.bsky`
