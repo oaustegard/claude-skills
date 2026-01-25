@@ -1,14 +1,165 @@
 #!/usr/bin/env python3
 """Bluesky API client for browsing posts, users, feeds, and firehose."""
 
+import os
 import requests
 import subprocess
 import json
 import re
+import time
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 
-BASE = "https://api.bsky.app/xrpc"  # NOT public.api.bsky.app
+BASE = "https://api.bsky.app/xrpc"  # Public AppView for unauthenticated reads
+PDS_BASE = "https://bsky.social/xrpc"  # PDS for authenticated requests
+
+# Module-level session cache (memory only, never persisted)
+_session_cache: Dict[str, Any] = {}
+
+
+def _create_session() -> Optional[Dict[str, Any]]:
+    """Create authenticated session using environment credentials.
+
+    Looks for BSKY_HANDLE and BSKY_APP_PASSWORD environment variables.
+    App passwords can be created at: Settings → Privacy and Security → App Passwords
+
+    Returns:
+        Session dict with accessJwt, refreshJwt, did, handle, or None if no credentials
+    """
+    global _session_cache
+
+    handle = os.environ.get("BSKY_HANDLE", "").strip()
+    app_password = os.environ.get("BSKY_APP_PASSWORD", "").strip()
+
+    if not handle or not app_password:
+        return None
+
+    try:
+        r = requests.post(
+            f"{PDS_BASE}/com.atproto.server.createSession",
+            json={"identifier": handle, "password": app_password},
+            timeout=10
+        )
+        r.raise_for_status()
+        session = r.json()
+        # Store creation time for token expiry tracking
+        session["_created_at"] = time.time()
+        _session_cache = session
+        return session
+    except requests.RequestException:
+        # Failed auth - return None to fall back to public access
+        return None
+
+
+def _refresh_session() -> Optional[Dict[str, Any]]:
+    """Refresh an expired access token using the refresh token.
+
+    Returns:
+        Updated session dict or None if refresh failed
+    """
+    global _session_cache
+
+    refresh_jwt = _session_cache.get("refreshJwt")
+    if not refresh_jwt:
+        return None
+
+    try:
+        r = requests.post(
+            f"{PDS_BASE}/com.atproto.server.refreshSession",
+            headers={"Authorization": f"Bearer {refresh_jwt}"},
+            timeout=10
+        )
+        r.raise_for_status()
+        session = r.json()
+        session["_created_at"] = time.time()
+        _session_cache = session
+        return session
+    except requests.RequestException:
+        # Refresh failed - clear cache and fall back to public access
+        _session_cache = {}
+        return None
+
+
+def _get_session() -> Optional[Dict[str, Any]]:
+    """Get valid session, refreshing if needed.
+
+    Access tokens expire after ~2 hours. This function checks if we have
+    a cached session, refreshes if expired, or creates new if needed.
+
+    Returns:
+        Valid session dict or None
+    """
+    global _session_cache
+
+    if not _session_cache:
+        return _create_session()
+
+    # Check if access token might be expired (~2 hours = 7200 seconds)
+    # Refresh 5 minutes early to avoid edge cases
+    created_at = _session_cache.get("_created_at", 0)
+    if time.time() - created_at > 7000:
+        refreshed = _refresh_session()
+        if refreshed:
+            return refreshed
+        # If refresh failed, try creating new session
+        return _create_session()
+
+    return _session_cache
+
+
+def _auth_headers() -> Dict[str, str]:
+    """Get authorization headers if authenticated session available.
+
+    Returns:
+        Dict with Authorization header if authenticated, empty dict otherwise
+    """
+    session = _get_session()
+    if session and "accessJwt" in session:
+        return {"Authorization": f"Bearer {session['accessJwt']}"}
+    return {}
+
+
+def _get_base_and_headers() -> tuple[str, Dict[str, str]]:
+    """Get appropriate base URL and headers based on auth state.
+
+    When authenticated, uses PDS endpoint (bsky.social) with auth headers.
+    When not authenticated, uses public AppView (api.bsky.app) without headers.
+
+    Returns:
+        Tuple of (base_url, headers_dict)
+    """
+    session = _get_session()
+    if session and "accessJwt" in session:
+        return PDS_BASE, {"Authorization": f"Bearer {session['accessJwt']}"}
+    return BASE, {}
+
+
+def is_authenticated() -> bool:
+    """Check if currently authenticated with Bluesky.
+
+    Returns:
+        True if valid session exists, False otherwise
+    """
+    session = _get_session()
+    return session is not None and "accessJwt" in session
+
+
+def get_authenticated_user() -> Optional[str]:
+    """Get the handle of the currently authenticated user.
+
+    Returns:
+        Handle string if authenticated, None otherwise
+    """
+    session = _get_session()
+    if session:
+        return session.get("handle")
+    return None
+
+
+def clear_session() -> None:
+    """Clear the cached session. Useful for testing or switching accounts."""
+    global _session_cache
+    _session_cache = {}
 
 
 def get_profile(handle: str) -> Dict[str, Any]:
@@ -21,7 +172,12 @@ def get_profile(handle: str) -> Dict[str, Any]:
         Dict with handle, display_name, description, followers, following, posts, did
     """
     handle = handle.lstrip("@")
-    r = requests.get(f"{BASE}/app.bsky.actor.getProfile", params={"actor": handle})
+    base, headers = _get_base_and_headers()
+    r = requests.get(
+        f"{base}/app.bsky.actor.getProfile",
+        params={"actor": handle},
+        headers=headers
+    )
     r.raise_for_status()
     data = r.json()
     return {
@@ -46,9 +202,11 @@ def get_user_posts(handle: str, limit: int = 20) -> List[Dict[str, Any]]:
         List of post dicts
     """
     handle = handle.lstrip("@")
+    base, headers = _get_base_and_headers()
     r = requests.get(
-        f"{BASE}/app.bsky.feed.getAuthorFeed",
-        params={"actor": handle, "limit": min(limit, 100), "filter": "posts_no_replies"}
+        f"{base}/app.bsky.feed.getAuthorFeed",
+        params={"actor": handle, "limit": min(limit, 100), "filter": "posts_no_replies"},
+        headers=headers
     )
     r.raise_for_status()
     return [_parse_post(item["post"]) for item in r.json().get("feed", [])]
@@ -87,9 +245,11 @@ def search_posts(
     if until:
         parts.append(f"until:{until}")
 
+    base, headers = _get_base_and_headers()
     r = requests.get(
-        f"{BASE}/app.bsky.feed.searchPosts",
-        params={"q": " ".join(parts), "limit": min(limit, 100)}
+        f"{base}/app.bsky.feed.searchPosts",
+        params={"q": " ".join(parts), "limit": min(limit, 100)},
+        headers=headers
     )
     r.raise_for_status()
     return [_parse_post(p) for p in r.json().get("posts", [])]
@@ -117,15 +277,20 @@ def get_feed_posts(feed_uri: str, limit: int = 20) -> List[Dict[str, Any]]:
         uri = feed_uri
 
     # Determine if it's a list or feed based on collection type
+    # Auth is especially important for personalized feeds
+    base, headers = _get_base_and_headers()
+
     if "app.bsky.graph.list" in uri:
         r = requests.get(
-            f"{BASE}/app.bsky.feed.getListFeed",
-            params={"list": uri, "limit": min(limit, 100)}
+            f"{base}/app.bsky.feed.getListFeed",
+            params={"list": uri, "limit": min(limit, 100)},
+            headers=headers
         )
     else:
         r = requests.get(
-            f"{BASE}/app.bsky.feed.getFeed",
-            params={"feed": uri, "limit": min(limit, 100)}
+            f"{base}/app.bsky.feed.getFeed",
+            params={"feed": uri, "limit": min(limit, 100)},
+            headers=headers
         )
 
     r.raise_for_status()

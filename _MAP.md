@@ -1,5 +1,5 @@
 # claude-skills/
-*Files: 5 | Subdirectories: 37*
+*Files: 5 | Subdirectories: 38*
 
 ## Subdirectories
 
@@ -23,6 +23,7 @@
 - [exploring-data/](./exploring-data/_MAP.md)
 - [extracting-keywords/](./extracting-keywords/_MAP.md)
 - [generating-patches/](./generating-patches/_MAP.md)
+- [githubbing/](./githubbing/_MAP.md)
 - [hello-demo/](./hello-demo/_MAP.md)
 - [installing-skills/](./installing-skills/_MAP.md)
 - [invoking-gemini/](./invoking-gemini/_MAP.md)
