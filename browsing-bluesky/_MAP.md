@@ -9,8 +9,10 @@
 
 ### CHANGELOG.md
 - browsing-bluesky - Changelog `h1` :1
-- [0.2.0] - 2026-01-01 `h2` :5
-- [0.1.0] - 2026-01-01 `h2` :15
+- [0.4.0] - 2026-01-25 `h2` :5
+- [0.3.0] - 2026-01-25 `h2` :18
+- [0.2.0] - 2026-01-01 `h2` :31
+- [0.1.0] - 2026-01-01 `h2` :41
 
 ### README.md
 - browsing-bluesky `h1` :1
@@ -27,10 +29,11 @@
 ### SKILL.md
 - Browsing Bluesky `h1` :8
 - Implementation `h2` :12
-- Authentication (Optional) `h2` :28
-- Research Workflows `h2` :60
-- API Endpoint Notes `h2` :157
-- Return Format `h2` :165
+- Authentication (Optional) `h2` :32
+- Research Workflows `h2` :64
+- API Endpoint Notes `h2` :161
+- Return Format `h2` :169
+- Account Analysis `h2` :182
 
 ### __init__.py
 > Imports: `.scripts.bsky`

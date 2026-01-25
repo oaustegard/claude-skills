@@ -55,6 +55,22 @@ api_key = os.environ.get('MY_VAR', '')
 
 **Why**: Bash variable expansion can behave unpredictably in different contexts (subshells, heredocs, quotes, etc.). Python's environment variable access is consistent and reliable. If bash isn't working after 1-2 attempts, switch to Python immediately rather than trying multiple shell workarounds.
 
+### Reading GitHub Issues
+
+**TL;DR: Use WebFetch to read GitHub issues, not the gh CLI.**
+
+When you need to read a GitHub issue:
+
+```python
+# Use WebFetch tool with the issue URL
+WebFetch(
+    url="https://github.com/owner/repo/issues/123",
+    prompt="Extract the issue title, description, status, and any comments"
+)
+```
+
+**Why**: The `gh` CLI requires authentication which may not be configured. WebFetch can access public issue pages directly and extract the relevant information.
+
 ## Code Maps
 
 This repository has navigable code maps generated via the mapping-codebases skill.
