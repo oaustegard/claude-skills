@@ -1,8 +1,8 @@
 ---
 name: remembering
-description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, and retention management.
+description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, retention management, type-safe results, and proactive memory hints.
 metadata:
-  version: 3.3.3
+  version: 3.4.0
 ---
 
 > **⚠️ IMPORTANT FOR CLAUDE CODE AGENTS**
@@ -615,9 +615,106 @@ stats = muninn_import(data, merge=False)
 - Memory IDs are regenerated on import to avoid conflicts
 - Returns stats dict with counts and any errors
 
+## Type-Safe Results (v3.4.0)
+
+`recall()`, `recall_since()`, and `recall_between()` now return `MemoryResult` objects that validate field access immediately:
+
+```python
+from remembering import recall, MemoryResult, VALID_FIELDS
+
+# Recall returns MemoryResultList of MemoryResult objects
+memories = recall("search term", n=10)
+
+for m in memories:
+    # Valid access - works fine
+    print(m.summary)      # Attribute-style
+    print(m['summary'])   # Dict-style
+    print(m.get('summary', 'default'))  # get() with default
+
+    # Invalid access - raises helpful error immediately
+    print(m.content)      # AttributeError: Invalid field 'content'. Did you mean 'summary'?
+    print(m['content'])   # KeyError: Invalid field 'content'. Did you mean 'summary'?
+```
+
+**Valid fields:**
+```python
+from remembering import VALID_FIELDS
+# {'id', 'type', 't', 'summary', 'confidence', 'tags', 'refs', 'priority',
+#  'session_id', 'created_at', 'updated_at', 'valid_from', 'access_count',
+#  'last_accessed', 'has_full', 'deleted_at'}
+```
+
+**Common mistakes caught:**
+| Wrong | Correct | Error Message |
+|-------|---------|---------------|
+| `m.content` | `m.summary` | Did you mean 'summary'? |
+| `m['text']` | `m['summary']` | Did you mean 'summary'? |
+| `m.conf` | `m.confidence` | Did you mean 'confidence'? |
+| `m.timestamp` | `m.t` | Did you mean 't'? |
+
+**Backward compatibility:**
+- MemoryResult supports all dict operations: `in`, `len()`, iteration, `keys()`, `values()`, `items()`
+- Use `m.to_dict()` to convert back to plain dict when needed
+- Use `raw=True` parameter to get plain dicts: `recall("term", raw=True)`
+
+## Proactive Memory Hints (v3.4.0)
+
+`recall_hints()` scans context for terms that match memories, helping surface relevant information before you make mistakes:
+
+```python
+from remembering import recall_hints
+
+# Scan code context for relevant memories
+hints = recall_hints("for m in memories: print(m['content'])")
+
+if hints['hints']:
+    print("Relevant memories found:")
+    for h in hints['hints']:
+        print(f"  [{h['type']}] {h['preview']}")
+        print(f"    Matched: {h['matched_terms']}")
+
+# Check for unmatched terms (potential new topics)
+if hints['unmatched_terms']:
+    print(f"New terms: {hints['unmatched_terms']}")
+```
+
+**Use explicit terms for targeted lookup:**
+```python
+hints = recall_hints(terms=["muninn", "field", "summary", "content"])
+# Returns hints for memories matching any of these terms
+```
+
+**Hint structure:**
+```python
+{
+    'hints': [
+        {
+            'memory_id': 'abc-123...',
+            'type': 'decision',
+            'preview': 'First 100 chars of summary...',
+            'matched_terms': ['muninn', 'field'],
+            'matched_tags': ['muninn'],
+            'priority': 1,
+            'relevance_score': 3
+        }
+    ],
+    'term_coverage': {'muninn': ['abc-123'], 'field': ['abc-123', 'def-456']},
+    'unmatched_terms': ['content'],
+    'warning': None  # or error message if cache unavailable
+}
+```
+
+**When to use:**
+- Before writing code that uses `recall()` - catch field name errors early
+- When starting work on a topic - surface forgotten context
+- Before making decisions - check for relevant past decisions
+- After receiving user instructions - find related memories
+
+**Performance:** Uses local cache when available (~5ms). Falls back to config-based tag matching.
+
 ## Edge Cases
 
-**Empty recall results:** Returns `[]`, not an error. Check list length before accessing.
+**Empty recall results:** Returns `MemoryResultList([])`, not an error. Check list length before accessing.
 
 **Search literal matching:** Current implementation uses SQL LIKE. Searches "API test" matches "API testing" but not "test API" (order matters).
 

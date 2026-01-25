@@ -2,6 +2,20 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [3.4.0] - 2026-01-25
+
+### Added
+
+- **Type-safe MemoryResult objects** (#212): `recall()`, `recall_since()`, and `recall_between()` now return `MemoryResult` objects that validate field access immediately. Invalid field names like `m['content']` raise helpful errors with suggestions like "Did you mean 'summary'?".
+- **Proactive memory hints** (#211): New `recall_hints()` function scans context or terms against memory tags and summaries, surfacing relevant memories before mistakes happen.
+- **New exports**: `MemoryResult`, `MemoryResultList`, `VALID_FIELDS`, `recall_hints`
+- **Backward compatibility**: Use `raw=True` parameter on recall functions to get plain dicts, or call `m.to_dict()` on results.
+
+### Changed
+
+- `recall()`, `recall_since()`, `recall_between()` return `MemoryResultList` of `MemoryResult` objects by default
+- All dict-style operations still work (`m['field']`, `'field' in m`, iteration, etc.)
+
 ## [3.3.3] - 2026-01-22
 
 ### Fixed
