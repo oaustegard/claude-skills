@@ -6,6 +6,16 @@ All notable changes to the `browsing-bluesky` skill are documented in this file.
 
 ### Added
 
+- Consolidate account categorization from categorizing-bsky-accounts
+
+### Changed
+
+- Improve code consistency in account analysis
+
+## [0.4.0] - 2026-01-25
+
+### Added
+
 - Consolidate account analysis from categorizing-bsky-accounts skill
 - Add `analyze_accounts()` for batch account analysis with keyword extraction
 - Add `analyze_account()` for single account analysis
