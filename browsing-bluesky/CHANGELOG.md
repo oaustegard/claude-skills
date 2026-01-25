@@ -2,6 +2,19 @@
 
 All notable changes to the `browsing-bluesky` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.4.0] - 2026-01-25
+
+### Added
+
+- Consolidate account analysis from categorizing-bsky-accounts skill
+- Add `analyze_accounts()` for batch account analysis with keyword extraction
+- Add `analyze_account()` for single account analysis
+- Add `get_all_following()` and `get_all_followers()` with pagination support
+- Add `extract_keywords()` for YAKE-based keyword extraction
+- Add `extract_post_text()` helper for post text concatenation
+- Support domain-specific stopwords (en, ai, ls) for keyword filtering
+- Support exclude patterns for filtering out bot/spam accounts
+
 ## [0.3.0] - 2026-01-25
 
 ### Added

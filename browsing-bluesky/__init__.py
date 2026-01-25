@@ -1,6 +1,7 @@
-"""Bluesky browsing module - API and firehose access."""
+"""Bluesky browsing module - API, firehose, and account analysis."""
 
 from .scripts.bsky import (
+    # Core browsing
     search_posts,
     get_user_posts,
     get_profile,
@@ -13,6 +14,13 @@ from .scripts.bsky import (
     get_followers,
     get_following,
     search_users,
+    # Account analysis (from categorizing-bsky-accounts)
+    get_all_following,
+    get_all_followers,
+    extract_post_text,
+    extract_keywords,
+    analyze_account,
+    analyze_accounts,
     # Authentication utilities
     is_authenticated,
     get_authenticated_user,
@@ -20,6 +28,7 @@ from .scripts.bsky import (
 )
 
 __all__ = [
+    # Core browsing
     "search_posts",
     "get_user_posts",
     "get_profile",
@@ -32,6 +41,13 @@ __all__ = [
     "get_followers",
     "get_following",
     "search_users",
+    # Account analysis
+    "get_all_following",
+    "get_all_followers",
+    "extract_post_text",
+    "extract_keywords",
+    "analyze_account",
+    "analyze_accounts",
     # Authentication utilities
     "is_authenticated",
     "get_authenticated_user",

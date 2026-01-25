@@ -1,13 +1,13 @@
 ---
 name: browsing-bluesky
-description: Browse Bluesky content via API and firehose - search posts, fetch user activity, sample trending topics, read feeds and lists. Supports authenticated access for personalized feeds. Use for Bluesky research, user monitoring, trend analysis, feed reading, firehose sampling.
+description: Browse Bluesky content via API and firehose - search posts, fetch user activity, sample trending topics, read feeds and lists, analyze and categorize accounts. Supports authenticated access for personalized feeds. Use for Bluesky research, user monitoring, trend analysis, feed reading, firehose sampling, account categorization.
 metadata:
-  version: 0.3.0
+  version: 0.4.0
 ---
 
 # Browsing Bluesky
 
-Access Bluesky content through public APIs and real-time firehose. Supports optional authentication for personalized feeds.
+Access Bluesky content through public APIs and real-time firehose. Supports optional authentication for personalized feeds. Includes account analysis for categorization.
 
 ## Implementation
 
@@ -17,9 +17,13 @@ Add skill directory to path and import:
 import sys
 sys.path.insert(0, '/path/to/skills/browsing-bluesky')  # or use .claude/skills symlink path
 from browsing_bluesky import (
+    # Core browsing
     search_posts, get_user_posts, get_profile, get_feed_posts, sample_firehose,
     get_thread, get_quotes, get_likes, get_reposts,
     get_followers, get_following, search_users,
+    # Account analysis
+    get_all_following, get_all_followers, extract_post_text,
+    extract_keywords, analyze_account, analyze_accounts,
     # Authentication utilities
     is_authenticated, get_authenticated_user, clear_session
 )
@@ -174,3 +178,75 @@ All API functions return structured dicts with:
 - `url`: Direct link to post on bsky.app
 
 Profile function returns: `handle`, `display_name`, `description`, `followers`, `following`, `posts`, `did`
+
+## Account Analysis
+
+Analyze accounts for categorization by topic. Fetches profile and posts, extracts keywords, and returns structured data for Claude to categorize.
+
+### Analyze a User's Network
+
+```python
+# Analyze accounts you follow
+results = analyze_accounts(following="yourhandle.bsky.social", limit=50)
+
+# Analyze your followers
+results = analyze_accounts(followers="yourhandle.bsky.social", limit=50)
+
+# Analyze specific handles
+results = analyze_accounts(handles=["user1.bsky.social", "user2.bsky.social"])
+```
+
+### Single Account Analysis
+
+```python
+analysis = analyze_account("user.bsky.social")
+# Returns: {handle, display_name, description, keywords, post_count, followers, following}
+```
+
+### Keyword Extraction Options
+
+Stopwords parameter filters domain-specific noise:
+- `"en"`: English (general purpose, default)
+- `"ai"`: AI/ML domain (filters tech boilerplate)
+- `"ls"`: Life Sciences (filters research methodology)
+
+```python
+results = analyze_accounts(following="handle", stopwords="ai")
+```
+
+**Requires**: `extracting-keywords` skill with YAKE venv for keyword extraction.
+
+### Filtering Accounts
+
+```python
+results = analyze_accounts(
+    following="handle",
+    exclude_patterns=["bot", "spam", "promo"]  # Skip accounts matching these
+)
+```
+
+### Paginated Following/Followers
+
+For large account lists beyond the 100 limit of `get_following`/`get_followers`:
+
+```python
+all_following = get_all_following("handle", limit=500)  # Handles pagination
+all_followers = get_all_followers("handle", limit=500)
+```
+
+### Account Analysis Output
+
+Each analyzed account returns:
+```python
+{
+    "handle": "user.bsky.social",
+    "display_name": "User Name",
+    "description": "Bio text here",
+    "keywords": ["keyword1", "keyword2", "keyword3"],
+    "post_count": 20,
+    "followers": 1234,
+    "following": 567
+}
+```
+
+Claude uses bio + keywords to categorize accounts by topic without hardcoded rules

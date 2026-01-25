@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bluesky API client for browsing posts, users, feeds, and firehose."""
+"""Bluesky API client for browsing posts, users, feeds, firehose, and account analysis."""
 
 import os
 import requests
@@ -7,7 +7,8 @@ import subprocess
 import json
 import re
 import time
-from typing import Optional, List, Dict, Any
+import tempfile
+from typing import Optional, List, Dict, Any, Callable
 from pathlib import Path
 
 BASE = "https://api.bsky.app/xrpc"  # Public AppView for unauthenticated reads
@@ -461,6 +462,304 @@ def search_users(query: str, limit: int = 25) -> List[Dict[str, Any]]:
     })
     r.raise_for_status()
     return [_parse_actor(a) for a in r.json().get("actors", [])]
+
+
+# ============================================================================
+# Account Analysis Functions (consolidated from categorizing-bsky-accounts)
+# ============================================================================
+
+def _paginated_graph_fetch(
+    handle: str,
+    endpoint: str,
+    result_key: str,
+    limit: int = 100
+) -> List[Dict[str, Any]]:
+    """Fetch paginated graph data (followers/following).
+
+    Internal helper to avoid code duplication between get_all_following/get_all_followers.
+
+    Args:
+        handle: Bluesky handle
+        endpoint: API endpoint (e.g., "app.bsky.graph.getFollows")
+        result_key: Key in response containing results (e.g., "follows")
+        limit: Max accounts to return
+
+    Returns:
+        List of actor dicts
+    """
+    all_accounts = []
+    cursor = None
+
+    while len(all_accounts) < limit:
+        batch_size = min(100, limit - len(all_accounts))
+        params = {"actor": handle, "limit": batch_size}
+        if cursor:
+            params["cursor"] = cursor
+
+        r = requests.get(f"{BASE}/{endpoint}", params=params)
+        r.raise_for_status()
+        data = r.json()
+        accounts = data.get(result_key, [])
+
+        if not accounts:
+            break
+
+        all_accounts.extend([_parse_actor(a) for a in accounts])
+        cursor = data.get("cursor")
+
+        if not cursor or len(all_accounts) >= limit:
+            break
+
+    return all_accounts[:limit]
+
+
+def get_all_following(handle: str, limit: int = 100) -> List[Dict[str, Any]]:
+    """Get all accounts a user follows with pagination.
+
+    Unlike get_following() which caps at 100, this handles cursor-based
+    pagination to fetch larger lists.
+
+    Args:
+        handle: Bluesky handle (with or without @)
+        limit: Max accounts to return (default 100)
+
+    Returns:
+        List of actor dicts
+    """
+    return _paginated_graph_fetch(
+        handle.lstrip("@"),
+        "app.bsky.graph.getFollows",
+        "follows",
+        limit
+    )
+
+
+def get_all_followers(handle: str, limit: int = 100) -> List[Dict[str, Any]]:
+    """Get all accounts following a user with pagination.
+
+    Unlike get_followers() which caps at 100, this handles cursor-based
+    pagination to fetch larger lists.
+
+    Args:
+        handle: Bluesky handle (with or without @)
+        limit: Max accounts to return (default 100)
+
+    Returns:
+        List of actor dicts
+    """
+    return _paginated_graph_fetch(
+        handle.lstrip("@"),
+        "app.bsky.graph.getFollowers",
+        "followers",
+        limit
+    )
+
+
+def extract_post_text(posts: List[Dict[str, Any]]) -> str:
+    """Extract and concatenate text content from posts.
+
+    Args:
+        posts: List of post dicts (from get_user_posts)
+
+    Returns:
+        Concatenated text from all posts
+    """
+    return " ".join(p.get("text", "") for p in posts if p.get("text"))
+
+
+def extract_keywords(
+    text: str,
+    top_n: int = 10,
+    stopwords: str = "en"
+) -> List[str]:
+    """Extract keywords from text using YAKE via extracting-keywords skill.
+
+    Requires the extracting-keywords skill to be available with its YAKE venv.
+
+    Args:
+        text: Text to extract keywords from
+        top_n: Number of keywords to return (default 10)
+        stopwords: Stopwords to use - "en" (English), "ai" (AI/ML domain),
+                   or "ls" (Life Sciences domain). Default "en".
+
+    Returns:
+        List of keyword strings (empty if extraction fails or text too short)
+    """
+    if not text or len(text) < 100:
+        return []
+
+    try:
+        # Path to extracting-keywords venv
+        venv_python = "/home/claude/yake-venv/bin/python"
+
+        # Try multiple possible paths for extracting-keywords assets
+        possible_paths = [
+            "/mnt/skills/user/extracting-keywords/assets",
+            "/home/user/claude-skills/extracting-keywords/assets",
+            str(Path(__file__).parent.parent.parent / "extracting-keywords" / "assets")
+        ]
+
+        assets_path = None
+        for path in possible_paths:
+            if os.path.exists(os.path.join(path, "stopwords_ai.txt")):
+                assets_path = path
+                break
+
+        if not assets_path:
+            # Fall back to basic English stopwords
+            stopwords_config = "stopwords_config = {'lan': 'en'}"
+        else:
+            stopwords_files = {
+                "ai": os.path.join(assets_path, "stopwords_ai.txt"),
+                "ls": os.path.join(assets_path, "stopwords_ls.txt")
+            }
+            if stopwords in stopwords_files and os.path.exists(stopwords_files[stopwords]):
+                stopwords_config = f"""
+with open('{stopwords_files[stopwords]}', 'r') as f:
+    stopwords_config = {{'stopwords': set(line.strip().lower() for line in f)}}
+"""
+            else:
+                stopwords_config = f"stopwords_config = {{'lan': '{stopwords}'}}"
+
+        # Write text to temp file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as tmp:
+            tmp.write(text)
+            tmp_path = tmp.name
+
+        extraction_script = f"""
+import yake
+
+with open('{tmp_path}', 'r') as f:
+    text = f.read()
+
+{stopwords_config}
+
+kw_extractor = yake.KeywordExtractor(n=3, dedupLim=0.9, top={top_n}, **stopwords_config)
+keywords = kw_extractor.extract_keywords(text)
+
+for kw, score in keywords:
+    print(kw)
+"""
+
+        result = subprocess.run(
+            [venv_python, "-c", extraction_script],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        os.unlink(tmp_path)
+
+        if result.returncode == 0:
+            return [line.strip() for line in result.stdout.strip().split('\n') if line.strip()]
+        return []
+
+    except (subprocess.SubprocessError, FileNotFoundError, OSError):
+        # YAKE venv not available or subprocess failed - return empty gracefully
+        return []
+
+
+def analyze_account(
+    handle: str,
+    posts_limit: int = 20,
+    stopwords: str = "en"
+) -> Dict[str, Any]:
+    """Analyze a single account: fetch profile, posts, and extract keywords.
+
+    Args:
+        handle: Bluesky handle (with or without @)
+        posts_limit: Number of posts to fetch (default 20, max 100)
+        stopwords: Stopwords for keyword extraction ("en", "ai", "ls")
+
+    Returns:
+        Dict with handle, display_name, description, keywords, post_count
+    """
+    handle = handle.lstrip("@")
+
+    # Get profile
+    profile = get_profile(handle)
+
+    # Get posts and extract text
+    posts = get_user_posts(handle, limit=posts_limit)
+    text = extract_post_text(posts)
+
+    # Extract keywords
+    keywords = extract_keywords(text, stopwords=stopwords)
+
+    return {
+        "handle": profile.get("handle"),
+        "display_name": profile.get("display_name"),
+        "description": profile.get("description") or "(no bio)",
+        "keywords": keywords,
+        "post_count": len(posts),
+        "followers": profile.get("followers"),
+        "following": profile.get("following"),
+    }
+
+
+def analyze_accounts(
+    handles: Optional[List[str]] = None,
+    following: Optional[str] = None,
+    followers: Optional[str] = None,
+    limit: int = 100,
+    posts_per_account: int = 20,
+    stopwords: str = "en",
+    exclude_patterns: Optional[List[str]] = None
+) -> List[Dict[str, Any]]:
+    """Analyze multiple Bluesky accounts for categorization.
+
+    Provide ONE of: handles list, following handle, or followers handle.
+
+    Args:
+        handles: List of handles to analyze
+        following: Analyze accounts followed by this handle
+        followers: Analyze accounts following this handle
+        limit: Max accounts to analyze (default 100)
+        posts_per_account: Posts to fetch per account (default 20)
+        stopwords: Stopwords for keyword extraction ("en", "ai", "ls")
+        exclude_patterns: Skip accounts with these keywords in bio/posts
+
+    Returns:
+        List of account analysis dicts, each with:
+        - handle, display_name, description, keywords, post_count
+    """
+    # Get accounts list
+    if handles:
+        accounts = [{"handle": h.lstrip("@")} for h in handles[:limit]]
+    elif following:
+        accounts = get_all_following(following, limit=limit)
+    elif followers:
+        accounts = get_all_followers(followers, limit=limit)
+    else:
+        raise ValueError("Provide handles, following, or followers parameter")
+
+    results = []
+    exclude_patterns = exclude_patterns or []
+
+    # Process accounts, gracefully skipping failures
+    # Unlike single-fetch functions that raise on error, batch analysis
+    # continues on individual failures (private accounts, deleted users,
+    # rate limits on specific requests) to return partial results
+    for account in accounts:
+        handle = account.get("handle", "")
+        if not handle:
+            continue
+
+        try:
+            analysis = analyze_account(handle, posts_per_account, stopwords)
+
+            # Check exclusion patterns
+            if exclude_patterns:
+                combined_text = f"{analysis.get('description', '')} {' '.join(analysis.get('keywords', []))}".lower()
+                if any(p.lower() in combined_text for p in exclude_patterns):
+                    continue
+
+            results.append(analysis)
+        except requests.RequestException:
+            # Skip accounts that fail API calls (private, deleted, rate limited)
+            continue
+
+    return results
 
 
 def _parse_post(post: Dict) -> Dict[str, Any]:
