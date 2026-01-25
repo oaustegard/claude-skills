@@ -40,6 +40,16 @@ from .memory import (
     memory_histogram, prune_by_age, prune_by_priority  # v3.2.0: retention helpers
 )
 
+# Import result types (v3.4.0: type-safe memory results)
+from .result import (
+    MemoryResult, MemoryResultList,
+    VALID_FIELDS, COMMON_MISTAKES,
+    wrap_results
+)
+
+# Import hints layer (v3.4.0: proactive memory surfacing)
+from .hints import recall_hints
+
 # Import config layer
 from .config import (
     config_get, config_set, config_delete,
@@ -80,5 +90,7 @@ __all__ = [
     "get_session_id", "set_session_id",  # session management (v3.2.0)
     "recall_stats", "top_queries",  # retrieval observability (v3.2.0)
     "memory_histogram", "prune_by_age", "prune_by_priority",  # retention helpers (v3.2.0)
+    # v3.4.0: Type-safe results and proactive hints
+    "MemoryResult", "MemoryResultList", "VALID_FIELDS", "recall_hints",
     "r", "q", "j", "TYPES"  # aliases & constants
 ]

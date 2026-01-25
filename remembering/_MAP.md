@@ -1,5 +1,5 @@
 # remembering/
-*Files: 14 | Subdirectories: 1*
+*Files: 16 | Subdirectories: 1*
 
 ## Subdirectories
 
@@ -9,47 +9,48 @@
 
 ### CHANGELOG.md
 - Muninn Memory System - Changelog `h1` :1
-- [3.3.3] - 2026-01-22 `h2` :5
-- [3.3.2] - 2026-01-22 `h2` :11
-- [3.3.2] - 2026-01-22 `h2` :22
-- [3.3.1] - 2026-01-22 `h2` :36
-- [3.3.0] - 2026-01-21 `h2` :42
-- [3.2.1] - 2026-01-21 `h2` :52
-- [3.2.0] - 2026-01-16 `h2` :56
-- [3.2.0] - 2026-01-16 `h2` :62
-- [3.1.0] - 2026-01-16 `h2` :91
-- [3.0.0] - 2026-01-16 `h2` :97
-- [3.0.0] - 2026-01-16 `h2` :115
-- [2.2.1] - 2026-01-09 `h2` :137
-- [2.1.1] - 2026-01-09 `h2` :157
-- [2.1.0] - 2026-01-09 `h2` :167
-- [2.0.2] - 2026-01-09 `h2` :173
-- [2.0.1] - 2026-01-09 `h2` :179
-- [1.0.1] - 2026-01-09 `h2` :190
-- [2.0.0] - 2026-01-09 `h2` :200
-- [0.14.1] - 2026-01-06 `h2` :206
-- [0.14.1] - 2026-01-06 `h2` :212
-- [0.14.0] - 2026-01-04 `h2` :219
-- [0.13.1] - 2026-01-02 `h2` :225
-- [0.13.0] - 2025-12-30 `h2` :242
-- [0.12.2] - 2025-12-30 `h2` :254
-- [0.12.1] - 2025-12-30 `h2` :258
-- [0.12.0] - 2025-12-30 `h2` :291
-- [0.11.0] - 2025-12-30 `h2` :330
-- [0.10.1] - 2025-12-29 `h2` :362
-- [0.10.0] - 2025-12-28 `h2` :401
-- [0.9.1] - 2025-12-28 `h2` :454
-- [0.9.0] - 2025-12-28 `h2` :473
-- [0.8.0] - 2025-12-27 `h2` :522
-- [0.7.1] - 2025-12-27 `h2` :556
-- [0.7.0] - 2025-12-27 `h2` :583
-- [0.6.1] - 2025-12-27 `h2` :628
-- [0.6.0] - 2025-12-27 `h2` :652
-- [0.4.0] - 2025-12-27 `h2` :688
-- [0.3.1] - 2025-12-26 `h2` :707
-- [0.3.0] - 2025-12-26 `h2` :714
-- [0.1.0] - 2025-12-26 `h2` :723
-- Summary `h2` :734
+- [3.4.0] - 2026-01-25 `h2` :5
+- [3.3.3] - 2026-01-22 `h2` :19
+- [3.3.2] - 2026-01-22 `h2` :25
+- [3.3.2] - 2026-01-22 `h2` :36
+- [3.3.1] - 2026-01-22 `h2` :50
+- [3.3.0] - 2026-01-21 `h2` :56
+- [3.2.1] - 2026-01-21 `h2` :66
+- [3.2.0] - 2026-01-16 `h2` :70
+- [3.2.0] - 2026-01-16 `h2` :76
+- [3.1.0] - 2026-01-16 `h2` :105
+- [3.0.0] - 2026-01-16 `h2` :111
+- [3.0.0] - 2026-01-16 `h2` :129
+- [2.2.1] - 2026-01-09 `h2` :151
+- [2.1.1] - 2026-01-09 `h2` :171
+- [2.1.0] - 2026-01-09 `h2` :181
+- [2.0.2] - 2026-01-09 `h2` :187
+- [2.0.1] - 2026-01-09 `h2` :193
+- [1.0.1] - 2026-01-09 `h2` :204
+- [2.0.0] - 2026-01-09 `h2` :214
+- [0.14.1] - 2026-01-06 `h2` :220
+- [0.14.1] - 2026-01-06 `h2` :226
+- [0.14.0] - 2026-01-04 `h2` :233
+- [0.13.1] - 2026-01-02 `h2` :239
+- [0.13.0] - 2025-12-30 `h2` :256
+- [0.12.2] - 2025-12-30 `h2` :268
+- [0.12.1] - 2025-12-30 `h2` :272
+- [0.12.0] - 2025-12-30 `h2` :305
+- [0.11.0] - 2025-12-30 `h2` :344
+- [0.10.1] - 2025-12-29 `h2` :376
+- [0.10.0] - 2025-12-28 `h2` :415
+- [0.9.1] - 2025-12-28 `h2` :468
+- [0.9.0] - 2025-12-28 `h2` :487
+- [0.8.0] - 2025-12-27 `h2` :536
+- [0.7.1] - 2025-12-27 `h2` :570
+- [0.7.0] - 2025-12-27 `h2` :597
+- [0.6.1] - 2025-12-27 `h2` :642
+- [0.6.0] - 2025-12-27 `h2` :666
+- [0.4.0] - 2025-12-27 `h2` :702
+- [0.3.1] - 2025-12-26 `h2` :721
+- [0.3.0] - 2025-12-26 `h2` :728
+- [0.1.0] - 2025-12-26 `h2` :737
+- Summary `h2` :748
 
 ### CLAUDE.md
 - Muninn Memory System - Claude Code Context `h1` :1
@@ -60,14 +61,14 @@
 - Environment Variables `h2` :81
 - Architecture `h2` :104
 - Core API `h2` :145
-- Memory Types `h2` :223
-- HTTP API Format `h2` :232
-- Testing `h2` :254
-- File Structure `h2` :273
-- Development Notes `h2` :286
-- Lessons for Claude Code Agents `h2` :298
-- What's New in v3.2.0 `h2` :356
-- Known Limitations `h2` :373
+- Memory Types `h2` :225
+- HTTP API Format `h2` :234
+- Testing `h2` :256
+- File Structure `h2` :275
+- Development Notes `h2` :288
+- Lessons for Claude Code Agents `h2` :300
+- What's New in v3.2.0 `h2` :358
+- Known Limitations `h2` :375
 
 ### README.md
 - remembering `h1` :1
@@ -94,8 +95,10 @@
 - Retrieval Observability (v3.2.0) `h2` :545
 - Retention Management (v3.2.0) `h2` :562
 - Export/Import for Portability `h2` :587
-- Edge Cases `h2` :618
-- Implementation Notes `h2` :638
+- Type-Safe Results (v3.4.0) `h2` :618
+- Proactive Memory Hints (v3.4.0) `h2` :660
+- Edge Cases `h2` :715
+- Implementation Notes `h2` :735
 
 ### __init__.py
 > Imports: `requests, json, uuid, threading, os`...
@@ -147,35 +150,66 @@
 - **config_set_boot_load** (f) `(key: str, boot_load: bool)` :72
 - **config_list** (f) `(category: str = None)` :99
 
+### hints.py
+> Imports: `re, json, typing, collections, .`...
+- **recall_hints** (f) `(context: str = None, *, terms: List[str] = None,
+                 include_tags: bool = True, include_summaries: bool = True,
+                 min_matches: int = 1)` :17
+
 ### memory.py
 > Imports: `json, uuid, threading, time, atexit`...
 - **remember** (f) `(what: str, type: str, *, tags: list = None, conf: float = None,
              refs: list = None, priority: int = 0, valid_from: str = None,
              sync: bool = True, session_id: str = None,
              # Deprecated parameters (ignored in v2.0.0, kept for backward compat)
-             entities: list = None, importance: float = None, memory_class: str = None)` :69
+             entities: list = None, importance: float = None, memory_class: str = None)` :70
 - **remember_bg** (f) `(what: str, type: str, *, tags: list = None, conf: float = None,
                 entities: list = None, refs: list = None,
-                importance: float = None, memory_class: str = None, valid_from: str = None)` :169
-- **flush** (f) `(timeout: float = 5.0)` :186
+                importance: float = None, memory_class: str = None, valid_from: str = None)` :170
+- **flush** (f) `(timeout: float = 5.0)` :187
 - **recall** (f) `(search: str = None, *, n: int = 10, tags: list = None,
            type: str = None, conf: float = None, tag_mode: str = "any",
            use_cache: bool = True, strict: bool = False, session_id: str = None,
-           auto_strengthen: bool = False)` :218
+           auto_strengthen: bool = False, raw: bool = False)` :219
 - **recall_since** (f) `(after: str, *, search: str = None, n: int = 50,
-                 type: str = None, tags: list = None, tag_mode: str = "any", session_id: str = None)` :480
+                 type: str = None, tags: list = None, tag_mode: str = "any",
+                 session_id: str = None, raw: bool = False)` :489
 - **recall_between** (f) `(after: str, before: str, *, search: str = None,
                    n: int = 100, type: str = None, tags: list = None,
-                   tag_mode: str = "any", session_id: str = None)` :541
-- **forget** (f) `(memory_id: str)` :605
+                   tag_mode: str = "any", session_id: str = None, raw: bool = False)` :556
+- **forget** (f) `(memory_id: str)` :625
 - **supersede** (f) `(original_id: str, summary: str, type: str, *,
-              tags: list = None, conf: float = None)` :623
-- **reprioritize** (f) `(memory_id: str, priority: int)` :691
-- **memory_histogram** (f) `()` :732
-- **prune_by_age** (f) `(older_than_days: int, priority_floor: int = 0, dry_run: bool = True)` :788
-- **prune_by_priority** (f) `(max_priority: int = -1, dry_run: bool = True)` :834
-- **strengthen** (f) `(memory_id: str, boost: int = 1)` :873
-- **weaken** (f) `(memory_id: str, drop: int = 1)` :913
+              tags: list = None, conf: float = None)` :643
+- **reprioritize** (f) `(memory_id: str, priority: int)` :711
+- **memory_histogram** (f) `()` :752
+- **prune_by_age** (f) `(older_than_days: int, priority_floor: int = 0, dry_run: bool = True)` :808
+- **prune_by_priority** (f) `(max_priority: int = -1, dry_run: bool = True)` :854
+- **strengthen** (f) `(memory_id: str, boost: int = 1)` :893
+- **weaken** (f) `(memory_id: str, drop: int = 1)` :933
+
+### result.py
+> Imports: `typing`
+- **MemoryResult** (C) :71
+  - **__init__** (m) `(self, data: dict)` :90
+  - **__getattr__** (m) `(self, name: str)` :94
+  - **__setattr__** (m) `(self, name: str, value: Any)` :104
+  - **__getitem__** (m) `(self, key: str)` :111
+  - **__contains__** (m) `(self, key: str)` :118
+  - **__iter__** (m) `(self)` :122
+  - **__len__** (m) `(self)` :126
+  - **__repr__** (m) `(self)` :130
+  - **__str__** (m) `(self)` :137
+  - **_error_message** (m) `(self, field: str, error_type: str)` :141
+  - **get** (m) `(self, key: str, default: Any = None)` :155
+  - **keys** (m) `(self)` :169
+  - **values** (m) `(self)` :173
+  - **items** (m) `(self)` :177
+  - **to_dict** (m) `(self)` :181
+  - **copy** (m) `(self)` :190
+- **MemoryResultList** (C) :195
+  - **__repr__** (m) `(self)` :202
+  - **to_dicts** (m) `(self)` :207
+- **wrap_results** (f) `(results: List[dict])` :212
 
 ### state.py
 > Imports: `threading, os, pathlib`

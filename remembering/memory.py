@@ -27,6 +27,7 @@ from .cache import (
 )
 # Import config_get and config_set for recall-triggers management
 from .config import config_get, config_set
+from .result import wrap_results, MemoryResult, MemoryResultList
 
 # v3.2.0: Register automatic flush on exit to prevent data loss from background writes
 @atexit.register
@@ -218,7 +219,7 @@ def flush(timeout: float = 5.0) -> dict:
 def recall(search: str = None, *, n: int = 10, tags: list = None,
            type: str = None, conf: float = None, tag_mode: str = "any",
            use_cache: bool = True, strict: bool = False, session_id: str = None,
-           auto_strengthen: bool = False) -> list:
+           auto_strengthen: bool = False, raw: bool = False) -> MemoryResultList:
     """Query memories with flexible filters.
 
     v0.7.0: Uses local cache with progressive disclosure when available.
@@ -227,6 +228,7 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
     v0.12.1: Adds strict mode for timestamp-only ordering (no ranking).
     v3.2.0: Added session_id filter for session scoping.
     v3.3.0: Added auto_strengthen for biological memory consolidation pattern.
+    v3.4.0: Returns MemoryResult objects that validate field access.
 
     Args:
         search: Text to search for in memory summaries (FTS5 ranked search)
@@ -239,12 +241,19 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
         strict: If True, skip FTS5/ranking and order by timestamp DESC (v0.12.1)
         session_id: Filter by session identifier (optional)
         auto_strengthen: If True, automatically strengthen top 3 results (v3.3.0)
+        raw: If True, return plain dicts instead of MemoryResult objects (v3.4.0)
+
+    Returns:
+        MemoryResultList of MemoryResult objects (or list of dicts if raw=True).
+        MemoryResult objects validate field access and raise helpful errors
+        for invalid field names like 'content' (should be 'summary').
     """
     # Track timing for logging (v0.12.0)
     start_time = time.time()
 
     if isinstance(search, int):
-        return _query(limit=search)
+        results = _query(limit=search)
+        return results if raw else wrap_results(results)
 
     # Try cache first (progressive disclosure)
     # v2.0.1: Only trust empty cache results if warming completed, otherwise fall back to Turso
@@ -265,7 +274,7 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
                 used_cache=False,
                 used_semantic_fallback=False
             )
-            return results
+            return results if raw else wrap_results(results)
 
         # v0.13.0: Query expansion fallback - if FTS5 returns few results and search was provided,
         # extract tags from partial results and search for those tags to find related memories
@@ -343,7 +352,7 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
                 used_semantic_fallback=False
             )
 
-            return results
+            return results if raw else wrap_results(results)
 
     # Fallback to direct Turso query
     results = _query(search=search, tags=tags, type=type, conf=conf, limit=n, tag_mode=tag_mode, session_id=session_id)
@@ -367,7 +376,7 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
         used_semantic_fallback=False
     )
 
-    return results
+    return results if raw else wrap_results(results)
 
 
 def _update_access_tracking(memory_ids: list):
@@ -478,7 +487,8 @@ def _query(search: str = None, tags: list = None, type: str = None,
 
 
 def recall_since(after: str, *, search: str = None, n: int = 50,
-                 type: str = None, tags: list = None, tag_mode: str = "any", session_id: str = None) -> list:
+                 type: str = None, tags: list = None, tag_mode: str = "any",
+                 session_id: str = None, raw: bool = False) -> MemoryResultList:
     """Query memories created after a given timestamp with parameterized queries.
 
     Args:
@@ -489,8 +499,13 @@ def recall_since(after: str, *, search: str = None, n: int = 50,
         tags: Filter by tags
         tag_mode: "any" (default) matches any tag, "all" requires all tags
         session_id: Filter by session identifier (optional, v3.2.0)
+        raw: If True, return plain dicts instead of MemoryResult objects (v3.4.0)
+
+    Returns:
+        MemoryResultList of MemoryResult objects (or list of dicts if raw=True).
 
     v3.2.0: Converted to parameterized queries for SQL injection protection.
+    v3.4.0: Returns MemoryResult objects that validate field access.
     """
     conditions = [
         "deleted_at IS NULL",
@@ -535,12 +550,12 @@ def recall_since(after: str, *, search: str = None, n: int = 50,
     if results:
         _update_access_tracking([m["id"] for m in results])
 
-    return results
+    return results if raw else wrap_results(results)
 
 
 def recall_between(after: str, before: str, *, search: str = None,
                    n: int = 100, type: str = None, tags: list = None,
-                   tag_mode: str = "any", session_id: str = None) -> list:
+                   tag_mode: str = "any", session_id: str = None, raw: bool = False) -> MemoryResultList:
     """Query memories within a time range with parameterized queries.
 
     Args:
@@ -552,8 +567,13 @@ def recall_between(after: str, before: str, *, search: str = None,
         tags: Filter by tags
         tag_mode: "any" (default) matches any tag, "all" requires all tags
         session_id: Filter by session identifier (optional, v3.2.0)
+        raw: If True, return plain dicts instead of MemoryResult objects (v3.4.0)
+
+    Returns:
+        MemoryResultList of MemoryResult objects (or list of dicts if raw=True).
 
     v3.2.0: Converted to parameterized queries for SQL injection protection.
+    v3.4.0: Returns MemoryResult objects that validate field access.
     """
     conditions = [
         "deleted_at IS NULL",
@@ -599,7 +619,7 @@ def recall_between(after: str, before: str, *, search: str = None,
     if results:
         _update_access_tracking([m["id"] for m in results])
 
-    return results
+    return results if raw else wrap_results(results)
 
 
 def forget(memory_id: str) -> bool:

@@ -155,6 +155,8 @@ from remembering import handoff_pending, handoff_complete
 from remembering import muninn_export, muninn_import
 from remembering import strengthen, weaken
 from remembering import cache_stats
+# v3.4.0: Type-safe results and proactive hints
+from remembering import MemoryResult, MemoryResultList, VALID_FIELDS, recall_hints
 
 # Store a memory (type required)
 id = remember("User prefers dark mode", "decision", tags=["ui"], conf=0.9)
