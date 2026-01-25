@@ -10,8 +10,8 @@ import time
 from typing import Optional, List, Dict, Any
 from pathlib import Path
 
-BASE = "https://api.bsky.app/xrpc"  # NOT public.api.bsky.app
-AUTH_BASE = "https://bsky.social/xrpc"  # Auth endpoint uses bsky.social
+BASE = "https://api.bsky.app/xrpc"  # Public AppView for unauthenticated reads
+PDS_BASE = "https://bsky.social/xrpc"  # PDS for authenticated requests
 
 # Module-level session cache (memory only, never persisted)
 _session_cache: Dict[str, Any] = {}
@@ -36,7 +36,7 @@ def _create_session() -> Optional[Dict[str, Any]]:
 
     try:
         r = requests.post(
-            f"{AUTH_BASE}/com.atproto.server.createSession",
+            f"{PDS_BASE}/com.atproto.server.createSession",
             json={"identifier": handle, "password": app_password},
             timeout=10
         )
@@ -65,7 +65,7 @@ def _refresh_session() -> Optional[Dict[str, Any]]:
 
     try:
         r = requests.post(
-            f"{AUTH_BASE}/com.atproto.server.refreshSession",
+            f"{PDS_BASE}/com.atproto.server.refreshSession",
             headers={"Authorization": f"Bearer {refresh_jwt}"},
             timeout=10
         )
@@ -119,6 +119,21 @@ def _auth_headers() -> Dict[str, str]:
     return {}
 
 
+def _get_base_and_headers() -> tuple[str, Dict[str, str]]:
+    """Get appropriate base URL and headers based on auth state.
+
+    When authenticated, uses PDS endpoint (bsky.social) with auth headers.
+    When not authenticated, uses public AppView (api.bsky.app) without headers.
+
+    Returns:
+        Tuple of (base_url, headers_dict)
+    """
+    session = _get_session()
+    if session and "accessJwt" in session:
+        return PDS_BASE, {"Authorization": f"Bearer {session['accessJwt']}"}
+    return BASE, {}
+
+
 def is_authenticated() -> bool:
     """Check if currently authenticated with Bluesky.
 
@@ -157,10 +172,11 @@ def get_profile(handle: str) -> Dict[str, Any]:
         Dict with handle, display_name, description, followers, following, posts, did
     """
     handle = handle.lstrip("@")
+    base, headers = _get_base_and_headers()
     r = requests.get(
-        f"{BASE}/app.bsky.actor.getProfile",
+        f"{base}/app.bsky.actor.getProfile",
         params={"actor": handle},
-        headers=_auth_headers()
+        headers=headers
     )
     r.raise_for_status()
     data = r.json()
@@ -186,10 +202,11 @@ def get_user_posts(handle: str, limit: int = 20) -> List[Dict[str, Any]]:
         List of post dicts
     """
     handle = handle.lstrip("@")
+    base, headers = _get_base_and_headers()
     r = requests.get(
-        f"{BASE}/app.bsky.feed.getAuthorFeed",
+        f"{base}/app.bsky.feed.getAuthorFeed",
         params={"actor": handle, "limit": min(limit, 100), "filter": "posts_no_replies"},
-        headers=_auth_headers()
+        headers=headers
     )
     r.raise_for_status()
     return [_parse_post(item["post"]) for item in r.json().get("feed", [])]
@@ -228,10 +245,11 @@ def search_posts(
     if until:
         parts.append(f"until:{until}")
 
+    base, headers = _get_base_and_headers()
     r = requests.get(
-        f"{BASE}/app.bsky.feed.searchPosts",
+        f"{base}/app.bsky.feed.searchPosts",
         params={"q": " ".join(parts), "limit": min(limit, 100)},
-        headers=_auth_headers()
+        headers=headers
     )
     r.raise_for_status()
     return [_parse_post(p) for p in r.json().get("posts", [])]
@@ -259,18 +277,18 @@ def get_feed_posts(feed_uri: str, limit: int = 20) -> List[Dict[str, Any]]:
         uri = feed_uri
 
     # Determine if it's a list or feed based on collection type
-    # Auth headers are especially important for personalized feeds
-    headers = _auth_headers()
+    # Auth is especially important for personalized feeds
+    base, headers = _get_base_and_headers()
 
     if "app.bsky.graph.list" in uri:
         r = requests.get(
-            f"{BASE}/app.bsky.feed.getListFeed",
+            f"{base}/app.bsky.feed.getListFeed",
             params={"list": uri, "limit": min(limit, 100)},
             headers=headers
         )
     else:
         r = requests.get(
-            f"{BASE}/app.bsky.feed.getFeed",
+            f"{base}/app.bsky.feed.getFeed",
             params={"feed": uri, "limit": min(limit, 100)},
             headers=headers
         )

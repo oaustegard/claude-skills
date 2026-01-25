@@ -156,10 +156,10 @@ for u in users:
 
 ## API Endpoint Notes
 
-- **Base**: `https://api.bsky.app/xrpc/` (NOT `public.api.bsky.app` which returns 403)
-- **Auth**: `https://bsky.social/xrpc/` for session creation/refresh
+- **Public AppView**: `https://api.bsky.app/xrpc/` for unauthenticated reads
+- **PDS**: `https://bsky.social/xrpc/` for authenticated requests
 - **Firehose**: `wss://jetstream1.us-east.bsky.network/subscribe`
-- **Authentication** optional for public reads, required for personalized feeds
+- **Endpoint routing** is automatic - authenticated requests go to PDS, public requests go to AppView
 - **Rate limits** exist but are generous for read operations
 
 ## Return Format
