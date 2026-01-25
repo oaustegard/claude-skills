@@ -8,7 +8,7 @@ import json
 import re
 import time
 import tempfile
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any, Callable
 from pathlib import Path
 
 BASE = "https://api.bsky.app/xrpc"  # Public AppView for unauthenticated reads
@@ -465,33 +465,41 @@ def search_users(query: str, limit: int = 25) -> List[Dict[str, Any]]:
 
 
 # ============================================================================
-# Account Analysis Functions (from categorizing-bsky-accounts)
+# Account Analysis Functions (consolidated from categorizing-bsky-accounts)
 # ============================================================================
 
-def get_all_following(handle: str, limit: int = 100) -> List[Dict[str, Any]]:
-    """Get all accounts a user follows with pagination.
+def _paginated_graph_fetch(
+    handle: str,
+    endpoint: str,
+    result_key: str,
+    limit: int = 100
+) -> List[Dict[str, Any]]:
+    """Fetch paginated graph data (followers/following).
+
+    Internal helper to avoid code duplication between get_all_following/get_all_followers.
 
     Args:
-        handle: Bluesky handle (with or without @)
-        limit: Max accounts to return (default 100)
+        handle: Bluesky handle
+        endpoint: API endpoint (e.g., "app.bsky.graph.getFollows")
+        result_key: Key in response containing results (e.g., "follows")
+        limit: Max accounts to return
 
     Returns:
         List of actor dicts
     """
-    handle = handle.lstrip("@")
     all_accounts = []
     cursor = None
 
     while len(all_accounts) < limit:
         batch_size = min(100, limit - len(all_accounts))
-        r = requests.get(f"{BASE}/app.bsky.graph.getFollows", params={
-            "actor": handle,
-            "limit": batch_size,
-            **({"cursor": cursor} if cursor else {})
-        })
+        params = {"actor": handle, "limit": batch_size}
+        if cursor:
+            params["cursor"] = cursor
+
+        r = requests.get(f"{BASE}/{endpoint}", params=params)
         r.raise_for_status()
         data = r.json()
-        accounts = data.get("follows", [])
+        accounts = data.get(result_key, [])
 
         if not accounts:
             break
@@ -503,11 +511,35 @@ def get_all_following(handle: str, limit: int = 100) -> List[Dict[str, Any]]:
             break
 
     return all_accounts[:limit]
+
+
+def get_all_following(handle: str, limit: int = 100) -> List[Dict[str, Any]]:
+    """Get all accounts a user follows with pagination.
+
+    Unlike get_following() which caps at 100, this handles cursor-based
+    pagination to fetch larger lists.
+
+    Args:
+        handle: Bluesky handle (with or without @)
+        limit: Max accounts to return (default 100)
+
+    Returns:
+        List of actor dicts
+    """
+    return _paginated_graph_fetch(
+        handle.lstrip("@"),
+        "app.bsky.graph.getFollows",
+        "follows",
+        limit
+    )
 
 
 def get_all_followers(handle: str, limit: int = 100) -> List[Dict[str, Any]]:
     """Get all accounts following a user with pagination.
 
+    Unlike get_followers() which caps at 100, this handles cursor-based
+    pagination to fetch larger lists.
+
     Args:
         handle: Bluesky handle (with or without @)
         limit: Max accounts to return (default 100)
@@ -515,31 +547,12 @@ def get_all_followers(handle: str, limit: int = 100) -> List[Dict[str, Any]]:
     Returns:
         List of actor dicts
     """
-    handle = handle.lstrip("@")
-    all_accounts = []
-    cursor = None
-
-    while len(all_accounts) < limit:
-        batch_size = min(100, limit - len(all_accounts))
-        r = requests.get(f"{BASE}/app.bsky.graph.getFollowers", params={
-            "actor": handle,
-            "limit": batch_size,
-            **({"cursor": cursor} if cursor else {})
-        })
-        r.raise_for_status()
-        data = r.json()
-        accounts = data.get("followers", [])
-
-        if not accounts:
-            break
-
-        all_accounts.extend([_parse_actor(a) for a in accounts])
-        cursor = data.get("cursor")
-
-        if not cursor or len(all_accounts) >= limit:
-            break
-
-    return all_accounts[:limit]
+    return _paginated_graph_fetch(
+        handle.lstrip("@"),
+        "app.bsky.graph.getFollowers",
+        "followers",
+        limit
+    )
 
 
 def extract_post_text(posts: List[Dict[str, Any]]) -> str:
@@ -641,7 +654,8 @@ for kw, score in keywords:
             return [line.strip() for line in result.stdout.strip().split('\n') if line.strip()]
         return []
 
-    except Exception:
+    except (subprocess.SubprocessError, FileNotFoundError, OSError):
+        # YAKE venv not available or subprocess failed - return empty gracefully
         return []
 
 
@@ -722,6 +736,10 @@ def analyze_accounts(
     results = []
     exclude_patterns = exclude_patterns or []
 
+    # Process accounts, gracefully skipping failures
+    # Unlike single-fetch functions that raise on error, batch analysis
+    # continues on individual failures (private accounts, deleted users,
+    # rate limits on specific requests) to return partial results
     for account in accounts:
         handle = account.get("handle", "")
         if not handle:
@@ -737,8 +755,8 @@ def analyze_accounts(
                     continue
 
             results.append(analysis)
-        except Exception:
-            # Skip accounts that fail (private, deleted, etc.)
+        except requests.RequestException:
+            # Skip accounts that fail API calls (private, deleted, rate limited)
             continue
 
     return results

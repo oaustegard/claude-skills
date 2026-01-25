@@ -31,19 +31,19 @@
 - **get_followers** (f) `(handle: str, limit: int = 50)` :411
 - **get_following** (f) `(handle: str, limit: int = 50)` :430
 - **search_users** (f) `(query: str, limit: int = 25)` :449
-- **get_all_following** (f) `(handle: str, limit: int = 100)` :471
-- **get_all_followers** (f) `(handle: str, limit: int = 100)` :508
-- **extract_post_text** (f) `(posts: List[Dict[str, Any]])` :545
+- **get_all_following** (f) `(handle: str, limit: int = 100)` :516
+- **get_all_followers** (f) `(handle: str, limit: int = 100)` :537
+- **extract_post_text** (f) `(posts: List[Dict[str, Any]])` :558
 - **extract_keywords** (f) `(
     text: str,
     top_n: int = 10,
     stopwords: str = "en"
-)` :557
+)` :570
 - **analyze_account** (f) `(
     handle: str,
     posts_limit: int = 20,
     stopwords: str = "en"
-)` :648
+)` :662
 - **analyze_accounts** (f) `(
     handles: Optional[List[str]] = None,
     following: Optional[str] = None,
@@ -52,7 +52,7 @@
     posts_per_account: int = 20,
     stopwords: str = "en",
     exclude_patterns: Optional[List[str]] = None
-)` :686
+)` :700
 
 ### zeitgeist-sample.js
 - *No top-level symbols*
