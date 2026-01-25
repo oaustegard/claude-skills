@@ -6,6 +6,17 @@ All notable changes to the `remembering` skill (Muninn) are documented in this f
 
 ### Added
 
+- Add type-safe MemoryResult and proactive recall_hints (#211, #212)
+- Add optional authentication for personalized feeds
+
+### Other
+
+- Update claude-ai-project-instructions.md
+
+## [3.4.0] - 2026-01-25
+
+### Added
+
 - **Type-safe MemoryResult objects** (#212): `recall()`, `recall_since()`, and `recall_between()` now return `MemoryResult` objects that validate field access immediately. Invalid field names like `m['content']` raise helpful errors with suggestions like "Did you mean 'summary'?".
 - **Proactive memory hints** (#211): New `recall_hints()` function scans context or terms against memory tags and summaries, surfacing relevant memories before mistakes happen.
 - **New exports**: `MemoryResult`, `MemoryResultList`, `VALID_FIELDS`, `recall_hints`
