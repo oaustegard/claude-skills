@@ -2,9 +2,7 @@
 name: inspecting-skills
 description: Discovers and indexes Python code in skills, enabling cross-skill imports. Use when importing functions from other skills or analyzing skill codebases.
 metadata:
-  version: 1.0.1
-  author: Claude
-  tags: [development, meta, imports, indexing]
+  version: 1.0.2
 ---
 
 # Inspecting Skills
