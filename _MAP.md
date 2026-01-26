@@ -1,5 +1,5 @@
 # claude-skills/
-*Files: 5 | Subdirectories: 39*
+*Files: 5 | Subdirectories: 40*
 
 ## Subdirectories
 
@@ -22,6 +22,7 @@
 - [developing-preact/](./developing-preact/_MAP.md)
 - [exploring-data/](./exploring-data/_MAP.md)
 - [extracting-keywords/](./extracting-keywords/_MAP.md)
+- [fetching-blocked-urls/](./fetching-blocked-urls/_MAP.md)
 - [generating-patches/](./generating-patches/_MAP.md)
 - [githubbing/](./githubbing/_MAP.md)
 - [hello-demo/](./hello-demo/_MAP.md)
