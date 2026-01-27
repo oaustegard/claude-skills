@@ -157,6 +157,8 @@ from remembering import strengthen, weaken
 from remembering import cache_stats
 # v3.4.0: Type-safe results and proactive hints
 from remembering import MemoryResult, MemoryResultList, VALID_FIELDS, recall_hints
+# v3.5.0: GitHub access detection
+from remembering import detect_github_access
 
 # Store a memory (type required)
 id = remember("User prefers dark mode", "decision", tags=["ui"], conf=0.9)
@@ -353,6 +355,33 @@ test -f /home/user/claude-skills/remembering/__init__.py && echo "Found" || echo
 
 # 4. Test import
 python3 -c "import sys; sys.path.insert(0, '/home/user/claude-skills'); import remembering; print('Success')"
+```
+
+## What's New in v3.5.0
+
+**GitHub Access Detection**: Boot now automatically detects and reports GitHub access methods:
+- Checks for `gh` CLI availability and authentication status
+- Detects `GITHUB_TOKEN` / `GH_TOKEN` environment variables
+- Reports recommended method in boot output
+- Eliminates trial-and-error GitHub access patterns
+
+**Capabilities Section**: Boot output now includes a `# CAPABILITIES` section with:
+- GitHub access status and recommended method
+- Installed utilities with import syntax
+- Clear reporting of what's available
+
+**Utility Code Injection**: Memories tagged `utility-code` are now:
+- Automatically extracted to `/home/claude/muninn_utils/`
+- Added to Python path for direct import
+- Listed in boot output with import syntax
+
+```python
+from remembering import detect_github_access
+
+# Check GitHub access independently
+github = detect_github_access()
+if github['available']:
+    print(f"Use {github['recommended']} for GitHub operations")
 ```
 
 ## What's New in v3.2.0

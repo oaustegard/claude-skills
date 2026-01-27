@@ -59,6 +59,7 @@ from .config import (
 # Import boot layer
 from .boot import (
     profile, ops, _warm_cache, boot,
+    detect_github_access,  # v3.5.0: GitHub access detection
     journal, journal_recent, journal_prune,
     therapy_scope, therapy_session_count, decisions_recent,
     group_by_type, group_by_tag,
@@ -79,6 +80,7 @@ __all__ = [
     "recall_since", "recall_between",  # date-filtered queries
     "config_get", "config_set", "config_delete", "config_list", "config_set_boot_load",  # config
     "profile", "ops", "boot", "journal", "journal_recent", "journal_prune",  # boot & journal
+    "detect_github_access",  # v3.5.0: GitHub access detection
     "therapy_scope", "therapy_session_count", "decisions_recent",  # therapy helpers
     "group_by_type", "group_by_tag",  # analysis helpers
     "handoff_pending", "handoff_complete",  # handoff workflow

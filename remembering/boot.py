@@ -3,6 +3,7 @@ Boot, journal, therapy, handoff, and export/import operations for remembering sk
 
 This module handles:
 - Boot sequence (boot, profile, ops, _warm_cache)
+- GitHub access detection and configuration
 - Journal operations (journal, journal_recent, journal_prune)
 - Therapy helpers (therapy_scope, therapy_session_count, decisions_recent)
 - Analysis helpers (group_by_type, group_by_tag)
@@ -13,6 +14,9 @@ Imports from: state, turso, cache, memory, config
 """
 
 import json
+import os
+import shutil
+import subprocess
 import threading
 from datetime import datetime, UTC
 
@@ -85,6 +89,85 @@ def classify_ops_key(key: str) -> str | None:
         3. Create a new topic category if warranted
     """
     return _OPS_KEY_TO_TOPIC.get(key)
+
+
+# --- GitHub Access Detection ---
+
+def detect_github_access() -> dict:
+    """Detect available GitHub access mechanisms.
+
+    Checks for:
+    - gh CLI availability and authentication status
+    - GITHUB_TOKEN environment variable
+    - GH_TOKEN environment variable (alternative)
+
+    Returns:
+        Dict with:
+        - 'available': bool - whether any GitHub access is configured
+        - 'methods': list - available access methods
+        - 'recommended': str - recommended method to use
+        - 'gh_cli': dict|None - gh CLI details if available
+        - 'api_token': bool - whether API token is available
+    """
+    result = {
+        'available': False,
+        'methods': [],
+        'recommended': None,
+        'gh_cli': None,
+        'api_token': False
+    }
+
+    # Check for gh CLI
+    gh_path = shutil.which('gh')
+    if gh_path:
+        gh_info = {'path': gh_path, 'authenticated': False, 'user': None}
+
+        # Check authentication status
+        try:
+            auth_check = subprocess.run(
+                ['gh', 'auth', 'status'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if auth_check.returncode == 0:
+                gh_info['authenticated'] = True
+                # Try to extract username
+                try:
+                    user_check = subprocess.run(
+                        ['gh', 'api', 'user', '--jq', '.login'],
+                        capture_output=True,
+                        text=True,
+                        timeout=5
+                    )
+                    if user_check.returncode == 0:
+                        gh_info['user'] = user_check.stdout.strip()
+                except Exception:
+                    pass  # Username extraction is optional
+        except Exception:
+            pass  # Auth check failed, gh exists but not authenticated
+
+        result['gh_cli'] = gh_info
+        if gh_info['authenticated']:
+            result['methods'].append('gh-cli')
+
+    # Check for API token
+    token = os.environ.get('GITHUB_TOKEN') or os.environ.get('GH_TOKEN')
+    if token:
+        result['api_token'] = True
+        result['methods'].append('api-token')
+
+    # Determine availability and recommendation
+    result['available'] = len(result['methods']) > 0
+
+    if result['available']:
+        # Prefer gh CLI when authenticated (more capable)
+        if 'gh-cli' in result['methods']:
+            result['recommended'] = 'gh-cli'
+        else:
+            result['recommended'] = 'api-token'
+
+    return result
 
 
 def group_ops_by_topic(ops_entries: list) -> tuple[dict, list]:
@@ -239,6 +322,9 @@ def boot() -> str:
     # Start async cache warming
     threading.Thread(target=_warm_cache, daemon=True).start()
 
+    # Detect GitHub access methods
+    github_access = detect_github_access()
+
     # Install utility code memories to disk
     installed_utils = install_utilities()
 
@@ -252,7 +338,7 @@ def boot() -> str:
     ops_by_topic, uncategorized = group_ops_by_topic(core_ops)
 
     # Format output with markdown headings
-    return _format_boot_output(profile_data, ops_by_topic, uncategorized, reference_ops, installed_utils)
+    return _format_boot_output(profile_data, ops_by_topic, uncategorized, reference_ops, installed_utils, github_access)
 
 
 def _format_entry(entry: dict) -> str:
@@ -269,7 +355,7 @@ def _format_entry(entry: dict) -> str:
 
 def _format_boot_output(profile_data: list, ops_by_topic: dict,
                         uncategorized: list, reference_ops: list,
-                        installed_utils: dict) -> str:
+                        installed_utils: dict, github_access: dict = None) -> str:
     """Format boot output with organized sections.
 
     Args:
@@ -278,6 +364,7 @@ def _format_boot_output(profile_data: list, ops_by_topic: dict,
         uncategorized: List of ops entries not in any topic
         reference_ops: List of reference-only ops (boot_load=0)
         installed_utils: Dict of {name: path} from install_utilities()
+        github_access: Dict from detect_github_access() with GitHub capabilities
 
     Returns:
         Formatted boot output string with markdown headings
@@ -311,11 +398,38 @@ def _format_boot_output(profile_data: list, ops_by_topic: dict,
             ref_keys = sorted([o['key'] for o in reference_ops])
             output.append(", ".join(ref_keys))
 
+    # Capabilities section (GitHub and utilities)
+    output.append("\n# CAPABILITIES")
+
+    # GitHub access section
+    if github_access:
+        output.append("\n## GitHub Access")
+        if github_access.get('available'):
+            methods = github_access.get('methods', [])
+            recommended = github_access.get('recommended')
+            output.append(f"  Status: Available")
+            output.append(f"  Methods: {', '.join(methods)}")
+            output.append(f"  Recommended: {recommended}")
+
+            # Add gh CLI details if authenticated
+            gh_cli = github_access.get('gh_cli')
+            if gh_cli and gh_cli.get('authenticated'):
+                user = gh_cli.get('user')
+                if user:
+                    output.append(f"  gh user: {user}")
+                output.append("  Usage: gh pr view, gh issue list, gh api repos/...")
+        else:
+            output.append("  Status: Not configured")
+            output.append("  Note: Set GITHUB_TOKEN or authenticate gh CLI")
+
     # Utilities section
     if installed_utils:
-        output.append(f"\n# UTILITIES ({len(installed_utils)})")
+        output.append(f"\n## Utilities ({len(installed_utils)})")
         for name in sorted(installed_utils.keys()):
-            output.append(f"  {name}")
+            output.append(f"  from muninn_utils import {name}")
+    else:
+        output.append("\n## Utilities")
+        output.append("  None installed (tag memories with 'utility-code' to add)")
 
     return '\n'.join(output)
 
