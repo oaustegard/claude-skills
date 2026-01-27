@@ -1,81 +1,65 @@
 ---
 name: fetching-blocked-urls
-description: "FALLBACK for WebFetch failures. Use IMMEDIATELY when WebFetch returns 403, blocked, paywall, timeout, or JavaScript-rendering errors. Retrieves clean markdown from URLs via Jina AI reader. Keywords: fetch url fallback blocked content retrieval."
+description: Retrieve clean markdown from URLs when web_fetch fails. Converts pages via Jina AI reader service with automatic retry. Use when web_fetch or curl returns 403, blocked, paywall, timeout, JavaScript-rendering errors, or empty content or user explicitly suggests using jina.
 metadata:
-  version: 0.1.0
+  version: 0.1.1
 ---
 
 # Fetching Blocked URLs
 
-**Automatic fallback when WebFetch fails.** Converts any URL to clean markdown using Jina AI's reader service.
+Retrieve readable content from URLs that web_fetch cannot access. Jina AI's reader service renders JavaScript, bypasses soft blocks, and returns clean markdown.
 
-## When to Use This Skill
+## Activation Triggers
 
-**ALWAYS use this skill immediately when:**
-- WebFetch returns 403 Forbidden
-- WebFetch returns "blocked" or "access denied" errors
-- WebFetch hits a paywall or login wall
-- WebFetch fails on JavaScript-heavy sites (SPAs)
-- WebFetch returns empty or garbled content
-- WebFetch times out
-- User provides a URL and primary fetch doesn't work
+Invoke this skill immediately when web_fetch returns:
+- 403 Forbidden or access denied
+- Paywall or login wall indicators
+- Empty, garbled, or truncated content
+- JavaScript-heavy SPA failures
+- Timeout errors
 
-**Do NOT ask the user to retrieve content themselves** - try this fallback first.
-
-## Usage
-
-Single command retrieves clean markdown from any URL:
+## Core Command
 
 ```bash
-curl -s -k "https://r.jina.ai/URL_HERE"
+curl -s --max-time 30 "https://r.jina.ai/TARGET_URL"
 ```
 
-### Examples
+The service returns markdown with page title, body text, and preserved links.
+
+## Retry Pattern
+
+Jina's backend has ~10% intermittent failures. Use retry logic to achieve 99%+ success:
 
 ```bash
-# Fetch a blocked news article
-curl -s -k "https://r.jina.ai/https://example.com/article"
-
-# Fetch documentation behind JS rendering
-curl -s -k "https://r.jina.ai/https://docs.example.com/guide"
-
-# Fetch paywall content (public portion)
-curl -s -k "https://r.jina.ai/https://news.example.com/story"
+for attempt in 1 2 3; do
+  result=$(curl -s --max-time 30 "https://r.jina.ai/TARGET_URL" 2>&1)
+  echo "$result" | grep -q "upstream connect error" || { echo "$result"; break; }
+  [ $attempt -lt 3 ] && sleep 1
+done
 ```
-
-### Flags Explained
-- `-s`: Silent mode (no progress meter)
-- `-k`: Allow insecure SSL (needed in some containerized environments)
-
-## What You Get
-
-Jina AI returns clean markdown including:
-- Page title
-- Main body text
-- Extracted content without ads/navigation
-- Links preserved in markdown format
 
 ## Workflow Integration
 
-This skill fits into a three-step URL retrieval flow:
+1. **Primary**: Use web_fetch (native tool)
+2. **Fallback**: This skill with retry when web_fetch fails
+3. **Escalate**: Request user assistance only after retry exhaustion
 
-1. **Try WebFetch first** (native tool)
-2. **If WebFetch fails → Use this skill immediately**
-3. **If both fail → Then ask user for assistance**
+Attempt this fallback before asking users to copy-paste content manually.
+
+## Output Format
+
+Jina returns structured markdown:
+- `Title:` page title
+- `URL Source:` original URL
+- `Markdown Content:` extracted body text, links preserved
 
 ## Limitations
 
-- Very long pages may be truncated
-- Some sites actively block all scrapers (including Jina)
-- Login-required content beyond public portions unavailable
-- Real-time/dynamic content may not render
+- Long pages may truncate
+- Sites blocking all scrapers remain inaccessible
+- Login-required content limited to public portions
+- Real-time dynamic content may not render
 
 ## Domain Access
 
-The `r.jina.ai` domain is whitelisted for network access in Claude environments.
-
-## Do Not
-
-- Do NOT skip this fallback and ask user to copy-paste content
-- Do NOT try multiple WebFetch retries before using this fallback
-- Do NOT suggest browser-based workarounds when this skill exists
+`r.jina.ai` is whitelisted in Claude container network configuration.
