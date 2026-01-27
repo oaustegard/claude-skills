@@ -1,8 +1,8 @@
 ---
 name: remembering
-description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, retention management, type-safe results, and proactive memory hints.
+description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, retention management, type-safe results, proactive memory hints, and GitHub access detection.
 metadata:
-  version: 3.4.0
+  version: 3.5.0
 ---
 
 > **⚠️ IMPORTANT FOR CLAUDE CODE AGENTS**
@@ -40,6 +40,61 @@ Output: Complete profile and ops values for full context at boot.
 **Performance:**
 - Execution: ~150ms (single HTTP request)
 - Populates local cache for fast subsequent recall()
+
+### Boot Output: CAPABILITIES Section (v3.5.0)
+
+Boot now includes a `# CAPABILITIES` section reporting:
+
+**GitHub Access:**
+- Detects `gh` CLI availability and authentication status
+- Checks for `GITHUB_TOKEN` / `GH_TOKEN` environment variables
+- Reports recommended method (gh-cli preferred when authenticated)
+- Shows authenticated user when available
+
+```
+# CAPABILITIES
+
+## GitHub Access
+  Status: Available
+  Methods: gh-cli, api-token
+  Recommended: gh-cli
+  gh user: oaustegard
+  Usage: gh pr view, gh issue list, gh api repos/...
+```
+
+**Utilities:**
+- Extracts utility-code memories to `/home/claude/muninn_utils/`
+- Adds to Python path for direct import
+- Lists available utilities with import syntax
+
+```
+## Utilities (2)
+  from muninn_utils import my_helper
+  from muninn_utils import another_util
+```
+
+### Detecting GitHub Access Programmatically
+
+```python
+from remembering import detect_github_access
+
+github = detect_github_access()
+if github['available']:
+    print(f"Use {github['recommended']} for GitHub operations")
+    if github['gh_cli'] and github['gh_cli']['authenticated']:
+        print(f"Authenticated as: {github['gh_cli']['user']}")
+```
+
+Returns:
+```python
+{
+    'available': True,
+    'methods': ['gh-cli', 'api-token'],
+    'recommended': 'gh-cli',
+    'gh_cli': {'path': '/usr/bin/gh', 'authenticated': True, 'user': 'username'},
+    'api_token': True
+}
+```
 
 ## Journal System
 
