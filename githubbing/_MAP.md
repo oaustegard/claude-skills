@@ -1,5 +1,9 @@
 # githubbing/
-*Files: 2*
+*Files: 2 | Subdirectories: 1*
+
+## Subdirectories
+
+- [scripts/](./scripts/_MAP.md)
 
 ## Files
 
@@ -9,9 +13,7 @@
 
 ### SKILL.md
 - Githubbing `h1` :9
-- When to Use `h2` :13
-- Setup `h2` :22
-- Token Scopes `h2` :55
-- Common Operations `h2` :66
-- Relationship to accessing-github-repos `h2` :85
+- 1. Install `h2` :13
+- 2. Configure Authentication `h2` :19
+- 3. Verify `h2` :32
 
