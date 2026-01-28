@@ -2,6 +2,13 @@
 
 All notable changes to the `githubbing` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.1.1] - 2026-01-28
+
+### Other
+
+- Update version from 1.1.0 to 1.1.1 in SKILL.md
+- Modify apt update to ignore errors
+
 ## [1.1.0] - 2026-01-28
 
 ### Added
