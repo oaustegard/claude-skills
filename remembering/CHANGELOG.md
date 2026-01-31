@@ -6,6 +6,12 @@ All notable changes to the `remembering` skill (Muninn) are documented in this f
 
 ### Added
 
+- Add priority-based ordering and dynamic ops topics (v3.6.0)
+
+## [3.6.0] - 2026-01-31
+
+### Added
+
 - **Priority-based ordering within ops categories** (#250): Ops entries within each topic are now sorted by priority (descending). Higher priority entries appear first.
 - **Dynamic OPS_TOPICS loading from config** (#251): Topic categories can now be loaded from `config_get('ops-topics')` instead of being hardcoded. Falls back to built-in defaults if config is missing.
 - **New `config_set_priority()` function**: Set priority for config entries to control ordering within categories.
