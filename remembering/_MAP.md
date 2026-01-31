@@ -9,50 +9,51 @@
 
 ### CHANGELOG.md
 - Muninn Memory System - Changelog `h1` :1
-- [3.5.0] - 2026-01-27 `h2` :5
-- [3.4.0] - 2026-01-25 `h2` :12
-- [3.4.0] - 2026-01-25 `h2` :23
-- [3.3.3] - 2026-01-22 `h2` :37
-- [3.3.2] - 2026-01-22 `h2` :43
-- [3.3.2] - 2026-01-22 `h2` :54
-- [3.3.1] - 2026-01-22 `h2` :68
-- [3.3.0] - 2026-01-21 `h2` :74
-- [3.2.1] - 2026-01-21 `h2` :84
-- [3.2.0] - 2026-01-16 `h2` :88
-- [3.2.0] - 2026-01-16 `h2` :94
-- [3.1.0] - 2026-01-16 `h2` :123
-- [3.0.0] - 2026-01-16 `h2` :129
-- [3.0.0] - 2026-01-16 `h2` :147
-- [2.2.1] - 2026-01-09 `h2` :169
-- [2.1.1] - 2026-01-09 `h2` :189
-- [2.1.0] - 2026-01-09 `h2` :199
-- [2.0.2] - 2026-01-09 `h2` :205
-- [2.0.1] - 2026-01-09 `h2` :211
-- [1.0.1] - 2026-01-09 `h2` :222
-- [2.0.0] - 2026-01-09 `h2` :232
-- [0.14.1] - 2026-01-06 `h2` :238
-- [0.14.1] - 2026-01-06 `h2` :244
-- [0.14.0] - 2026-01-04 `h2` :251
-- [0.13.1] - 2026-01-02 `h2` :257
-- [0.13.0] - 2025-12-30 `h2` :274
-- [0.12.2] - 2025-12-30 `h2` :286
-- [0.12.1] - 2025-12-30 `h2` :290
-- [0.12.0] - 2025-12-30 `h2` :323
-- [0.11.0] - 2025-12-30 `h2` :362
-- [0.10.1] - 2025-12-29 `h2` :394
-- [0.10.0] - 2025-12-28 `h2` :433
-- [0.9.1] - 2025-12-28 `h2` :486
-- [0.9.0] - 2025-12-28 `h2` :505
-- [0.8.0] - 2025-12-27 `h2` :554
-- [0.7.1] - 2025-12-27 `h2` :588
-- [0.7.0] - 2025-12-27 `h2` :615
-- [0.6.1] - 2025-12-27 `h2` :660
-- [0.6.0] - 2025-12-27 `h2` :684
-- [0.4.0] - 2025-12-27 `h2` :720
-- [0.3.1] - 2025-12-26 `h2` :739
-- [0.3.0] - 2025-12-26 `h2` :746
-- [0.1.0] - 2025-12-26 `h2` :755
-- Summary `h2` :766
+- [3.6.0] - 2026-01-31 `h2` :5
+- [3.5.0] - 2026-01-27 `h2` :20
+- [3.4.0] - 2026-01-25 `h2` :27
+- [3.4.0] - 2026-01-25 `h2` :38
+- [3.3.3] - 2026-01-22 `h2` :52
+- [3.3.2] - 2026-01-22 `h2` :58
+- [3.3.2] - 2026-01-22 `h2` :69
+- [3.3.1] - 2026-01-22 `h2` :83
+- [3.3.0] - 2026-01-21 `h2` :89
+- [3.2.1] - 2026-01-21 `h2` :99
+- [3.2.0] - 2026-01-16 `h2` :103
+- [3.2.0] - 2026-01-16 `h2` :109
+- [3.1.0] - 2026-01-16 `h2` :138
+- [3.0.0] - 2026-01-16 `h2` :144
+- [3.0.0] - 2026-01-16 `h2` :162
+- [2.2.1] - 2026-01-09 `h2` :184
+- [2.1.1] - 2026-01-09 `h2` :204
+- [2.1.0] - 2026-01-09 `h2` :214
+- [2.0.2] - 2026-01-09 `h2` :220
+- [2.0.1] - 2026-01-09 `h2` :226
+- [1.0.1] - 2026-01-09 `h2` :237
+- [2.0.0] - 2026-01-09 `h2` :247
+- [0.14.1] - 2026-01-06 `h2` :253
+- [0.14.1] - 2026-01-06 `h2` :259
+- [0.14.0] - 2026-01-04 `h2` :266
+- [0.13.1] - 2026-01-02 `h2` :272
+- [0.13.0] - 2025-12-30 `h2` :289
+- [0.12.2] - 2025-12-30 `h2` :301
+- [0.12.1] - 2025-12-30 `h2` :305
+- [0.12.0] - 2025-12-30 `h2` :338
+- [0.11.0] - 2025-12-30 `h2` :377
+- [0.10.1] - 2025-12-29 `h2` :409
+- [0.10.0] - 2025-12-28 `h2` :448
+- [0.9.1] - 2025-12-28 `h2` :501
+- [0.9.0] - 2025-12-28 `h2` :520
+- [0.8.0] - 2025-12-27 `h2` :569
+- [0.7.1] - 2025-12-27 `h2` :603
+- [0.7.0] - 2025-12-27 `h2` :630
+- [0.6.1] - 2025-12-27 `h2` :675
+- [0.6.0] - 2025-12-27 `h2` :699
+- [0.4.0] - 2025-12-27 `h2` :735
+- [0.3.1] - 2025-12-26 `h2` :754
+- [0.3.0] - 2025-12-26 `h2` :761
+- [0.1.0] - 2025-12-26 `h2` :770
+- Summary `h2` :781
 
 ### CLAUDE.md
 - Muninn Memory System - Claude Code Context `h1` :1
@@ -69,9 +70,10 @@
 - File Structure `h2` :277
 - Development Notes `h2` :290
 - Lessons for Claude Code Agents `h2` :302
-- What's New in v3.5.0 `h2` :360
-- What's New in v3.2.0 `h2` :387
-- Known Limitations `h2` :404
+- What's New in v3.6.0 `h2` :360
+- What's New in v3.5.0 `h2` :381
+- What's New in v3.2.0 `h2` :408
+- Known Limitations `h2` :425
 
 ### README.md
 - remembering `h1` :1
@@ -82,26 +84,26 @@
 - Boot Sequence `h2` :25
 - Journal System `h2` :99
 - Config Table `h2` :129
-- Memory Type System `h2` :195
-- Priority System (v2.0.0) `h2` :212
-- Background Writes (Agentic Pattern) `h2` :274
-- Memory Versioning (Patch/Snapshot) `h2` :314
-- Complex Queries `h2` :330
-- Date-Filtered Queries `h2` :350
-- Therapy Helpers `h2` :379
-- Analysis Helpers `h2` :414
-- FTS5 Search with Porter Stemmer (v0.13.0) `h2` :448
-- Soft Delete `h2` :472
-- Memory Quality Guidelines `h2` :484
-- Handoff Convention `h2` :494
-- Session Scoping (v3.2.0) `h2` :579
-- Retrieval Observability (v3.2.0) `h2` :600
-- Retention Management (v3.2.0) `h2` :617
-- Export/Import for Portability `h2` :642
-- Type-Safe Results (v3.4.0) `h2` :673
-- Proactive Memory Hints (v3.4.0) `h2` :715
-- Edge Cases `h2` :770
-- Implementation Notes `h2` :790
+- Memory Type System `h2` :245
+- Priority System (v2.0.0) `h2` :262
+- Background Writes (Agentic Pattern) `h2` :324
+- Memory Versioning (Patch/Snapshot) `h2` :364
+- Complex Queries `h2` :380
+- Date-Filtered Queries `h2` :400
+- Therapy Helpers `h2` :429
+- Analysis Helpers `h2` :464
+- FTS5 Search with Porter Stemmer (v0.13.0) `h2` :498
+- Soft Delete `h2` :522
+- Memory Quality Guidelines `h2` :534
+- Handoff Convention `h2` :544
+- Session Scoping (v3.2.0) `h2` :629
+- Retrieval Observability (v3.2.0) `h2` :650
+- Retention Management (v3.2.0) `h2` :667
+- Export/Import for Portability `h2` :692
+- Type-Safe Results (v3.4.0) `h2` :723
+- Proactive Memory Hints (v3.4.0) `h2` :765
+- Edge Cases `h2` :820
+- Implementation Notes `h2` :840
 
 ### __init__.py
 > Imports: `requests, json, uuid, threading, os`...
@@ -109,31 +111,31 @@
 
 ### boot.py
 > Imports: `json, os, shutil, subprocess, threading`...
-- **classify_ops_key** (f) `(key: str)` :75
-- **detect_github_access** (f) `()` :96
-- **group_ops_by_topic** (f) `(ops_entries: list)` :173
-- **profile** (f) `()` :200
-- **ops** (f) `(include_reference: bool = False)` :205
-- **boot** (f) `()` :258
-- **journal** (f) `(topics: list = None, user_stated: str = None, my_intent: str = None)` :437
-- **journal_recent** (f) `(n: int = 10)` :454
-- **journal_prune** (f) `(keep: int = 40)` :470
-- **therapy_scope** (f) `()` :484
-- **therapy_session_count** (f) `()` :499
-- **decisions_recent** (f) `(n: int = 10, conf: float = 0.7)` :508
-- **group_by_type** (f) `(memories: list)` :523
-- **group_by_tag** (f) `(memories: list)` :539
-- **muninn_export** (f) `()` :559
-- **handoff_pending** (f) `()` :573
-- **handoff_complete** (f) `(handoff_id: str, completion_notes: str, version: str = None)` :588
-- **muninn_import** (f) `(data: dict, *, merge: bool = False)` :620
+- **classify_ops_key** (f) `(key: str)` :128
+- **detect_github_access** (f) `()` :148
+- **group_ops_by_topic** (f) `(ops_entries: list)` :225
+- **profile** (f) `()` :276
+- **ops** (f) `(include_reference: bool = False)` :281
+- **boot** (f) `()` :334
+- **journal** (f) `(topics: list = None, user_stated: str = None, my_intent: str = None)` :520
+- **journal_recent** (f) `(n: int = 10)` :537
+- **journal_prune** (f) `(keep: int = 40)` :553
+- **therapy_scope** (f) `()` :567
+- **therapy_session_count** (f) `()` :582
+- **decisions_recent** (f) `(n: int = 10, conf: float = 0.7)` :591
+- **group_by_type** (f) `(memories: list)` :606
+- **group_by_tag** (f) `(memories: list)` :622
+- **muninn_export** (f) `()` :642
+- **handoff_pending** (f) `()` :656
+- **handoff_complete** (f) `(handoff_id: str, completion_notes: str, version: str = None)` :671
+- **muninn_import** (f) `(data: dict, *, merge: bool = False)` :703
 
 ### bootstrap.py
 > Imports: `sys, os`
 - **create_tables** (f) `()` :22
-- **migrate_schema** (f) `()` :69
-- **seed_config** (f) `()` :124
-- **verify** (f) `()` :170
+- **migrate_schema** (f) `()` :70
+- **seed_config** (f) `()` :132
+- **verify** (f) `()` :178
 
 ### cache.py
 > Imports: `sqlite3, json, uuid, datetime, .`...
@@ -152,7 +154,8 @@
                char_limit: int = None, read_only: bool = False)` :25
 - **config_delete** (f) `(key: str)` :66
 - **config_set_boot_load** (f) `(key: str, boot_load: bool)` :72
-- **config_list** (f) `(category: str = None)` :99
+- **config_set_priority** (f) `(key: str, priority: int)` :99
+- **config_list** (f) `(category: str = None)` :127
 
 ### hints.py
 > Imports: `re, json, typing, collections, .`...

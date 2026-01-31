@@ -96,6 +96,34 @@ def config_set_boot_load(key: str, boot_load: bool) -> bool:
     return True
 
 
+def config_set_priority(key: str, priority: int) -> bool:
+    """Set the priority of a config entry for ordering within categories.
+
+    Higher priority entries appear first in boot output within their topic.
+
+    Args:
+        key: Config key to update
+        priority: Priority level (higher = more important, default is 0)
+                  Suggested scale: 0=normal, 1-9=elevated, 10+=critical
+
+    Returns:
+        True if successful
+
+    Example:
+        config_set_priority('storage-rules', 10)  # Critical - show first
+        config_set_priority('fly-command', 0)     # Normal priority
+    """
+    # Update remote
+    _exec("UPDATE config SET priority = ? WHERE key = ?", [priority, key])
+
+    # Update local cache if available
+    if _cache_available():
+        state._cache_conn.execute("UPDATE config_cache SET priority = ? WHERE key = ?", (priority, key))
+        state._cache_conn.commit()
+
+    return True
+
+
 def config_list(category: str = None) -> list:
     """List config entries, optionally filtered by category."""
     if category:

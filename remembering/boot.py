@@ -30,10 +30,9 @@ from .utilities import install_utilities
 
 # --- Ops Topic Classification ---
 # This mapping organizes operational configs by cognitive domain for boot output.
-# When storing new ops entries, assign to an existing topic or add to 'Other'.
-# Future: This could be stored in config and managed dynamically.
+# v3.6.0: Loaded dynamically from config('ops-topics'), with fallback to defaults.
 
-OPS_TOPICS = {
+_DEFAULT_OPS_TOPICS = {
     'Core Boot & Behavior': [
         'boot-behavior', 'boot-output-hygiene', 'dev-workflow'
     ],
@@ -65,11 +64,65 @@ OPS_TOPICS = {
     ]
 }
 
-# Build reverse lookup at module load time
-_OPS_KEY_TO_TOPIC = {}
-for _topic, _keys in OPS_TOPICS.items():
-    for _key in _keys:
-        _OPS_KEY_TO_TOPIC[_key] = _topic
+
+def _load_ops_topics() -> dict:
+    """Load OPS_TOPICS from config, with fallback to defaults.
+
+    Returns:
+        Dict mapping topic names to lists of ops keys.
+
+    The config entry 'ops-topics' should be a JSON object where:
+    - Keys are topic names (e.g., "Core Boot & Behavior")
+    - Values are lists of ops keys (e.g., ["boot-behavior", "dev-workflow"])
+
+    Example config value:
+        {"Core Boot & Behavior": ["boot-behavior"], "Memory Operations": ["remembering-api"]}
+
+    If config is missing or invalid, returns _DEFAULT_OPS_TOPICS.
+    """
+    try:
+        from .config import config_get
+        raw = config_get('ops-topics')
+        if raw:
+            topics = json.loads(raw)
+            if isinstance(topics, dict):
+                # Validate structure: all values should be lists
+                for key, value in topics.items():
+                    if not isinstance(value, list):
+                        raise ValueError(f"Topic '{key}' value must be a list")
+                return topics
+    except Exception:
+        pass  # Fall back to defaults on any error
+    return _DEFAULT_OPS_TOPICS.copy()
+
+
+def _build_key_to_topic_map(ops_topics: dict) -> dict:
+    """Build reverse lookup from ops key to topic name.
+
+    Args:
+        ops_topics: Dict from _load_ops_topics()
+
+    Returns:
+        Dict mapping ops key -> topic name
+    """
+    key_to_topic = {}
+    for topic, keys in ops_topics.items():
+        for key in keys:
+            key_to_topic[key] = topic
+    return key_to_topic
+
+
+# Module-level cache for loaded topics (refreshed each boot)
+OPS_TOPICS = None
+_OPS_KEY_TO_TOPIC = None
+
+
+def _ensure_ops_topics_loaded():
+    """Ensure OPS_TOPICS is loaded (lazy initialization)."""
+    global OPS_TOPICS, _OPS_KEY_TO_TOPIC
+    if OPS_TOPICS is None:
+        OPS_TOPICS = _load_ops_topics()
+        _OPS_KEY_TO_TOPIC = _build_key_to_topic_map(OPS_TOPICS)
 
 
 def classify_ops_key(key: str) -> str | None:
@@ -83,11 +136,10 @@ def classify_ops_key(key: str) -> str | None:
         Uncategorized keys appear under 'Other' in boot output.
 
     Note:
-        When adding new ops entries, either:
-        1. Add the key to OPS_TOPICS above
-        2. Let it appear under 'Other' (acceptable for one-off entries)
-        3. Create a new topic category if warranted
+        Topics are loaded from config('ops-topics') or use defaults.
+        To add a key to a topic, update the ops-topics config entry.
     """
+    _ensure_ops_topics_loaded()
     return _OPS_KEY_TO_TOPIC.get(key)
 
 
@@ -173,14 +225,19 @@ def detect_github_access() -> dict:
 def group_ops_by_topic(ops_entries: list) -> tuple[dict, list]:
     """Group ops entries by topic for organized output.
 
+    v3.6.0: Entries within each topic are sorted by priority (descending),
+    so critical entries appear first. Entries with equal priority are
+    sorted alphabetically by key.
+
     Args:
-        ops_entries: List of ops config dicts with 'key' field
+        ops_entries: List of ops config dicts with 'key' and optional 'priority' fields
 
     Returns:
         Tuple of (ops_by_topic dict, uncategorized list)
-        - ops_by_topic: {topic_name: [entries...]} in OPS_TOPICS order
-        - uncategorized: entries with keys not in any topic
+        - ops_by_topic: {topic_name: [entries...]} in OPS_TOPICS order, sorted by priority
+        - uncategorized: entries with keys not in any topic, sorted by priority
     """
+    _ensure_ops_topics_loaded()
     ops_by_topic = {}
     uncategorized = []
 
@@ -193,6 +250,25 @@ def group_ops_by_topic(ops_entries: list) -> tuple[dict, list]:
             ops_by_topic[topic].append(o)
         else:
             uncategorized.append(o)
+
+    # Sort entries within each topic by priority (descending), then by key (ascending)
+    # Priority can be int or string from Turso, so convert to int for comparison
+    def sort_key(entry):
+        priority = entry.get('priority', 0)
+        # Handle string/None types from Turso
+        if priority is None:
+            priority = 0
+        elif isinstance(priority, str):
+            try:
+                priority = int(priority)
+            except ValueError:
+                priority = 0
+        return (-priority, entry['key'])  # Negative for descending priority
+
+    for topic in ops_by_topic:
+        ops_by_topic[topic].sort(key=sort_key)
+
+    uncategorized.sort(key=sort_key)
 
     return ops_by_topic, uncategorized
 
@@ -272,6 +348,11 @@ def boot() -> str:
     # Initialize cache
     _init_local_cache()
 
+    # Refresh OPS_TOPICS from config (v3.6.0: dynamic loading)
+    global OPS_TOPICS, _OPS_KEY_TO_TOPIC
+    OPS_TOPICS = _load_ops_topics()
+    _OPS_KEY_TO_TOPIC = _build_key_to_topic_map(OPS_TOPICS)
+
     # Fetch profile + ops with retry logic for transient errors
     try:
         from .turso import _retry_with_backoff
@@ -334,7 +415,7 @@ def boot() -> str:
     core_ops = [o for o in ops_data if o.get('boot_load', 1) in (1, '1')]
     reference_ops = [o for o in ops_data if o.get('boot_load', 1) in (0, '0')]
 
-    # Group ops by topic using module-level classification
+    # Group ops by topic and sort by priority within each topic (v3.6.0)
     ops_by_topic, uncategorized = group_ops_by_topic(core_ops)
 
     # Format output with markdown headings
@@ -358,10 +439,13 @@ def _format_boot_output(profile_data: list, ops_by_topic: dict,
                         installed_utils: dict, github_access: dict = None) -> str:
     """Format boot output with organized sections.
 
+    v3.6.0: Entries within each topic are pre-sorted by priority (descending)
+    by group_ops_by_topic(), so critical entries appear first.
+
     Args:
         profile_data: List of profile config entries
-        ops_by_topic: Dict of {topic: [entries]} from group_ops_by_topic()
-        uncategorized: List of ops entries not in any topic
+        ops_by_topic: Dict of {topic: [entries]} from group_ops_by_topic(), sorted by priority
+        uncategorized: List of ops entries not in any topic, sorted by priority
         reference_ops: List of reference-only ops (boot_load=0)
         installed_utils: Dict of {name: path} from install_utilities()
         github_access: Dict from detect_github_access() with GitHub capabilities
@@ -386,11 +470,10 @@ def _format_boot_output(profile_data: list, ops_by_topic: dict,
                 output.append(f"\n## {topic}")
                 output.extend(_format_entry(o) for o in ops_by_topic[topic])
 
-        # Output uncategorized ops last (alphabetically)
+        # Output uncategorized ops last (already sorted by priority in group_ops_by_topic)
         if uncategorized:
             output.append("\n## Other")
-            sorted_uncategorized = sorted(uncategorized, key=lambda x: x['key'])
-            output.extend(_format_entry(o) for o in sorted_uncategorized)
+            output.extend(_format_entry(o) for o in uncategorized)
 
         # Reference index: show what's available but not loaded
         if reference_ops:

@@ -2,6 +2,21 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [3.6.0] - 2026-01-31
+
+### Added
+
+- **Priority-based ordering within ops categories** (#250): Ops entries within each topic are now sorted by priority (descending). Higher priority entries appear first.
+- **Dynamic OPS_TOPICS loading from config** (#251): Topic categories can now be loaded from `config_get('ops-topics')` instead of being hardcoded. Falls back to built-in defaults if config is missing.
+- **New `config_set_priority()` function**: Set priority for config entries to control ordering within categories.
+- **New `priority` column in config table**: Stores priority level (default 0, higher = more important).
+
+### Changed
+
+- `boot()` now refreshes OPS_TOPICS from config on each call
+- `group_ops_by_topic()` sorts entries by priority (descending), then alphabetically by key
+- Uncategorized ops ("Other" section) are also sorted by priority
+
 ## [3.5.0] - 2026-01-27
 
 ### Added

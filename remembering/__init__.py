@@ -53,7 +53,8 @@ from .hints import recall_hints
 # Import config layer
 from .config import (
     config_get, config_set, config_delete,
-    config_set_boot_load, config_list
+    config_set_boot_load, config_set_priority,  # v3.6.0: priority management
+    config_list
 )
 
 # Import boot layer
@@ -78,7 +79,7 @@ j = journal
 __all__ = [
     "remember", "recall", "forget", "supersede", "remember_bg", "flush",  # memories
     "recall_since", "recall_between",  # date-filtered queries
-    "config_get", "config_set", "config_delete", "config_list", "config_set_boot_load",  # config
+    "config_get", "config_set", "config_delete", "config_list", "config_set_boot_load", "config_set_priority",  # config
     "profile", "ops", "boot", "journal", "journal_recent", "journal_prune",  # boot & journal
     "detect_github_access",  # v3.5.0: GitHub access detection
     "therapy_scope", "therapy_session_count", "decisions_recent",  # therapy helpers
