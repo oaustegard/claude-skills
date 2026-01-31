@@ -1,8 +1,8 @@
 ---
 name: remembering
-description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, retention management, type-safe results, proactive memory hints, and GitHub access detection.
+description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, retention management, type-safe results, proactive memory hints, GitHub access detection, and ops priority ordering.
 metadata:
-  version: 3.5.0
+  version: 3.6.0
 ---
 
 > **⚠️ IMPORTANT FOR CLAUDE CODE AGENTS**
@@ -131,7 +131,7 @@ pruned = journal_prune(keep=40)
 Key-value store for profile (behavioral), ops (operational), and journal (temporal) settings.
 
 ```python
-from remembering import config_get, config_set, config_delete, config_list, config_set_boot_load, profile, ops
+from remembering import config_get, config_set, config_delete, config_list, config_set_boot_load, config_set_priority, profile, ops
 
 # Read
 config_get("identity")                    # Single key
@@ -191,6 +191,56 @@ storage-discipline:
 ## Reference Entries (load via config_get)
 container-limits, github-api-endpoints, network-tools, recall-triggers
 ```
+
+### Priority-Based Ordering (v3.6.0)
+
+Ops entries within each topic category are sorted by priority (descending). Critical entries appear first.
+
+```python
+from remembering import config_set_priority
+
+# Set priority for critical entries (higher = more important)
+config_set_priority('storage-rules', 10)       # Critical - show first in category
+config_set_priority('boot-behavior', 5)        # Elevated priority
+config_set_priority('fly-command', 0)          # Normal priority (default)
+
+# Priority scale:
+# 0: Normal (default)
+# 1-9: Elevated
+# 10+: Critical
+```
+
+**How it works:**
+- Entries with higher priority appear first within their topic category
+- Equal-priority entries are sorted alphabetically by key
+- Priority is stored in the `priority` column of the config table
+- Does not require entry recreation—just call `config_set_priority()`
+
+### Dynamic Topic Categories (v3.6.0)
+
+Topic categories can be loaded from config instead of being hardcoded:
+
+```python
+from remembering import config_set, config_get
+import json
+
+# View current topic mapping
+topics = json.loads(config_get('ops-topics') or '{}')
+
+# Update topic mapping
+new_topics = {
+    'Core Boot & Behavior': ['boot-behavior', 'dev-workflow'],
+    'Memory Operations': ['remembering-api', 'storage-rules'],
+    'My Custom Category': ['my-key-1', 'my-key-2']
+}
+config_set('ops-topics', json.dumps(new_topics), 'ops')
+```
+
+**How it works:**
+- `boot()` loads topics from `config_get('ops-topics')` if available
+- Falls back to built-in defaults if config is missing or invalid
+- Format: JSON object mapping topic name → list of ops keys
+- Changes take effect on next `boot()` call
 
 ## Memory Type System
 

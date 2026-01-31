@@ -357,6 +357,27 @@ test -f /home/user/claude-skills/remembering/__init__.py && echo "Found" || echo
 python3 -c "import sys; sys.path.insert(0, '/home/user/claude-skills'); import remembering; print('Success')"
 ```
 
+## What's New in v3.6.0
+
+**Priority-Based Ops Ordering** (#250): Ops entries within each topic category are now sorted by priority:
+- Higher priority entries appear first within their category
+- Use `config_set_priority('key', 10)` to set priority (default is 0)
+- Equal-priority entries sorted alphabetically by key
+- No entry recreation needed—just call `config_set_priority()`
+
+**Dynamic OPS_TOPICS** (#251): Topic categories are now loaded from config:
+- `boot()` reads topics from `config_get('ops-topics')` if available
+- Falls back to built-in defaults if config is missing or invalid
+- Reorganize categories without code changes via `config_set('ops-topics', json.dumps({...}), 'ops')`
+
+```python
+from remembering import config_set_priority
+
+# Set priority for critical entries
+config_set_priority('storage-rules', 10)  # Critical - appears first
+config_set_priority('boot-behavior', 5)   # Elevated priority
+```
+
 ## What's New in v3.5.0
 
 **GitHub Access Detection**: Boot now automatically detects and reports GitHub access methods:

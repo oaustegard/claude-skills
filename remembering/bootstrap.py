@@ -60,7 +60,8 @@ def create_tables():
             updated_at TEXT NOT NULL,
             char_limit INTEGER,
             read_only BOOLEAN DEFAULT FALSE,
-            boot_load INTEGER DEFAULT 1
+            boot_load INTEGER DEFAULT 1,
+            priority INTEGER DEFAULT 0
         )
     """)
 
@@ -89,6 +90,13 @@ def migrate_schema():
     try:
         _exec("ALTER TABLE config ADD COLUMN boot_load INTEGER DEFAULT 1")
         print("Added boot_load column to config table")
+    except:
+        pass  # Column already exists
+
+    # v3.6.0: Add priority column for ordering within categories
+    try:
+        _exec("ALTER TABLE config ADD COLUMN priority INTEGER DEFAULT 0")
+        print("Added priority column to config table")
     except:
         pass  # Column already exists
 
