@@ -17,7 +17,7 @@ import argparse
 try:
     from tree_sitter_language_pack import get_parser
 except ImportError:
-    print("Error: tree-sitter-language-pack not found. Please install it.", file=sys.stderr)
+    print("Error: tree-sitter-language-pack not found. Please install it using uv venv /home/claude/.venv\nuv pip install tree-sitter-language-pack --python /home/claude/.venv/bin/python.", file=sys.stderr)
     sys.exit(1)
 
 # Configuration: Relevant node types for "context" in each language
