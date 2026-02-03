@@ -100,21 +100,33 @@ class HybridRetriever:
             result = subprocess.run(
                 command, capture_output=True, text=True, check=False
             )
-            matches = []
-            for line in result.stdout.splitlines():
-                try:
-                    data = json.loads(line)
-                    if data["type"] == "match":
-                        matches.append(data["data"])
-                except json.JSONDecodeError:
-                    continue
-            return matches
         except FileNotFoundError:
-            print("Error: ripgrep (rg) not found in PATH.", file=sys.stderr)
-            sys.exit(1)
+            # Auto-install ripgrep and retry
+            print("ripgrep not found, installing...", file=sys.stderr)
+            install_result = subprocess.run(
+                ["apt-get", "install", "-y", "-qq", "ripgrep"],
+                capture_output=True, text=True
+            )
+            if install_result.returncode != 0:
+                print(f"Error: Failed to install ripgrep: {install_result.stderr}", file=sys.stderr)
+                sys.exit(1)
+            # Retry the search
+            result = subprocess.run(
+                command, capture_output=True, text=True, check=False
+            )
         except Exception as e:
             print(f"Error running ripgrep: {e}", file=sys.stderr)
             return []
+
+        matches = []
+        for line in result.stdout.splitlines():
+            try:
+                data = json.loads(line)
+                if data["type"] == "match":
+                    matches.append(data["data"])
+            except json.JSONDecodeError:
+                continue
+        return matches
 
     def _get_node_name(self, node, source_bytes: bytes) -> str:
         """Attempt to extract a name from a node."""
