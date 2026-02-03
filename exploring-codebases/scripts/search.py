@@ -66,6 +66,7 @@ class CodeContext:
     name: str
     source: str
     language: str
+    signature: Optional[str] = None  # For progressive disclosure
 
 class HybridRetriever:
     def __init__(self):
@@ -142,6 +143,86 @@ class HybridRetriever:
 
         return "anonymous"
 
+    def _extract_signature(self, node, source_bytes: bytes, language: str) -> Optional[str]:
+        """
+        Extract just the signature from a function/class/method node.
+        Returns the declaration line(s) including docstring but excluding body.
+        """
+        if language == 'python':
+            return self._extract_python_signature(node, source_bytes)
+        elif language in ('javascript', 'typescript'):
+            return self._extract_js_signature(node, source_bytes)
+        elif language == 'go':
+            return self._extract_go_signature(node, source_bytes)
+        # Add more language-specific extractors as needed
+        return None
+
+    def _extract_python_signature(self, node, source_bytes: bytes) -> Optional[str]:
+        """Extract Python function/class signature including docstring."""
+        parts = []
+        docstring = None
+        
+        if node.type == 'class_definition':
+            # Get everything up to the body (class keyword, name, bases, colon)
+            for child in node.children:
+                if child.type == 'block':
+                    # Extract docstring if present (first child after block start)
+                    for block_child in child.children:
+                        if block_child.type == 'string':
+                            docstring = source_bytes[block_child.start_byte:block_child.end_byte].decode('utf-8', errors='replace')
+                            break
+                    break
+                else:
+                    parts.append(source_bytes[child.start_byte:child.end_byte].decode('utf-8', errors='replace'))
+            
+            if docstring:
+                parts.append(f"\n    {docstring}")
+            parts.append("\n    ...")
+            return ''.join(parts)
+        
+        elif node.type == 'function_definition':
+            # Get everything before the body  (def keyword, name, params, colon)
+            for child in node.children:
+                if child.type == 'block':
+                    # Extract docstring if present
+                    for block_child in child.children:
+                        if block_child.type == 'string':
+                            docstring = source_bytes[block_child.start_byte:block_child.end_byte].decode('utf-8', errors='replace')
+                            break
+                    break
+                else:
+                    parts.append(source_bytes[child.start_byte:child.end_byte].decode('utf-8', errors='replace'))
+            
+            if docstring:
+                parts.append(f"\n    {docstring}")
+            parts.append("\n    ...")
+            return ''.join(parts)
+        
+        return None
+
+    def _extract_js_signature(self, node, source_bytes: bytes) -> Optional[str]:
+        """Extract JavaScript/TypeScript function/class signature."""
+        # For JS/TS, extract up to the opening brace
+        parts = []
+        for child in node.children:
+            if child.type in ('statement_block', 'class_body'):
+                parts.append(' { ... }')
+                break
+            else:
+                parts.append(source_bytes[child.start_byte:child.end_byte].decode('utf-8', errors='replace'))
+        return ''.join(parts) if parts else None
+
+    def _extract_go_signature(self, node, source_bytes: bytes) -> Optional[str]:
+        """Extract Go function signature."""
+        parts = []
+        for child in node.children:
+            if child.type == 'block':
+                parts.append(' { ... }')
+                break
+            else:
+                parts.append(source_bytes[child.start_byte:child.end_byte].decode('utf-8', errors='replace'))
+        return ''.join(parts) if parts else None
+
     def _get_node_at_line(self, root_node, line_number: int, language: str):
         """
         Finds the smallest relevant node (Function/Class) containing the line number.
@@ -179,7 +260,7 @@ class HybridRetriever:
 
         return target_node
 
-    def _expand_context(self, file_path: str, line_number: int) -> Optional[CodeContext]:
+    def _expand_context(self, file_path: str, line_number: int, signatures_only: bool = True) -> Optional[CodeContext]:
         """
         Phase 2: The Scalpel. Syntax-aware context expansion.
         """
@@ -207,6 +288,12 @@ class HybridRetriever:
                 return None
 
             node_name = self._get_node_name(node, source_bytes)
+            full_source = source_bytes[node.start_byte:node.end_byte].decode('utf-8', errors='replace')
+            
+            # Extract signature if requested
+            signature = None
+            if signatures_only:
+                signature = self._extract_signature(node, source_bytes, lang)
 
             return CodeContext(
                 file_path=file_path,
@@ -215,15 +302,16 @@ class HybridRetriever:
                 match_line=line_number + 1,
                 node_type=node.type,
                 name=node_name,
-                source=source_bytes[node.start_byte:node.end_byte].decode('utf-8', errors='replace'),
-                language=lang
+                source=full_source,
+                language=lang,
+                signature=signature
             )
 
         except Exception as e:
             # print(f"Error parsing {file_path}: {e}", file=sys.stderr)
             return None
 
-    def search(self, query: str, path: str = ".", glob: Optional[str] = None) -> List[CodeContext]:
+    def search(self, query: str, path: str = ".", glob: Optional[str] = None, signatures_only: bool = True) -> List[CodeContext]:
         raw_matches = self._run_ripgrep(query, path, glob)
         contexts = []
         seen_ranges = set() # (file_path, start_line, end_line)
@@ -232,7 +320,7 @@ class HybridRetriever:
             file_path = match["path"]["text"]
             line_num = match["line_number"] - 1 # 0-indexed for Tree-sitter
 
-            context = self._expand_context(file_path, line_num)
+            context = self._expand_context(file_path, line_num, signatures_only)
 
             if context:
                 dedup_key = (context.file_path, context.start_line, context.end_line)
@@ -248,11 +336,12 @@ def main():
     parser.add_argument("path", nargs="?", default=".", help="Root directory to search")
     parser.add_argument("--glob", help="Glob pattern for filtering files (e.g. '*.py')")
     parser.add_argument("--json", action="store_true", help="Output JSON instead of Markdown")
+    parser.add_argument("--expand-full", action="store_true", help="Show full implementations instead of signatures")
 
     args = parser.parse_args()
 
     retriever = HybridRetriever()
-    results = retriever.search(args.query, args.path, args.glob)
+    results = retriever.search(args.query, args.path, args.glob, signatures_only=not args.expand_full)
 
     if args.json:
         output = []
@@ -263,7 +352,8 @@ def main():
                 "type": res.node_type,
                 "start_line": res.start_line,
                 "end_line": res.end_line,
-                "source": res.source
+                "source": res.source,
+                "signature": res.signature
             })
         print(json.dumps(output, indent=2))
     else:
@@ -275,8 +365,12 @@ def main():
         for res in results:
             print(f"### {res.file_path} matches `{args.query}`")
             print(f"**{res.node_type}**: `{res.name}` (Lines {res.start_line}-{res.end_line})")
+            
+            # Use signature if available and not expanding full, otherwise full source
+            display_content = res.signature if (res.signature and not args.expand_full) else res.source
+            
             print(f"```{res.language}")
-            print(res.source)
+            print(display_content)
             print("```\n")
 
 if __name__ == "__main__":
