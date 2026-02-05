@@ -40,11 +40,11 @@ from .memory import (
     memory_histogram, prune_by_age, prune_by_priority  # v3.2.0: retention helpers
 )
 
-# Import result types (v3.4.0: type-safe memory results)
+# Import result types (v3.4.0: type-safe memory results, v3.7.0: normalization)
 from .result import (
     MemoryResult, MemoryResultList,
     VALID_FIELDS, COMMON_MISTAKES,
-    wrap_results
+    wrap_results, _normalize_memory
 )
 
 # Import hints layer (v3.4.0: proactive memory surfacing)

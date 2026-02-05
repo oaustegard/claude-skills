@@ -2,7 +2,7 @@
 name: remembering
 description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, retention management, type-safe results, proactive memory hints, GitHub access detection, and ops priority ordering.
 metadata:
-  version: 3.6.0
+  version: 3.7.0
 ---
 
 > **⚠️ IMPORTANT FOR CLAUDE CODE AGENTS**
@@ -508,15 +508,20 @@ from remembering import recall
 results = recall("running performance")
 
 # Query expansion fallback
-# When FTS5 returns < 3 results, automatically extracts tags from
+# When FTS5 returns < threshold results, automatically extracts tags from
 # partial results and searches for related memories
 sparse_results = recall("rare term")  # Auto-expands if < 3 matches
+
+# v3.7.0: Configurable expansion threshold
+results = recall("term", expansion_threshold=5)  # Expand if < 5 results
+results = recall("term", expansion_threshold=0)  # Disable expansion entirely
 ```
 
 **How it works:**
 - FTS5 tokenizer: `porter unicode61` handles stemming
 - BM25 ranking for relevance scoring
-- Query expansion extracts tags from partial results when < 3 matches found
+- Query expansion extracts tags from partial results when below threshold (default 3, configurable via `expansion_threshold`)
+- Set `expansion_threshold=0` to disable expansion entirely
 - Composite ranking: BM25 × salience × recency × access patterns
 
 ## Soft Delete
@@ -736,26 +741,42 @@ for m in memories:
     print(m['summary'])   # Dict-style
     print(m.get('summary', 'default'))  # get() with default
 
-    # Invalid access - raises helpful error immediately
-    print(m.content)      # AttributeError: Invalid field 'content'. Did you mean 'summary'?
-    print(m['content'])   # KeyError: Invalid field 'content'. Did you mean 'summary'?
+    # v3.7.0: Common aliases resolve transparently
+    print(m.content)      # Works! Resolves to m.summary
+    print(m['content'])   # Works! Resolves to m['summary']
+    print(m.conf)         # Works! Resolves to m.confidence
+
+    # Truly invalid fields still raise errors
+    print(m.foo)          # AttributeError with list of valid fields
+```
+
+**Parameter aliases (v3.7.0):**
+```python
+# limit= accepted as alias for n= in recall()
+recall("search", limit=20)   # Same as recall("search", n=20)
 ```
 
 **Valid fields:**
 ```python
 from remembering import VALID_FIELDS
-# {'id', 'type', 't', 'summary', 'confidence', 'tags', 'refs', 'priority',
-#  'session_id', 'created_at', 'updated_at', 'valid_from', 'access_count',
-#  'last_accessed', 'has_full', 'deleted_at'}
+# {'id', 'type', 't', 'summary', 'summary_preview', 'confidence', 'tags',
+#  'refs', 'priority', 'session_id', 'created_at', 'updated_at', 'valid_from',
+#  'access_count', 'last_accessed', 'bm25_score', 'composite_rank',
+#  'composite_score', 'has_full', 'deleted_at'}
 ```
 
-**Common mistakes caught:**
-| Wrong | Correct | Error Message |
-|-------|---------|---------------|
-| `m.content` | `m.summary` | Did you mean 'summary'? |
-| `m['text']` | `m['summary']` | Did you mean 'summary'? |
-| `m.conf` | `m.confidence` | Did you mean 'confidence'? |
-| `m.timestamp` | `m.t` | Did you mean 't'? |
+**Transparent aliases (v3.7.0):**
+| Alias | Resolves To |
+|-------|-------------|
+| `m.content` | `m.summary` |
+| `m['text']` | `m['summary']` |
+| `m.conf` | `m.confidence` |
+| `m.timestamp` | `m.t` |
+| `m.created` | `m.created_at` |
+
+**Normalized fields (v3.7.0):**
+
+All results now include `summary_preview` (first 100 chars) regardless of whether they came from cache or Turso. Fields like `bm25_score` and `composite_rank` are valid but only present on cache-sourced results.
 
 **Backward compatibility:**
 - MemoryResult supports all dict operations: `in`, `len()`, iteration, `keys()`, `values()`, `items()`
@@ -835,7 +856,7 @@ hints = recall_hints(terms=["muninn", "field", "summary", "content"])
 
 **Tag mode:** `tag_mode="all"` requires all specified tags to be present. `tag_mode="any"` (default) matches if any tag present.
 
-**Query expansion:** When FTS5 returns < 3 results, tags are automatically extracted from partial matches and used to find related memories.
+**Query expansion:** When FTS5 returns fewer results than `expansion_threshold` (default 3), tags are automatically extracted from partial matches and used to find related memories. Set `expansion_threshold=0` to disable.
 
 ## Implementation Notes
 

@@ -219,7 +219,9 @@ def flush(timeout: float = 5.0) -> dict:
 def recall(search: str = None, *, n: int = 10, tags: list = None,
            type: str = None, conf: float = None, tag_mode: str = "any",
            use_cache: bool = True, strict: bool = False, session_id: str = None,
-           auto_strengthen: bool = False, raw: bool = False) -> MemoryResultList:
+           auto_strengthen: bool = False, raw: bool = False,
+           expansion_threshold: int = 3,
+           limit: int = None) -> MemoryResultList:
     """Query memories with flexible filters.
 
     v0.7.0: Uses local cache with progressive disclosure when available.
@@ -229,6 +231,7 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
     v3.2.0: Added session_id filter for session scoping.
     v3.3.0: Added auto_strengthen for biological memory consolidation pattern.
     v3.4.0: Returns MemoryResult objects that validate field access.
+    v3.7.0: Added expansion_threshold parameter. Added limit as alias for n.
 
     Args:
         search: Text to search for in memory summaries (FTS5 ranked search)
@@ -242,12 +245,18 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
         session_id: Filter by session identifier (optional)
         auto_strengthen: If True, automatically strengthen top 3 results (v3.3.0)
         raw: If True, return plain dicts instead of MemoryResult objects (v3.4.0)
+        expansion_threshold: Minimum results before triggering query expansion (default 3).
+            Set to 0 to disable expansion entirely. (v3.7.0)
+        limit: Deprecated alias for n. If provided, overrides n. (v3.7.0)
 
     Returns:
         MemoryResultList of MemoryResult objects (or list of dicts if raw=True).
-        MemoryResult objects validate field access and raise helpful errors
-        for invalid field names like 'content' (should be 'summary').
+        MemoryResult objects validate field access and transparently resolve
+        common aliases like 'content' -> 'summary'.
     """
+    # v3.7.0: Accept limit= as deprecated alias for n=
+    if limit is not None:
+        n = limit
     # Track timing for logging (v0.12.0)
     start_time = time.time()
 
@@ -278,8 +287,8 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
 
         # v0.13.0: Query expansion fallback - if FTS5 returns few results and search was provided,
         # extract tags from partial results and search for those tags to find related memories
-        # Skip in strict mode
-        if search and not strict and len(results) < 3:
+        # Skip in strict mode. v3.7.0: threshold is configurable via expansion_threshold parameter.
+        if search and not strict and expansion_threshold > 0 and len(results) < expansion_threshold:
             # Extract unique tags from partial results
             expansion_tags = set()
             for r in results:

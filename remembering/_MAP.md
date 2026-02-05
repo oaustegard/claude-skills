@@ -10,50 +10,51 @@
 ### CHANGELOG.md
 - Muninn Memory System - Changelog `h1` :1
 - [3.6.0] - 2026-01-31 `h2` :5
-- [3.5.0] - 2026-01-27 `h2` :20
-- [3.4.0] - 2026-01-25 `h2` :27
-- [3.4.0] - 2026-01-25 `h2` :38
-- [3.3.3] - 2026-01-22 `h2` :52
-- [3.3.2] - 2026-01-22 `h2` :58
-- [3.3.2] - 2026-01-22 `h2` :69
-- [3.3.1] - 2026-01-22 `h2` :83
-- [3.3.0] - 2026-01-21 `h2` :89
-- [3.2.1] - 2026-01-21 `h2` :99
-- [3.2.0] - 2026-01-16 `h2` :103
+- [3.6.0] - 2026-01-31 `h2` :11
+- [3.5.0] - 2026-01-27 `h2` :26
+- [3.4.0] - 2026-01-25 `h2` :33
+- [3.4.0] - 2026-01-25 `h2` :44
+- [3.3.3] - 2026-01-22 `h2` :58
+- [3.3.2] - 2026-01-22 `h2` :64
+- [3.3.2] - 2026-01-22 `h2` :75
+- [3.3.1] - 2026-01-22 `h2` :89
+- [3.3.0] - 2026-01-21 `h2` :95
+- [3.2.1] - 2026-01-21 `h2` :105
 - [3.2.0] - 2026-01-16 `h2` :109
-- [3.1.0] - 2026-01-16 `h2` :138
-- [3.0.0] - 2026-01-16 `h2` :144
-- [3.0.0] - 2026-01-16 `h2` :162
-- [2.2.1] - 2026-01-09 `h2` :184
-- [2.1.1] - 2026-01-09 `h2` :204
-- [2.1.0] - 2026-01-09 `h2` :214
-- [2.0.2] - 2026-01-09 `h2` :220
-- [2.0.1] - 2026-01-09 `h2` :226
-- [1.0.1] - 2026-01-09 `h2` :237
-- [2.0.0] - 2026-01-09 `h2` :247
-- [0.14.1] - 2026-01-06 `h2` :253
+- [3.2.0] - 2026-01-16 `h2` :115
+- [3.1.0] - 2026-01-16 `h2` :144
+- [3.0.0] - 2026-01-16 `h2` :150
+- [3.0.0] - 2026-01-16 `h2` :168
+- [2.2.1] - 2026-01-09 `h2` :190
+- [2.1.1] - 2026-01-09 `h2` :210
+- [2.1.0] - 2026-01-09 `h2` :220
+- [2.0.2] - 2026-01-09 `h2` :226
+- [2.0.1] - 2026-01-09 `h2` :232
+- [1.0.1] - 2026-01-09 `h2` :243
+- [2.0.0] - 2026-01-09 `h2` :253
 - [0.14.1] - 2026-01-06 `h2` :259
-- [0.14.0] - 2026-01-04 `h2` :266
-- [0.13.1] - 2026-01-02 `h2` :272
-- [0.13.0] - 2025-12-30 `h2` :289
-- [0.12.2] - 2025-12-30 `h2` :301
-- [0.12.1] - 2025-12-30 `h2` :305
-- [0.12.0] - 2025-12-30 `h2` :338
-- [0.11.0] - 2025-12-30 `h2` :377
-- [0.10.1] - 2025-12-29 `h2` :409
-- [0.10.0] - 2025-12-28 `h2` :448
-- [0.9.1] - 2025-12-28 `h2` :501
-- [0.9.0] - 2025-12-28 `h2` :520
-- [0.8.0] - 2025-12-27 `h2` :569
-- [0.7.1] - 2025-12-27 `h2` :603
-- [0.7.0] - 2025-12-27 `h2` :630
-- [0.6.1] - 2025-12-27 `h2` :675
-- [0.6.0] - 2025-12-27 `h2` :699
-- [0.4.0] - 2025-12-27 `h2` :735
-- [0.3.1] - 2025-12-26 `h2` :754
-- [0.3.0] - 2025-12-26 `h2` :761
-- [0.1.0] - 2025-12-26 `h2` :770
-- Summary `h2` :781
+- [0.14.1] - 2026-01-06 `h2` :265
+- [0.14.0] - 2026-01-04 `h2` :272
+- [0.13.1] - 2026-01-02 `h2` :278
+- [0.13.0] - 2025-12-30 `h2` :295
+- [0.12.2] - 2025-12-30 `h2` :307
+- [0.12.1] - 2025-12-30 `h2` :311
+- [0.12.0] - 2025-12-30 `h2` :344
+- [0.11.0] - 2025-12-30 `h2` :383
+- [0.10.1] - 2025-12-29 `h2` :415
+- [0.10.0] - 2025-12-28 `h2` :454
+- [0.9.1] - 2025-12-28 `h2` :507
+- [0.9.0] - 2025-12-28 `h2` :526
+- [0.8.0] - 2025-12-27 `h2` :575
+- [0.7.1] - 2025-12-27 `h2` :609
+- [0.7.0] - 2025-12-27 `h2` :636
+- [0.6.1] - 2025-12-27 `h2` :681
+- [0.6.0] - 2025-12-27 `h2` :705
+- [0.4.0] - 2025-12-27 `h2` :741
+- [0.3.1] - 2025-12-26 `h2` :760
+- [0.3.0] - 2025-12-26 `h2` :767
+- [0.1.0] - 2025-12-26 `h2` :776
+- Summary `h2` :787
 
 ### CLAUDE.md
 - Muninn Memory System - Claude Code Context `h1` :1
@@ -73,7 +74,8 @@
 - What's New in v3.6.0 `h2` :360
 - What's New in v3.5.0 `h2` :381
 - What's New in v3.2.0 `h2` :408
-- Known Limitations `h2` :425
+- What's New in v3.7.0 `h2` :425
+- Known Limitations `h2` :442
 
 ### README.md
 - remembering `h1` :1
@@ -93,17 +95,17 @@
 - Therapy Helpers `h2` :429
 - Analysis Helpers `h2` :464
 - FTS5 Search with Porter Stemmer (v0.13.0) `h2` :498
-- Soft Delete `h2` :522
-- Memory Quality Guidelines `h2` :534
-- Handoff Convention `h2` :544
-- Session Scoping (v3.2.0) `h2` :629
-- Retrieval Observability (v3.2.0) `h2` :650
-- Retention Management (v3.2.0) `h2` :667
-- Export/Import for Portability `h2` :692
-- Type-Safe Results (v3.4.0) `h2` :723
-- Proactive Memory Hints (v3.4.0) `h2` :765
-- Edge Cases `h2` :820
-- Implementation Notes `h2` :840
+- Soft Delete `h2` :527
+- Memory Quality Guidelines `h2` :539
+- Handoff Convention `h2` :549
+- Session Scoping (v3.2.0) `h2` :634
+- Retrieval Observability (v3.2.0) `h2` :655
+- Retention Management (v3.2.0) `h2` :672
+- Export/Import for Portability `h2` :697
+- Type-Safe Results (v3.4.0) `h2` :728
+- Proactive Memory Hints (v3.4.0) `h2` :786
+- Edge Cases `h2` :841
+- Implementation Notes `h2` :861
 
 ### __init__.py
 > Imports: `requests, json, uuid, threading, os`...
@@ -177,46 +179,48 @@
 - **recall** (f) `(search: str = None, *, n: int = 10, tags: list = None,
            type: str = None, conf: float = None, tag_mode: str = "any",
            use_cache: bool = True, strict: bool = False, session_id: str = None,
-           auto_strengthen: bool = False, raw: bool = False)` :219
+           auto_strengthen: bool = False, raw: bool = False,
+           expansion_threshold: int = 3,
+           limit: int = None)` :219
 - **recall_since** (f) `(after: str, *, search: str = None, n: int = 50,
                  type: str = None, tags: list = None, tag_mode: str = "any",
-                 session_id: str = None, raw: bool = False)` :489
+                 session_id: str = None, raw: bool = False)` :498
 - **recall_between** (f) `(after: str, before: str, *, search: str = None,
                    n: int = 100, type: str = None, tags: list = None,
-                   tag_mode: str = "any", session_id: str = None, raw: bool = False)` :556
-- **forget** (f) `(memory_id: str)` :625
+                   tag_mode: str = "any", session_id: str = None, raw: bool = False)` :565
+- **forget** (f) `(memory_id: str)` :634
 - **supersede** (f) `(original_id: str, summary: str, type: str, *,
-              tags: list = None, conf: float = None)` :643
-- **reprioritize** (f) `(memory_id: str, priority: int)` :711
-- **memory_histogram** (f) `()` :752
-- **prune_by_age** (f) `(older_than_days: int, priority_floor: int = 0, dry_run: bool = True)` :808
-- **prune_by_priority** (f) `(max_priority: int = -1, dry_run: bool = True)` :854
-- **strengthen** (f) `(memory_id: str, boost: int = 1)` :893
-- **weaken** (f) `(memory_id: str, drop: int = 1)` :933
+              tags: list = None, conf: float = None)` :652
+- **reprioritize** (f) `(memory_id: str, priority: int)` :720
+- **memory_histogram** (f) `()` :761
+- **prune_by_age** (f) `(older_than_days: int, priority_floor: int = 0, dry_run: bool = True)` :817
+- **prune_by_priority** (f) `(max_priority: int = -1, dry_run: bool = True)` :863
+- **strengthen** (f) `(memory_id: str, boost: int = 1)` :902
+- **weaken** (f) `(memory_id: str, drop: int = 1)` :942
 
 ### result.py
 > Imports: `typing`
-- **MemoryResult** (C) :71
-  - **__init__** (m) `(self, data: dict)` :90
-  - **__getattr__** (m) `(self, name: str)` :94
-  - **__setattr__** (m) `(self, name: str, value: Any)` :104
-  - **__getitem__** (m) `(self, key: str)` :111
-  - **__contains__** (m) `(self, key: str)` :118
-  - **__iter__** (m) `(self)` :122
-  - **__len__** (m) `(self)` :126
-  - **__repr__** (m) `(self)` :130
-  - **__str__** (m) `(self)` :137
-  - **_error_message** (m) `(self, field: str, error_type: str)` :141
-  - **get** (m) `(self, key: str, default: Any = None)` :155
-  - **keys** (m) `(self)` :169
-  - **values** (m) `(self)` :173
-  - **items** (m) `(self)` :177
-  - **to_dict** (m) `(self)` :181
-  - **copy** (m) `(self)` :190
-- **MemoryResultList** (C) :195
-  - **__repr__** (m) `(self)` :202
-  - **to_dicts** (m) `(self)` :207
-- **wrap_results** (f) `(results: List[dict])` :212
+- **MemoryResult** (C) :77
+  - **__init__** (m) `(self, data: dict)` :96
+  - **__getattr__** (m) `(self, name: str)` :100
+  - **__setattr__** (m) `(self, name: str, value: Any)` :118
+  - **__getitem__** (m) `(self, key: str)` :125
+  - **__contains__** (m) `(self, key: str)` :140
+  - **__iter__** (m) `(self)` :144
+  - **__len__** (m) `(self)` :148
+  - **__repr__** (m) `(self)` :152
+  - **__str__** (m) `(self)` :159
+  - **_error_message** (m) `(self, field: str, error_type: str)` :163
+  - **get** (m) `(self, key: str, default: Any = None)` :177
+  - **keys** (m) `(self)` :196
+  - **values** (m) `(self)` :200
+  - **items** (m) `(self)` :204
+  - **to_dict** (m) `(self)` :208
+  - **copy** (m) `(self)` :217
+- **MemoryResultList** (C) :222
+  - **__repr__** (m) `(self)` :229
+  - **to_dicts** (m) `(self)` :234
+- **wrap_results** (f) `(results: List[dict])` :255
 
 ### state.py
 > Imports: `threading, os, pathlib`

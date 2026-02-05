@@ -17,6 +17,7 @@ VALID_FIELDS: Set[str] = {
 
     # Content
     'summary',
+    'summary_preview',  # v3.7.0: first 100 chars, always computed
     'confidence',
     'tags',
     'refs',
@@ -33,6 +34,11 @@ VALID_FIELDS: Set[str] = {
     # Access tracking
     'access_count',
     'last_accessed',
+
+    # Ranking (from cache queries, may not always be present)
+    'bm25_score',
+    'composite_rank',
+    'composite_score',
 
     # Cache/internal flags
     'has_full',
@@ -92,9 +98,17 @@ class MemoryResult:
         object.__setattr__(self, '_data', data)
 
     def __getattr__(self, name: str) -> Any:
-        """Attribute-style access with validation."""
+        """Attribute-style access with validation and alias resolution.
+
+        v3.7.0: Common field aliases (e.g., 'content' -> 'summary') are
+        transparently resolved instead of raising errors.
+        """
         if name.startswith('_'):
             raise AttributeError(f"'{type(self).__name__}' has no attribute '{name}'")
+
+        # Resolve aliases transparently (v3.7.0)
+        if name in COMMON_MISTAKES:
+            name = COMMON_MISTAKES[name]
 
         if name not in VALID_FIELDS:
             raise AttributeError(self._error_message(name, 'AttributeError'))
@@ -109,7 +123,15 @@ class MemoryResult:
             raise AttributeError(f"MemoryResult is read-only. Cannot set '{name}'.")
 
     def __getitem__(self, key: str) -> Any:
-        """Dict-style access with validation."""
+        """Dict-style access with validation and alias resolution.
+
+        v3.7.0: Common field aliases (e.g., 'content' -> 'summary') are
+        transparently resolved instead of raising errors.
+        """
+        # Resolve aliases transparently (v3.7.0)
+        if key in COMMON_MISTAKES:
+            key = COMMON_MISTAKES[key]
+
         if key not in VALID_FIELDS:
             raise KeyError(self._error_message(key, 'KeyError'))
 
@@ -153,7 +175,9 @@ class MemoryResult:
         return msg
 
     def get(self, key: str, default: Any = None) -> Any:
-        """Dict-like get() with validation.
+        """Dict-like get() with validation and alias resolution.
+
+        v3.7.0: Common field aliases are transparently resolved.
 
         Args:
             key: Field name to access
@@ -162,6 +186,9 @@ class MemoryResult:
         Raises:
             KeyError: If key is not a valid field name
         """
+        # Resolve aliases transparently (v3.7.0)
+        if key in COMMON_MISTAKES:
+            key = COMMON_MISTAKES[key]
         if key not in VALID_FIELDS:
             raise KeyError(self._error_message(key, 'KeyError'))
         return self._data.get(key, default)
@@ -209,8 +236,27 @@ class MemoryResultList(list):
         return [m.to_dict() if isinstance(m, MemoryResult) else m for m in self]
 
 
+def _normalize_memory(data: dict) -> dict:
+    """Ensure a memory dict has all standard computed fields.
+
+    v3.7.0: Normalizes results from any source (cache or Turso) to have
+    a consistent set of fields, preventing silent failures when code
+    assumes fields like summary_preview exist.
+
+    Adds missing computed fields:
+    - summary_preview: First 100 chars of summary (if summary present)
+    """
+    if 'summary_preview' not in data and 'summary' in data:
+        summary = data.get('summary') or ''
+        data['summary_preview'] = summary[:100]
+    return data
+
+
 def wrap_results(results: List[dict]) -> MemoryResultList:
     """Wrap a list of memory dicts in MemoryResult objects.
+
+    v3.7.0: Normalizes all results to have consistent computed fields
+    regardless of whether they came from cache or Turso.
 
     Args:
         results: List of memory dictionaries from database queries
@@ -223,7 +269,7 @@ def wrap_results(results: List[dict]) -> MemoryResultList:
         if isinstance(r, MemoryResult):
             wrapped.append(r)
         elif isinstance(r, dict):
-            wrapped.append(MemoryResult(r))
+            wrapped.append(MemoryResult(_normalize_memory(r)))
         else:
             # Pass through anything else unchanged
             wrapped.append(r)
