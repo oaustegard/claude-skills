@@ -422,7 +422,23 @@ if github['available']:
 - `prune_by_age()` - delete old memories with priority filters
 - `prune_by_priority()` - delete low-priority memories
 
+## What's New in v3.7.0
+
+**Parameter & Field Aliases** (#262): Common field name mistakes are now transparently resolved instead of raising errors:
+- `m.content` / `m['content']` resolves to `m.summary`
+- `m.conf` resolves to `m.confidence`
+- `recall(limit=20)` works as alias for `recall(n=20)`
+
+**Configurable Query Expansion** (#238): The query expansion threshold is now configurable:
+- `recall("term", expansion_threshold=5)` - expand if fewer than 5 results
+- `recall("term", expansion_threshold=0)` - disable expansion entirely
+- Default remains 3 for backward compatibility
+
+**Standardized Return Format** (#264): All results now include computed fields regardless of source:
+- `summary_preview` (first 100 chars) always present
+- `bm25_score`, `composite_rank`, `composite_score` added to VALID_FIELDS
+- Results from Turso and cache are normalized to the same field set
+
 ## Known Limitations
 
 - Session filtering bypasses cache (queries Turso directly) - cache support planned for future release
-- Query expansion fallback threshold is fixed at 3 results (not configurable)
