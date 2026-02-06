@@ -2,6 +2,12 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [3.8.0] - 2026-02-06
+
+### Added
+
+- fix top 5 open issues (v3.8.0)
+
 ## [3.7.0] - 2026-02-05
 
 ### Added
