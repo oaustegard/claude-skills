@@ -2,6 +2,16 @@
 
 All notable changes to the `browsing-bluesky` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.4.1] - 2026-02-06
+
+### Added
+
+- Add type-safe MemoryResult and proactive recall_hints (#211, #212)
+
+### Fixed
+
+- add facet URL parsing and image alt text to _parse_post()
+
 ## [0.4.0] - 2026-01-25
 
 ### Added
