@@ -2,7 +2,7 @@
 name: browsing-bluesky
 description: Browse Bluesky content via API and firehose - search posts, fetch user activity, sample trending topics, read feeds and lists, analyze and categorize accounts. Supports authenticated access for personalized feeds. Use for Bluesky research, user monitoring, trend analysis, feed reading, firehose sampling, account categorization.
 metadata:
-  version: 0.4.0
+  version: 0.4.1
 ---
 
 # Browsing Bluesky
@@ -175,6 +175,8 @@ All API functions return structured dicts with:
 - `author_handle`: User handle
 - `author_name`: Display name
 - `likes`, `reposts`, `replies`: Engagement counts
+- `links`: Full URLs extracted from post facets (post text truncates URLs with "...")
+- `image_alts`: Alt text from embedded images
 - `url`: Direct link to post on bsky.app
 
 Profile function returns: `handle`, `display_name`, `description`, `followers`, `following`, `posts`, `did`
