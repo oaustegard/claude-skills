@@ -229,9 +229,19 @@ for SKILL_DIR in $SKILLS; do
   # Copy skill folder to temp directory
   cp -r "$SKILL_DIR" "$TEMP_DIR/"
 
-  # Create ZIP from temp directory (exclude README - auto-generated, CHANGELOG - merged to main separately, keep VERSION for runtime version detection)
+  # Create ZIP from temp directory
+  # Exclude: README (auto-generated), CHANGELOG (repo-only), _MAP.md (generated code maps),
+  # CLAUDE.md (development context), tests/ (integration tests)
   cd "$TEMP_DIR"
-  zip -r "$SKILL_DIR.zip" "$SKILL_DIR/" -x "$SKILL_DIR/README.md" -x "$SKILL_DIR/CHANGELOG.md"
+  zip -r "$SKILL_DIR.zip" "$SKILL_DIR/" \
+    -x "$SKILL_DIR/README.md" \
+    -x "$SKILL_DIR/CHANGELOG.md" \
+    -x "$SKILL_DIR/_MAP.md" \
+    -x "$SKILL_DIR/*/_MAP.md" \
+    -x "$SKILL_DIR/CLAUDE.md" \
+    -x "$SKILL_DIR/*/CLAUDE.md" \
+    -x "$SKILL_DIR/tests/*" \
+    -x "$SKILL_DIR/tests/"
 
   echo "✓ Created $SKILL_DIR.zip"
   echo "ZIP contents:"

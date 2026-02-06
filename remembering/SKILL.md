@@ -2,16 +2,14 @@
 name: remembering
 description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, retention management, type-safe results, proactive memory hints, GitHub access detection, and ops priority ordering.
 metadata:
-  version: 3.8.0
+  version: 4.0.0
 ---
-
-> **⚠️ IMPORTANT FOR CLAUDE CODE AGENTS**
-> Before working with this skill, read `CLAUDE.md` in this directory.
-> It contains critical development context, import patterns, and instructs you to use Muninn to track work on Muninn (meta-usage pattern).
 
 # Remembering - Advanced Operations
 
 **Basic patterns are in project instructions.** This skill covers advanced features and edge cases.
+
+For development context, see [references/CLAUDE.md](references/CLAUDE.md).
 
 ## Two-Table Architecture
 
@@ -26,79 +24,105 @@ Config loads fast at startup. Memories are queried as needed.
 
 Load context at conversation start to maintain continuity across sessions.
 
-### Optimized: Compressed Boot (Recommended)
-
-Use `boot()` for fast startup (~150ms):
-
 ```python
 from remembering import boot
 print(boot())
 ```
 
-Output: Complete profile and ops values for full context at boot.
+**Performance:** ~150ms (single HTTP request), populates local cache for fast subsequent `recall()`.
 
-**Performance:**
-- Execution: ~150ms (single HTTP request)
-- Populates local cache for fast subsequent recall()
+Boot includes a `# CAPABILITIES` section reporting GitHub access and installed utilities. See [references/advanced-operations.md](references/advanced-operations.md) for details.
 
-### Boot Output: CAPABILITIES Section (v3.5.0)
+## Memory Type System
 
-Boot now includes a `# CAPABILITIES` section reporting:
+**Type is required** on all write operations. Valid types:
 
-**GitHub Access:**
-- Detects `gh` CLI availability and authentication status
-- Checks for `GITHUB_TOKEN` / `GH_TOKEN` environment variables
-- Reports recommended method (gh-cli preferred when authenticated)
-- Shows authenticated user when available
-
-```
-# CAPABILITIES
-
-## GitHub Access
-  Status: Available
-  Methods: gh-cli, api-token
-  Recommended: gh-cli
-  gh user: oaustegard
-  Usage: gh pr view, gh issue list, gh api repos/...
-```
-
-**Utilities:**
-- Extracts utility-code memories to `/home/claude/muninn_utils/`
-- Adds to Python path for direct import
-- Lists available utilities with import syntax
-
-```
-## Utilities (2)
-  from muninn_utils import my_helper
-  from muninn_utils import another_util
-```
-
-### Detecting GitHub Access Programmatically
+| Type | Use For |
+|------|---------|
+| `decision` | Explicit choices: prefers X, always/never do Y |
+| `world` | External facts: tasks, deadlines, project state |
+| `anomaly` | Errors, bugs, unexpected behavior |
+| `experience` | General observations, catch-all |
 
 ```python
-from remembering import detect_github_access
-
-github = detect_github_access()
-if github['available']:
-    print(f"Use {github['recommended']} for GitHub operations")
-    if github['gh_cli'] and github['gh_cli']['authenticated']:
-        print(f"Authenticated as: {github['gh_cli']['user']}")
+from remembering import TYPES  # {'decision', 'world', 'anomaly', 'experience'}
 ```
 
-Returns:
+## Core Operations
+
+### Remember
+
 ```python
-{
-    'available': True,
-    'methods': ['gh-cli', 'api-token'],
-    'recommended': 'gh-cli',
-    'gh_cli': {'path': '/usr/bin/gh', 'authenticated': True, 'user': 'username'},
-    'api_token': True
-}
+from remembering import remember, remember_bg, flush
+
+# Blocking write (default)
+id = remember("User prefers dark mode", "decision", tags=["ui"], conf=0.9)
+
+# Background write (non-blocking)
+remember("Quick note", "world", sync=False)
+
+# Ensure all background writes complete before conversation ends
+flush()
 ```
+
+**When to use sync=False:** Storing derived insights during active work, when latency matters.
+**When to use sync=True (default):** User explicitly requests storage, critical memories, handoffs.
+
+### Recall
+
+```python
+from remembering import recall
+
+# FTS5 search with BM25 ranking + Porter stemmer
+memories = recall("dark mode")
+
+# Filtered queries
+decisions = recall(type="decision", conf=0.85, n=20)
+tasks = recall("API", tags=["task"], n=15)
+urgent = recall(tags=["task", "urgent"], tag_mode="all", n=10)
+```
+
+Results return as `MemoryResult` objects with attribute and dict access. Common aliases (`m.content` -> `m.summary`, `m.conf` -> `m.confidence`) resolve transparently.
+
+### Forget and Supersede
+
+```python
+from remembering import forget, supersede
+
+# Soft delete (sets deleted_at, excluded from queries)
+forget("memory-uuid")
+
+# Version without losing history
+supersede(original_id, "User now prefers Python 3.12", "decision", conf=0.9)
+```
+
+## Config Table
+
+Key-value store for profile (behavioral), ops (operational), and journal (temporal) settings.
+
+```python
+from remembering import config_get, config_set, config_delete, config_list, profile, ops
+
+# Read
+config_get("identity")                    # Single key
+profile()                                  # All profile entries
+ops()                                      # All ops entries
+config_list()                              # Everything
+
+# Write
+config_set("new-key", "value", "profile")  # Category: 'profile', 'ops', or 'journal'
+config_set("bio", "Short bio here", "profile", char_limit=500)  # Enforce max length
+config_set("core-rule", "Never modify this", "ops", read_only=True)  # Mark immutable
+
+# Delete
+config_delete("old-key")
+```
+
+For progressive disclosure, priority-based ordering, and dynamic topic categories, see [references/advanced-operations.md](references/advanced-operations.md).
 
 ## Journal System
 
-Temporal awareness via rolling journal entries in config. Inspired by Strix's journal.jsonl pattern.
+Temporal awareness via rolling journal entries in config.
 
 ```python
 from remembering import journal, journal_recent, journal_prune
@@ -118,768 +142,60 @@ for entry in journal_recent(10):
 pruned = journal_prune(keep=40)
 ```
 
-**Entry structure:**
-- `t`: ISO timestamp
-- `topics`: array of tags (enables filtering at scale)
-- `user_stated`: commitments/plans user verbalized
-- `my_intent`: current goal/task
+## Background Writes
 
-**Key insight from Strix:** "If you didn't write it down, you won't remember it next message."
-
-## Config Table
-
-Key-value store for profile (behavioral), ops (operational), and journal (temporal) settings.
-
-```python
-from remembering import config_get, config_set, config_delete, config_list, config_set_boot_load, config_set_priority, profile, ops
-
-# Read
-config_get("identity")                    # Single key
-profile()                                  # All profile entries
-ops()                                      # All ops entries
-config_list()                              # Everything
-
-# Write
-config_set("new-key", "value", "profile")  # Category: 'profile', 'ops', or 'journal'
-config_set("skill-foo", "usage notes", "ops")
-
-# Write with constraints (new!)
-config_set("bio", "Short bio here", "profile", char_limit=500)  # Enforce max length
-config_set("core-rule", "Never modify this", "ops", read_only=True)  # Mark immutable
-
-# Delete
-config_delete("old-key")
-```
-
-**Config constraints:**
-- `char_limit`: Enforces maximum character count on writes (raises `ValueError` if exceeded)
-- `read_only`: Prevents modifications (raises `ValueError` on attempted updates)
-
-### Progressive Disclosure (v2.1.0)
-
-Ops entries can be marked as **boot-loaded** (default) or **reference-only** to reduce boot() output size:
-
-```python
-from remembering import config_set_boot_load, ops
-
-# Mark entry as reference-only (won't load at boot)
-config_set_boot_load('github-api-endpoints', False)
-config_set_boot_load('container-limits', False)
-
-# Mark entry as boot-loaded (loads at boot)
-config_set_boot_load('storage-discipline', True)
-
-# Query ops with filtering
-boot_ops = ops()                          # Only boot-loaded entries (default)
-all_ops = ops(include_reference=True)     # All entries (boot + reference)
-```
-
-**How it works:**
-- `boot()` outputs only ops with `boot_load=1` (reduces token usage at boot)
-- Reference-only ops (`boot_load=0`) appear in a **Reference Entries** index at the end of boot output
-- Reference entries remain fully accessible via `config_get(key)` when needed
-- Ideal for: API documentation, container specs, rarely-triggered guidance
-
-**Example boot output:**
-```
-=== OPS ===
-
-## Core Boot & Behavior
-storage-discipline:
-[Full content here...]
-
-## Reference Entries (load via config_get)
-container-limits, github-api-endpoints, network-tools, recall-triggers
-```
-
-### Priority-Based Ordering (v3.6.0)
-
-Ops entries within each topic category are sorted by priority (descending). Critical entries appear first.
-
-```python
-from remembering import config_set_priority
-
-# Set priority for critical entries (higher = more important)
-config_set_priority('storage-rules', 10)       # Critical - show first in category
-config_set_priority('boot-behavior', 5)        # Elevated priority
-config_set_priority('fly-command', 0)          # Normal priority (default)
-
-# Priority scale:
-# 0: Normal (default)
-# 1-9: Elevated
-# 10+: Critical
-```
-
-**How it works:**
-- Entries with higher priority appear first within their topic category
-- Equal-priority entries are sorted alphabetically by key
-- Priority is stored in the `priority` column of the config table
-- Does not require entry recreation—just call `config_set_priority()`
-
-### Dynamic Topic Categories (v3.6.0)
-
-Topic categories can be loaded from config instead of being hardcoded:
-
-```python
-from remembering import config_set, config_get
-import json
-
-# View current topic mapping
-topics = json.loads(config_get('ops-topics') or '{}')
-
-# Update topic mapping
-new_topics = {
-    'Core Boot & Behavior': ['boot-behavior', 'dev-workflow'],
-    'Memory Operations': ['remembering-api', 'storage-rules'],
-    'My Custom Category': ['my-key-1', 'my-key-2']
-}
-config_set('ops-topics', json.dumps(new_topics), 'ops')
-```
-
-**How it works:**
-- `boot()` loads topics from `config_get('ops-topics')` if available
-- Falls back to built-in defaults if config is missing or invalid
-- Format: JSON object mapping topic name → list of ops keys
-- Changes take effect on next `boot()` call
-
-## Memory Type System
-
-**Type is required** on all write operations. Valid types:
-
-| Type | Use For |
-|------|---------|
-| `decision` | Explicit choices: prefers X, always/never do Y |
-| `world` | External facts: tasks, deadlines, project state |
-| `anomaly` | Errors, bugs, unexpected behavior |
-| `experience` | General observations, catch-all |
-
-Note: `profile` is no longer a memory type—use `config_set(key, value, "profile")` instead.
-
-```python
-from remembering import TYPES  # {'decision', 'world', 'anomaly', 'experience'}
-```
-
-## Priority System (v2.0.0)
-
-Memories have a priority field that affects ranking in search results:
-
-| Priority | Value | Description |
-|----------|-------|-------------|
-| Background | -1 | Low-value, can age out first |
-| Normal | 0 | Default for new memories |
-| Important | 1 | Boosted in ranking |
-| Critical | 2 | Always surface, never auto-age |
-
-```python
-from remembering import remember, reprioritize
-
-# Set priority at creation
-remember("Critical security finding", "anomaly", tags=["security"], priority=2)
-
-# Adjust priority later
-reprioritize("memory-uuid", priority=1)  # Upgrade to important
-reprioritize("memory-uuid", priority=-1)  # Demote to background
-```
-
-**Ranking formula:**
-```
-score = bm25_score * recency_weight * (1 + priority * 0.5)
-```
-
-Priority affects composite ranking score - higher priority memories surface more readily in search results.
-
-### Memory Consolidation (v3.3.0)
-
-Biological memory consolidation pattern: memories that participate in active cognition consolidate more strongly.
-
-```python
-from remembering import strengthen, weaken, recall
-
-# Strengthen a memory (increment priority, max 2)
-result = strengthen("memory-uuid", boost=1)
-# Returns: {'memory_id': '...', 'old_priority': 0, 'new_priority': 1, 'changed': True}
-
-# Weaken a memory (decrement priority, min -1)
-result = weaken("memory-uuid", drop=1)
-# Returns: {'memory_id': '...', 'old_priority': 1, 'new_priority': 0, 'changed': True}
-
-# Auto-strengthen top results during recall (opt-in)
-results = recall("important topic", auto_strengthen=True, n=10)
-# Automatically strengthens top 3 results with priority < 2
-```
-
-**Use cases:**
-- Consolidate memories that prove useful across conversations
-- Implement spaced repetition patterns
-- Automatically promote frequently accessed knowledge
-- Simulate biological memory consolidation mechanisms
-
-**Notes:**
-- `strengthen()` caps at priority=2 (critical)
-- `weaken()` floors at priority=-1 (background)
-- `auto_strengthen=True` only affects top 3 results with priority < 2
-- Returns dict with old/new priority and whether change occurred
-- Replaced no-op placeholder functions from v2.0.0 with working implementations
-
-## Background Writes (Agentic Pattern)
-
-**v0.6.0:** Unified API with `sync` parameter. Use `remember(..., sync=False)` for background writes:
+Use `remember(..., sync=False)` for background writes. **Always call `flush()` before conversation ends** to ensure persistence.
 
 ```python
 from remembering import remember, flush
 
-# Background writes (non-blocking, returns immediately)
-remember("User's project uses Python 3.12 with FastAPI", "world", sync=False)
-remember("Discovered: batch insert reduces latency 70%", "experience",
-         tags=["optimization"], sync=False)
+remember("Derived insight", "experience", sync=False)
+remember("Another note", "world", sync=False)
 
-# Ensure all pending writes complete before conversation end
+# Before conversation ends:
 flush()  # Blocks until all background writes finish
 ```
 
-**Backwards compatibility:** `remember_bg()` still works (deprecated, calls `remember(..., sync=False)`):
-
-```python
-from remembering import remember_bg
-remember_bg("Quick note", "world")  # Same as remember(..., sync=False)
-```
-
-**When to use sync=False (background):**
-- Storing derived insights during active work
-- Memory write shouldn't block response
-- Agentic pattern where latency matters
-
-**When to use sync=True (blocking, default):**
-- User explicitly requests storage
-- Need confirmation of write success
-- Critical memories (handoffs, decisions)
-- End of workflow when durability matters
-
-**⚠️ IMPORTANT - Cache Sync Guarantee:**
-- If you use `sync=False` for ANY writes in a conversation, you MUST call `flush()` before the conversation ends
-- This ensures all background writes persist to the database before the ephemeral container is destroyed
-- Single-user context: no concurrent write conflicts, all writes will succeed
-- Prefer `sync=True` (default) for critical writes to guarantee immediate persistence
-
-## Memory Versioning (Patch/Snapshot)
-
-Supersede without losing history:
-
-```python
-from remembering import supersede
-
-# User's preference evolved
-original_id = "abc-123"
-supersede(original_id, "User now prefers Python 3.12", "decision", conf=0.9)
-```
-
-Creates new memory with `refs=[original_id]`. Original preserved but not returned in default queries. Trace evolution via `refs` chain.
-
-**v3.3.0 Performance:** `supersede()` now uses batched operations, reducing HTTP requests by 50% (single request instead of two).
-
-## Complex Queries
-
-Multiple filters, custom confidence thresholds:
-
-```python
-from remembering import recall
-
-# High-confidence decisions only
-decisions = recall(type="decision", conf=0.85, n=20)
-
-# Recent anomalies for debugging context
-bugs = recall(type="anomaly", n=5)
-
-# Search with tag filter (any match)
-tasks = recall("API", tags=["task"], n=15)
-
-# Require ALL tags (tag_mode="all")
-urgent_tasks = recall(tags=["task", "urgent"], tag_mode="all", n=10)
-```
-
-## Date-Filtered Queries
-
-Query memories by temporal range:
-
-```python
-from remembering import recall_since, recall_between
-
-# Get memories after a specific timestamp
-recent = recall_since("2025-12-01T00:00:00Z", n=50)
-recent_bugs = recall_since("2025-12-20T00:00:00Z", type="anomaly", tags=["critical"])
-
-# Get memories within a time range
-december = recall_between("2025-12-01T00:00:00Z", "2025-12-31T23:59:59Z", n=100)
-sprint_mems = recall_between("2025-12-15T00:00:00Z", "2025-12-22T00:00:00Z",
-                             type="decision", tags=["sprint-5"])
-```
-
-**Use cases:**
-- Review decisions made during a project phase
-- Analyze bugs discovered in a time window
-- Track learning progress over specific periods
-- Build time-based memory summaries
-
-**Notes:**
-- Timestamps are exclusive (use `>` and `<` not `>=` and `<=`)
-- Supports all standard filters: `search`, `type`, `tags`, `tag_mode`
-- Sorted by timestamp descending (newest first)
-- Excludes soft-deleted and superseded memories
-
-## Therapy Helpers
-
-Support for reflection and memory consolidation workflows:
-
-```python
-from remembering import therapy_scope, therapy_session_count
-
-# Get unprocessed memories since last therapy session
-cutoff_time, unprocessed_memories = therapy_scope()
-# cutoff_time: timestamp of last therapy session (or None if no sessions)
-# unprocessed_memories: all memories created after that timestamp
-
-# Count how many therapy sessions have been recorded
-count = therapy_session_count()
-```
-
-**Therapy session workflow:**
-1. Call `therapy_scope()` to get unprocessed memories
-2. Analyze and consolidate memories (group patterns, extract insights)
-3. Record therapy session completion:
-   ```python
-   remember(f"Therapy Session #{count+1}: Consolidated {len(unprocessed)} memories...",
-            "experience", tags=["therapy"])
-   ```
-
-**Pattern detection example:**
-```python
-cutoff, mems = therapy_scope()
-by_type = group_by_type(mems)  # See Analysis Helpers below
-
-print(f"Since {cutoff}:")
-print(f"  {len(by_type.get('decision', []))} decisions")
-print(f"  {len(by_type.get('anomaly', []))} anomalies to investigate")
-```
-
-## Analysis Helpers
-
-Group and organize memories for pattern detection:
-
-```python
-from remembering import group_by_type, group_by_tag
-
-# Get memories and group by type
-memories = recall(n=100)
-by_type = group_by_type(memories)
-# Returns: {"decision": [...], "world": [...], "anomaly": [...], "experience": [...]}
-
-# Group by tags
-by_tag = group_by_tag(memories)
-# Returns: {"ui": [...], "bug": [...], "performance": [...], ...}
-# Note: Memories with multiple tags appear under each tag
-```
-
-**Use cases:**
-- **Pattern detection**: Find clusters of related memories
-- **Quality analysis**: Identify over/under-represented memory types
-- **Tag hygiene**: Discover inconsistent tagging patterns
-- **Therapy sessions**: Organize unprocessed memories before consolidation
-
-**Example - Find overused tags:**
-```python
-mems = recall(n=200)
-by_tag = group_by_tag(mems)
-sorted_tags = sorted(by_tag.items(), key=lambda x: len(x[1]), reverse=True)
-print("Top tags:")
-for tag, tagged_mems in sorted_tags[:5]:
-    print(f"  {tag}: {len(tagged_mems)} memories")
-```
-
-## FTS5 Search with Porter Stemmer (v0.13.0)
-
-Full-text search uses FTS5 with Porter stemmer for morphological variant matching:
-
-```python
-from remembering import recall
-
-# Searches match word variants automatically
-# "running" matches "run", "runs", "runner"
-# "beads" matches "bead"
-results = recall("running performance")
-
-# Query expansion fallback
-# When FTS5 returns < threshold results, automatically extracts tags from
-# partial results and searches for related memories
-sparse_results = recall("rare term")  # Auto-expands if < 3 matches
-
-# v3.7.0: Configurable expansion threshold
-results = recall("term", expansion_threshold=5)  # Expand if < 5 results
-results = recall("term", expansion_threshold=0)  # Disable expansion entirely
-```
-
-**How it works:**
-- FTS5 tokenizer: `porter unicode61` handles stemming
-- BM25 ranking for relevance scoring
-- Query expansion extracts tags from partial results when below threshold (default 3, configurable via `expansion_threshold`)
-- Set `expansion_threshold=0` to disable expansion entirely
-- Composite ranking: BM25 × salience × recency × access patterns
-
-## Soft Delete
-
-Remove without destroying data:
-
-```python
-from remembering import forget
-
-forget("memory-uuid")  # Sets deleted_at, excluded from queries
-```
-
-Memories remain in database for audit/recovery. Hard deletes require direct SQL.
+`remember_bg()` still works as deprecated alias for `remember(..., sync=False)`.
 
 ## Memory Quality Guidelines
 
 Write complete, searchable summaries that standalone without conversation context:
 
-✓ "User prefers direct answers with code examples over lengthy conceptual explanations"
-
-✗ "User wants code" (lacks context, unsearchable)
-
-✗ "User asked question" + "gave code" + "seemed happy" (fragmented, no synthesis)
-
-## Handoff Convention
-
-Cross-environment work coordination with version tracking and automatic completion marking.
-
-### Creating Handoffs
-
-From Claude.ai (web/mobile) - cannot persist file changes:
-
-```python
-from remembering import remember
-
-remember("""
-HANDOFF: Implement user authentication
-
-## Context
-User wants OAuth2 + JWT authentication for the API.
-
-## Files to Modify
-- src/auth/oauth.py
-- src/middleware/auth.py
-- tests/test_auth.py
-
-## Implementation Notes
-- Use FastAPI OAuth2PasswordBearer
-- JWT tokens with 24h expiry
-- Refresh token support
-...
-""", "world", tags=["handoff", "pending", "auth"])
-```
-
-**Important:** Tag with `["handoff", "pending", ...]` so it appears in `handoff_pending()` queries.
-
-**Handoff structure:**
-- **Title**: Brief summary of what needs to be done
-- **Context**: Why this work is needed
-- **Files to Modify**: Specific paths
-- **Implementation Notes**: Code patterns, constraints, dependencies
-
-### Completing Handoffs
-
-From Claude Code - streamlined workflow:
-
-```python
-from remembering import handoff_pending, handoff_complete
-
-# Get pending work (excludes completed handoffs)
-pending = handoff_pending()
-print(f"{len(pending)} pending handoff(s)")
-
-for h in pending:
-    print(f"[{h['created_at'][:10]}] {h['summary'][:80]}")
-
-# Complete a handoff (automatically tags with version)
-handoff_id = pending[0]['id']
-handoff_complete(
-    handoff_id,
-    "COMPLETED: Implemented boot() function with batched queries...",
-    # version auto-detected from VERSION file, or specify: "0.5.0"
-)
-```
-
-**What happens:**
-- Original handoff is superseded (won't appear in future `handoff_pending()` queries)
-- Completion record created with tags `["handoff-completed", "v0.5.0"]`
-- Version tracked automatically from `VERSION` file
-- Full history preserved via `supersede()` chain
-
-### Querying History
-
-```python
-from remembering import recall
-
-# See what was completed in a specific version
-v050_work = recall(tags=["handoff-completed", "v0.5.0"])
-
-# See all completion records
-completed = recall(tags=["handoff-completed"], n=50)
-```
-
-**Use when:**
-- Working in Claude.ai (web/mobile) without file write access
-- Planning work that needs Claude Code execution
-- Coordinating between environments
-- Leaving detailed instructions for future sessions
-
-## Session Scoping (v3.2.0)
-
-Filter memories by conversation or work session using `session_id`:
-
-```python
-from remembering import remember, recall, set_session_id
-
-# Set session for all subsequent remember() calls
-set_session_id("project-alpha-sprint-1")
-remember("Feature spec approved", "decision", tags=["project-alpha"])
-
-# Query by session
-alpha_memories = recall(session_id="project-alpha-sprint-1", n=50)
-
-# Session ID defaults to MUNINN_SESSION_ID env var or 'default-session'
-import os
-os.environ['MUNINN_SESSION_ID'] = 'my-session'
-```
-
-**v3.8.0**: Session-filtered queries now use the local cache (#237), providing the same performance as non-session queries (~5ms vs ~200ms).
-
-## Retrieval Observability (v3.2.0)
-
-Monitor query performance and usage patterns:
-
-```python
-from remembering import recall_stats, top_queries
-
-# Get retrieval statistics
-stats = recall_stats(limit=100)
-print(f"Cache hit rate: {stats['cache_hit_rate']:.1%}")
-print(f"Avg query time: {stats['avg_exec_time_ms']:.1f}ms")
-
-# Find most common searches
-for query_info in top_queries(n=10):
-    print(f"{query_info['query']}: {query_info['count']} times")
-```
-
-## Retention Management (v3.2.0)
-
-Analyze memory distribution and prune old/low-priority memories:
-
-```python
-from remembering import memory_histogram, prune_by_age, prune_by_priority
-
-# Get memory distribution
-hist = memory_histogram()
-print(f"Total: {hist['total']}")
-print(f"By type: {hist['by_type']}")
-print(f"By priority: {hist['by_priority']}")
-print(f"By age: {hist['by_age_days']}")
-
-# Preview what would be deleted (dry run)
-result = prune_by_age(older_than_days=90, priority_floor=0, dry_run=True)
-print(f"Would delete {result['count']} memories")
-
-# Actually delete old low-priority memories
-result = prune_by_age(older_than_days=90, priority_floor=0, dry_run=False)
-
-# Delete all background-priority memories
-result = prune_by_priority(max_priority=-1, dry_run=False)
-```
-
-## Export/Import for Portability
-
-Backup or migrate Muninn state across environments:
-
-```python
-from remembering import muninn_export, muninn_import
-import json
-
-# Export all state to JSON
-state = muninn_export()
-# Returns: {"version": "1.0", "exported_at": "...", "config": [...], "memories": [...]}
-
-# Save to file
-with open("muninn-backup.json", "w") as f:
-    json.dump(state, f, indent=2)
-
-# Import (merge with existing data)
-with open("muninn-backup.json") as f:
-    data = json.load(f)
-stats = muninn_import(data, merge=True)
-print(f"Imported {stats['config_count']} config, {stats['memory_count']} memories")
-
-# Import (replace all - destructive!)
-stats = muninn_import(data, merge=False)
-```
-
-**Notes:**
-- `merge=False` deletes all existing data before import (use with caution!)
-- Memory IDs are regenerated on import to avoid conflicts
-- Returns stats dict with counts and any errors
-
-## Type-Safe Results (v3.4.0)
-
-`recall()`, `recall_since()`, and `recall_between()` now return `MemoryResult` objects that validate field access immediately:
-
-```python
-from remembering import recall, MemoryResult, VALID_FIELDS
-
-# Recall returns MemoryResultList of MemoryResult objects
-memories = recall("search term", n=10)
-
-for m in memories:
-    # Valid access - works fine
-    print(m.summary)      # Attribute-style
-    print(m['summary'])   # Dict-style
-    print(m.get('summary', 'default'))  # get() with default
-
-    # v3.7.0: Common aliases resolve transparently
-    print(m.content)      # Works! Resolves to m.summary
-    print(m['content'])   # Works! Resolves to m['summary']
-    print(m.conf)         # Works! Resolves to m.confidence
-
-    # Truly invalid fields still raise errors
-    print(m.foo)          # AttributeError with list of valid fields
-```
-
-**Parameter aliases (v3.7.0):**
-```python
-# limit= accepted as alias for n= in recall()
-recall("search", limit=20)   # Same as recall("search", n=20)
-```
-
-**Valid fields:**
-```python
-from remembering import VALID_FIELDS
-# {'id', 'type', 't', 'summary', 'summary_preview', 'confidence', 'tags',
-#  'refs', 'priority', 'session_id', 'created_at', 'updated_at', 'valid_from',
-#  'access_count', 'last_accessed', 'bm25_score', 'composite_rank',
-#  'composite_score', 'has_full', 'deleted_at'}
-```
-
-**Transparent aliases (v3.7.0):**
-| Alias | Resolves To |
-|-------|-------------|
-| `m.content` | `m.summary` |
-| `m['text']` | `m['summary']` |
-| `m.conf` | `m.confidence` |
-| `m.timestamp` | `m.t` |
-| `m.created` | `m.created_at` |
-
-**Normalized fields (v3.7.0):**
-
-All results now include `summary_preview` (first 100 chars) regardless of whether they came from cache or Turso. Fields like `bm25_score` and `composite_rank` are valid but only present on cache-sourced results.
-
-**Backward compatibility:**
-- MemoryResult supports all dict operations: `in`, `len()`, iteration, `keys()`, `values()`, `items()`
-- Use `m.to_dict()` to convert back to plain dict when needed
-- Use `raw=True` parameter to get plain dicts: `recall("term", raw=True)`
-
-## Proactive Memory Hints (v3.4.0)
-
-`recall_hints()` scans context for terms that match memories, helping surface relevant information before you make mistakes:
-
-```python
-from remembering import recall_hints
-
-# Scan code context for relevant memories
-hints = recall_hints("for m in memories: print(m['content'])")
-
-if hints['hints']:
-    print("Relevant memories found:")
-    for h in hints['hints']:
-        print(f"  [{h['type']}] {h['preview']}")
-        print(f"    Matched: {h['matched_terms']}")
-
-# Check for unmatched terms (potential new topics)
-if hints['unmatched_terms']:
-    print(f"New terms: {hints['unmatched_terms']}")
-```
-
-**Use explicit terms for targeted lookup:**
-```python
-hints = recall_hints(terms=["muninn", "field", "summary", "content"])
-# Returns hints for memories matching any of these terms
-```
-
-**Hint structure:**
-```python
-{
-    'hints': [
-        {
-            'memory_id': 'abc-123...',
-            'type': 'decision',
-            'preview': 'First 100 chars of summary...',
-            'matched_terms': ['muninn', 'field'],
-            'matched_tags': ['muninn'],
-            'priority': 1,
-            'relevance_score': 3
-        }
-    ],
-    'term_coverage': {'muninn': ['abc-123'], 'field': ['abc-123', 'def-456']},
-    'unmatched_terms': ['content'],
-    'warning': None  # or error message if cache unavailable
-}
-```
-
-**When to use:**
-- Before writing code that uses `recall()` - catch field name errors early
-- When starting work on a topic - surface forgotten context
-- Before making decisions - check for relevant past decisions
-- After receiving user instructions - find related memories
-
-**Performance:** Uses local cache when available (~5ms). Falls back to config-based tag matching.
+- **Good**: "User prefers direct answers with code examples over lengthy conceptual explanations"
+- **Bad**: "User wants code" (lacks context, unsearchable)
+- **Bad**: "User asked question" + "gave code" + "seemed happy" (fragmented)
 
 ## Edge Cases
 
-**Empty recall results:** Returns `MemoryResultList([])`, not an error. Check list length before accessing.
-
-**Search literal matching:** Current implementation uses SQL LIKE. Searches "API test" matches "API testing" but not "test API" (order matters).
-
-**Tag partial matching:** `tags=["task"]` matches memories with tags `["task", "urgent"]` via JSON substring search.
-
-**Confidence defaults:** `decision` type defaults to 0.8 if not specified. Others default to `NULL`.
-
-**Invalid type:** Raises `ValueError` with list of valid types.
-
-**Invalid category:** `config_set` raises `ValueError` if category not 'profile', 'ops', or 'journal'.
-
-**Journal pruning:** Call `journal_prune()` periodically to prevent unbounded growth. Default keeps 40 entries.
-
-**Tag mode:** `tag_mode="all"` requires all specified tags to be present. `tag_mode="any"` (default) matches if any tag present.
-
-**Query expansion:** When FTS5 returns fewer results than `expansion_threshold` (default 3), tags are automatically extracted from partial matches and used to find related memories. Set `expansion_threshold=0` to disable.
-
-## Unified GitHub API (v3.8.0)
-
-```python
-from remembering import github_api
-
-# GET request (default)
-issues = github_api('repos/owner/repo/issues')
-
-# POST request with body
-pr = github_api('repos/owner/repo/pulls', method='POST',
-                body={'title': 'Fix bug', 'head': 'fix-branch', 'base': 'main'})
-```
-
-Automatically selects the best available method (gh CLI when authenticated, otherwise GITHUB_TOKEN/GH_TOKEN).
+- **Empty recall results:** Returns `MemoryResultList([])`, not an error
+- **Tag partial matching:** `tags=["task"]` matches memories with tags `["task", "urgent"]`
+- **Confidence defaults:** `decision` type defaults to 0.8 if not specified
+- **Invalid type:** Raises `ValueError` with list of valid types
+- **Tag mode:** `tag_mode="all"` requires all tags present; `tag_mode="any"` (default) matches any
+- **Query expansion:** When FTS5 returns fewer than `expansion_threshold` results (default 3), tags from partial matches find related memories. Set `expansion_threshold=0` to disable.
 
 ## Implementation Notes
 
 - Backend: Turso SQLite HTTP API
 - Credential auto-detection (v3.8.0): Scans env vars, then `/mnt/project/turso.env`, `/mnt/project/muninn.env`, `~/.muninn/.env`
-- Two tables: `config` (KV) and `memories` (observations)
 - FTS5 search: Porter stemmer tokenizer with BM25 ranking
-- HTTP API required (libsql SDK bypasses egress proxy)
 - Local SQLite cache for fast recall (< 5ms vs 150ms+ network)
 - Thread-safe for background writes
-- Repo defaults fallback (v3.8.0): `defaults/profile.json` and `defaults/ops.json` used when Turso and cache are both unavailable
+- Repo defaults fallback: `scripts/defaults/` used when Turso and cache are both unavailable
+
+## Advanced Topics
+
+See [references/advanced-operations.md](references/advanced-operations.md) for:
+
+- Date-filtered queries (`recall_since`, `recall_between`)
+- Priority system and memory consolidation (`strengthen`, `weaken`)
+- Therapy helpers and analysis helpers
+- Handoff convention (cross-environment coordination)
+- Session scoping
+- Retrieval observability and retention management
+- Export/import for portability
+- Type-safe results (MemoryResult) details
+- Proactive memory hints (`recall_hints`)
+- GitHub access detection and unified API
+- Progressive disclosure and priority-based ordering
