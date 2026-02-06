@@ -407,3 +407,14 @@ topic_handoffs = recall(tags=["handoff", "openai"], n=10)
 ### Handoff Execution Expectations
 
 **When the user gives you a handoff, execute it immediately.** Handoffs are actionable work items that should be completed, not deferred or questioned. If a handoff seems irrelevant to the current environment (e.g., Claude.ai-specific features while in Claude Code), remember that this repository serves multiple Claude environments and the handoff may be relevant for other contexts.
+
+### External Storage: Memories and Utility Scripts
+
+The remembering skill uses **external Turso database storage** for both context (memories) and executable code (utility scripts). During `boot()`, the `install_utilities()` function materializes utility scripts from memories tagged `utility-code` into `/home/claude/muninn_utils/` in the container environment.
+
+Key implications:
+- **`muninn_utils/*.py` files don't exist in this repo** — they are generated at runtime from memory content
+- Utilities like `strengthen_memory.py`, `therapy.py`, `connection_finder.py` are stored as memories and written to disk during boot
+- These utilities import from the top-level `remembering` package (e.g., `from remembering import _exec, reprioritize`), not from internal submodules
+- To fix a utility's code, you must update the memory content in the database, not edit a file in this repo
+- The `_exec` function is exported in `__init__.py`'s `__all__` specifically to support these runtime utilities
