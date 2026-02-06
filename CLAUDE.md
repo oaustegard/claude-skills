@@ -368,13 +368,13 @@ When finding unmaintained or outdated dependencies:
 
 ## Remembering Skill and Handoff Process
 
-**CRITICAL**: When working with the `remembering` skill OR discussing handoffs, ALWAYS read `/home/user/claude-skills/remembering/CLAUDE.md` FIRST.
+**CRITICAL**: When working with the `remembering` skill OR discussing handoffs, ALWAYS read `/home/user/claude-skills/remembering/references/CLAUDE.md` FIRST.
 
 Why:
 - The remembering skill's CLAUDE.md contains comprehensive documentation about handoff workflows
 - Handoffs are stored IN the remembering system as memories
 - Querying handoffs requires using the remembering skill itself
-- The remembering/CLAUDE.md has critical context about how to query and complete handoffs
+- The remembering references/CLAUDE.md has critical context about how to query and complete handoffs
 
 **Do this immediately** when:
 - User mentions "remembering" skill
@@ -384,7 +384,7 @@ Why:
 
 ```bash
 # ALWAYS do this first:
-cat /home/user/claude-skills/remembering/CLAUDE.md
+cat /home/user/claude-skills/remembering/references/CLAUDE.md
 ```
 
 Then use the remembering skill to query handoffs:

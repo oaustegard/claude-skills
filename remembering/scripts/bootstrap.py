@@ -15,9 +15,9 @@ if os.path.exists('/mnt/skills/user'):
     sys.path.insert(0, '/mnt/skills/user')
     from remembering import _exec, _init, config_set
 else:
-    # Local development - import from current directory
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from __init__ import _exec, _init, config_set
+    # Local development - import from skill root (parent of scripts/)
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from remembering import _exec, _init, config_set
 
 def create_tables():
     """Create memories and config tables if they don't exist.

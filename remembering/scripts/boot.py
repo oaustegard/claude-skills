@@ -832,7 +832,7 @@ def handoff_complete(handoff_id: str, completion_notes: str, version: str = None
     if version is None:
         try:
             from pathlib import Path
-            version_file = Path(__file__).parent / "VERSION"
+            version_file = Path(__file__).parent.parent / "VERSION"
             version = version_file.read_text().strip()
         except Exception:
             version = "unknown"
