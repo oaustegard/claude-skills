@@ -768,6 +768,23 @@ def _parse_post(post: Dict) -> Dict[str, Any]:
     author = post.get("author", {})
     uri_parts = post.get("uri", "").split("/")
 
+    # Extract full URLs from facets (post text truncates URLs with "...")
+    links = []
+    for facet in record.get("facets", []):
+        for feature in facet.get("features", []):
+            if feature.get("$type") == "app.bsky.richtext.facet#link":
+                uri = feature.get("uri")
+                if uri:
+                    links.append(uri)
+
+    # Extract image alt text from embeds
+    image_alts = []
+    embed = record.get("embed", {})
+    for image in embed.get("images", []):
+        alt = image.get("alt", "")
+        if alt:
+            image_alts.append(alt)
+
     return {
         "uri": post.get("uri"),
         "text": record.get("text", ""),
@@ -777,6 +794,8 @@ def _parse_post(post: Dict) -> Dict[str, Any]:
         "likes": post.get("likeCount", 0),
         "reposts": post.get("repostCount", 0),
         "replies": post.get("replyCount", 0),
+        "links": links,
+        "image_alts": image_alts,
         "url": f"https://bsky.app/profile/{author.get('handle')}/post/{uri_parts[-1]}" if uri_parts else None,
     }
 

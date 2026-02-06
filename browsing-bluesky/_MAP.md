@@ -34,7 +34,7 @@
 - Research Workflows `h2` :64
 - API Endpoint Notes `h2` :161
 - Return Format `h2` :169
-- Account Analysis `h2` :182
+- Account Analysis `h2` :184
 
 ### __init__.py
 > Imports: `.scripts.bsky`
