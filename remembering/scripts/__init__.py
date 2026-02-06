@@ -97,5 +97,6 @@ __all__ = [
     "memory_histogram", "prune_by_age", "prune_by_priority",  # retention helpers (v3.2.0)
     # v3.4.0: Type-safe results and proactive hints
     "MemoryResult", "MemoryResultList", "VALID_FIELDS", "recall_hints",
+    "_exec",  # v3.9.0: Raw SQL execution for utilities
     "r", "q", "j", "TYPES"  # aliases & constants
 ]
