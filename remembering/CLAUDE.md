@@ -439,6 +439,31 @@ if github['available']:
 - `bm25_score`, `composite_rank`, `composite_score` added to VALID_FIELDS
 - Results from Turso and cache are normalized to the same field set
 
+## What's New in v3.8.0
+
+**Auto-Credential Detection** (#263): Turso credentials are now auto-detected from well-known env file paths:
+- Scans `/mnt/project/turso.env`, `/mnt/project/muninn.env`, `~/.muninn/.env`
+- No manual `set -a; . turso.env; set +a` needed
+- Built-in env file parser eliminates dependency on `configuring` skill
+
+**Session Cache Support** (#237): Session-filtered queries now use the local cache:
+- `recall(session_id="my-session")` uses cache (~5ms) instead of Turso (~200ms)
+- `session_id` stored in `memory_index` cache table
+- Automatic migration adds column on first boot
+
+**Ops Entry Hygiene** (#265): Default ops topic mapping updated:
+- Removed stale `muninn-env-loading` (superseded by #263 auto-detection)
+- Consolidated `recall-fields` and `recall-discipline` into Memory Operations topic
+
+**Unified GitHub API** (#240): New `github_api()` function:
+- `from remembering import github_api`
+- Automatically selects gh CLI or GITHUB_TOKEN/GH_TOKEN
+- Supports GET, POST, PUT, PATCH, DELETE methods
+
+**Repo Defaults Fallback** (#239): Boot now falls back to version-controlled defaults:
+- `defaults/profile.json` and `defaults/ops.json` provide minimal config
+- Used when both Turso and local cache are unavailable (fresh install + network outage)
+
 ## Known Limitations
 
-- Session filtering bypasses cache (queries Turso directly) - cache support planned for future release
+- None currently tracked

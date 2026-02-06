@@ -2,7 +2,7 @@
 Turso HTTP API layer for remembering skill.
 
 This module handles:
-- Credential initialization via configuring skill (_init)
+- Credential initialization via env files, configuring skill, or env vars (_init)
 - HTTP request retry logic (_retry_with_backoff)
 - SQL execution via Turso HTTP API (_exec, _exec_batch)
 - JSON field parsing (_parse_memory_row)
@@ -21,29 +21,83 @@ from pathlib import Path
 from . import state
 
 
+# Well-known env file locations, searched in priority order (#263)
+_ENV_FILE_PATHS = [
+    Path("/mnt/project/turso.env"),
+    Path("/mnt/project/muninn.env"),
+    Path.home() / ".muninn" / ".env",
+]
+
+
+def _load_env_file(path: Path) -> dict:
+    """Parse a simple KEY=VALUE env file, ignoring comments and blank lines.
+
+    Args:
+        path: Path to the env file
+
+    Returns:
+        Dict of key-value pairs found in the file
+    """
+    env = {}
+    if not path.exists():
+        return env
+    try:
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            if '=' not in line:
+                continue
+            key, _, value = line.partition('=')
+            key = key.strip()
+            value = value.strip()
+            # Strip surrounding quotes if present
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+                value = value[1:-1]
+            env[key] = value
+    except Exception:
+        pass  # File unreadable, skip silently
+    return env
+
+
 def _init():
-    """Lazy-load credentials and URL from configuring skill, environment variables, or legacy project file."""
+    """Lazy-load credentials and URL.
+
+    Search order for each variable:
+    1. Environment variables (already set in process)
+    2. configuring skill (auto-detects .env files in Claude.ai)
+    3. Well-known env file paths (#263: turso.env, muninn.env, ~/.muninn/.env)
+    4. Legacy /mnt/project/turso-token.txt (token only)
+    5. Default URL if no URL found
+    """
     if state._TOKEN is None:
-        # Try to load configuring skill first (preferred method)
+        # Try to load configuring skill (for Claude.ai environments)
         env_loader = None
         spec = importlib.util.find_spec("configuring")
         if spec is not None:
             env_module = importlib.import_module("configuring")
             env_loader = getattr(env_module, "get_env", None)
 
-        # 1. Load TURSO_URL (priority: configuring → env var → default)
-        turso_url = None
-        if env_loader is not None:
-            # Try configuring skill first (returns hostname without protocol or full URL)
-            # This already checks all .env files in /mnt/project (including muninn.env)
+        # Scan well-known env files once (#263)
+        env_file_vars = {}
+        for env_path in _ENV_FILE_PATHS:
+            loaded = _load_env_file(env_path)
+            if loaded:
+                # First matching file wins for each variable
+                for k, v in loaded.items():
+                    if k not in env_file_vars:
+                        env_file_vars[k] = v
+
+        # 1. Load TURSO_URL (priority: env var → configuring → env files → default)
+        turso_url = os.environ.get("TURSO_URL")
+
+        if not turso_url and env_loader is not None:
             turso_url = env_loader("TURSO_URL")
 
         if not turso_url:
-            # Fall back to direct environment variable (for environments without configuring)
-            turso_url = os.environ.get("TURSO_URL")
+            turso_url = env_file_vars.get("TURSO_URL")
 
         if not turso_url:
-            # Use default hostname
             turso_url = state._DEFAULT_URL_HOST
 
         # Normalize URL: add https:// if not present
@@ -52,14 +106,14 @@ def _init():
         else:
             state._URL = turso_url or state._DEFAULT_URL
 
-        # 2. Load TURSO_TOKEN (priority: configuring → env var → legacy file)
-        if env_loader is not None:
-            # This already checks all .env files in /mnt/project (including muninn.env)
+        # 2. Load TURSO_TOKEN (priority: env var → configuring → env files → legacy file)
+        state._TOKEN = os.environ.get("TURSO_TOKEN")
+
+        if not state._TOKEN and env_loader is not None:
             state._TOKEN = env_loader("TURSO_TOKEN")
 
         if not state._TOKEN:
-            # Fall back to direct environment variable (for environments without configuring)
-            state._TOKEN = os.environ.get("TURSO_TOKEN")
+            state._TOKEN = env_file_vars.get("TURSO_TOKEN")
 
         # 3. Legacy fallback to separate token file (for backward compatibility)
         if not state._TOKEN:
@@ -73,18 +127,17 @@ def _init():
 
         # Final validation after cleaning
         if not state._TOKEN:
+            searched = ", ".join(str(p) for p in _ENV_FILE_PATHS)
             raise RuntimeError(
                 "Missing TURSO_TOKEN credential.\n"
-                "Set TURSO_TOKEN in:\n"
-                "  1. configuring skill (recommended - auto-detects .env files), OR\n"
-                "  2. Environment variables, OR\n"
+                "Set TURSO_TOKEN in any of:\n"
+                f"  1. Environment variable TURSO_TOKEN\n"
+                f"  2. Env file at: {searched}\n"
                 "  3. /mnt/project/turso-token.txt (legacy)\n"
-                "\nFor configuring skill:\n"
-                "  - See: https://github.com/oaustegard/claude-skills/tree/main/configuring\n"
-                "  - In Claude.ai: Create /mnt/project/muninn.env with:\n"
-                "      TURSO_TOKEN=your_token_here\n"
-                "      TURSO_URL=assistant-memory-oaustegard.aws-us-east-1.turso.io\n"
-                "  - In Claude Code: Add to ~/.claude/settings.json env block"
+                "  4. Claude Code ~/.claude/settings.json env block\n"
+                "\nExample env file contents:\n"
+                "  TURSO_TOKEN=your_token_here\n"
+                "  TURSO_URL=assistant-memory-oaustegard.aws-us-east-1.turso.io"
             )
 
         state._HEADERS = {"Authorization": f"Bearer {state._TOKEN}", "Content-Type": "application/json"}

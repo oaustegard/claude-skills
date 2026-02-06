@@ -1,0 +1,12 @@
+{
+  "remembering-api": {
+    "value": "Memory operations: remember(what, type, tags=[], conf=None) -> id; recall(search, n=10, tags=[], type=None) -> list; forget(id); supersede(old_id, summary, type) -> new_id. Types: decision, world, anomaly, experience. Config: config_get(key), config_set(key, value, category).",
+    "category": "ops",
+    "boot_load": 1
+  },
+  "storage-rules": {
+    "value": "Write complete, searchable summaries that standalone without conversation context. Bad: 'User wants code'. Good: 'User prefers direct answers with code examples over lengthy explanations'. Always include type parameter.",
+    "category": "ops",
+    "boot_load": 1
+  }
+}

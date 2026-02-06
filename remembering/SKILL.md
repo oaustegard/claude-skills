@@ -2,7 +2,7 @@
 name: remembering
 description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, retention management, type-safe results, proactive memory hints, GitHub access detection, and ops priority ordering.
 metadata:
-  version: 3.7.0
+  version: 3.8.0
 ---
 
 > **⚠️ IMPORTANT FOR CLAUDE CODE AGENTS**
@@ -650,7 +650,7 @@ import os
 os.environ['MUNINN_SESSION_ID'] = 'my-session'
 ```
 
-**Note**: Session filtering bypasses cache (queries Turso directly). Cache support planned for future release.
+**v3.8.0**: Session-filtered queries now use the local cache (#237), providing the same performance as non-session queries (~5ms vs ~200ms).
 
 ## Retrieval Observability (v3.2.0)
 
@@ -858,13 +858,28 @@ hints = recall_hints(terms=["muninn", "field", "summary", "content"])
 
 **Query expansion:** When FTS5 returns fewer results than `expansion_threshold` (default 3), tags are automatically extracted from partial matches and used to find related memories. Set `expansion_threshold=0` to disable.
 
+## Unified GitHub API (v3.8.0)
+
+```python
+from remembering import github_api
+
+# GET request (default)
+issues = github_api('repos/owner/repo/issues')
+
+# POST request with body
+pr = github_api('repos/owner/repo/pulls', method='POST',
+                body={'title': 'Fix bug', 'head': 'fix-branch', 'base': 'main'})
+```
+
+Automatically selects the best available method (gh CLI when authenticated, otherwise GITHUB_TOKEN/GH_TOKEN).
+
 ## Implementation Notes
 
 - Backend: Turso SQLite HTTP API
-- URL: `TURSO_URL` environment variable or `/mnt/project/muninn.env`, falls back to default
-- Token: `TURSO_TOKEN` environment variable, `/mnt/project/muninn.env`, or `/mnt/project/turso-token.txt`
+- Credential auto-detection (v3.8.0): Scans env vars, then `/mnt/project/turso.env`, `/mnt/project/muninn.env`, `~/.muninn/.env`
 - Two tables: `config` (KV) and `memories` (observations)
 - FTS5 search: Porter stemmer tokenizer with BM25 ranking
 - HTTP API required (libsql SDK bypasses egress proxy)
 - Local SQLite cache for fast recall (< 5ms vs 150ms+ network)
 - Thread-safe for background writes
+- Repo defaults fallback (v3.8.0): `defaults/profile.json` and `defaults/ops.json` used when Turso and cache are both unavailable

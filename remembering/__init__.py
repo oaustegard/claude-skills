@@ -61,6 +61,7 @@ from .config import (
 from .boot import (
     profile, ops, _warm_cache, boot,
     detect_github_access,  # v3.5.0: GitHub access detection
+    github_api,  # v3.8.0: Unified GitHub API interface (#240)
     journal, journal_recent, journal_prune,
     therapy_scope, therapy_session_count, decisions_recent,
     group_by_type, group_by_tag,
@@ -82,6 +83,7 @@ __all__ = [
     "config_get", "config_set", "config_delete", "config_list", "config_set_boot_load", "config_set_priority",  # config
     "profile", "ops", "boot", "journal", "journal_recent", "journal_prune",  # boot & journal
     "detect_github_access",  # v3.5.0: GitHub access detection
+    "github_api",  # v3.8.0: Unified GitHub API interface (#240)
     "therapy_scope", "therapy_session_count", "decisions_recent",  # therapy helpers
     "group_by_type", "group_by_tag",  # analysis helpers
     "handoff_pending", "handoff_complete",  # handoff workflow
