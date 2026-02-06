@@ -119,7 +119,7 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
     # Write to local cache immediately (if available) - v0.7.0
     if _cache_available():
         _cache_memory(mem_id, what, type, now, conf, tags, priority,
-                     refs=refs, valid_from=valid_from)
+                     refs=refs, valid_from=valid_from, session_id=session_id)
 
     if sync:
         # Blocking write to Turso
@@ -266,8 +266,9 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
 
     # Try cache first (progressive disclosure)
     # v2.0.1: Only trust empty cache results if warming completed, otherwise fall back to Turso
+    # v3.8.0: Session-filtered queries now use cache (#237) instead of bypassing it
     if use_cache and _cache_available():
-        results = _cache_query_index(search=search, type=type, tags=tags, n=n, conf=conf, tag_mode=tag_mode, strict=strict)
+        results = _cache_query_index(search=search, type=type, tags=tags, n=n, conf=conf, tag_mode=tag_mode, strict=strict, session_id=session_id)
 
         # v2.0.1: If cache returns no results and warming isn't complete, fall back to Turso
         # This fixes race condition where recall() called immediately after boot() returns 0 results

@@ -47,6 +47,7 @@ def _init_local_cache() -> bool:
                 summary_preview TEXT,   -- First 100 chars
                 confidence REAL,
                 priority INTEGER DEFAULT 0,  -- v2.0.0: -1=bg, 0=normal, 1=important, 2=critical
+                session_id TEXT,        -- v3.8.0: session scoping for cache queries (#237)
                 last_accessed TEXT,
                 access_count INTEGER,
                 has_full INTEGER DEFAULT 0
@@ -143,6 +144,17 @@ def _init_local_cache() -> bool:
         except Exception:
             pass  # Silent - migration will retry on next boot
 
+        # v3.8.0: Add session_id column to memory_index if needed (#237)
+        try:
+            cursor = state._cache_conn.cursor()
+            cursor.execute("PRAGMA table_info(memory_index)")
+            columns = [col[1] for col in cursor.fetchall()]
+            if 'session_id' not in columns:
+                cursor.execute("ALTER TABLE memory_index ADD COLUMN session_id TEXT")
+                state._cache_conn.commit()
+        except Exception:
+            pass  # Silent - migration will retry on next boot
+
         # Store initialization timestamp
         now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         state._cache_conn.execute(
@@ -226,8 +238,8 @@ def _cache_populate_index(memories: list):
 
             state._cache_conn.execute("""
                 INSERT OR REPLACE INTO memory_index
-                (id, type, t, tags, summary_preview, confidence, priority, last_accessed, access_count, has_full)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+                (id, type, t, tags, summary_preview, confidence, priority, session_id, last_accessed, access_count, has_full)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
             """, (
                 m.get('id'),
                 m.get('type'),
@@ -236,6 +248,7 @@ def _cache_populate_index(memories: list):
                 m.get('summary_preview', m.get('summary', '')[:100]),
                 m.get('confidence'),
                 m.get('priority', 0),
+                m.get('session_id'),
                 m.get('last_accessed'),
                 m.get('access_count', 0)
             ))
@@ -322,7 +335,7 @@ def _cache_config(config_entries: list):
 def _cache_query_index(search: str = None, type: str = None,
                        tags: list = None, n: int = 10,
                        conf: float = None, tag_mode: str = "any",
-                       strict: bool = False) -> list:
+                       strict: bool = False, session_id: str = None) -> list:
     """Query memory_index using FTS5 for text search (v0.9.0).
 
     When search is provided, uses FTS5 MATCH for ranked full-text search
@@ -331,6 +344,7 @@ def _cache_query_index(search: str = None, type: str = None,
     Args:
         tag_mode: "any" (default) matches any tag, "all" requires all tags
         strict: If True, skip ranking and order by timestamp DESC (v0.12.1)
+        session_id: Filter by session identifier (v3.8.0, #237)
 
     Returns list of dicts with cache data. If has_full=0,
     full content needs to be fetched from Turso.
@@ -358,6 +372,9 @@ def _cache_query_index(search: str = None, type: str = None,
                     params.append(f'%"{t}"%')
                 join_op = ' AND ' if tag_mode == "all" else ' OR '
                 conditions.append(f"({join_op.join(tag_conds)})")
+            if session_id is not None:
+                conditions.append("i.session_id = ?")
+                params.append(session_id)
 
             where = " AND ".join(conditions) if conditions else "1=1"
 
@@ -396,6 +413,9 @@ def _cache_query_index(search: str = None, type: str = None,
                     params.append(f'%"{t}"%')
                 join_op = ' AND ' if tag_mode == "all" else ' OR '
                 conditions.append(f"({join_op.join(tag_conds)})")
+            if session_id is not None:
+                conditions.append("i.session_id = ?")
+                params.append(session_id)
 
             where = " AND ".join(conditions)
 
@@ -439,6 +459,9 @@ def _cache_query_index(search: str = None, type: str = None,
                     params.append(f'%"{t}"%')
                 join_op = ' AND ' if tag_mode == "all" else ' OR '
                 conditions.append(f"({join_op.join(tag_conds)})")
+            if session_id is not None:
+                conditions.append("i.session_id = ?")
+                params.append(session_id)
 
             where = " AND ".join(conditions) if conditions else "1=1"
 
@@ -508,6 +531,7 @@ def _cache_memory(mem_id: str, what: str, type: str, now: str,
     """Cache a new memory (write-through), including FTS5 index.
 
     v2.0.0: Replaced importance/salience with priority field.
+    v3.8.0: Added session_id caching (#237).
     """
     if not _cache_available():
         return
@@ -516,13 +540,14 @@ def _cache_memory(mem_id: str, what: str, type: str, now: str,
         tags_list = tags or []
         tags_json = json.dumps(tags_list)
         tags_str = ' '.join(tags_list)  # Space-separated for FTS5
+        session_id = kwargs.get('session_id')
 
         # Insert into index
         state._cache_conn.execute("""
             INSERT OR REPLACE INTO memory_index
-            (id, type, t, tags, summary_preview, confidence, priority, last_accessed, access_count, has_full)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-        """, (mem_id, type, now, tags_json, what[:100], conf, priority, None, 0))
+            (id, type, t, tags, summary_preview, confidence, priority, session_id, last_accessed, access_count, has_full)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+        """, (mem_id, type, now, tags_json, what[:100], conf, priority, session_id, None, 0))
 
         # Insert full content
         refs = kwargs.get('refs')

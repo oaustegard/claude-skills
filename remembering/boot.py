@@ -19,6 +19,7 @@ import shutil
 import subprocess
 import threading
 from datetime import datetime, UTC
+from pathlib import Path
 
 from . import state
 from .turso import _exec, _exec_batch
@@ -37,9 +38,10 @@ _DEFAULT_OPS_TOPICS = {
         'boot-behavior', 'boot-output-hygiene', 'dev-workflow'
     ],
     'Memory Operations': [
+        # v3.8.0 (#265): Consolidated recall-fields and recall-discipline into remembering-api
         'remembering-api', 'memory-types', 'memory-backup',
         'storage-rules', 'storage-initiative', 'think-then-store',
-        'recall-before-speculation'
+        'recall-before-speculation', 'recall-fields', 'recall-discipline'
     ],
     'Communication & Voice': [
         'communication-patterns', 'question-style', 'language-precision',
@@ -54,7 +56,9 @@ _DEFAULT_OPS_TOPICS = {
         'batch-processing-drift', 'cache-testing-lesson'
     ],
     'Environment & Infrastructure': [
-        'env-file-handling', 'muninn-env-loading', 'austegard-com-hosting'
+        # v3.8.0 (#265): Removed stale muninn-env-loading (now handled by auto-credential
+        # loading in turso.py #263). Consolidated python-remembering-setup into env-file-handling.
+        'env-file-handling', 'python-remembering-setup', 'austegard-com-hosting'
     ],
     'Commands & Shortcuts': [
         'fly-command', 'rem-command'
@@ -222,6 +226,89 @@ def detect_github_access() -> dict:
     return result
 
 
+def github_api(endpoint: str, *, method: str = "GET", body: dict = None,
+               accept: str = "application/vnd.github+json") -> dict:
+    """Unified GitHub API interface that works across environments (#240).
+
+    Automatically selects the best available access method:
+    - gh CLI (preferred when authenticated)
+    - Direct HTTP via GITHUB_TOKEN/GH_TOKEN
+
+    Args:
+        endpoint: GitHub API path (e.g., 'repos/owner/repo/issues')
+                  Can be a full URL or relative path.
+        method: HTTP method (GET, POST, PUT, PATCH, DELETE)
+        body: Optional request body dict (for POST/PUT/PATCH)
+        accept: Accept header value
+
+    Returns:
+        Dict with parsed JSON response
+
+    Raises:
+        RuntimeError: If no GitHub access is configured or request fails
+
+    Example:
+        >>> from remembering import github_api
+        >>> issues = github_api('repos/oaustegard/claude-skills/issues')
+        >>> pr = github_api('repos/owner/repo/pulls', method='POST',
+        ...                 body={'title': 'Fix', 'head': 'fix-branch', 'base': 'main'})
+    """
+    import urllib.request
+    import urllib.error
+
+    access = detect_github_access()
+    if not access['available']:
+        raise RuntimeError(
+            "No GitHub access configured. Set GITHUB_TOKEN or authenticate gh CLI."
+        )
+
+    # Normalize endpoint - strip leading slash and api prefix
+    endpoint = endpoint.lstrip('/')
+    if endpoint.startswith('https://api.github.com/'):
+        endpoint = endpoint[len('https://api.github.com/'):]
+
+    # Try gh CLI first (more capable, handles auth automatically)
+    if access['recommended'] == 'gh-cli':
+        try:
+            cmd = ['gh', 'api', endpoint, '--method', method]
+            if body:
+                for k, v in body.items():
+                    cmd.extend(['-f', f'{k}={v}' if isinstance(v, str) else '-F', f'{k}={v}'])
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            if result.returncode == 0:
+                return json.loads(result.stdout) if result.stdout.strip() else {}
+            # Fall through to HTTP on gh CLI failure
+        except Exception:
+            pass  # Fall through to HTTP
+
+    # Direct HTTP with token
+    token = os.environ.get('GITHUB_TOKEN') or os.environ.get('GH_TOKEN')
+    if not token:
+        raise RuntimeError("GitHub API token not available and gh CLI failed.")
+
+    url = f"https://api.github.com/{endpoint}"
+    headers = {
+        'Authorization': f'Bearer {token}',
+        'Accept': accept,
+        'User-Agent': 'muninn-memory-system',
+    }
+
+    data = json.dumps(body).encode('utf-8') if body else None
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    if data:
+        req.add_header('Content-Type', 'application/json')
+
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            response_data = resp.read().decode('utf-8')
+            return json.loads(response_data) if response_data.strip() else {}
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode('utf-8', errors='replace')
+        raise RuntimeError(f"GitHub API error {e.code}: {error_body}") from e
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"GitHub API connection error: {e}") from e
+
+
 def group_ops_by_topic(ops_entries: list) -> tuple[dict, list]:
     """Group ops entries by topic for organized output.
 
@@ -322,13 +409,60 @@ def _warm_cache():
                     'tags': m.get('tags'),
                     'summary_preview': m.get('summary', '')[:100],
                     'confidence': m.get('confidence'),
-                    'priority': m.get('priority', 0)
+                    'priority': m.get('priority', 0),
+                    'session_id': m.get('session_id'),  # v3.8.0: cache session_id (#237)
                 })
             _cache_populate_index(memory_index)
             _cache_populate_full(full_memories)
             state._cache_warmed = True  # Mark as complete
     except Exception:
         pass  # Cache warming is best-effort
+
+
+def _load_repo_defaults() -> tuple[list, list]:
+    """Load profile and ops defaults from version-controlled JSON files (#239).
+
+    Used as a last-resort fallback when both Turso and cache are unavailable
+    (e.g., fresh install with no prior sessions, network outage).
+
+    Returns:
+        Tuple of (profile_data, ops_data) as lists of config dicts
+    """
+    defaults_dir = Path(__file__).parent / "defaults"
+    profile_data = []
+    ops_data = []
+
+    # Load profile defaults
+    profile_path = defaults_dir / "profile.json"
+    if profile_path.exists():
+        try:
+            raw = json.loads(profile_path.read_text())
+            for key, entry in raw.items():
+                profile_data.append({
+                    'key': key,
+                    'value': entry.get('value', ''),
+                    'category': 'profile',
+                    'boot_load': 1,
+                })
+        except Exception:
+            pass
+
+    # Load ops defaults
+    ops_path = defaults_dir / "ops.json"
+    if ops_path.exists():
+        try:
+            raw = json.loads(ops_path.read_text())
+            for key, entry in raw.items():
+                ops_data.append({
+                    'key': key,
+                    'value': entry.get('value', ''),
+                    'category': 'ops',
+                    'boot_load': entry.get('boot_load', 1),
+                })
+        except Exception:
+            pass
+
+    return profile_data, ops_data
 
 
 def boot() -> str:
@@ -394,11 +528,19 @@ def boot() -> str:
                 ).fetchall()
                 ops_data = [dict(row) for row in ops_data]
             else:
-                # Cache exists but is empty (fresh session) - cannot fallback
-                return f"ERROR: Unable to load config (remote failed: {e}, cache empty - no previous session data)"
+                # Cache exists but is empty (fresh session) - try repo defaults (#239)
+                profile_data, ops_data = _load_repo_defaults()
+                if profile_data or ops_data:
+                    print(f"Warning: Remote config fetch failed, using repo defaults: {e}")
+                else:
+                    return f"ERROR: Unable to load config (remote failed: {e}, cache empty, no defaults)"
         else:
-            # No cache file at all - cannot fallback
-            return f"ERROR: Unable to load config (remote failed: {e}, no cache available)"
+            # No cache file at all - try repo defaults (#239)
+            profile_data, ops_data = _load_repo_defaults()
+            if profile_data or ops_data:
+                print(f"Warning: Remote config fetch failed, using repo defaults: {e}")
+            else:
+                return f"ERROR: Unable to load config (remote failed: {e}, no cache or defaults available)"
 
     # Start async cache warming
     threading.Thread(target=_warm_cache, daemon=True).start()
