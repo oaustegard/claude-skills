@@ -298,6 +298,79 @@ def get_feed_posts(feed_uri: str, limit: int = 20) -> List[Dict[str, Any]]:
     return [_parse_post(item["post"]) for item in r.json().get("feed", [])]
 
 
+def get_trending(limit: int = 10) -> List[Dict[str, Any]]:
+    """Get current trending topics with post counts and top actors.
+
+    Uses app.bsky.unspecced.getTrends for rich trend data including
+    post counts, status, category, and participating actors.
+
+    Args:
+        limit: Max trends to return (default 10, max 25)
+
+    Returns:
+        List of trend dicts with topic, displayName, link, startedAt,
+        postCount, status, category, actors
+    """
+    base, headers = _get_base_and_headers()
+    r = requests.get(
+        f"{base}/app.bsky.unspecced.getTrends",
+        params={"limit": min(limit, 25)},
+        headers=headers
+    )
+    r.raise_for_status()
+    trends = r.json().get("trends", [])
+    results = []
+    for t in trends:
+        results.append({
+            "topic": t.get("topic"),
+            "display_name": t.get("displayName"),
+            "link": t.get("link"),
+            "started_at": t.get("startedAt"),
+            "post_count": t.get("postCount", 0),
+            "status": t.get("status"),
+            "category": t.get("category"),
+            "actors": [_parse_actor(a) for a in t.get("actors", [])],
+        })
+    return results
+
+
+def get_trending_topics(limit: int = 10) -> Dict[str, Any]:
+    """Get lightweight list of trending topics and suggestions.
+
+    Uses app.bsky.unspecced.getTrendingTopics for a compact overview.
+    Lower token cost than get_trending() — use this for a quick scan
+    before deciding which topics to explore further.
+
+    Args:
+        limit: Max topics to return (default 10, max 25)
+
+    Returns:
+        Dict with 'topics' and 'suggested' lists, each containing
+        dicts with topic, displayName, description, link
+    """
+    base, headers = _get_base_and_headers()
+    r = requests.get(
+        f"{base}/app.bsky.unspecced.getTrendingTopics",
+        params={"limit": min(limit, 25)},
+        headers=headers
+    )
+    r.raise_for_status()
+    data = r.json()
+
+    def _parse_topic(t: Dict) -> Dict[str, Any]:
+        return {
+            "topic": t.get("topic"),
+            "display_name": t.get("displayName"),
+            "description": t.get("description"),
+            "link": t.get("link"),
+        }
+
+    return {
+        "topics": [_parse_topic(t) for t in data.get("topics", [])],
+        "suggested": [_parse_topic(t) for t in data.get("suggested", [])],
+    }
+
+
 def sample_firehose(duration: int = 10, filter: Optional[str] = None) -> Dict[str, Any]:
     """Sample the Bluesky firehose for trending topics.
 

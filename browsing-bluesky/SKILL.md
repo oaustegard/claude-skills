@@ -2,7 +2,7 @@
 name: browsing-bluesky
 description: Browse Bluesky content via API and firehose - search posts, fetch user activity, sample trending topics, read feeds and lists, analyze and categorize accounts. Supports authenticated access for personalized feeds. Use for Bluesky research, user monitoring, trend analysis, feed reading, firehose sampling, account categorization.
 metadata:
-  version: 0.4.1
+  version: 0.5.0
 ---
 
 # Browsing Bluesky
@@ -21,6 +21,8 @@ from browsing_bluesky import (
     search_posts, get_user_posts, get_profile, get_feed_posts, sample_firehose,
     get_thread, get_quotes, get_likes, get_reposts,
     get_followers, get_following, search_users,
+    # Trending
+    get_trending, get_trending_topics,
     # Account analysis
     get_all_following, get_all_followers, extract_post_text,
     extract_keywords, analyze_account, analyze_accounts,
@@ -80,22 +82,47 @@ Combine query syntax with function params for complex searches.
 2. Get recent posts with `get_user_posts(handle, limit=N)`
 3. For topic-specific user content, use `search_posts(query, author=handle)`
 
-### Sample Trending Topics
+### Discover What's Trending
+
+**Recommended workflow** — trending API first, firehose for deep dives:
+
+#### 1. Quick scan with trending topics (~500 tokens)
+
+```python
+topics = get_trending_topics(limit=10)
+# Returns: {topics: [{topic, display_name, description, link}, ...],
+#           suggested: [...]}
+```
+
+#### 2. Rich trends with post counts and actors
+
+```python
+trends = get_trending(limit=10)
+for t in trends:
+    print(f"{t['display_name']} — {t['post_count']} posts ({t['status']})")
+# Each trend includes: topic, display_name, link, started_at,
+#   post_count, status, category, actors
+```
+
+#### 3. Targeted exploration of selected trends
+
+```python
+posts = search_posts(trend["topic"], limit=25)
+```
+
+#### 4. Optional: Firehose for velocity monitoring or long-tail discovery
 
 **Prerequisites**: Install Node.js dependencies once per session:
 ```bash
 cd /home/claude && npm install ws https-proxy-agent 2>/dev/null
 ```
 
-**Usage**:
 ```python
-data = sample_firehose(duration=30)  # Sample for 30 seconds
-data = sample_firehose(duration=20, filter="python")  # Filter for specific term
+data = sample_firehose(duration=30)  # Full firehose sample
+data = sample_firehose(duration=20, filter="python")  # Filtered sample
 ```
 
 Returns: `topWords`, `topPhrases`, `entities`, `samplePosts`, `stats`
-
-Use for real-time zeitgeist, trending topic detection, or filtered stream analysis.
 
 ### Read Feeds and Lists
 
@@ -162,6 +189,7 @@ for u in users:
 
 - **Public AppView**: `https://api.bsky.app/xrpc/` for unauthenticated reads
 - **PDS**: `https://bsky.social/xrpc/` for authenticated requests
+- **Trending**: `app.bsky.unspecced.getTrends` (rich) and `app.bsky.unspecced.getTrendingTopics` (lightweight)
 - **Firehose**: `wss://jetstream1.us-east.bsky.network/subscribe`
 - **Endpoint routing** is automatic - authenticated requests go to PDS, public requests go to AppView
 - **Rate limits** exist but are generous for read operations

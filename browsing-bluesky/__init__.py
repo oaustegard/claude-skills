@@ -14,6 +14,9 @@ from .scripts.bsky import (
     get_followers,
     get_following,
     search_users,
+    # Trending
+    get_trending,
+    get_trending_topics,
     # Account analysis (from categorizing-bsky-accounts)
     get_all_following,
     get_all_followers,
@@ -41,6 +44,9 @@ __all__ = [
     "get_followers",
     "get_following",
     "search_users",
+    # Trending
+    "get_trending",
+    "get_trending_topics",
     # Account analysis
     "get_all_following",
     "get_all_followers",

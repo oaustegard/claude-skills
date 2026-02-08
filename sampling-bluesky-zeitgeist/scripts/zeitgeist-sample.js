@@ -4,6 +4,12 @@
  * Samples firehose for N seconds, outputs structured JSON for analysis
  */
 
+// Ensure node_modules installed in home directory are resolvable regardless
+// of the working directory this script is invoked from (fixes #271)
+const path = require('path');
+const homeDir = process.env.HOME || '/home/claude';
+module.paths.unshift(path.join(homeDir, 'node_modules'));
+
 const WebSocket = require('ws');
 const { HttpsProxyAgent } = require('https-proxy-agent');
 
