@@ -6,6 +6,12 @@ All notable changes to the `browsing-bluesky` skill are documented in this file.
 
 ### Added
 
+- add trending API and fix NODE_PATH resolution (#271, #272)
+
+## [0.5.0] - 2026-02-08
+
+### Added
+
 - Add `get_trending()` for rich trend data with post counts, status, category, and actors (#272)
 - Add `get_trending_topics()` for lightweight trending topic scan (#272)
 - Restructure zeitgeist workflow: trending API first, firehose as deep-dive tool (#272)
