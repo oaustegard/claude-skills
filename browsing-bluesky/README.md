@@ -163,4 +163,4 @@ This skill consolidates and replaces:
 
 ## Version
 
-0.1.0
+0.5.0

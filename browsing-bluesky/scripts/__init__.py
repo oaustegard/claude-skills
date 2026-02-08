@@ -1,11 +1,29 @@
-"""Bluesky browsing module - API and firehose access."""
+"""Bluesky browsing module - API, trending, and firehose access."""
 
 from .bsky import (
     search_posts,
     get_user_posts,
     get_profile,
     get_feed_posts,
-    sample_firehose
+    sample_firehose,
+    get_thread,
+    get_quotes,
+    get_likes,
+    get_reposts,
+    get_followers,
+    get_following,
+    search_users,
+    get_trending,
+    get_trending_topics,
+    get_all_following,
+    get_all_followers,
+    extract_post_text,
+    extract_keywords,
+    analyze_account,
+    analyze_accounts,
+    is_authenticated,
+    get_authenticated_user,
+    clear_session
 )
 
 __all__ = [
@@ -13,5 +31,23 @@ __all__ = [
     "get_user_posts",
     "get_profile",
     "get_feed_posts",
-    "sample_firehose"
+    "sample_firehose",
+    "get_thread",
+    "get_quotes",
+    "get_likes",
+    "get_reposts",
+    "get_followers",
+    "get_following",
+    "search_users",
+    "get_trending",
+    "get_trending_topics",
+    "get_all_following",
+    "get_all_followers",
+    "extract_post_text",
+    "extract_keywords",
+    "analyze_account",
+    "analyze_accounts",
+    "is_authenticated",
+    "get_authenticated_user",
+    "clear_session"
 ]

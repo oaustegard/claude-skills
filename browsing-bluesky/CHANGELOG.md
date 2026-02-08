@@ -2,6 +2,18 @@
 
 All notable changes to the `browsing-bluesky` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.5.0] - 2026-02-08
+
+### Added
+
+- Add `get_trending()` for rich trend data with post counts, status, category, and actors (#272)
+- Add `get_trending_topics()` for lightweight trending topic scan (#272)
+- Restructure zeitgeist workflow: trending API first, firehose as deep-dive tool (#272)
+
+### Fixed
+
+- Fix NODE_PATH resolution in zeitgeist-sample.js so modules resolve regardless of working directory (#271)
+
 ## [0.4.1] - 2026-02-06
 
 ### Added
