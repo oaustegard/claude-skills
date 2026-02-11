@@ -79,22 +79,22 @@
            use_cache: bool = True, strict: bool = False, session_id: str = None,
            auto_strengthen: bool = False, raw: bool = False,
            expansion_threshold: int = 3,
-           limit: int = None)` :219
+           limit: int = None, fetch_all: bool = False)` :219
 - **recall_since** (f) `(after: str, *, search: str = None, n: int = 50,
                  type: str = None, tags: list = None, tag_mode: str = "any",
-                 session_id: str = None, raw: bool = False)` :499
+                 session_id: str = None, raw: bool = False)` :520
 - **recall_between** (f) `(after: str, before: str, *, search: str = None,
                    n: int = 100, type: str = None, tags: list = None,
-                   tag_mode: str = "any", session_id: str = None, raw: bool = False)` :566
-- **forget** (f) `(memory_id: str)` :635
+                   tag_mode: str = "any", session_id: str = None, raw: bool = False)` :587
+- **forget** (f) `(memory_id: str)` :656
 - **supersede** (f) `(original_id: str, summary: str, type: str, *,
-              tags: list = None, conf: float = None)` :653
-- **reprioritize** (f) `(memory_id: str, priority: int)` :721
-- **memory_histogram** (f) `()` :762
-- **prune_by_age** (f) `(older_than_days: int, priority_floor: int = 0, dry_run: bool = True)` :818
-- **prune_by_priority** (f) `(max_priority: int = -1, dry_run: bool = True)` :864
-- **strengthen** (f) `(memory_id: str, boost: int = 1)` :903
-- **weaken** (f) `(memory_id: str, drop: int = 1)` :943
+              tags: list = None, conf: float = None)` :674
+- **reprioritize** (f) `(memory_id: str, priority: int)` :742
+- **memory_histogram** (f) `()` :783
+- **prune_by_age** (f) `(older_than_days: int, priority_floor: int = 0, dry_run: bool = True)` :839
+- **prune_by_priority** (f) `(max_priority: int = -1, dry_run: bool = True)` :885
+- **strengthen** (f) `(memory_id: str, boost: int = 1)` :924
+- **weaken** (f) `(memory_id: str, drop: int = 1)` :964
 
 ### result.py
 > Imports: `typing`

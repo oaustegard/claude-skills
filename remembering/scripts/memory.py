@@ -221,7 +221,7 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
            use_cache: bool = True, strict: bool = False, session_id: str = None,
            auto_strengthen: bool = False, raw: bool = False,
            expansion_threshold: int = 3,
-           limit: int = None) -> MemoryResultList:
+           limit: int = None, fetch_all: bool = False) -> MemoryResultList:
     """Query memories with flexible filters.
 
     v0.7.0: Uses local cache with progressive disclosure when available.
@@ -232,9 +232,12 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
     v3.3.0: Added auto_strengthen for biological memory consolidation pattern.
     v3.4.0: Returns MemoryResult objects that validate field access.
     v3.7.0: Added expansion_threshold parameter. Added limit as alias for n.
+    v4.1.0: Added fetch_all parameter for comprehensive memory retrieval.
 
     Args:
-        search: Text to search for in memory summaries (FTS5 ranked search)
+        search: Text to search for in memory summaries (FTS5 ranked search).
+            Note: Wildcards like '*' are treated as literal text, not patterns.
+            Use fetch_all=True for comprehensive retrieval instead.
         n: Max number of results
         tags: Filter by tags
         type: Filter by memory type
@@ -248,6 +251,9 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
         expansion_threshold: Minimum results before triggering query expansion (default 3).
             Set to 0 to disable expansion entirely. (v3.7.0)
         limit: Deprecated alias for n. If provided, overrides n. (v3.7.0)
+        fetch_all: If True, retrieve all memories without search filtering (v4.1.0).
+            This is the explicit way to get comprehensive memory retrieval.
+            When True, the search parameter is ignored.
 
     Returns:
         MemoryResultList of MemoryResult objects (or list of dicts if raw=True).
@@ -257,6 +263,21 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
     # v3.7.0: Accept limit= as deprecated alias for n=
     if limit is not None:
         n = limit
+
+    # v4.1.0: Validate wildcard patterns and guide users to fetch_all
+    if search and not fetch_all:
+        wildcard_patterns = ['*', '%', '?']
+        if any(pattern in search and search.strip() in wildcard_patterns for pattern in wildcard_patterns):
+            raise ValueError(
+                f"Wildcard pattern '{search}' is not supported. "
+                "Use fetch_all=True for comprehensive memory retrieval instead. "
+                f"Example: recall(fetch_all=True, n={n})"
+            )
+
+    # v4.1.0: Handle fetch_all mode - retrieve all memories without search filtering
+    if fetch_all:
+        search = None
+
     # Track timing for logging (v0.12.0)
     start_time = time.time()
 

@@ -2,6 +2,17 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [4.1.0] - 2026-02-11
+
+### Added
+
+- **`fetch_all` parameter for comprehensive memory retrieval** (#257): Added explicit `fetch_all=True` parameter to `recall()` for retrieving all memories without search filtering. This replaces the non-functional wildcard pattern approach (e.g., `recall("*")`).
+- **Wildcard pattern validation** (#257): `recall()` now detects and rejects wildcard patterns (`*`, `%`, `?`) with helpful error messages guiding users to use `fetch_all=True` instead.
+
+### Fixed
+
+- **Wildcard pattern interpretation** (#257): Previously `recall("*", n=...)` was interpreted as a literal text search for asterisks, returning incorrect results. Now users get clear guidance to use `recall(fetch_all=True, n=...)` for comprehensive retrieval.
+
 ## [4.0.1] - 2026-02-06
 
 ### Fixed
