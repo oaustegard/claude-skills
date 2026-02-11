@@ -4,6 +4,12 @@ All notable changes to the `remembering` skill (Muninn) are documented in this f
 
 ## [4.1.0] - 2026-02-11
 
+### Other
+
+- Add fetch_all parameter to recall() for comprehensive memory retrieval
+
+## [4.1.0] - 2026-02-11
+
 ### Added
 
 - **`fetch_all` parameter for comprehensive memory retrieval** (#257): Added explicit `fetch_all=True` parameter to `recall()` for retrieving all memories without search filtering. This replaces the non-functional wildcard pattern approach (e.g., `recall("*")`).
