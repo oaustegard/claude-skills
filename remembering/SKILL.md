@@ -2,7 +2,7 @@
 name: remembering
 description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, retention management, type-safe results, proactive memory hints, GitHub access detection, and ops priority ordering.
 metadata:
-  version: 4.0.1
+  version: 4.1.0
 ---
 
 # Remembering - Advanced Operations
@@ -80,6 +80,13 @@ memories = recall("dark mode")
 decisions = recall(type="decision", conf=0.85, n=20)
 tasks = recall("API", tags=["task"], n=15)
 urgent = recall(tags=["task", "urgent"], tag_mode="all", n=10)
+
+# Comprehensive retrieval (v4.1.0)
+all_memories = recall(fetch_all=True, n=1000)  # Get all memories without search filtering
+
+# Wildcard patterns are NOT supported - use fetch_all instead
+# recall("*", n=1000)  # ❌ Raises ValueError
+# recall(fetch_all=True, n=1000)  # ✅ Correct approach
 ```
 
 Results return as `MemoryResult` objects with attribute and dict access. Common aliases (`m.content` -> `m.summary`, `m.conf` -> `m.confidence`) resolve transparently.
