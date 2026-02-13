@@ -23,7 +23,8 @@
 - What's New in v3.2.0 `h2` :429
 - What's New in v3.7.0 `h2` :446
 - What's New in v3.8.0 `h2` :463
-- Known Limitations `h2` :488
+- What's New in v4.2.0 `h2` :488
+- Known Limitations `h2` :517
 
 ### advanced-operations.md
 - Remembering - Advanced Operations Reference `h1` :1

@@ -68,57 +68,61 @@
 - **remember** (f) `(what: str, type: str, *, tags: list = None, conf: float = None,
              refs: list = None, priority: int = 0, valid_from: str = None,
              sync: bool = True, session_id: str = None,
+             alternatives: list = None,
              # Deprecated parameters (ignored in v2.0.0, kept for backward compat)
              entities: list = None, importance: float = None, memory_class: str = None)` :70
 - **remember_bg** (f) `(what: str, type: str, *, tags: list = None, conf: float = None,
                 entities: list = None, refs: list = None,
-                importance: float = None, memory_class: str = None, valid_from: str = None)` :170
-- **flush** (f) `(timeout: float = 5.0)` :187
+                importance: float = None, memory_class: str = None, valid_from: str = None)` :187
+- **flush** (f) `(timeout: float = 5.0)` :204
 - **recall** (f) `(search: str = None, *, n: int = 10, tags: list = None,
            type: str = None, conf: float = None, tag_mode: str = "any",
            use_cache: bool = True, strict: bool = False, session_id: str = None,
            auto_strengthen: bool = False, raw: bool = False,
            expansion_threshold: int = 3,
-           limit: int = None, fetch_all: bool = False)` :219
+           limit: int = None, fetch_all: bool = False)` :236
 - **recall_since** (f) `(after: str, *, search: str = None, n: int = 50,
                  type: str = None, tags: list = None, tag_mode: str = "any",
-                 session_id: str = None, raw: bool = False)` :520
+                 session_id: str = None, raw: bool = False)` :537
 - **recall_between** (f) `(after: str, before: str, *, search: str = None,
                    n: int = 100, type: str = None, tags: list = None,
-                   tag_mode: str = "any", session_id: str = None, raw: bool = False)` :587
-- **forget** (f) `(memory_id: str)` :656
+                   tag_mode: str = "any", session_id: str = None, raw: bool = False)` :604
+- **forget** (f) `(memory_id: str)` :673
 - **supersede** (f) `(original_id: str, summary: str, type: str, *,
-              tags: list = None, conf: float = None)` :674
-- **reprioritize** (f) `(memory_id: str, priority: int)` :742
-- **memory_histogram** (f) `()` :783
-- **prune_by_age** (f) `(older_than_days: int, priority_floor: int = 0, dry_run: bool = True)` :839
-- **prune_by_priority** (f) `(max_priority: int = -1, dry_run: bool = True)` :885
-- **strengthen** (f) `(memory_id: str, boost: int = 1)` :924
-- **weaken** (f) `(memory_id: str, drop: int = 1)` :964
+              tags: list = None, conf: float = None)` :691
+- **reprioritize** (f) `(memory_id: str, priority: int)` :759
+- **memory_histogram** (f) `()` :800
+- **prune_by_age** (f) `(older_than_days: int, priority_floor: int = 0, dry_run: bool = True)` :856
+- **prune_by_priority** (f) `(max_priority: int = -1, dry_run: bool = True)` :902
+- **strengthen** (f) `(memory_id: str, boost: int = 1)` :941
+- **weaken** (f) `(memory_id: str, drop: int = 1)` :981
+- **get_alternatives** (f) `(memory_id: str)` :1015
+- **consolidate** (f) `(*, tags: list = None, min_cluster: int = 3, dry_run: bool = True,
+                session_id: str = None)` :1056
 
 ### result.py
 > Imports: `typing`
-- **MemoryResult** (C) :77
-  - **__init__** (m) `(self, data: dict)` :96
-  - **__getattr__** (m) `(self, name: str)` :100
-  - **__setattr__** (m) `(self, name: str, value: Any)` :118
-  - **__getitem__** (m) `(self, key: str)` :125
-  - **__contains__** (m) `(self, key: str)` :140
-  - **__iter__** (m) `(self)` :144
-  - **__len__** (m) `(self)` :148
-  - **__repr__** (m) `(self)` :152
-  - **__str__** (m) `(self)` :159
-  - **_error_message** (m) `(self, field: str, error_type: str)` :163
-  - **get** (m) `(self, key: str, default: Any = None)` :177
-  - **keys** (m) `(self)` :196
-  - **values** (m) `(self)` :200
-  - **items** (m) `(self)` :204
-  - **to_dict** (m) `(self)` :208
-  - **copy** (m) `(self)` :217
-- **MemoryResultList** (C) :222
-  - **__repr__** (m) `(self)` :229
-  - **to_dicts** (m) `(self)` :234
-- **wrap_results** (f) `(results: List[dict])` :255
+- **MemoryResult** (C) :80
+  - **__init__** (m) `(self, data: dict)` :99
+  - **__getattr__** (m) `(self, name: str)` :103
+  - **__setattr__** (m) `(self, name: str, value: Any)` :121
+  - **__getitem__** (m) `(self, key: str)` :128
+  - **__contains__** (m) `(self, key: str)` :143
+  - **__iter__** (m) `(self)` :147
+  - **__len__** (m) `(self)` :151
+  - **__repr__** (m) `(self)` :155
+  - **__str__** (m) `(self)` :162
+  - **_error_message** (m) `(self, field: str, error_type: str)` :166
+  - **get** (m) `(self, key: str, default: Any = None)` :180
+  - **keys** (m) `(self)` :199
+  - **values** (m) `(self)` :203
+  - **items** (m) `(self)` :207
+  - **to_dict** (m) `(self)` :211
+  - **copy** (m) `(self)` :220
+- **MemoryResultList** (C) :225
+  - **__repr__** (m) `(self)` :232
+  - **to_dicts** (m) `(self)` :237
+- **wrap_results** (f) `(results: List[dict])` :276
 
 ### state.py
 > Imports: `threading, os, pathlib`

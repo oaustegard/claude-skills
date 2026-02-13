@@ -2,7 +2,7 @@
 name: remembering
 description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, retention management, type-safe results, proactive memory hints, GitHub access detection, and ops priority ordering.
 metadata:
-  version: 4.1.0
+  version: 4.2.0
 ---
 
 # Remembering - Advanced Operations
@@ -90,6 +90,32 @@ all_memories = recall(fetch_all=True, n=1000)  # Get all memories without search
 ```
 
 Results return as `MemoryResult` objects with attribute and dict access. Common aliases (`m.content` -> `m.summary`, `m.conf` -> `m.confidence`) resolve transparently.
+
+### Decision Alternatives (v4.2.0)
+
+Track rejected alternatives on decision memories to prevent revisiting settled conclusions:
+
+```python
+from remembering import remember, get_alternatives
+
+# Store decision with alternatives considered
+id = remember(
+    "Chose PostgreSQL for the database",
+    "decision",
+    tags=["architecture", "database"],
+    alternatives=[
+        {"option": "MongoDB", "rejected": "Schema-less adds complexity for our relational data"},
+        {"option": "SQLite", "rejected": "Doesn't support concurrent writes at our scale"},
+    ]
+)
+
+# Later: retrieve what was considered
+alts = get_alternatives(id)
+for alt in alts:
+    print(f"Rejected {alt['option']}: {alt.get('rejected', 'no reason')}")
+```
+
+Alternatives are stored in the `refs` field as a typed object alongside memory ID references. The `alternatives` computed field is automatically extracted on `MemoryResult` objects for decision memories.
 
 ### Forget and Supersede
 
@@ -191,6 +217,32 @@ Write complete, searchable summaries that standalone without conversation contex
 - Thread-safe for background writes
 - Repo defaults fallback: `scripts/defaults/` used when Turso and cache are both unavailable
 
+## Memory Consolidation (v4.2.0)
+
+Automatically cluster related memories and synthesize summaries, reducing retrieval noise while preserving traceability:
+
+```python
+from remembering import consolidate
+
+# Preview what would be consolidated
+result = consolidate(dry_run=True)
+for c in result['clusters']:
+    print(f"Tag '{c['tag']}': {c['count']} memories")
+
+# Actually consolidate (creates summaries, demotes originals to background)
+result = consolidate(dry_run=False, min_cluster=3)
+print(f"Consolidated {result['consolidated']} clusters, demoted {result['demoted']} memories")
+
+# Scope to specific tags
+result = consolidate(tags=["debugging"], dry_run=False)
+```
+
+How it works:
+1. **Clustering**: Groups memories by shared tags (minimum `min_cluster` memories per group)
+2. **Synthesis**: Creates a `type=world` summary memory tagged `consolidated` containing all originals
+3. **Archival**: Demotes original memories to `priority=-1` (background)
+4. **Traceability**: Summary's `refs` field lists all original memory IDs
+
 ## Advanced Topics
 
 See [references/advanced-operations.md](references/advanced-operations.md) for:
@@ -206,3 +258,4 @@ See [references/advanced-operations.md](references/advanced-operations.md) for:
 - Proactive memory hints (`recall_hints`)
 - GitHub access detection and unified API
 - Progressive disclosure and priority-based ordering
+- Decision alternatives (`get_alternatives`) and memory consolidation (`consolidate`)

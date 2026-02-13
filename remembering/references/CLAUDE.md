@@ -485,6 +485,35 @@ if github['available']:
 - `defaults/profile.json` and `defaults/ops.json` provide minimal config
 - Used when both Turso and local cache are unavailable (fresh install + network outage)
 
+## What's New in v4.2.0
+
+**Decision Alternatives** (#254): Track rejected alternatives on decision memories:
+- `remember(..., alternatives=[{"option": "X", "rejected": "reason"}])` stores alternatives in refs
+- `get_alternatives(memory_id)` extracts alternatives from a decision memory
+- `m.alternatives` computed field auto-extracted on MemoryResult objects
+- Only valid for `type='decision'` memories
+
+**Memory Consolidation** (#253): Automated clustering and summarization:
+- `consolidate(dry_run=True)` previews clusters of related memories by shared tags
+- `consolidate(dry_run=False, min_cluster=3)` creates summary memories and demotes originals
+- Summaries are `type=world, tags=[tag, "consolidated"]` with refs to all originals
+- Originals demoted to `priority=-1` (background) but not deleted
+- Inspired by biological episodic-to-semantic memory conversion
+
+```python
+from remembering import remember, get_alternatives, consolidate
+
+# Store decision with alternatives
+id = remember("Chose X because Y", "decision",
+              alternatives=[{"option": "A", "rejected": "Too complex"}])
+
+# Retrieve alternatives later
+alts = get_alternatives(id)
+
+# Consolidate memories sharing common tags
+result = consolidate(tags=["architecture"], dry_run=False)
+```
+
 ## Known Limitations
 
 - None currently tracked

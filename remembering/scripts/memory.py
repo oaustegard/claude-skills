@@ -70,6 +70,7 @@ def _write_memory(mem_id: str, what: str, type: str, now: str, conf: float,
 def remember(what: str, type: str, *, tags: list = None, conf: float = None,
              refs: list = None, priority: int = 0, valid_from: str = None,
              sync: bool = True, session_id: str = None,
+             alternatives: list = None,
              # Deprecated parameters (ignored in v2.0.0, kept for backward compat)
              entities: list = None, importance: float = None, memory_class: str = None) -> str:
     """Store a memory. Type is required. Returns memory ID.
@@ -86,6 +87,10 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
                Use sync=True for critical memories (handoffs, decisions). Use sync=False for
                fast writes where eventual consistency is acceptable.
         session_id: Optional session identifier. Defaults to MUNINN_SESSION_ID env var or 'default-session'.
+        alternatives: Optional list of rejected alternatives for decision memories.
+            Each item should be a dict with 'option' and 'rejected' keys.
+            Example: [{"option": "Redis", "rejected": "Too complex for our scale"}]
+            Stored in refs as a typed object alongside memory ID references.
 
     Deprecated args (v2.0.0 - ignored but accepted for backward compat):
         entities, importance, memory_class
@@ -97,6 +102,7 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
     v0.13.0: Removed embedding generation (OpenAI dependency removed).
     v2.0.0: Simplified schema. Added priority. Removed entities, importance, memory_class.
     v3.2.0: Added session_id parameter for session scoping.
+    v4.2.0: Added alternatives parameter for decision memories (#254).
     """
     if type not in TYPES:
         raise ValueError(f"Invalid type '{type}'. Must be one of: {', '.join(sorted(TYPES))}")
@@ -112,6 +118,17 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
 
     if session_id is None:
         session_id = get_session_id()
+
+    # v4.2.0: Store alternatives as a typed object in refs (#254)
+    if alternatives:
+        if type != "decision":
+            raise ValueError("alternatives parameter is only valid for type='decision' memories")
+        # Validate alternatives structure
+        for alt in alternatives:
+            if not isinstance(alt, dict) or 'option' not in alt:
+                raise ValueError("Each alternative must be a dict with at least an 'option' key")
+        refs = list(refs or [])
+        refs.append({"_type": "alternatives", "items": alternatives})
 
     # Clamp priority to valid range
     priority = max(-1, min(2, priority))
@@ -990,4 +1007,190 @@ def weaken(memory_id: str, drop: int = 1) -> dict:
         "old_priority": old_priority,
         "new_priority": new_priority,
         "changed": new_priority != old_priority
+    }
+
+
+# --- Decision alternatives helpers (v4.2.0, #254) ---
+
+def get_alternatives(memory_id: str) -> list:
+    """Extract alternatives from a decision memory's refs field.
+
+    Args:
+        memory_id: UUID of the memory to check
+
+    Returns:
+        List of alternative dicts, or empty list if none found.
+        Each dict has at least 'option' and optionally 'rejected'.
+
+    Example:
+        >>> alts = get_alternatives("abc-123")
+        >>> for alt in alts:
+        ...     print(f"Rejected {alt['option']}: {alt.get('rejected', 'no reason given')}")
+    """
+    result = _exec(
+        "SELECT refs FROM memories WHERE id = ? AND deleted_at IS NULL",
+        [memory_id]
+    )
+
+    if not result:
+        return []
+
+    refs_raw = result[0].get('refs')
+    if not refs_raw:
+        return []
+
+    try:
+        refs = json.loads(refs_raw) if isinstance(refs_raw, str) else refs_raw
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+    for entry in refs:
+        if isinstance(entry, dict) and entry.get('_type') == 'alternatives':
+            return entry.get('items', [])
+
+    return []
+
+
+# --- Memory consolidation (v4.2.0, #253) ---
+
+def consolidate(*, tags: list = None, min_cluster: int = 3, dry_run: bool = True,
+                session_id: str = None) -> dict:
+    """Consolidate clusters of related memories into summary memories.
+
+    Identifies groups of memories sharing common tags, synthesizes a summary
+    memory for each cluster, and demotes the originals to background priority.
+    The summary preserves refs to all originals for traceability.
+
+    Inspired by biological memory consolidation (episodic -> semantic conversion).
+
+    Args:
+        tags: Optional tag filter. If provided, only consolidate memories matching these tags.
+            If None, discovers clusters across all active memories.
+        min_cluster: Minimum memories sharing a tag to form a cluster (default 3).
+        dry_run: If True (default), return what would be consolidated without acting.
+        session_id: Optional session filter for scoping consolidation.
+
+    Returns:
+        Dict with:
+            - clusters: list of cluster dicts, each with tag, count, memory_ids, preview
+            - consolidated: number of clusters actually consolidated (0 if dry_run)
+            - demoted: number of original memories demoted to background priority
+            - dry_run: whether this was a dry run
+
+    Example:
+        >>> # Preview what would be consolidated
+        >>> result = consolidate(dry_run=True)
+        >>> for c in result['clusters']:
+        ...     print(f"Tag '{c['tag']}': {c['count']} memories")
+        >>> # Actually consolidate
+        >>> result = consolidate(dry_run=False, min_cluster=3)
+    """
+    from collections import Counter
+
+    # Fetch active memories
+    conditions = [
+        "deleted_at IS NULL",
+        "id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)"
+    ]
+    params = []
+
+    if tags:
+        tag_conds = []
+        for t in tags:
+            tag_conds.append("tags LIKE ?")
+            params.append(f'%"{t}"%')
+        conditions.append(f"({' OR '.join(tag_conds)})")
+
+    if session_id:
+        conditions.append("session_id = ?")
+        params.append(session_id)
+
+    # Exclude already-consolidated summaries
+    conditions.append("tags NOT LIKE '%\"consolidated\"%'")
+
+    where = " AND ".join(conditions)
+    results = _exec(f"SELECT id, summary, type, tags, priority FROM memories WHERE {where}", params)
+
+    if not results:
+        return {"clusters": [], "consolidated": 0, "demoted": 0, "dry_run": dry_run}
+
+    # Parse tags and build tag -> memory mapping
+    tag_to_memories = {}
+    for m in results:
+        try:
+            mem_tags = json.loads(m['tags']) if isinstance(m['tags'], str) else (m['tags'] or [])
+        except (json.JSONDecodeError, TypeError):
+            mem_tags = []
+        for tag in mem_tags:
+            if tag not in tag_to_memories:
+                tag_to_memories[tag] = []
+            tag_to_memories[tag].append(m)
+
+    # Find clusters meeting minimum size, sorted by size descending
+    clusters = []
+    consolidated_ids = set()  # Track already-assigned memories
+
+    for tag, memories in sorted(tag_to_memories.items(), key=lambda x: -len(x[1])):
+        # Filter out memories already assigned to a cluster
+        available = [m for m in memories if m['id'] not in consolidated_ids]
+        if len(available) < min_cluster:
+            continue
+
+        cluster_ids = [m['id'] for m in available]
+        summaries = [m['summary'] for m in available]
+        preview = "; ".join(s[:80] for s in summaries[:5])
+        if len(summaries) > 5:
+            preview += f" ... (+{len(summaries) - 5} more)"
+
+        clusters.append({
+            "tag": tag,
+            "count": len(available),
+            "memory_ids": cluster_ids,
+            "preview": preview,
+            "types": dict(Counter(m['type'] for m in available))
+        })
+
+        consolidated_ids.update(cluster_ids)
+
+    if not clusters:
+        return {"clusters": clusters, "consolidated": 0, "demoted": 0, "dry_run": dry_run}
+
+    consolidated_count = 0
+    demoted_count = 0
+
+    if not dry_run:
+        for cluster in clusters:
+            # Build synthesis summary from cluster contents
+            member_summaries = []
+            for mid in cluster['memory_ids']:
+                for m in results:
+                    if m['id'] == mid:
+                        member_summaries.append(m['summary'])
+                        break
+
+            synthesis = f"[Consolidated from {cluster['count']} memories tagged '{cluster['tag']}']\n"
+            synthesis += "\n".join(f"- {s}" for s in member_summaries)
+
+            # Create consolidated summary memory
+            remember(
+                synthesis,
+                "world",
+                tags=[cluster['tag'], "consolidated"],
+                refs=cluster['memory_ids'],
+                priority=1,
+                sync=True,
+                session_id=session_id or get_session_id()
+            )
+            consolidated_count += 1
+
+            # Demote originals to background priority
+            for mid in cluster['memory_ids']:
+                reprioritize(mid, -1)
+                demoted_count += 1
+
+    return {
+        "clusters": clusters,
+        "consolidated": consolidated_count,
+        "demoted": demoted_count,
+        "dry_run": dry_run
     }
