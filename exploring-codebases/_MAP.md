@@ -9,7 +9,9 @@
 
 ### CHANGELOG.md
 - exploring-codebases - Changelog `h1` :1
-- [0.2.0] - 2026-02-03 `h2` :5
+- [0.3.1] - 2026-02-13 `h2` :5
+- [0.3.0] - 2026-02-13 `h2` :17
+- [0.2.0] - 2026-02-03 `h2` :24
 
 ### README.md
 - exploring-codebases `h1` :1
@@ -22,4 +24,5 @@
 - Options `h2` :38
 - Map-Based Mode (v0.3.0) `h2` :45
 - Examples `h2` :68
+- Scope and Limitations `h2` :92
 

@@ -107,6 +107,8 @@ def _parse_map_file(map_path: str) -> Dict[str, List[MapSymbol]]:
     symbols_by_file = {}
     current_file = None
     current_class = None
+    # State for multi-line signature accumulation
+    pending: Optional[Dict] = None  # {indent, name, kind, sig_start}
 
     try:
         with open(map_path, 'r') as f:
@@ -118,11 +120,43 @@ def _parse_map_file(map_path: str) -> Dict[str, List[MapSymbol]]:
                 if file_match:
                     current_file = file_match.group(1)
                     current_class = None
+                    pending = None
                     if current_file not in symbols_by_file:
                         symbols_by_file[current_file] = []
                     continue
 
                 if not current_file:
+                    continue
+
+                # If accumulating a multi-line signature, look for the closing ` :LINE
+                if pending is not None:
+                    end_match = re.search(r'`\s*:(\d+)\s*$', line)
+                    if end_match:
+                        # Extract the last part of the signature before the closing backtick
+                        sig_end = line[:end_match.start()]
+                        full_sig = pending['sig'] + sig_end.strip()
+                        line_num = int(end_match.group(1))
+                        is_method = len(pending['indent']) >= 2
+                        parent = current_class if is_method else None
+
+                        sym = MapSymbol(
+                            name=pending['name'],
+                            kind=pending['kind'],
+                            line=line_num,
+                            signature=full_sig,
+                            parent=parent
+                        )
+                        symbols_by_file[current_file].append(sym)
+
+                        if pending['kind'] == 'C':
+                            current_class = pending['name']
+                        elif not is_method:
+                            current_class = None
+
+                        pending = None
+                    else:
+                        # Accumulate continuation line into signature
+                        pending['sig'] += line.strip()
                     continue
 
                 # Parse symbol lines: - **Name** (K) `(signature)` :LINE
@@ -150,6 +184,22 @@ def _parse_map_file(map_path: str) -> Dict[str, List[MapSymbol]]:
                         current_class = name
                     elif not is_method:
                         current_class = None
+                    continue
+
+                # Check for start of multi-line signature:
+                # - **name** (kind) `(sig_start...   (opening backtick, no closing `:LINE`)
+                multi_start = re.match(
+                    r'^(\s*)- \*\*(\w+)\*\*\s+\((\w)\)\s*`(.*)$',
+                    line
+                )
+                if multi_start:
+                    indent, name, kind, sig_start = multi_start.groups()
+                    pending = {
+                        'indent': indent,
+                        'name': name,
+                        'kind': kind,
+                        'sig': sig_start,
+                    }
 
     except (FileNotFoundError, PermissionError):
         pass
