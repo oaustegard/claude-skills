@@ -22,6 +22,7 @@ from datetime import datetime, UTC
 from pathlib import Path
 
 from . import state
+from .state import get_session_id
 from .turso import _exec, _exec_batch
 from .cache import _init_local_cache, _cache_available, _cache_config, _cache_populate_index, _cache_populate_full
 from .memory import recall, recall_since, remember, supersede
@@ -793,6 +794,196 @@ def muninn_export() -> dict:
         "config": config_list(),
         "memories": _exec("SELECT * FROM memories WHERE deleted_at IS NULL")
     }
+
+
+
+# --- Session Continuity (v4.3.0, #231) ---
+
+def session_save(summary: str = None, context: dict = None) -> str:
+    """Save a session checkpoint for later resumption.
+
+    Creates a memory capturing the current session state. The checkpoint
+    can be resumed later with session_resume() to restore context.
+
+    Args:
+        summary: Optional summary of session progress. If None, a default
+            summary is generated with timestamp and session ID.
+        context: Optional dict of arbitrary context data to persist
+            (e.g., current task, working files, decisions made).
+
+    Returns:
+        Memory ID of the checkpoint.
+
+    Example:
+        >>> session_save("Implementing FTS5 search", context={"files": ["cache.py"]})
+        >>> # Later, in a new session:
+        >>> checkpoint = session_resume()
+
+    v4.3.0: Added as part of session continuity system (#231).
+    """
+    import json as _json
+    sid = get_session_id()
+    now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+    if summary is None:
+        summary = f"Session checkpoint at {now}"
+
+    # Build checkpoint content
+    checkpoint_data = {
+        "session_id": sid,
+        "timestamp": now,
+        "summary": summary,
+    }
+    if context:
+        checkpoint_data["context"] = context
+
+    content = f"[Session Checkpoint] {summary}\n\nSession: {sid}\nContext: {_json.dumps(context or {})}"
+
+    return remember(
+        content,
+        "experience",
+        tags=["session-checkpoint", sid],
+        priority=1,
+        session_id=sid,
+        sync=True
+    )
+
+
+def session_resume(session_id: str = None) -> dict:
+    """Resume from the most recent session checkpoint.
+
+    Loads the latest checkpoint for the given session (or the current session)
+    and returns its content for context restoration.
+
+    Args:
+        session_id: Session ID to resume. If None, uses the current session ID.
+
+    Returns:
+        Dict with checkpoint data:
+        - 'checkpoint_id': Memory ID of the checkpoint
+        - 'summary': Checkpoint summary text
+        - 'session_id': Session that created the checkpoint
+        - 'timestamp': When the checkpoint was created
+        - 'context': Any stored context data (dict or None)
+        - 'recent_memories': List of recent memories from that session
+
+    Returns empty dict if no checkpoint found.
+
+    Example:
+        >>> cp = session_resume("previous-session-id")
+        >>> print(cp['summary'])
+        >>> print(cp['context'])
+
+    v4.3.0: Added as part of session continuity system (#231).
+    """
+    import json as _json
+    sid = session_id or get_session_id()
+
+    # Find the latest checkpoint for this session
+    checkpoints = recall(
+        tags=["session-checkpoint", sid],
+        tag_mode="all",
+        n=1,
+        strict=True,
+        raw=True
+    )
+
+    if not checkpoints:
+        return {}
+
+    checkpoint = checkpoints[0]
+
+    # Parse context from checkpoint content
+    context = None
+    content = checkpoint.get('summary', '')
+    if 'Context: ' in content:
+        try:
+            context_str = content.split('Context: ', 1)[1]
+            context = _json.loads(context_str)
+        except (json.JSONDecodeError, IndexError):
+            pass
+
+    # Get recent memories from that session for additional context
+    recent = recall(
+        session_id=sid,
+        n=20,
+        strict=True,
+        raw=True
+    )
+
+    return {
+        'checkpoint_id': checkpoint.get('id'),
+        'summary': checkpoint.get('summary', ''),
+        'session_id': sid,
+        'timestamp': checkpoint.get('t'),
+        'context': context,
+        'recent_memories': recent
+    }
+
+
+def sessions(n: int = 10, *, include_counts: bool = False) -> list:
+    """List available session checkpoints.
+
+    Returns a list of sessions that have checkpoints, ordered by most recent.
+
+    Args:
+        n: Maximum number of sessions to return (default 10)
+        include_counts: If True, include memory count per session (slower)
+
+    Returns:
+        List of dicts, each with:
+        - 'session_id': The session identifier
+        - 'latest_checkpoint': Timestamp of the most recent checkpoint
+        - 'summary': Summary from the latest checkpoint
+        - 'checkpoint_count': Number of checkpoints for this session
+        - 'memory_count': Total memories in this session (only if include_counts=True)
+
+    Example:
+        >>> for s in sessions():
+        ...     print(f"{s['session_id']}: {s['summary'][:60]}")
+
+    v4.3.0: Added as part of session continuity system (#231).
+    """
+    # Get all session checkpoints
+    all_checkpoints = recall(
+        tags=["session-checkpoint"],
+        n=200,
+        strict=True,
+        raw=True
+    )
+
+    if not all_checkpoints:
+        return []
+
+    # Group by session_id, keeping the latest per session
+    session_map = {}
+    for cp in all_checkpoints:
+        sid = cp.get('session_id', 'unknown')
+        if sid not in session_map:
+            session_map[sid] = {
+                'session_id': sid,
+                'latest_checkpoint': cp.get('t'),
+                'summary': cp.get('summary', ''),
+                'checkpoint_count': 1,
+            }
+        else:
+            session_map[sid]['checkpoint_count'] += 1
+            # Keep the latest
+            if cp.get('t', '') > session_map[sid]['latest_checkpoint']:
+                session_map[sid]['latest_checkpoint'] = cp.get('t')
+                session_map[sid]['summary'] = cp.get('summary', '')
+
+    # Sort by latest checkpoint time (newest first), take top n
+    result = sorted(session_map.values(), key=lambda s: s['latest_checkpoint'], reverse=True)[:n]
+
+    # Optionally include memory counts per session
+    if include_counts:
+        for s in result:
+            sid = s['session_id']
+            memories = recall(session_id=sid, n=1000, strict=True, raw=True)
+            s['memory_count'] = len(memories)
+
+    return result
 
 
 def handoff_pending() -> list:

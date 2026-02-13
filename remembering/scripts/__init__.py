@@ -38,7 +38,8 @@ from .memory import (
     forget, supersede, reprioritize,
     strengthen, weaken,
     memory_histogram, prune_by_age, prune_by_priority,  # v3.2.0: retention helpers
-    get_alternatives, consolidate  # v4.2.0: decision alternatives (#254) and consolidation (#253)
+    get_alternatives, consolidate,  # v4.2.0: decision alternatives (#254) and consolidation (#253)
+    get_chain  # v4.3.0: reference chain traversal (#283)
 )
 
 # Import result types (v3.4.0: type-safe memory results, v3.7.0: normalization)
@@ -67,7 +68,8 @@ from .boot import (
     therapy_scope, therapy_session_count, decisions_recent,
     group_by_type, group_by_tag,
     handoff_pending, handoff_complete,
-    muninn_export, muninn_import
+    muninn_export, muninn_import,
+    session_save, session_resume, sessions  # v4.3.0: session continuity (#231)
 )
 
 # Import utilities layer
@@ -94,7 +96,9 @@ __all__ = [
     "strengthen", "weaken",  # memory consolidation (v3.3.0) - working implementations
     "install_utilities", "UTIL_DIR",  # utilities
     "get_alternatives", "consolidate",  # v4.2.0: decision alternatives (#254) and consolidation (#253)
+    "get_chain",  # v4.3.0: reference chain traversal (#283)
     "get_session_id", "set_session_id",  # session management (v3.2.0)
+    "session_save", "session_resume", "sessions",  # v4.3.0: session continuity (#231)
     "recall_stats", "top_queries",  # retrieval observability (v3.2.0)
     "memory_histogram", "prune_by_age", "prune_by_priority",  # retention helpers (v3.2.0)
     # v3.4.0: Type-safe results and proactive hints

@@ -13,26 +13,29 @@
 
 ### boot.py
 > Imports: `json, os, shutil, subprocess, threading`...
-- **classify_ops_key** (f) `(key: str)` :132
-- **detect_github_access** (f) `()` :152
+- **classify_ops_key** (f) `(key: str)` :133
+- **detect_github_access** (f) `()` :153
 - **github_api** (f) `(endpoint: str, *, method: str = "GET", body: dict = None,
-               accept: str = "application/vnd.github+json")` :229
-- **group_ops_by_topic** (f) `(ops_entries: list)` :312
-- **profile** (f) `()` :363
-- **ops** (f) `(include_reference: bool = False)` :368
-- **boot** (f) `()` :468
-- **journal** (f) `(topics: list = None, user_stated: str = None, my_intent: str = None)` :662
-- **journal_recent** (f) `(n: int = 10)` :679
-- **journal_prune** (f) `(keep: int = 40)` :695
-- **therapy_scope** (f) `()` :709
-- **therapy_session_count** (f) `()` :724
-- **decisions_recent** (f) `(n: int = 10, conf: float = 0.7)` :733
-- **group_by_type** (f) `(memories: list)` :748
-- **group_by_tag** (f) `(memories: list)` :764
-- **muninn_export** (f) `()` :784
-- **handoff_pending** (f) `()` :798
-- **handoff_complete** (f) `(handoff_id: str, completion_notes: str, version: str = None)` :813
-- **muninn_import** (f) `(data: dict, *, merge: bool = False)` :845
+               accept: str = "application/vnd.github+json")` :230
+- **group_ops_by_topic** (f) `(ops_entries: list)` :313
+- **profile** (f) `()` :364
+- **ops** (f) `(include_reference: bool = False)` :369
+- **boot** (f) `()` :469
+- **journal** (f) `(topics: list = None, user_stated: str = None, my_intent: str = None)` :663
+- **journal_recent** (f) `(n: int = 10)` :680
+- **journal_prune** (f) `(keep: int = 40)` :696
+- **therapy_scope** (f) `()` :710
+- **therapy_session_count** (f) `()` :725
+- **decisions_recent** (f) `(n: int = 10, conf: float = 0.7)` :734
+- **group_by_type** (f) `(memories: list)` :749
+- **group_by_tag** (f) `(memories: list)` :765
+- **muninn_export** (f) `()` :785
+- **session_save** (f) `(summary: str = None, context: dict = None)` :802
+- **session_resume** (f) `(session_id: str = None)` :852
+- **sessions** (f) `(n: int = 10, *, include_counts: bool = False)` :924
+- **handoff_pending** (f) `()` :989
+- **handoff_complete** (f) `(handoff_id: str, completion_notes: str, version: str = None)` :1004
+- **muninn_import** (f) `(data: dict, *, merge: bool = False)` :1036
 
 ### bootstrap.py
 > Imports: `sys, os`
@@ -43,9 +46,9 @@
 
 ### cache.py
 > Imports: `sqlite3, json, uuid, datetime, .`...
-- **cache_stats** (f) `()` :591
-- **recall_stats** (f) `(limit: int = 100)` :624
-- **top_queries** (f) `(n: int = 10)` :679
+- **cache_stats** (f) `()` :612
+- **recall_stats** (f) `(limit: int = 100)` :645
+- **top_queries** (f) `(n: int = 10)` :700
 
 ### config.py
 > Imports: `datetime, ., .turso, .cache`
@@ -80,25 +83,28 @@
            use_cache: bool = True, strict: bool = False, session_id: str = None,
            auto_strengthen: bool = False, raw: bool = False,
            expansion_threshold: int = 3,
-           limit: int = None, fetch_all: bool = False)` :236
+           limit: int = None, fetch_all: bool = False,
+           since: str = None, until: str = None,
+           tags_all: list = None, tags_any: list = None)` :236
 - **recall_since** (f) `(after: str, *, search: str = None, n: int = 50,
                  type: str = None, tags: list = None, tag_mode: str = "any",
-                 session_id: str = None, raw: bool = False)` :537
+                 session_id: str = None, raw: bool = False)` :574
 - **recall_between** (f) `(after: str, before: str, *, search: str = None,
                    n: int = 100, type: str = None, tags: list = None,
-                   tag_mode: str = "any", session_id: str = None, raw: bool = False)` :604
-- **forget** (f) `(memory_id: str)` :673
+                   tag_mode: str = "any", session_id: str = None, raw: bool = False)` :641
+- **forget** (f) `(memory_id: str)` :710
 - **supersede** (f) `(original_id: str, summary: str, type: str, *,
-              tags: list = None, conf: float = None)` :691
-- **reprioritize** (f) `(memory_id: str, priority: int)` :759
-- **memory_histogram** (f) `()` :800
-- **prune_by_age** (f) `(older_than_days: int, priority_floor: int = 0, dry_run: bool = True)` :856
-- **prune_by_priority** (f) `(max_priority: int = -1, dry_run: bool = True)` :902
-- **strengthen** (f) `(memory_id: str, boost: int = 1)` :941
-- **weaken** (f) `(memory_id: str, drop: int = 1)` :981
-- **get_alternatives** (f) `(memory_id: str)` :1015
+              tags: list = None, conf: float = None)` :728
+- **reprioritize** (f) `(memory_id: str, priority: int)` :796
+- **memory_histogram** (f) `()` :837
+- **prune_by_age** (f) `(older_than_days: int, priority_floor: int = 0, dry_run: bool = True)` :893
+- **prune_by_priority** (f) `(max_priority: int = -1, dry_run: bool = True)` :939
+- **strengthen** (f) `(memory_id: str, boost: int = 1)` :978
+- **weaken** (f) `(memory_id: str, drop: int = 1)` :1018
+- **get_alternatives** (f) `(memory_id: str)` :1052
+- **get_chain** (f) `(memory_id: str, depth: int = 3)` :1091
 - **consolidate** (f) `(*, tags: list = None, min_cluster: int = 3, dry_run: bool = True,
-                session_id: str = None)` :1056
+                session_id: str = None)` :1161
 
 ### result.py
 > Imports: `typing`
