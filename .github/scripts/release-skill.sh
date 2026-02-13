@@ -229,19 +229,24 @@ for SKILL_DIR in $SKILLS; do
   # Copy skill folder to temp directory
   cp -r "$SKILL_DIR" "$TEMP_DIR/"
 
-  # Create ZIP from temp directory
-  # Exclude: README (auto-generated), CHANGELOG (repo-only), _MAP.md (generated code maps),
-  # CLAUDE.md (development context), tests/ (integration tests)
+  # Remove files that should not be in the release ZIP:
+  # - README.md (auto-generated, removed during release)
+  # - CHANGELOG.md (repo-only, not part of skill bundle)
+  # - _MAP.md (generated code maps from mapping-codebases)
+  # - CLAUDE.md (development context, not needed by end users)
+  # - tests/ (integration tests, not part of skill bundle)
+  # - __pycache__/ (.pyc bytecode caches)
+  # Using find for recursive matching (zip -x '*' doesn't cross directory boundaries)
   cd "$TEMP_DIR"
-  zip -r "$SKILL_DIR.zip" "$SKILL_DIR/" \
-    -x "$SKILL_DIR/README.md" \
-    -x "$SKILL_DIR/CHANGELOG.md" \
-    -x "$SKILL_DIR/_MAP.md" \
-    -x "$SKILL_DIR/*/_MAP.md" \
-    -x "$SKILL_DIR/CLAUDE.md" \
-    -x "$SKILL_DIR/*/CLAUDE.md" \
-    -x "$SKILL_DIR/tests/*" \
-    -x "$SKILL_DIR/tests/"
+  find "$SKILL_DIR" -name '_MAP.md' -delete 2>/dev/null
+  find "$SKILL_DIR" -name 'CLAUDE.md' -delete 2>/dev/null
+  find "$SKILL_DIR" -name 'README.md' -delete 2>/dev/null
+  find "$SKILL_DIR" -name 'CHANGELOG.md' -delete 2>/dev/null
+  find "$SKILL_DIR" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null
+  rm -rf "$SKILL_DIR/tests" 2>/dev/null
+
+  # Create ZIP from cleaned temp directory
+  zip -r "$SKILL_DIR.zip" "$SKILL_DIR/"
 
   echo "✓ Created $SKILL_DIR.zip"
   echo "ZIP contents:"
