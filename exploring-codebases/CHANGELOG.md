@@ -2,6 +2,18 @@
 
 All notable changes to the `exploring-codebases` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.3.1] - 2026-02-13
+
+### Fixed
+
+- Fix `--use-maps` mode failing to parse multi-line signatures in `_MAP.md` files
+- Functions with long parameter lists (spanning multiple lines in map files) are now correctly parsed
+- Full multi-line signatures are accumulated and displayed properly
+
+### Added
+
+- Document scope and limitations: which code elements are returned vs not
+
 ## [0.3.0] - 2026-02-13
 
 ### Added

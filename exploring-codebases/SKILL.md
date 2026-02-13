@@ -2,7 +2,7 @@
 name: exploring-codebases
 description: Semantic search for codebases. Locates matches with ripgrep and expands them into full AST nodes (functions/classes) using tree-sitter or pre-generated _MAP.md files. Returns complete, syntactically valid code blocks rather than fragmented lines. Use when looking for specific implementations, examples, or references where full context is needed.
 metadata:
-  version: 0.3.0
+  version: 0.3.1
 ---
 
 # Exploring Codebases
@@ -88,3 +88,16 @@ class User:
 ```bash
 /home/claude/.venv/bin/python /mnt/skills/user/exploring-codebases/scripts/search.py "process_data" /path/to/repo --glob "*.py"
 ```
+
+## Scope and Limitations
+
+**Returns structural code elements** — functions, classes, methods, interfaces, enums, structs, traits, and modules across 11 supported languages (Python, JavaScript, TypeScript, Go, Rust, Ruby, Java, C, C++, PHP, C#).
+
+**Does not return:**
+- Import/require statements
+- Module-level variable assignments or constants
+- Standalone decorators (decorators attached to functions/classes are included with their parent)
+- Type aliases or standalone type annotations
+- Comments outside of functions/classes
+
+For these non-structural elements, use plain `ripgrep` (via the Grep tool) directly.
