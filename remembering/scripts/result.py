@@ -40,6 +40,9 @@ VALID_FIELDS: Set[str] = {
     'composite_rank',
     'composite_score',
 
+    # Decision metadata (v4.2.0, #254)
+    'alternatives',
+
     # Cache/internal flags
     'has_full',
     'deleted_at',
@@ -245,10 +248,28 @@ def _normalize_memory(data: dict) -> dict:
 
     Adds missing computed fields:
     - summary_preview: First 100 chars of summary (if summary present)
+    - alternatives: Extracted from refs for decision memories (v4.2.0, #254)
     """
     if 'summary_preview' not in data and 'summary' in data:
         summary = data.get('summary') or ''
         data['summary_preview'] = summary[:100]
+
+    # v4.2.0: Extract alternatives from refs for decision memories (#254)
+    if 'alternatives' not in data and data.get('type') == 'decision':
+        refs_raw = data.get('refs')
+        alternatives = []
+        if refs_raw:
+            try:
+                import json
+                refs = json.loads(refs_raw) if isinstance(refs_raw, str) else (refs_raw or [])
+                for entry in refs:
+                    if isinstance(entry, dict) and entry.get('_type') == 'alternatives':
+                        alternatives = entry.get('items', [])
+                        break
+            except (json.JSONDecodeError, TypeError):
+                pass
+        data['alternatives'] = alternatives if alternatives else None
+
     return data
 
 

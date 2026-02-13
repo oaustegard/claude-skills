@@ -18,7 +18,8 @@
 - Exploring Codebases `h1` :8
 - Progressive Disclosure `h2` :12
 - Installation `h2` :16
-- Usage `h2` :23
-- Options `h2` :33
-- Examples `h2` :39
+- Usage `h2` :24
+- Options `h2` :38
+- Map-Based Mode (v0.3.0) `h2` :45
+- Examples `h2` :68
 

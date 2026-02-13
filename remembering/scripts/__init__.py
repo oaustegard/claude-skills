@@ -37,7 +37,8 @@ from .memory import (
     recall_since, recall_between,
     forget, supersede, reprioritize,
     strengthen, weaken,
-    memory_histogram, prune_by_age, prune_by_priority  # v3.2.0: retention helpers
+    memory_histogram, prune_by_age, prune_by_priority,  # v3.2.0: retention helpers
+    get_alternatives, consolidate  # v4.2.0: decision alternatives (#254) and consolidation (#253)
 )
 
 # Import result types (v3.4.0: type-safe memory results, v3.7.0: normalization)
@@ -92,6 +93,7 @@ __all__ = [
     "reprioritize",  # priority adjustment
     "strengthen", "weaken",  # memory consolidation (v3.3.0) - working implementations
     "install_utilities", "UTIL_DIR",  # utilities
+    "get_alternatives", "consolidate",  # v4.2.0: decision alternatives (#254) and consolidation (#253)
     "get_session_id", "set_session_id",  # session management (v3.2.0)
     "recall_stats", "top_queries",  # retrieval observability (v3.2.0)
     "memory_histogram", "prune_by_age", "prune_by_priority",  # retention helpers (v3.2.0)
