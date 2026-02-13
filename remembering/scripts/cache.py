@@ -335,7 +335,8 @@ def _cache_config(config_entries: list):
 def _cache_query_index(search: str = None, type: str = None,
                        tags: list = None, n: int = 10,
                        conf: float = None, tag_mode: str = "any",
-                       strict: bool = False, session_id: str = None) -> list:
+                       strict: bool = False, session_id: str = None,
+                       since: str = None, until: str = None) -> list:
     """Query memory_index using FTS5 for text search (v0.9.0).
 
     When search is provided, uses FTS5 MATCH for ranked full-text search
@@ -345,6 +346,8 @@ def _cache_query_index(search: str = None, type: str = None,
         tag_mode: "any" (default) matches any tag, "all" requires all tags
         strict: If True, skip ranking and order by timestamp DESC (v0.12.1)
         session_id: Filter by session identifier (v3.8.0, #237)
+        since: Filter memories created at or after this ISO timestamp (v4.3.0, #281)
+        until: Filter memories created at or before this ISO timestamp (v4.3.0, #281)
 
     Returns list of dicts with cache data. If has_full=0,
     full content needs to be fetched from Turso.
@@ -375,6 +378,12 @@ def _cache_query_index(search: str = None, type: str = None,
             if session_id is not None:
                 conditions.append("i.session_id = ?")
                 params.append(session_id)
+            if since is not None:
+                conditions.append("i.t >= ?")
+                params.append(since)
+            if until is not None:
+                conditions.append("i.t <= ?")
+                params.append(until)
 
             where = " AND ".join(conditions) if conditions else "1=1"
 
@@ -416,6 +425,12 @@ def _cache_query_index(search: str = None, type: str = None,
             if session_id is not None:
                 conditions.append("i.session_id = ?")
                 params.append(session_id)
+            if since is not None:
+                conditions.append("i.t >= ?")
+                params.append(since)
+            if until is not None:
+                conditions.append("i.t <= ?")
+                params.append(until)
 
             where = " AND ".join(conditions)
 
@@ -462,6 +477,12 @@ def _cache_query_index(search: str = None, type: str = None,
             if session_id is not None:
                 conditions.append("i.session_id = ?")
                 params.append(session_id)
+            if since is not None:
+                conditions.append("i.t >= ?")
+                params.append(since)
+            if until is not None:
+                conditions.append("i.t <= ?")
+                params.append(until)
 
             where = " AND ".join(conditions) if conditions else "1=1"
 

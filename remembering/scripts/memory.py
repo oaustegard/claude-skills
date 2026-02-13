@@ -238,7 +238,9 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
            use_cache: bool = True, strict: bool = False, session_id: str = None,
            auto_strengthen: bool = False, raw: bool = False,
            expansion_threshold: int = 3,
-           limit: int = None, fetch_all: bool = False) -> MemoryResultList:
+           limit: int = None, fetch_all: bool = False,
+           since: str = None, until: str = None,
+           tags_all: list = None, tags_any: list = None) -> MemoryResultList:
     """Query memories with flexible filters.
 
     v0.7.0: Uses local cache with progressive disclosure when available.
@@ -250,6 +252,8 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
     v3.4.0: Returns MemoryResult objects that validate field access.
     v3.7.0: Added expansion_threshold parameter. Added limit as alias for n.
     v4.1.0: Added fetch_all parameter for comprehensive memory retrieval.
+    v4.3.0: Added since/until time window parameters (#281).
+    v4.3.0: Added tags_all/tags_any convenience parameters (#282).
 
     Args:
         search: Text to search for in memory summaries (FTS5 ranked search).
@@ -271,6 +275,17 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
         fetch_all: If True, retrieve all memories without search filtering (v4.1.0).
             This is the explicit way to get comprehensive memory retrieval.
             When True, the search parameter is ignored.
+        since: Filter memories created at or after this ISO timestamp (v4.3.0, #281).
+            Accepts ISO date strings (e.g., '2025-01-01' or '2025-01-01T00:00:00Z').
+            Uses inclusive bounds. Works alongside all other parameters.
+        until: Filter memories created at or before this ISO timestamp (v4.3.0, #281).
+            Accepts ISO date strings. Uses inclusive bounds.
+        tags_all: Convenience parameter requiring ALL specified tags (v4.3.0, #282).
+            Equivalent to tags=[...], tag_mode="all".
+            Cannot be combined with tags_any.
+        tags_any: Convenience parameter requiring ANY of the specified tags (v4.3.0, #282).
+            Equivalent to tags=[...], tag_mode="any".
+            Cannot be combined with tags_all.
 
     Returns:
         MemoryResultList of MemoryResult objects (or list of dicts if raw=True).
@@ -280,6 +295,16 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
     # v3.7.0: Accept limit= as deprecated alias for n=
     if limit is not None:
         n = limit
+
+    # v4.3.0: Resolve tags_all/tags_any convenience parameters (#282)
+    if tags_all is not None and tags_any is not None:
+        raise ValueError("Cannot specify both tags_all and tags_any. Use one or the other.")
+    if tags_all is not None:
+        tags = tags_all
+        tag_mode = "all"
+    elif tags_any is not None:
+        tags = tags_any
+        tag_mode = "any"
 
     # v4.1.0: Validate wildcard patterns and guide users to fetch_all
     if search and not fetch_all:
@@ -306,12 +331,12 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
     # v2.0.1: Only trust empty cache results if warming completed, otherwise fall back to Turso
     # v3.8.0: Session-filtered queries now use cache (#237) instead of bypassing it
     if use_cache and _cache_available():
-        results = _cache_query_index(search=search, type=type, tags=tags, n=n, conf=conf, tag_mode=tag_mode, strict=strict, session_id=session_id)
+        results = _cache_query_index(search=search, type=type, tags=tags, n=n, conf=conf, tag_mode=tag_mode, strict=strict, session_id=session_id, since=since, until=until)
 
         # v2.0.1: If cache returns no results and warming isn't complete, fall back to Turso
         # This fixes race condition where recall() called immediately after boot() returns 0 results
         if not results and not state._cache_warmed:
-            results = _query(search=search, tags=tags, type=type, conf=conf, limit=n, tag_mode=tag_mode, session_id=session_id)
+            results = _query(search=search, tags=tags, type=type, conf=conf, limit=n, tag_mode=tag_mode, session_id=session_id, since=since, until=until)
             exec_time = (time.time() - start_time) * 1000
             _log_recall_query(
                 query=search,
@@ -340,7 +365,7 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
                 seen_ids = {r['id'] for r in results}
                 for tag in expansion_tags:
                     # Search for this tag as a term (handles concept relationships)
-                    tag_results = _cache_query_index(search=tag, type=type, tags=tags, n=n-len(results), conf=conf, tag_mode=tag_mode, strict=strict)
+                    tag_results = _cache_query_index(search=tag, type=type, tags=tags, n=n-len(results), conf=conf, tag_mode=tag_mode, strict=strict, since=since, until=until)
                     for tr in tag_results:
                         if tr['id'] not in seen_ids:
                             results.append(tr)
@@ -403,7 +428,7 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
             return results if raw else wrap_results(results)
 
     # Fallback to direct Turso query
-    results = _query(search=search, tags=tags, type=type, conf=conf, limit=n, tag_mode=tag_mode, session_id=session_id)
+    results = _query(search=search, tags=tags, type=type, conf=conf, limit=n, tag_mode=tag_mode, session_id=session_id, since=since, until=until)
 
     # Auto-strengthen returned memories if requested (v3.3.0)
     # Biological parallel: memories that participate in cognition consolidate
@@ -468,15 +493,19 @@ def _update_access_tracking(memory_ids: list):
 
 
 def _query(search: str = None, tags: list = None, type: str = None,
-           conf: float = None, limit: int = 10, tag_mode: str = "any", session_id: str = None) -> list:
+           conf: float = None, limit: int = 10, tag_mode: str = "any",
+           session_id: str = None, since: str = None, until: str = None) -> list:
     """Internal query implementation with parameterized queries.
 
     Args:
         tag_mode: "any" (default) matches any tag, "all" requires all tags
         session_id: Optional session filter (v3.2.0)
+        since: Optional inclusive lower bound on timestamp (v4.3.0, #281)
+        until: Optional inclusive upper bound on timestamp (v4.3.0, #281)
 
     v0.4.0: Tracks access_count and last_accessed for retrieved memories.
     v3.2.0: Added session_id filter. Converted to parameterized queries for SQL injection protection.
+    v4.3.0: Added since/until time window parameters (#281).
     """
     # Build parameterized WHERE clause
     conditions = [
@@ -517,6 +546,14 @@ def _query(search: str = None, tags: list = None, type: str = None,
     if session_id is not None:
         conditions.append("session_id = ?")
         params.append(session_id)
+
+    if since is not None:
+        conditions.append("t >= ?")
+        params.append(since)
+
+    if until is not None:
+        conditions.append("t <= ?")
+        params.append(until)
 
     where = " AND ".join(conditions)
     order = "confidence DESC" if conf else "t DESC"
@@ -1049,6 +1086,74 @@ def get_alternatives(memory_id: str) -> list:
             return entry.get('items', [])
 
     return []
+
+
+def get_chain(memory_id: str, depth: int = 3) -> list:
+    """Follow reference chains to build a context graph around a memory.
+
+    Traverses the refs field of memories to discover connected memories,
+    building a subgraph of related context. Handles cycles via a visited set.
+
+    Args:
+        memory_id: UUID of the starting memory
+        depth: Maximum traversal depth (default 3, max 10)
+
+    Returns:
+        List of memory dicts in the chain, starting with the root memory.
+        Each memory includes a '_chain_depth' field indicating its distance
+        from the root (0 = root, 1 = direct reference, etc.).
+
+    Example:
+        >>> chain = get_chain("abc-123", depth=2)
+        >>> for m in chain:
+        ...     print(f"[depth={m['_chain_depth']}] {m['summary'][:80]}")
+
+    v4.3.0: Elevated from muninn_utils to core API (#283).
+    """
+    depth = min(depth, 10)  # Cap at 10 to prevent runaway traversal
+
+    visited = set()
+    result = []
+
+    def _traverse(mid: str, current_depth: int):
+        if mid in visited or current_depth > depth:
+            return
+        visited.add(mid)
+
+        # Fetch the memory
+        rows = _exec(
+            "SELECT * FROM memories WHERE id = ? AND deleted_at IS NULL",
+            [mid]
+        )
+        if not rows:
+            return
+
+        memory = rows[0]
+        memory['_chain_depth'] = current_depth
+        result.append(memory)
+
+        # Parse refs and follow references
+        refs_raw = memory.get('refs')
+        if not refs_raw:
+            return
+
+        try:
+            refs = json.loads(refs_raw) if isinstance(refs_raw, str) else refs_raw
+        except (json.JSONDecodeError, TypeError):
+            return
+
+        for ref in refs:
+            if isinstance(ref, str):
+                # Direct memory ID reference
+                _traverse(ref, current_depth + 1)
+            elif isinstance(ref, dict) and ref.get('_type') != 'alternatives':
+                # Skip alternatives objects, follow other dict refs if they have an id
+                ref_id = ref.get('id')
+                if ref_id:
+                    _traverse(ref_id, current_depth + 1)
+
+    _traverse(memory_id, 0)
+    return result
 
 
 # --- Memory consolidation (v4.2.0, #253) ---
