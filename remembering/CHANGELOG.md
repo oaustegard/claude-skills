@@ -6,6 +6,16 @@ All notable changes to the `remembering` skill (Muninn) are documented in this f
 
 ### Added
 
+- implement issues #229, #231, #281, #282, #283 (v4.3.0)
+
+### Fixed
+
+- parse multi-line signatures in --use-maps mode
+
+## [4.3.0] - 2026-02-13
+
+### Added
+
 - **Time-windowed recall** (#281): Added `since` and `until` parameters to `recall()` for filtering memories by creation time. Accepts ISO date strings with inclusive bounds. Works alongside all other parameters (search, tags, type, etc.).
 - **Multi-tag convenience parameters** (#282): Added `tags_all` and `tags_any` parameters to `recall()` as syntactic sugar for `tags=[...], tag_mode="all"/"any"`. Cannot combine both in one call.
 - **Reference chain traversal** (#283): Elevated `get_chain(memory_id, depth=3)` to core API. Follows refs to build context graphs around a memory with cycle detection. Max depth capped at 10.
