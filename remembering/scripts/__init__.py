@@ -65,7 +65,7 @@ from .boot import (
     detect_github_access,  # v3.5.0: GitHub access detection
     github_api,  # v3.8.0: Unified GitHub API interface (#240)
     journal, journal_recent, journal_prune,
-    therapy_scope, therapy_session_count, decisions_recent,
+    therapy_scope, therapy_session_count, therapy_reflect, decisions_recent,
     group_by_type, group_by_tag,
     handoff_pending, handoff_complete,
     muninn_export, muninn_import,
@@ -87,7 +87,7 @@ __all__ = [
     "profile", "ops", "boot", "journal", "journal_recent", "journal_prune",  # boot & journal
     "detect_github_access",  # v3.5.0: GitHub access detection
     "github_api",  # v3.8.0: Unified GitHub API interface (#240)
-    "therapy_scope", "therapy_session_count", "decisions_recent",  # therapy helpers
+    "therapy_scope", "therapy_session_count", "therapy_reflect", "decisions_recent",  # therapy helpers
     "group_by_type", "group_by_tag",  # analysis helpers
     "handoff_pending", "handoff_complete",  # handoff workflow
     "muninn_export", "muninn_import",  # export/import

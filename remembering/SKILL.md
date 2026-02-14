@@ -2,7 +2,7 @@
 name: remembering
 description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, retention management, type-safe results, proactive memory hints, GitHub access detection, and ops priority ordering.
 metadata:
-  version: 4.3.1
+  version: 4.4.0
 ---
 
 # Remembering - Advanced Operations
@@ -37,16 +37,37 @@ Boot includes a `# CAPABILITIES` section reporting GitHub access and installed u
 
 **Type is required** on all write operations. Valid types:
 
-| Type | Use For |
-|------|---------|
-| `decision` | Explicit choices: prefers X, always/never do Y |
-| `world` | External facts: tasks, deadlines, project state |
-| `anomaly` | Errors, bugs, unexpected behavior |
-| `experience` | General observations, catch-all |
+| Type | Use For | Defaults |
+|------|---------|----------|
+| `decision` | Explicit choices: prefers X, always/never do Y | conf=0.8 |
+| `world` | External facts: tasks, deadlines, project state | |
+| `anomaly` | Errors, bugs, unexpected behavior | |
+| `experience` | General observations, catch-all | |
+| `procedure` | Workflows, step-by-step processes, decision trees | conf=0.9, priority=1 |
 
 ```python
-from remembering import TYPES  # {'decision', 'world', 'anomaly', 'experience'}
+from remembering import TYPES  # {'decision', 'world', 'anomaly', 'experience', 'procedure'}
 ```
+
+### Procedural Memories (v4.4.0)
+
+Store reusable workflows and operational patterns as first-class memories:
+
+```python
+from remembering import remember
+
+# Store a workflow
+id = remember(
+    "Deploy workflow: 1) Run tests 2) Build artifacts 3) Push to staging 4) Smoke test 5) Promote to prod",
+    "procedure",
+    tags=["deployment", "workflow"],
+)
+
+# Retrieve workflows
+procedures = recall(type="procedure", tags=["deployment"])
+```
+
+Procedural memories default to `confidence=0.9` and `priority=1` (important), ensuring they survive age-based pruning. Use tags to categorize by domain and workflow name for targeted retrieval.
 
 ## Core Operations
 
@@ -289,6 +310,33 @@ How it works:
 3. **Archival**: Demotes original memories to `priority=-1` (background)
 4. **Traceability**: Summary's `refs` field lists all original memory IDs
 
+## Cross-Episodic Reflection (v4.4.0)
+
+Phase 1.5 of the therapy workflow: systematically convert clusters of similar experiences into generalized semantic knowledge.
+
+```python
+from remembering import therapy_reflect
+
+# Preview discovered patterns without creating memories
+result = therapy_reflect(dry_run=True)
+for c in result['clusters']:
+    print(f"Pattern ({len(c['source_ids'])} episodes): {c['pattern'][:80]}")
+    print(f"  Common tags: {c['tags']}")
+
+# Create semantic memories from patterns
+result = therapy_reflect(dry_run=False)
+print(f"Created {result['created']} pattern memories from {len(result['clusters'])} clusters")
+```
+
+How it works:
+1. **Sampling**: Retrieves recent episodic memories (`type=experience`)
+2. **Similarity search**: For each experience, finds similar past episodes via `recall()`
+3. **Clustering**: Groups 3+ similar experiences into pattern clusters
+4. **Extraction**: Creates `type=world` semantic memories tagged `reflection` + `cross-episodic`
+5. **Traceability**: Each pattern memory's `refs` field lists all source episode IDs
+
+Integrates into the existing therapy workflow between pruning and synthesis phases.
+
 ## Advanced Topics
 
 For architecture details, see [_ARCH.md](_ARCH.md).
@@ -297,7 +345,7 @@ See [references/advanced-operations.md](references/advanced-operations.md) for:
 
 - Date-filtered queries (`recall_since`, `recall_between`, `since`/`until` parameters)
 - Priority system and memory consolidation (`strengthen`, `weaken`)
-- Therapy helpers and analysis helpers
+- Therapy helpers, cross-episodic reflection, and analysis helpers
 - Handoff convention (cross-environment coordination)
 - Session scoping and continuity (`session_save`, `session_resume`, `sessions`)
 - Retrieval observability and retention management

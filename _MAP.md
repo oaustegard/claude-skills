@@ -1,5 +1,5 @@
 # claude-skills/
-*Files: 5 | Subdirectories: 42*
+*Files: 5 | Subdirectories: 43*
 
 ## Subdirectories
 
@@ -21,6 +21,7 @@
 - [creating-mcp-servers/](./creating-mcp-servers/_MAP.md)
 - [creating-skill/](./creating-skill/_MAP.md)
 - [developing-preact/](./developing-preact/_MAP.md)
+- [down-skilling/](./down-skilling/_MAP.md)
 - [exploring-codebases/](./exploring-codebases/_MAP.md)
 - [exploring-data/](./exploring-data/_MAP.md)
 - [extracting-keywords/](./extracting-keywords/_MAP.md)
@@ -64,11 +65,11 @@
 
 ### CLAUDE.md
 - Claude Code on the Web Development `h2` :3
-- Environment-Specific Tips `h2` :34
-- Code Maps `h2` :74
-- Skill Development Workflow `h2` :117
-- PR Reviews and Code Testing `h2` :228
-- Remembering Skill and Handoff Process `h2` :369
+- Environment-Specific Tips `h2` :36
+- Code Maps `h2` :76
+- Skill Development Workflow `h2` :119
+- PR Reviews and Code Testing `h2` :230
+- Remembering Skill and Handoff Process `h2` :371
 
 ### PR_160_REVIEW.md
 - PR #160 Review: Improve codemap.py with symbol hierarchy `h1` :1

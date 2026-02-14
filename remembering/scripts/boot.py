@@ -5,7 +5,7 @@ This module handles:
 - Boot sequence (boot, profile, ops, _warm_cache)
 - GitHub access detection and configuration
 - Journal operations (journal, journal_recent, journal_prune)
-- Therapy helpers (therapy_scope, therapy_session_count, decisions_recent)
+- Therapy helpers (therapy_scope, therapy_session_count, therapy_reflect, decisions_recent)
 - Analysis helpers (group_by_type, group_by_tag)
 - Handoff workflow (handoff_pending, handoff_complete)
 - Export/Import (muninn_export, muninn_import)
@@ -742,6 +742,134 @@ def decisions_recent(n: int = 10, conf: float = 0.7) -> list:
         List of decision memories sorted by timestamp (newest first)
     """
     return recall(type="decision", conf=conf, n=n, strict=True)
+
+
+def therapy_reflect(*, n_sample: int = 20, similarity_threshold: int = 3,
+                     dry_run: bool = True) -> dict:
+    """Cross-episodic reflection: extract patterns from clusters of similar experiences.
+
+    Implements "Phase 1.5" of the therapy workflow. Samples recent episodic
+    memories, finds similar past episodes via recall(), and when 3+ similar
+    experiences cluster together, synthesizes a semantic memory capturing
+    the generalized pattern. Source episodes are referenced for traceability.
+
+    Args:
+        n_sample: Number of recent experiences to sample (default 20).
+        similarity_threshold: Minimum cluster size to trigger pattern
+            extraction (default 3).
+        dry_run: If True (default), report what would be created without acting.
+
+    Returns:
+        Dict with:
+            - clusters: list of discovered pattern clusters, each with:
+                - pattern: synthesized pattern description
+                - source_ids: list of source memory IDs
+                - source_previews: list of source summary previews
+                - tags: tags common across the cluster
+            - created: number of semantic memories created (0 if dry_run)
+            - dry_run: whether this was a dry run
+
+    Example:
+        >>> # Preview patterns without creating memories
+        >>> result = therapy_reflect(dry_run=True)
+        >>> for c in result['clusters']:
+        ...     print(f"Pattern ({len(c['source_ids'])} episodes): {c['pattern'][:80]}")
+        >>> # Create semantic memories from patterns
+        >>> result = therapy_reflect(dry_run=False)
+
+    v4.4.0: Added as cross-episodic reflection for therapy workflow (#289).
+    """
+    # Sample recent episodic memories
+    recent_experiences = recall(type="experience", n=n_sample, strict=True, raw=True)
+
+    if not recent_experiences:
+        return {"clusters": [], "created": 0, "dry_run": dry_run}
+
+    # Build clusters: for each experience, find similar past episodes
+    # Track which memories have been assigned to clusters already
+    assigned = set()
+    clusters = []
+
+    for exp in recent_experiences:
+        if exp['id'] in assigned:
+            continue
+
+        # Use first ~60 chars of summary as search query to find similar
+        search_term = exp.get('summary', '')[:60]
+        if not search_term:
+            continue
+
+        # Find similar memories (broader search, include all types of experience)
+        similar = recall(
+            search=search_term, type="experience",
+            n=n_sample, raw=True, expansion_threshold=0
+        )
+
+        # Filter to only unassigned memories (and exclude the source itself by dedup)
+        cluster_members = []
+        seen_ids = set()
+        for m in similar:
+            if m['id'] not in assigned and m['id'] not in seen_ids:
+                cluster_members.append(m)
+                seen_ids.add(m['id'])
+
+        if len(cluster_members) < similarity_threshold:
+            continue
+
+        # Extract common tags across cluster
+        from collections import Counter
+        all_tags = []
+        for m in cluster_members:
+            tags_raw = m.get('tags', '[]')
+            try:
+                tags = json.loads(tags_raw) if isinstance(tags_raw, str) else (tags_raw or [])
+            except (json.JSONDecodeError, TypeError):
+                tags = []
+            all_tags.extend(tags)
+
+        tag_counts = Counter(all_tags)
+        # Tags present in at least half the cluster are "common"
+        common_tags = [t for t, count in tag_counts.items()
+                       if count >= len(cluster_members) / 2 and t != "therapy"]
+
+        # Build pattern description from cluster members
+        source_ids = [m['id'] for m in cluster_members]
+        source_previews = [m.get('summary', '')[:100] for m in cluster_members]
+
+        pattern = (
+            f"[Cross-episodic pattern from {len(cluster_members)} experiences]\n"
+            + "\n".join(f"- {preview}" for preview in source_previews)
+        )
+
+        clusters.append({
+            "pattern": pattern,
+            "source_ids": source_ids,
+            "source_previews": source_previews,
+            "tags": common_tags,
+        })
+
+        # Mark these as assigned so they don't appear in other clusters
+        assigned.update(source_ids)
+
+    # Create semantic memories from patterns
+    created = 0
+    if not dry_run:
+        for cluster in clusters:
+            remember(
+                cluster["pattern"],
+                "world",
+                tags=cluster["tags"] + ["reflection", "cross-episodic"],
+                refs=cluster["source_ids"],
+                priority=1,
+                sync=True,
+            )
+            created += 1
+
+    return {
+        "clusters": clusters,
+        "created": created,
+        "dry_run": dry_run,
+    }
 
 
 # --- Analysis helpers ---

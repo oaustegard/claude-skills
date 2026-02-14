@@ -27,15 +27,17 @@
 - **therapy_scope** (f) `()` :710
 - **therapy_session_count** (f) `()` :725
 - **decisions_recent** (f) `(n: int = 10, conf: float = 0.7)` :734
-- **group_by_type** (f) `(memories: list)` :749
-- **group_by_tag** (f) `(memories: list)` :765
-- **muninn_export** (f) `()` :785
-- **session_save** (f) `(summary: str = None, context: dict = None)` :802
-- **session_resume** (f) `(session_id: str = None)` :852
-- **sessions** (f) `(n: int = 10, *, include_counts: bool = False)` :924
-- **handoff_pending** (f) `()` :989
-- **handoff_complete** (f) `(handoff_id: str, completion_notes: str, version: str = None)` :1004
-- **muninn_import** (f) `(data: dict, *, merge: bool = False)` :1036
+- **therapy_reflect** (f) `(*, n_sample: int = 20, similarity_threshold: int = 3,
+                     dry_run: bool = True)` :747
+- **group_by_type** (f) `(memories: list)` :877
+- **group_by_tag** (f) `(memories: list)` :893
+- **muninn_export** (f) `()` :913
+- **session_save** (f) `(summary: str = None, context: dict = None)` :930
+- **session_resume** (f) `(session_id: str = None)` :980
+- **sessions** (f) `(n: int = 10, *, include_counts: bool = False)` :1052
+- **handoff_pending** (f) `()` :1117
+- **handoff_complete** (f) `(handoff_id: str, completion_notes: str, version: str = None)` :1132
+- **muninn_import** (f) `(data: dict, *, merge: bool = False)` :1164
 
 ### bootstrap.py
 > Imports: `sys, os`
@@ -76,8 +78,8 @@
              entities: list = None, importance: float = None, memory_class: str = None)` :70
 - **remember_bg** (f) `(what: str, type: str, *, tags: list = None, conf: float = None,
                 entities: list = None, refs: list = None,
-                importance: float = None, memory_class: str = None, valid_from: str = None)` :187
-- **flush** (f) `(timeout: float = 5.0)` :204
+                importance: float = None, memory_class: str = None, valid_from: str = None)` :191
+- **flush** (f) `(timeout: float = 5.0)` :208
 - **recall** (f) `(search: str = None, *, n: int = 10, tags: list = None,
            type: str = None, conf: float = None, tag_mode: str = "any",
            use_cache: bool = True, strict: bool = False, session_id: str = None,
@@ -85,26 +87,26 @@
            expansion_threshold: int = 3,
            limit: int = None, fetch_all: bool = False,
            since: str = None, until: str = None,
-           tags_all: list = None, tags_any: list = None)` :236
+           tags_all: list = None, tags_any: list = None)` :240
 - **recall_since** (f) `(after: str, *, search: str = None, n: int = 50,
                  type: str = None, tags: list = None, tag_mode: str = "any",
-                 session_id: str = None, raw: bool = False)` :574
+                 session_id: str = None, raw: bool = False)` :578
 - **recall_between** (f) `(after: str, before: str, *, search: str = None,
                    n: int = 100, type: str = None, tags: list = None,
-                   tag_mode: str = "any", session_id: str = None, raw: bool = False)` :641
-- **forget** (f) `(memory_id: str)` :710
+                   tag_mode: str = "any", session_id: str = None, raw: bool = False)` :645
+- **forget** (f) `(memory_id: str)` :714
 - **supersede** (f) `(original_id: str, summary: str, type: str, *,
-              tags: list = None, conf: float = None)` :728
-- **reprioritize** (f) `(memory_id: str, priority: int)` :796
-- **memory_histogram** (f) `()` :837
-- **prune_by_age** (f) `(older_than_days: int, priority_floor: int = 0, dry_run: bool = True)` :893
-- **prune_by_priority** (f) `(max_priority: int = -1, dry_run: bool = True)` :939
-- **strengthen** (f) `(memory_id: str, boost: int = 1)` :978
-- **weaken** (f) `(memory_id: str, drop: int = 1)` :1018
-- **get_alternatives** (f) `(memory_id: str)` :1052
-- **get_chain** (f) `(memory_id: str, depth: int = 3)` :1091
+              tags: list = None, conf: float = None)` :732
+- **reprioritize** (f) `(memory_id: str, priority: int)` :800
+- **memory_histogram** (f) `()` :841
+- **prune_by_age** (f) `(older_than_days: int, priority_floor: int = 0, dry_run: bool = True)` :897
+- **prune_by_priority** (f) `(max_priority: int = -1, dry_run: bool = True)` :943
+- **strengthen** (f) `(memory_id: str, boost: int = 1)` :982
+- **weaken** (f) `(memory_id: str, drop: int = 1)` :1022
+- **get_alternatives** (f) `(memory_id: str)` :1056
+- **get_chain** (f) `(memory_id: str, depth: int = 3)` :1095
 - **consolidate** (f) `(*, tags: list = None, min_cluster: int = 3, dry_run: bool = True,
-                session_id: str = None)` :1161
+                session_id: str = None)` :1165
 
 ### result.py
 > Imports: `typing`
