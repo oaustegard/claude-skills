@@ -8,8 +8,8 @@ description: >-
   on Haiku", "generate Haiku instructions", or needs to delegate a task to
   a smaller model with high reliability.
 metadata:
-  author: oskar-austegard
-  version: "1.0"
+  author: Oskar Austegard and Opus
+  version: 1.0.0
 ---
 
 # Down-Skilling: Opus → Haiku Distillation
