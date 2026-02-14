@@ -112,6 +112,10 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
 
     if type == "decision" and conf is None:
         conf = 0.8
+    if type == "procedure" and conf is None:
+        conf = 0.9
+    if type == "procedure" and priority == 0:
+        priority = 1  # Procedural memories default to important to survive pruning
 
     if valid_from is None:
         valid_from = now

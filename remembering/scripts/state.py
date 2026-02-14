@@ -21,7 +21,7 @@ _TOKEN = None
 _HEADERS = None
 
 # Valid memory types (profile now lives in config table)
-TYPES = {"decision", "world", "anomaly", "experience", "interaction"}
+TYPES = {"decision", "world", "anomaly", "experience", "interaction", "procedure"}
 
 # Track pending background writes for flush()
 _pending_writes = []
