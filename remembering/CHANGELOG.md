@@ -2,6 +2,12 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [4.4.0] - 2026-02-14
+
+### Added
+
+- add procedural memory type and cross-episodic reflection (#288, #289)
+
 ## [4.3.1] - 2026-02-14
 
 ### Added
