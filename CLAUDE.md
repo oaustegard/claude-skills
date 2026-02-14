@@ -13,6 +13,8 @@ When making follow-up changes within a session after a PR has been created:
 3. **Create a new branch if needed** - If the previous branch was deleted, create a fresh branch from main
 4. **Don't assume your branch still exists** - PRs are often merged quickly in this workflow
 
+NOTE: the gh clo is not available in Claude Code on the web; use the GitHub API
+
 ```bash
 # Before making secondary changes, always check:
 git fetch origin main
