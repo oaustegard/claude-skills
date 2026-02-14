@@ -10,14 +10,9 @@ Usage:
 import sys
 import os
 
-# Support both installed path (/mnt/skills/user) and local development
-if os.path.exists('/mnt/skills/user'):
-    sys.path.insert(0, '/mnt/skills/user')
-    from remembering import _exec, _init, config_set
-else:
-    # Local development - import from skill root (parent of scripts/)
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from remembering import _exec, _init, config_set
+# Import from scripts package - add skill root (parent of scripts/) to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from scripts import _exec, _init, config_set
 
 def create_tables():
     """Create memories and config tables if they don't exist.
@@ -177,10 +172,7 @@ def seed_config():
 
 def verify():
     """Print current config state."""
-    if os.path.exists('/mnt/skills/user'):
-        from remembering import profile, ops
-    else:
-        from __init__ import profile, ops
+    from scripts import profile, ops
 
     print("\n=== Profile ===")
     for p in profile():

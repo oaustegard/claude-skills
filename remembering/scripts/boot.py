@@ -249,7 +249,7 @@ def github_api(endpoint: str, *, method: str = "GET", body: dict = None,
         RuntimeError: If no GitHub access is configured or request fails
 
     Example:
-        >>> from remembering import github_api
+        >>> from scripts import github_api
         >>> issues = github_api('repos/oaustegard/claude-skills/issues')
         >>> pr = github_api('repos/owner/repo/pulls', method='POST',
         ...                 body={'title': 'Fix', 'head': 'fix-branch', 'base': 'main'})

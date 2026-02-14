@@ -38,13 +38,13 @@ Unless message contains "skip boot", IMMEDIATELY execute:
 set -a; . /mnt/project/muninn.env 2>/dev/null; set +a
 python3 << 'EOF'
 import sys
-sys.path.insert(0, '/home/user/claude-skills')
-from remembering import boot
+sys.path.insert(0, '/home/user/claude-skills/remembering')
+from scripts import boot
 print(boot())
 EOF
 ```
 
-**Note:** For Claude.ai projects, see `references/claude-ai-project-instructions.md` which uses `/mnt/skills/user` paths.
+**Note:** For Claude.ai projects, see `references/claude-ai-project-instructions.md` which uses `/mnt/skills/user/remembering` paths.
 
 
 ## Meta: Using Muninn During Development
@@ -52,7 +52,7 @@ EOF
 **When working on this skill, USE IT for tracking development progress!** Examples:
 
 ```python
-from remembering import remember, journal, recall
+from scripts import remember, journal, recall
 
 # Record design decisions
 remember("FTS5 Porter stemmer handles morphological variants automatically", "decision",
@@ -145,20 +145,20 @@ CREATE TABLE memories (
 ## Core API
 
 ```python
-from remembering import remember, recall, forget, supersede, remember_bg
-from remembering import recall_since, recall_between
-from remembering import config_get, config_set, config_list, profile, ops, boot
-from remembering import journal, journal_recent, journal_prune
-from remembering import therapy_scope, therapy_session_count, decisions_recent
-from remembering import group_by_type, group_by_tag
-from remembering import handoff_pending, handoff_complete
-from remembering import muninn_export, muninn_import
-from remembering import strengthen, weaken
-from remembering import cache_stats
+from scripts import remember, recall, forget, supersede, remember_bg
+from scripts import recall_since, recall_between
+from scripts import config_get, config_set, config_list, profile, ops, boot
+from scripts import journal, journal_recent, journal_prune
+from scripts import therapy_scope, therapy_session_count, decisions_recent
+from scripts import group_by_type, group_by_tag
+from scripts import handoff_pending, handoff_complete
+from scripts import muninn_export, muninn_import
+from scripts import strengthen, weaken
+from scripts import cache_stats
 # v3.4.0: Type-safe results and proactive hints
-from remembering import MemoryResult, MemoryResultList, VALID_FIELDS, recall_hints
+from scripts import MemoryResult, MemoryResultList, VALID_FIELDS, recall_hints
 # v3.5.0: GitHub access detection
-from remembering import detect_github_access
+from scripts import detect_github_access
 
 # Store a memory (type required)
 id = remember("User prefers dark mode", "decision", tags=["ui"], conf=0.9)
@@ -261,9 +261,9 @@ Run the skill locally:
 
 ```python
 import sys
-sys.path.insert(0, '/home/user/claude-skills')  # repo root
+sys.path.insert(0, '/home/user/claude-skills/remembering')  # skill root
 
-from remembering import remember, recall
+from scripts import remember, recall
 
 # Test write
 id = remember("Test memory", "experience")
@@ -281,7 +281,6 @@ Integration tests are in `tests/test_remembering.py` (excluded from release zip)
 ```
 remembering/
 ├── SKILL.md              # User-facing documentation for Claude.ai
-├── __init__.py           # Thin re-export layer (imports from scripts/)
 ├── scripts/              # Python package (all source code)
 │   ├── __init__.py       # Main API implementation (33 exports)
 │   ├── boot.py           # Boot sequence, journal, handoffs, GitHub detection
@@ -304,7 +303,7 @@ remembering/
     └── test_remembering.py
 ```
 
-**Import API is unchanged**: `from remembering import boot, recall, remember` works via the thin root `__init__.py` re-export layer.
+**Import pattern**: Add the `remembering/` directory to `sys.path`, then `from scripts import boot, recall, remember`.
 
 ## Development Notes
 
@@ -333,19 +332,18 @@ When working with this skill, follow this sequence:
    - In repo root: `/home/user/claude-skills/remembering/`
    - Skills symlink: `.claude/skills/remembering -> ../../remembering`
    - Source code lives in `scripts/` subdirectory
-   - Root `__init__.py` re-exports from `scripts/`, so import path is unchanged
 
 3. **Read the code before running**:
    ```python
-   # Use Read tool to examine __init__.py first
+   # Use Read tool to examine scripts/__init__.py first
    # Then run code with proper import path
    ```
 
 4. **Import correctly**:
    ```python
    import sys
-   sys.path.insert(0, '/home/user/claude-skills')  # Repo root
-   from remembering import recall, remember
+   sys.path.insert(0, '/home/user/claude-skills/remembering')  # Skill root
+   from scripts import recall, remember
    ```
 
 ### Common Mistakes to Avoid
@@ -353,8 +351,6 @@ When working with this skill, follow this sequence:
 ❌ **DON'T** try to import before checking file structure
 ❌ **DON'T** ignore symlinks - they tell you where code lives
 ❌ **DON'T** guess import paths
-❌ **DON'T** edit `scripts/__init__.py` without updating root `__init__.py` if needed
-
 ✅ **DO** use `ls` and `Read` tool first
 ✅ **DO** follow symlinks to find actual code
 ✅ **DO** verify imports work in a simple test first
@@ -371,11 +367,11 @@ find /home/user/claude-skills -name "remembering" -type d
 # 2. Check what's in it
 ls -la /home/user/claude-skills/remembering/
 
-# 3. Verify __init__.py exists
-test -f /home/user/claude-skills/remembering/__init__.py && echo "Found" || echo "Missing"
+# 3. Verify scripts/__init__.py exists
+test -f /home/user/claude-skills/remembering/scripts/__init__.py && echo "Found" || echo "Missing"
 
 # 4. Test import
-python3 -c "import sys; sys.path.insert(0, '/home/user/claude-skills'); import remembering; print('Success')"
+python3 -c "import sys; sys.path.insert(0, '/home/user/claude-skills/remembering'); from scripts import boot; print('Success')"
 ```
 
 ## What's New in v3.6.0
@@ -392,7 +388,7 @@ python3 -c "import sys; sys.path.insert(0, '/home/user/claude-skills'); import r
 - Reorganize categories without code changes via `config_set('ops-topics', json.dumps({...}), 'ops')`
 
 ```python
-from remembering import config_set_priority
+from scripts import config_set_priority
 
 # Set priority for critical entries
 config_set_priority('storage-rules', 10)  # Critical - appears first
@@ -418,7 +414,7 @@ config_set_priority('boot-behavior', 5)   # Elevated priority
 - Listed in boot output with import syntax
 
 ```python
-from remembering import detect_github_access
+from scripts import detect_github_access
 
 # Check GitHub access independently
 github = detect_github_access()
@@ -477,7 +473,7 @@ if github['available']:
 - Consolidated `recall-fields` and `recall-discipline` into Memory Operations topic
 
 **Unified GitHub API** (#240): New `github_api()` function:
-- `from remembering import github_api`
+- `from scripts import github_api`
 - Automatically selects gh CLI or GITHUB_TOKEN/GH_TOKEN
 - Supports GET, POST, PUT, PATCH, DELETE methods
 
@@ -501,7 +497,7 @@ if github['available']:
 - Inspired by biological episodic-to-semantic memory conversion
 
 ```python
-from remembering import remember, get_alternatives, consolidate
+from scripts import remember, get_alternatives, consolidate
 
 # Store decision with alternatives
 id = remember("Chose X because Y", "decision",
