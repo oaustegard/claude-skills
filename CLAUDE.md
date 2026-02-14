@@ -216,7 +216,9 @@ Some skills (like `remembering`) should be used to track their own development:
 
 ```python
 # Example: Use remembering to track work on remembering
-from remembering import remember, journal
+import sys
+sys.path.insert(0, '/home/user/claude-skills/remembering')
+from scripts import remember, journal
 
 journal(topics=["muninn-v0.4.0"],
         my_intent="Adding hybrid retrieval with embeddings")
@@ -392,8 +394,8 @@ cat /home/user/claude-skills/remembering/references/CLAUDE.md
 Then use the remembering skill to query handoffs:
 ```python
 import sys
-sys.path.insert(0, '/home/user/claude-skills')
-from remembering import recall, handoff_pending
+sys.path.insert(0, '/home/user/claude-skills/remembering')
+from scripts import recall, handoff_pending
 
 # Check for handoffs - multiple approaches:
 # 1. Formal pending handoffs (tagged "handoff" + "pending")
@@ -417,6 +419,6 @@ The remembering skill uses **external Turso database storage** for both context 
 Key implications:
 - **`muninn_utils/*.py` files don't exist in this repo** — they are generated at runtime from memory content
 - Utilities like `strengthen_memory.py`, `therapy.py`, `connection_finder.py` are stored as memories and written to disk during boot
-- These utilities import from the top-level `remembering` package (e.g., `from remembering import _exec, reprioritize`), not from internal submodules
+- These utilities import from the `scripts` package (e.g., `from scripts import _exec, reprioritize`), with the skill directory on `sys.path`
 - To fix a utility's code, you must update the memory content in the database, not edit a file in this repo
-- The `_exec` function is exported in `__init__.py`'s `__all__` specifically to support these runtime utilities
+- The `_exec` function is exported in `scripts/__init__.py`'s `__all__` specifically to support these runtime utilities

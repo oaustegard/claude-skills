@@ -40,11 +40,11 @@
 - **muninn_import** (f) `(data: dict, *, merge: bool = False)` :1164
 
 ### bootstrap.py
-> Imports: `sys, os`
-- **create_tables** (f) `()` :22
-- **migrate_schema** (f) `()` :70
-- **seed_config** (f) `()` :132
-- **verify** (f) `()` :178
+> Imports: `sys, os, scripts`
+- **create_tables** (f) `()` :17
+- **migrate_schema** (f) `()` :65
+- **seed_config** (f) `()` :127
+- **verify** (f) `()` :173
 
 ### cache.py
 > Imports: `sqlite3, json, uuid, datetime, .`...

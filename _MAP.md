@@ -68,8 +68,8 @@
 - Environment-Specific Tips `h2` :36
 - Code Maps `h2` :76
 - Skill Development Workflow `h2` :119
-- PR Reviews and Code Testing `h2` :230
-- Remembering Skill and Handoff Process `h2` :371
+- PR Reviews and Code Testing `h2` :232
+- Remembering Skill and Handoff Process `h2` :373
 
 ### PR_160_REVIEW.md
 - PR #160 Review: Improve codemap.py with symbol hierarchy `h1` :1

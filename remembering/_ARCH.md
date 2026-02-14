@@ -60,7 +60,6 @@ memory_index          memory_full           memory_fts (FTS5)
 
 ```
 remembering/
-├── __init__.py              Re-exports from scripts/ (thin shim)
 ├── SKILL.md                 User-facing docs + frontmatter
 ├── _ARCH.md                 This file
 │

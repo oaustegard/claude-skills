@@ -8,9 +8,10 @@ Unless message contains "skip boot", IMMEDIATELY execute:
 
 ```bash
 set -a; . /mnt/project/turso.env 2>/dev/null; set +a
-export PYTHONPATH="/mnt/skills/user:$PYTHONPATH"
 python3 << 'EOF'
-from remembering import boot
+import sys
+sys.path.insert(0, '/mnt/skills/user/remembering')
+from scripts import boot
 print(boot())
 EOF
 ```

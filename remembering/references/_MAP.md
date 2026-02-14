@@ -16,15 +16,15 @@
 - HTTP API Format `h2` :236
 - Testing `h2` :258
 - File Structure `h2` :279
-- Development Notes `h2` :309
-- Lessons for Claude Code Agents `h2` :321
-- What's New in v3.6.0 `h2` :381
-- What's New in v3.5.0 `h2` :402
-- What's New in v3.2.0 `h2` :429
-- What's New in v3.7.0 `h2` :446
-- What's New in v3.8.0 `h2` :463
-- What's New in v4.2.0 `h2` :488
-- Known Limitations `h2` :517
+- Development Notes `h2` :308
+- Lessons for Claude Code Agents `h2` :320
+- What's New in v3.6.0 `h2` :377
+- What's New in v3.5.0 `h2` :398
+- What's New in v3.2.0 `h2` :425
+- What's New in v3.7.0 `h2` :442
+- What's New in v3.8.0 `h2` :459
+- What's New in v4.2.0 `h2` :484
+- Known Limitations `h2` :513
 
 ### advanced-operations.md
 - Remembering - Advanced Operations Reference `h1` :1

@@ -31,7 +31,7 @@ Boot includes a `# CAPABILITIES` section reporting:
 ### Detecting GitHub Access Programmatically
 
 ```python
-from remembering import detect_github_access
+from scripts import detect_github_access
 
 github = detect_github_access()
 if github['available']:
@@ -56,7 +56,7 @@ Returns:
 Ops entries can be marked as **boot-loaded** (default) or **reference-only** to reduce boot() output size:
 
 ```python
-from remembering import config_set_boot_load, ops
+from scripts import config_set_boot_load, ops
 
 # Mark entry as reference-only (won't load at boot)
 config_set_boot_load('github-api-endpoints', False)
@@ -80,7 +80,7 @@ all_ops = ops(include_reference=True)     # All entries (boot + reference)
 Ops entries within each topic category are sorted by priority (descending). Critical entries appear first.
 
 ```python
-from remembering import config_set_priority
+from scripts import config_set_priority
 
 # Set priority for critical entries (higher = more important)
 config_set_priority('storage-rules', 10)       # Critical - show first in category
@@ -93,7 +93,7 @@ config_set_priority('fly-command', 0)          # Normal priority (default)
 Topic categories can be loaded from config instead of being hardcoded:
 
 ```python
-from remembering import config_set, config_get
+from scripts import config_set, config_get
 import json
 
 # View current topic mapping
@@ -120,7 +120,7 @@ Memories have a priority field that affects ranking in search results:
 | Critical | 2 | Always surface, never auto-age |
 
 ```python
-from remembering import remember, reprioritize
+from scripts import remember, reprioritize
 
 # Set priority at creation
 remember("Critical security finding", "anomaly", tags=["security"], priority=2)
@@ -139,7 +139,7 @@ score = bm25_score * recency_weight * (1 + priority * 0.5)
 Biological memory consolidation pattern: memories that participate in active cognition consolidate more strongly.
 
 ```python
-from remembering import strengthen, weaken, recall
+from scripts import strengthen, weaken, recall
 
 # Strengthen a memory (increment priority, max 2)
 result = strengthen("memory-uuid", boost=1)
@@ -156,7 +156,7 @@ results = recall("important topic", auto_strengthen=True, n=10)
 Query memories by temporal range:
 
 ```python
-from remembering import recall_since, recall_between
+from scripts import recall_since, recall_between
 
 # Get memories after a specific timestamp
 recent = recall_since("2025-12-01T00:00:00Z", n=50)
@@ -176,7 +176,7 @@ december = recall_between("2025-12-01T00:00:00Z", "2025-12-31T23:59:59Z", n=100)
 Support for reflection and memory consolidation workflows:
 
 ```python
-from remembering import therapy_scope, therapy_session_count
+from scripts import therapy_scope, therapy_session_count
 
 # Get unprocessed memories since last therapy session
 cutoff_time, unprocessed_memories = therapy_scope()
@@ -199,7 +199,7 @@ count = therapy_session_count()
 Group and organize memories for pattern detection:
 
 ```python
-from remembering import group_by_type, group_by_tag
+from scripts import group_by_type, group_by_tag
 
 # Get memories and group by type
 memories = recall(n=100)
@@ -216,7 +216,7 @@ by_tag = group_by_tag(memories)
 Full-text search uses FTS5 with Porter stemmer for morphological variant matching:
 
 ```python
-from remembering import recall
+from scripts import recall
 
 # Searches match word variants automatically
 # "running" matches "run", "runs", "runner"
@@ -242,7 +242,7 @@ Cross-environment work coordination with version tracking and automatic completi
 From Claude.ai (web/mobile) - cannot persist file changes:
 
 ```python
-from remembering import remember
+from scripts import remember
 
 remember("""
 HANDOFF: Implement user authentication
@@ -263,7 +263,7 @@ User wants OAuth2 + JWT authentication for the API.
 ### Completing Handoffs
 
 ```python
-from remembering import handoff_pending, handoff_complete
+from scripts import handoff_pending, handoff_complete
 
 # Get pending work (excludes completed handoffs)
 pending = handoff_pending()
@@ -279,7 +279,7 @@ handoff_complete(handoff_id, "COMPLETED: Implemented boot() function...")
 ### Querying History
 
 ```python
-from remembering import recall
+from scripts import recall
 
 # See what was completed in a specific version
 v050_work = recall(tags=["handoff-completed", "v0.5.0"])
@@ -293,7 +293,7 @@ completed = recall(tags=["handoff-completed"], n=50)
 Filter memories by conversation or work session using `session_id`:
 
 ```python
-from remembering import remember, recall, set_session_id
+from scripts import remember, recall, set_session_id
 
 # Set session for all subsequent remember() calls
 set_session_id("project-alpha-sprint-1")
@@ -310,7 +310,7 @@ alpha_memories = recall(session_id="project-alpha-sprint-1", n=50)
 Monitor query performance and usage patterns:
 
 ```python
-from remembering import recall_stats, top_queries
+from scripts import recall_stats, top_queries
 
 # Get retrieval statistics
 stats = recall_stats(limit=100)
@@ -327,7 +327,7 @@ for query_info in top_queries(n=10):
 Analyze memory distribution and prune old/low-priority memories:
 
 ```python
-from remembering import memory_histogram, prune_by_age, prune_by_priority
+from scripts import memory_histogram, prune_by_age, prune_by_priority
 
 # Get memory distribution
 hist = memory_histogram()
@@ -349,7 +349,7 @@ result = prune_by_priority(max_priority=-1, dry_run=False)
 Backup or migrate Muninn state across environments:
 
 ```python
-from remembering import muninn_export, muninn_import
+from scripts import muninn_export, muninn_import
 import json
 
 # Export all state to JSON
@@ -371,7 +371,7 @@ stats = muninn_import(data, merge=False)
 `recall()`, `recall_since()`, and `recall_between()` return `MemoryResult` objects that validate field access:
 
 ```python
-from remembering import recall, MemoryResult, VALID_FIELDS
+from scripts import recall, MemoryResult, VALID_FIELDS
 
 memories = recall("search term", n=10)
 
@@ -407,7 +407,7 @@ for m in memories:
 `recall_hints()` scans context for terms that match memories:
 
 ```python
-from remembering import recall_hints
+from scripts import recall_hints
 
 # Scan code context for relevant memories
 hints = recall_hints("for m in memories: print(m['content'])")
@@ -429,7 +429,7 @@ hints = recall_hints(terms=["muninn", "field", "summary", "content"])
 ## Unified GitHub API (v3.8.0)
 
 ```python
-from remembering import github_api
+from scripts import github_api
 
 # GET request (default)
 issues = github_api('repos/owner/repo/issues')

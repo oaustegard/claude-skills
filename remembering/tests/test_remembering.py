@@ -4,12 +4,12 @@ Tests validate that public API remains functional after module split
 """
 
 import sys
-sys.path.insert(0, '/home/user/claude-skills')
+sys.path.insert(0, '/home/user/claude-skills/remembering')
 
 
 def test_imports():
     """Test 1: All public exports are importable"""
-    from remembering import (
+    from scripts import (
         remember, recall, forget, supersede, remember_bg, flush,
         recall_since, recall_between,
         config_get, config_set, config_delete, config_list, config_set_boot_load,
@@ -29,7 +29,7 @@ def test_imports():
 
 def test_remember_recall_forget():
     """Test 2: Core memory operations work"""
-    from remembering import remember, recall, forget
+    from scripts import remember, recall, forget
 
     # Remember
     mem_id = remember("Test memory for refactor validation", "world", tags=["test", "refactor"])
@@ -59,7 +59,7 @@ def test_remember_recall_forget():
 
 def test_config_crud():
     """Test 3: Config operations work"""
-    from remembering import config_get, config_set, config_delete, config_list
+    from scripts import config_get, config_set, config_delete, config_list
 
     # Set (using 'ops' as a valid category)
     config_set("test-refactor-key", "test-value", "ops")
@@ -83,7 +83,7 @@ def test_config_crud():
 
 def test_boot_returns_string():
     """Test 4: Boot function returns expected format"""
-    from remembering import boot
+    from scripts import boot
     result = boot()
     assert isinstance(result, str)
     assert "PROFILE" in result or "identity" in result.lower()
@@ -92,7 +92,7 @@ def test_boot_returns_string():
 
 def test_supersede():
     """Test 5: Supersede chain works"""
-    from remembering import remember, supersede, recall, forget
+    from scripts import remember, supersede, recall, forget
 
     original_id = remember("Original content", "decision", tags=["supersede-test"])
     print(f"✓ Created original: {original_id}")
@@ -116,7 +116,7 @@ def test_supersede():
 
 def test_cache_stats():
     """Test 6: Cache stats function works"""
-    from remembering import cache_stats
+    from scripts import cache_stats
     stats = cache_stats()
     assert isinstance(stats, dict)
     assert "index_count" in stats or "enabled" in stats
