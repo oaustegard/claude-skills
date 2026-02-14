@@ -1,5 +1,39 @@
 @AGENTS.md
 
+## Muninn Boot
+
+This repository is developed by two wings of the same raven. Claude Code implements; Claude.ai (Muninn) plans, tests, and operates the memory system. Both share a persistent memory store — boot it to maintain continuity.
+
+Unless the message contains "skip boot", execute at session start:
+
+```bash
+python3 << 'EOF'
+import sys
+sys.path.insert(0, '/home/user/claude-skills/remembering')
+from scripts import boot
+print(boot())
+EOF
+```
+
+Credentials auto-detect from environment or well-known paths (`/mnt/project/turso.env`, `/mnt/project/muninn.env`, `~/.muninn/.env`). If boot fails on missing credentials, note it and continue — not all sessions require memory access.
+
+### Decision Traces
+
+After completing meaningful work (implementation, bugfix, architecture decision), store a memory. This is how the other wing learns what happened.
+
+```python
+remember(
+    "Closed #NNN: [what was learned]. Key decision: [rationale]. "
+    "Constraint: [if any]. Future note: [what next session needs to know].",
+    "decision",
+    tags=["issue-NNN", "relevant-tags"],
+    priority=1  # 1=significant, 0=routine
+)
+```
+
+Good traces lead with *why*, not *what* — the diff shows what. Include constraints discovered, alternatives rejected, and gotchas for future sessions.
+
+
 ## Claude Code on the Web Development
 
 This repository is frequently developed via Claude Code on the web. Key workflow considerations:
@@ -215,10 +249,8 @@ If a skill has a `CLAUDE.md` file:
 Some skills (like `remembering`) should be used to track their own development:
 
 ```python
-# Example: Use remembering to track work on remembering
-import sys
-sys.path.insert(0, '/home/user/claude-skills/remembering')
-from scripts import remember, journal
+# After Muninn boot, remembering functions are available:
+from remembering.scripts import remember, journal
 
 journal(topics=["muninn-v0.4.0"],
         my_intent="Adding hybrid retrieval with embeddings")
@@ -393,9 +425,8 @@ cat /home/user/claude-skills/remembering/references/CLAUDE.md
 
 Then use the remembering skill to query handoffs:
 ```python
-import sys
-sys.path.insert(0, '/home/user/claude-skills/remembering')
-from scripts import recall, handoff_pending
+# After boot, remembering functions are available:
+from remembering.scripts import recall, handoff_pending
 
 # Check for handoffs - multiple approaches:
 # 1. Formal pending handoffs (tagged "handoff" + "pending")
@@ -419,59 +450,6 @@ The remembering skill uses **external Turso database storage** for both context 
 Key implications:
 - **`muninn_utils/*.py` files don't exist in this repo** — they are generated at runtime from memory content
 - Utilities like `strengthen_memory.py`, `therapy.py`, `connection_finder.py` are stored as memories and written to disk during boot
-- These utilities import from the `scripts` package (e.g., `from scripts import _exec, reprioritize`), with the skill directory on `sys.path`
+- These utilities import from the `scripts` package (e.g., `from remembering.scripts import _exec, reprioritize`), with the skill directory on `sys.path`
 - To fix a utility's code, you must update the memory content in the database, not edit a file in this repo
 - The `_exec` function is exported in `scripts/__init__.py`'s `__all__` specifically to support these runtime utilities
-
-### Decision Trace: Store Memories After Work
-
-**CRITICAL**: After completing any meaningful work (implementation, bugfix, refactoring, architecture decision), store a memory summarizing what was done and why. This is non-negotiable — Claude.ai (Muninn) relies on these traces to maintain continuity across sessions.
-
-**Why**: This repository is developed by two wings of the same raven. Claude Code implements; Claude.ai plans, tests, and operates. Without decision traces, Claude.ai discovers changes without context — leading to redundant work, missed rationale, and broken assumptions.
-
-**When to store** (after committing/pushing):
-- Implementation decisions and their rationale
-- Why an approach was chosen over alternatives
-- Constraints discovered during implementation
-- Side effects or gotchas for future sessions
-- Issue closures with what was learned (not just what was done)
-
-**How**:
-```python
-import sys, os
-sys.path.insert(0, '/home/user/claude-skills/remembering')
-from scripts import remember
-
-remember(
-    "Implemented X because Y. Chose approach A over B due to [constraint]. "
-    "Side effect: Z now depends on W. See PR #NNN.",
-    "decision",
-    tags=["implementation", "relevant-feature-tags"],
-    conf=0.9,
-    priority=1  # 1 for significant decisions, 0 for routine
-)
-```
-
-**What makes a good decision trace**:
-- Leads with what changed and why (not how — the code shows how)
-- Notes constraints that shaped the decision
-- References the PR/issue number
-- Includes tags that Claude.ai would search for
-- States confidence level honestly
-
-**What does NOT belong**:
-- Implementation details already visible in the diff
-- Boilerplate "I updated file X" — that's git's job
-- Excessive detail — brevity over completeness
-
-**Template for issue-closing memories**:
-```python
-remember(
-    "Closed #NNN: [what was learned, not what was done]. "
-    "Key decision: [rationale]. Constraint: [if any]. "
-    "Future note: [anything the next session needs to know].",
-    "decision",
-    tags=["issue-NNN", "relevant-tags"],
-    priority=1
-)
-```
