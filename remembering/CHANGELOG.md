@@ -2,6 +2,16 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [4.3.1] - 2026-02-14
+
+### Added
+
+- Add .skillignore support for release packaging
+
+### Other
+
+- Update version number to 4.3.1 in SKILL.md
+
 ## [4.3.0] - 2026-02-13
 
 ### Added
