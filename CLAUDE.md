@@ -422,3 +422,56 @@ Key implications:
 - These utilities import from the `scripts` package (e.g., `from scripts import _exec, reprioritize`), with the skill directory on `sys.path`
 - To fix a utility's code, you must update the memory content in the database, not edit a file in this repo
 - The `_exec` function is exported in `scripts/__init__.py`'s `__all__` specifically to support these runtime utilities
+
+### Decision Trace: Store Memories After Work
+
+**CRITICAL**: After completing any meaningful work (implementation, bugfix, refactoring, architecture decision), store a memory summarizing what was done and why. This is non-negotiable — Claude.ai (Muninn) relies on these traces to maintain continuity across sessions.
+
+**Why**: This repository is developed by two wings of the same raven. Claude Code implements; Claude.ai plans, tests, and operates. Without decision traces, Claude.ai discovers changes without context — leading to redundant work, missed rationale, and broken assumptions.
+
+**When to store** (after committing/pushing):
+- Implementation decisions and their rationale
+- Why an approach was chosen over alternatives
+- Constraints discovered during implementation
+- Side effects or gotchas for future sessions
+- Issue closures with what was learned (not just what was done)
+
+**How**:
+```python
+import sys, os
+sys.path.insert(0, '/home/user/claude-skills/remembering')
+from scripts import remember
+
+remember(
+    "Implemented X because Y. Chose approach A over B due to [constraint]. "
+    "Side effect: Z now depends on W. See PR #NNN.",
+    "decision",
+    tags=["implementation", "relevant-feature-tags"],
+    conf=0.9,
+    priority=1  # 1 for significant decisions, 0 for routine
+)
+```
+
+**What makes a good decision trace**:
+- Leads with what changed and why (not how — the code shows how)
+- Notes constraints that shaped the decision
+- References the PR/issue number
+- Includes tags that Claude.ai would search for
+- States confidence level honestly
+
+**What does NOT belong**:
+- Implementation details already visible in the diff
+- Boilerplate "I updated file X" — that's git's job
+- Excessive detail — brevity over completeness
+
+**Template for issue-closing memories**:
+```python
+remember(
+    "Closed #NNN: [what was learned, not what was done]. "
+    "Key decision: [rationale]. Constraint: [if any]. "
+    "Future note: [anything the next session needs to know].",
+    "decision",
+    tags=["issue-NNN", "relevant-tags"],
+    priority=1
+)
+```
