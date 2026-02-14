@@ -9,6 +9,10 @@ set -e
 git config --global user.name 'github-actions[bot]'
 git config --global user.email 'github-actions[bot]@users.noreply.github.com'
 
+# Load .skillignore support
+SCRIPT_DIR_INIT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR_INIT/apply-skillignore.sh"
+
 # Track skills that had changelogs updated (for batch commit at end)
 CHANGELOG_UPDATED_SKILLS=""
 
@@ -229,21 +233,12 @@ for SKILL_DIR in $SKILLS; do
   # Copy skill folder to temp directory
   cp -r "$SKILL_DIR" "$TEMP_DIR/"
 
-  # Remove files that should not be in the release ZIP:
-  # - README.md (auto-generated, removed during release)
-  # - CHANGELOG.md (repo-only, not part of skill bundle)
-  # - _MAP.md (generated code maps from mapping-codebases)
-  # - CLAUDE.md (development context, not needed by end users)
-  # - tests/ (integration tests, not part of skill bundle)
-  # - __pycache__/ (.pyc bytecode caches)
-  # Using find for recursive matching (zip -x '*' doesn't cross directory boundaries)
+  # Remove files that should not be in the release ZIP.
+  # Default exclusions (README.md, CHANGELOG.md, _MAP.md, CLAUDE.md, tests/, __pycache__, etc.)
+  # are built into apply-skillignore.sh. Skill-specific patterns come from .skillignore files.
   cd "$TEMP_DIR"
-  find "$SKILL_DIR" -name '_MAP.md' -delete 2>/dev/null
-  find "$SKILL_DIR" -name 'CLAUDE.md' -delete 2>/dev/null
-  find "$SKILL_DIR" -name 'README.md' -delete 2>/dev/null
-  find "$SKILL_DIR" -name 'CHANGELOG.md' -delete 2>/dev/null
-  find "$SKILL_DIR" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null
-  rm -rf "$SKILL_DIR/tests" 2>/dev/null
+  echo "Applying .skillignore patterns..."
+  apply_skillignore "$SKILL_DIR"
 
   # Create ZIP from cleaned temp directory
   zip -r "$SKILL_DIR.zip" "$SKILL_DIR/"
