@@ -17,7 +17,8 @@ from .state import TYPES, get_session_id, set_session_id
 # Import Turso HTTP layer
 from .turso import (
     _init, _retry_with_backoff,
-    _exec, _exec_batch, _parse_memory_row
+    _exec, _exec_batch, _parse_memory_row,
+    _fts5_search  # v4.5.0: Server-side FTS5 search (#298)
 )
 
 # Import cache layer
@@ -39,7 +40,8 @@ from .memory import (
     strengthen, weaken,
     memory_histogram, prune_by_age, prune_by_priority,  # v3.2.0: retention helpers
     get_alternatives, consolidate,  # v4.2.0: decision alternatives (#254) and consolidation (#253)
-    get_chain  # v4.3.0: reference chain traversal (#283)
+    get_chain,  # v4.3.0: reference chain traversal (#283)
+    recall_batch, remember_batch  # v4.5.0: batch APIs (#299)
 )
 
 # Import result types (v3.4.0: type-safe memory results, v3.7.0: normalization)
@@ -97,6 +99,7 @@ __all__ = [
     "install_utilities", "UTIL_DIR",  # utilities
     "get_alternatives", "consolidate",  # v4.2.0: decision alternatives (#254) and consolidation (#253)
     "get_chain",  # v4.3.0: reference chain traversal (#283)
+    "recall_batch", "remember_batch",  # v4.5.0: batch APIs (#299)
     "get_session_id", "set_session_id",  # session management (v3.2.0)
     "session_save", "session_resume", "sessions",  # v4.3.0: session continuity (#231)
     "recall_stats", "top_queries",  # retrieval observability (v3.2.0)

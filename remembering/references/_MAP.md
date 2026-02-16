@@ -12,19 +12,19 @@
 - Environment Variables `h2` :81
 - Architecture `h2` :104
 - Core API `h2` :145
-- Memory Types `h2` :227
-- HTTP API Format `h2` :236
-- Testing `h2` :258
-- File Structure `h2` :279
-- Development Notes `h2` :308
-- Lessons for Claude Code Agents `h2` :320
-- What's New in v3.6.0 `h2` :377
-- What's New in v3.5.0 `h2` :398
-- What's New in v3.2.0 `h2` :425
-- What's New in v3.7.0 `h2` :442
-- What's New in v3.8.0 `h2` :459
-- What's New in v4.2.0 `h2` :484
-- Known Limitations `h2` :513
+- Memory Types `h2` :236
+- HTTP API Format `h2` :245
+- Testing `h2` :267
+- File Structure `h2` :288
+- Development Notes `h2` :317
+- Lessons for Claude Code Agents `h2` :329
+- What's New in v3.6.0 `h2` :386
+- What's New in v3.5.0 `h2` :407
+- What's New in v3.2.0 `h2` :434
+- What's New in v3.7.0 `h2` :451
+- What's New in v3.8.0 `h2` :468
+- What's New in v4.2.0 `h2` :493
+- Known Limitations `h2` :522
 
 ### advanced-operations.md
 - Remembering - Advanced Operations Reference `h1` :1
