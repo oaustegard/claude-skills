@@ -103,10 +103,15 @@
 - **prune_by_priority** (f) `(max_priority: int = -1, dry_run: bool = True)` :943
 - **strengthen** (f) `(memory_id: str, boost: int = 1)` :982
 - **weaken** (f) `(memory_id: str, drop: int = 1)` :1022
-- **get_alternatives** (f) `(memory_id: str)` :1056
-- **get_chain** (f) `(memory_id: str, depth: int = 3)` :1095
+- **recall_batch** (f) `(queries: list, *, n: int = 10, type: str = None,
+                 tags: list = None, tag_mode: str = "any",
+                 conf: float = None, session_id: str = None,
+                 raw: bool = False)` :1056
+- **remember_batch** (f) `(items: list, *, sync: bool = True)` :1184
+- **get_alternatives** (f) `(memory_id: str)` :1331
+- **get_chain** (f) `(memory_id: str, depth: int = 3)` :1370
 - **consolidate** (f) `(*, tags: list = None, min_cluster: int = 3, dry_run: bool = True,
-                session_id: str = None)` :1165
+                session_id: str = None)` :1440
 
 ### result.py
 > Imports: `typing`

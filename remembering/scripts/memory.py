@@ -20,7 +20,7 @@ from datetime import datetime, UTC
 
 from . import state
 from .state import TYPES, get_session_id
-from .turso import _exec, _exec_batch
+from .turso import _exec, _exec_batch, _fts5_search
 from .cache import (
     _cache_available, _cache_memory, _cache_query_index,
     _fetch_full_content, _cache_populate_full, _log_recall_query
@@ -1049,6 +1049,281 @@ def weaken(memory_id: str, drop: int = 1) -> dict:
         "new_priority": new_priority,
         "changed": new_priority != old_priority
     }
+
+
+# --- Batch APIs (v4.5.0, #299) ---
+
+def recall_batch(queries: list, *, n: int = 10, type: str = None,
+                 tags: list = None, tag_mode: str = "any",
+                 conf: float = None, session_id: str = None,
+                 raw: bool = False) -> list:
+    """Execute multiple search queries in a single HTTP round-trip.
+
+    Uses server-side FTS5 (memory_fts table) for BM25-ranked results with
+    composite scoring (BM25 × recency × priority). Falls back to sequential
+    recall() calls if server-side FTS5 is unavailable.
+
+    Args:
+        queries: List of search strings. Each produces an independent result set.
+        n: Max results per query (default 10)
+        type: Filter by memory type (applied to all queries)
+        tags: Filter by tags (applied to all queries)
+        tag_mode: "any" or "all" for tag matching
+        conf: Minimum confidence threshold
+        session_id: Filter by session identifier
+        raw: If True, return plain dicts instead of MemoryResult objects
+
+    Returns:
+        List of result lists, one per query, in the same order as input.
+        Each inner list contains MemoryResult objects (or dicts if raw=True).
+        On per-item errors, the corresponding entry is {"error": str}.
+
+    Example:
+        >>> results = recall_batch(["architecture", "turso", "FTS5"])
+        >>> for i, result_set in enumerate(results):
+        ...     print(f"Query {i}: {len(result_set)} results")
+
+    v4.5.0: Initial implementation (#299).
+    """
+    if not queries:
+        return []
+
+    # Build N FTS5 search statements for a single _exec_batch call
+    statements = []
+    fts5_available = True
+
+    for search in queries:
+        from .turso import _escape_fts5_server
+
+        fts_query = _escape_fts5_server(search)
+
+        conditions = [
+            "m.deleted_at IS NULL",
+            "m.id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)"
+        ]
+        params = [fts_query]
+
+        if type:
+            conditions.append("m.type = ?")
+            params.append(type)
+
+        if tags:
+            if tag_mode == "all":
+                for t in tags:
+                    conditions.append("m.tags LIKE ?")
+                    params.append(f'%"{t}"%')
+            else:
+                tag_conds = []
+                for t in tags:
+                    tag_conds.append("m.tags LIKE ?")
+                    params.append(f'%"{t}"%')
+                conditions.append(f"({' OR '.join(tag_conds)})")
+
+        if conf is not None:
+            conditions.append("m.confidence >= ?")
+            params.append(conf)
+
+        if session_id is not None:
+            conditions.append("m.session_id = ?")
+            params.append(session_id)
+
+        where = " AND ".join(conditions)
+        params.append(n)
+
+        sql = f"""
+            SELECT m.*,
+                   bm25(memory_fts, 0, 1.0, 0.5) AS bm25_score,
+                   bm25(memory_fts, 0, 1.0, 0.5)
+                     * (1.0 + COALESCE(m.priority, 0) * 0.3)
+                     * (1.0 / (1.0 + (julianday('now') - julianday(m.t)) * 0.01))
+                   AS composite_score
+            FROM memory_fts f
+            JOIN memories m ON f.id = m.id
+            WHERE memory_fts MATCH ?
+              AND {where}
+            ORDER BY composite_score ASC
+            LIMIT ?
+        """
+        statements.append((sql, params))
+
+    # Execute all queries in a single HTTP round-trip
+    try:
+        batch_results = _exec_batch(statements)
+    except RuntimeError as e:
+        if 'memory_fts' in str(e) or 'no such table' in str(e):
+            # FTS5 table not available; fall back to sequential recall()
+            fts5_available = False
+        else:
+            raise
+
+    if not fts5_available:
+        # Fallback: sequential recall() calls
+        results = []
+        for search in queries:
+            try:
+                r = recall(search, n=n, type=type, tags=tags, tag_mode=tag_mode,
+                          conf=conf, session_id=session_id, raw=raw)
+                results.append(r)
+            except Exception as ex:
+                results.append({"error": str(ex)})
+        return results
+
+    # Wrap results
+    output = []
+    for result_set in batch_results:
+        if isinstance(result_set, dict) and 'error' in result_set:
+            output.append(result_set)
+        elif raw:
+            output.append(result_set)
+        else:
+            output.append(wrap_results(result_set))
+
+    return output
+
+
+def remember_batch(items: list, *, sync: bool = True) -> list:
+    """Store multiple memories in a single HTTP round-trip.
+
+    Each item in the list specifies a memory to store. UUIDs and timestamps
+    are generated for all items. All INSERTs are sent via _exec_batch().
+
+    Args:
+        items: List of dicts, each with:
+            - what (str): Memory content (required)
+            - type (str): Memory type (required)
+            - tags (list): Optional tags
+            - conf (float): Optional confidence
+            - refs (list): Optional references
+            - priority (int): Priority level (default 0)
+            - session_id (str): Optional session identifier
+            - alternatives (list): Optional alternatives (decision type only)
+        sync: If True (default), block until all writes complete.
+            If False, writes execute in a background thread.
+
+    Returns:
+        List of memory IDs in the same order as input items.
+        On per-item validation errors, the corresponding entry is {"error": str}.
+
+    Example:
+        >>> ids = remember_batch([
+        ...     {"what": "User prefers dark mode", "type": "decision", "tags": ["ui"]},
+        ...     {"what": "Project uses React", "type": "world", "tags": ["tech"]},
+        ...     {"what": "Found bug in auth", "type": "anomaly", "conf": 0.7},
+        ... ])
+        >>> print(f"Stored {len(ids)} memories")
+
+    v4.5.0: Initial implementation (#299).
+    """
+    if not items:
+        return []
+
+    now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    default_session = get_session_id()
+
+    # Validate all items and prepare SQL statements
+    mem_ids = []
+    statements = []
+    all_tags = []  # Collect tags for recall-triggers update
+
+    for i, item in enumerate(items):
+        what = item.get('what')
+        mem_type = item.get('type')
+
+        # Validate required fields
+        if not what or not mem_type:
+            mem_ids.append({"error": f"Item {i}: 'what' and 'type' are required"})
+            continue
+
+        if mem_type not in TYPES:
+            mem_ids.append({"error": f"Item {i}: Invalid type '{mem_type}'. Must be one of: {', '.join(sorted(TYPES))}"})
+            continue
+
+        mem_id = str(uuid.uuid4())
+        conf = item.get('conf')
+        item_tags = item.get('tags')
+        refs = item.get('refs')
+        priority = item.get('priority', 0)
+        session_id = item.get('session_id', default_session)
+        alternatives = item.get('alternatives')
+        valid_from = now
+
+        # Apply type defaults
+        if mem_type == "decision" and conf is None:
+            conf = 0.8
+        if mem_type == "procedure" and conf is None:
+            conf = 0.9
+        if mem_type == "procedure" and priority == 0:
+            priority = 1
+
+        # Handle alternatives
+        if alternatives:
+            if mem_type != "decision":
+                mem_ids.append({"error": f"Item {i}: alternatives only valid for type='decision'"})
+                continue
+            for alt in alternatives:
+                if not isinstance(alt, dict) or 'option' not in alt:
+                    mem_ids.append({"error": f"Item {i}: Each alternative must be a dict with 'option' key"})
+                    break
+            else:
+                refs = list(refs or [])
+                refs.append({"_type": "alternatives", "items": alternatives})
+            if isinstance(mem_ids[-1] if mem_ids else None, dict):
+                continue  # Skip if validation error was added
+
+        priority = max(-1, min(2, priority))
+
+        # Cache locally if available
+        if _cache_available():
+            _cache_memory(mem_id, what, mem_type, now, conf, item_tags, priority,
+                         refs=refs, valid_from=valid_from, session_id=session_id)
+
+        statements.append((
+            """INSERT INTO memories (id, type, t, summary, confidence, tags, refs, priority,
+               session_id, created_at, updated_at, valid_from, access_count, last_accessed)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)""",
+            [mem_id, mem_type, now, what, conf,
+             json.dumps(item_tags or []), json.dumps(refs or []),
+             priority, session_id, now, now, valid_from]
+        ))
+        mem_ids.append(mem_id)
+
+        if item_tags:
+            all_tags.extend(item_tags)
+
+    # Execute all INSERTs in a single round-trip
+    if statements:
+        def _do_batch():
+            _exec_batch(statements)
+
+        if sync:
+            _do_batch()
+        else:
+            thread = threading.Thread(target=_do_batch, daemon=True)
+            with state._pending_writes_lock:
+                state._pending_writes.append(thread)
+            thread.start()
+
+    # Update recall-triggers with novel tags (best-effort)
+    if all_tags:
+        try:
+            current_triggers = config_get("recall-triggers")
+            if current_triggers:
+                try:
+                    trigger_list = json.loads(current_triggers) if isinstance(current_triggers, str) else current_triggers
+                except json.JSONDecodeError:
+                    trigger_list = []
+            else:
+                trigger_list = []
+
+            trigger_set = set(trigger_list)
+            new_tags = [t for t in all_tags if t not in trigger_set]
+            if new_tags:
+                trigger_set.update(new_tags)
+                config_set("recall-triggers", json.dumps(sorted(trigger_set)), "ops")
+        except Exception:
+            pass
+
+    return mem_ids
 
 
 # --- Decision alternatives helpers (v4.2.0, #254) ---

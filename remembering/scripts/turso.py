@@ -301,6 +301,127 @@ def _exec_batch(statements: list) -> list:
     return results
 
 
+def _escape_fts5_server(query: str) -> str:
+    """Escape special FTS5 characters for server-side search.
+
+    FTS5 special chars: " * ( ) : ^
+    Strips them and joins words with OR + prefix matching.
+
+    Args:
+        query: Raw search string
+
+    Returns:
+        FTS5-safe query expression
+    """
+    special_chars = '"*():^'
+    escaped = query
+    for char in special_chars:
+        escaped = escaped.replace(char, ' ')
+
+    words = [w.strip() for w in escaped.split() if w.strip()]
+    if not words:
+        return '""'
+
+    return ' OR '.join(f'"{w}"*' for w in words)
+
+
+def _fts5_search(search: str, *, n: int = 10, type: str = None,
+                 tags: list = None, tag_mode: str = "any",
+                 conf: float = None, session_id: str = None,
+                 since: str = None, until: str = None) -> list:
+    """Server-side FTS5 search via Turso with BM25 × recency × priority ranking.
+
+    Queries the memory_fts virtual table on Turso, joining with the memories
+    table for filtering and composite scoring. Returns ranked results without
+    needing the local SQLite cache.
+
+    Composite score formula:
+        bm25_score × (1 + priority × 0.3) × recency_decay
+
+    Where recency_decay = 1 / (1 + age_in_days × 0.01)
+
+    Args:
+        search: Text to search for (required)
+        n: Max results (default 10)
+        type: Filter by memory type
+        tags: Filter by tags
+        tag_mode: "any" (default) or "all" for tag matching
+        conf: Minimum confidence threshold
+        session_id: Filter by session identifier
+        since: Inclusive lower bound on timestamp (ISO format)
+        until: Inclusive upper bound on timestamp (ISO format)
+
+    Returns:
+        List of memory dicts with bm25_score and composite_score fields.
+        Results are ordered by composite_score (best first).
+
+    Raises:
+        RuntimeError: If FTS5 table doesn't exist or query fails
+
+    v4.5.0: Initial implementation (#298).
+    """
+    fts_query = _escape_fts5_server(search)
+
+    # Build WHERE conditions for the memories table (alias m)
+    conditions = [
+        "m.deleted_at IS NULL",
+        "m.id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)"
+    ]
+    params = [fts_query]  # First param is the MATCH query
+
+    if type:
+        conditions.append("m.type = ?")
+        params.append(type)
+
+    if tags:
+        if tag_mode == "all":
+            for t in tags:
+                conditions.append("m.tags LIKE ?")
+                params.append(f'%"{t}"%')
+        else:
+            tag_conds = []
+            for t in tags:
+                tag_conds.append("m.tags LIKE ?")
+                params.append(f'%"{t}"%')
+            conditions.append(f"({' OR '.join(tag_conds)})")
+
+    if conf is not None:
+        conditions.append("m.confidence >= ?")
+        params.append(conf)
+
+    if session_id is not None:
+        conditions.append("m.session_id = ?")
+        params.append(session_id)
+
+    if since is not None:
+        conditions.append("m.t >= ?")
+        params.append(since)
+
+    if until is not None:
+        conditions.append("m.t <= ?")
+        params.append(until)
+
+    where = " AND ".join(conditions)
+    params.append(n)
+
+    sql = f"""
+        SELECT m.*,
+               bm25(memory_fts, 0, 1.0, 0.5) AS bm25_score,
+               bm25(memory_fts, 0, 1.0, 0.5)
+                 * (1.0 + COALESCE(m.priority, 0) * 0.3)
+                 * (1.0 / (1.0 + (julianday('now') - julianday(m.t)) * 0.01))
+               AS composite_score
+        FROM memory_fts f
+        JOIN memories m ON f.id = m.id
+        WHERE memory_fts MATCH ?
+          AND {where}
+        ORDER BY composite_score ASC
+        LIMIT ?
+    """
+
+    return _exec(sql, params)
+
+
 def _exec(sql, args=None, parse_json: bool = True):
     """Execute SQL, return list of dicts.
 

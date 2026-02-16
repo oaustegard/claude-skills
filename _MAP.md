@@ -64,12 +64,13 @@
 - License `h2` :298
 
 ### CLAUDE.md
-- Claude Code on the Web Development `h2` :3
-- Environment-Specific Tips `h2` :36
-- Code Maps `h2` :76
-- Skill Development Workflow `h2` :119
-- PR Reviews and Code Testing `h2` :232
-- Remembering Skill and Handoff Process `h2` :373
+- Muninn Boot `h2` :3
+- Claude Code on the Web Development `h2` :37
+- Environment-Specific Tips `h2` :70
+- Code Maps `h2` :110
+- Skill Development Workflow `h2` :153
+- PR Reviews and Code Testing `h2` :264
+- Remembering Skill and Handoff Process `h2` :405
 
 ### PR_160_REVIEW.md
 - PR #160 Review: Improve codemap.py with symbol hierarchy `h1` :1

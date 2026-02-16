@@ -159,6 +159,8 @@ from scripts import cache_stats
 from scripts import MemoryResult, MemoryResultList, VALID_FIELDS, recall_hints
 # v3.5.0: GitHub access detection
 from scripts import detect_github_access
+# v4.5.0: Batch APIs
+from scripts import recall_batch, remember_batch
 
 # Store a memory (type required)
 id = remember("User prefers dark mode", "decision", tags=["ui"], conf=0.9)
@@ -217,6 +219,13 @@ by_tag = group_by_tag(mems)    # {"ui": [...], "bug": [...]}
 pending = handoff_pending()  # get formal pending handoffs (both tags required)
 all_handoffs = recall(tags=["handoff"], n=50)  # broader search for all handoff work
 handoff_complete(handoff_id, "COMPLETED: ...", version="0.5.0")  # mark done
+
+# Batch operations (v4.5.0) - N queries/stores in 1 HTTP round-trip
+results = recall_batch(["term1", "term2", "term3"], n=5)  # server-side FTS5
+ids = remember_batch([
+    {"what": "fact 1", "type": "world", "tags": ["t1"]},
+    {"what": "fact 2", "type": "world", "tags": ["t2"]},
+])
 
 # Export/Import
 state = muninn_export()  # all config + memories as JSON

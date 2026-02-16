@@ -30,6 +30,17 @@ Indexes:                            ├── updated_at TEXT
                                       idx_memories_t (t DESC)
                                       idx_memories_priority (priority DESC, t DESC)
                                       idx_memories_session_id (session_id)
+
+memory_fts (FTS5 virtual table, v4.5.0 #298)
+├── id UNINDEXED
+├── summary
+└── tags
+tokenize='porter unicode61'
+
+Triggers:
+  memories_fts_ai: INSERT → FTS5 sync
+  memories_fts_au: UPDATE → FTS5 re-index (if not soft-deleted)
+  memories_fts_sd: soft-DELETE → FTS5 removal
 ```
 
 ### Local Cache (~/.muninn/cache.db)
@@ -67,9 +78,9 @@ remembering/
     ├── __init__.py          API export manifest (~100 lines)
     ├── state.py             Module globals, constants, session ID
     │                        Zero imports from other modules (breaks cycles)
-    ├── turso.py             Turso HTTP API: _exec(), _exec_batch(), credential loading
+    ├── turso.py             Turso HTTP API: _exec(), _exec_batch(), _fts5_search(), credential loading
     ├── cache.py             Local SQLite + FTS5: init, query, populate, stats
-    ├── memory.py            Core CRUD: remember, recall, forget, supersede, get_chain
+    ├── memory.py            Core CRUD: remember, recall, forget, supersede, get_chain, recall_batch, remember_batch
     ├── config.py            Config CRUD: get/set/delete/list
     ├── boot.py              Boot sequence, journal, therapy, handoff, session continuity
     ├── hints.py             Proactive memory surfacing (recall_hints)

@@ -2,7 +2,7 @@
 name: remembering
 description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, retention management, type-safe results, proactive memory hints, GitHub access detection, and ops priority ordering.
 metadata:
-  version: 4.4.1
+  version: 4.5.0
 ---
 
 # Remembering - Advanced Operations
@@ -162,6 +162,28 @@ for m in chain:
 ```
 
 Handles cycles via visited set. Max depth capped at 10.
+
+### Batch Operations (v4.5.0)
+
+Execute multiple memory operations in a single HTTP round-trip, reducing tool call overhead:
+
+```python
+from scripts import recall_batch, remember_batch
+
+# Multiple searches in one call (uses server-side FTS5 with BM25 ranking)
+results = recall_batch(["architecture", "turso", "FTS5"], n=5)
+for i, result_set in enumerate(results):
+    print(f"Query {i}: {len(result_set)} results")
+
+# Multiple stores in one call
+ids = remember_batch([
+    {"what": "User prefers dark mode", "type": "decision", "tags": ["ui"]},
+    {"what": "Project uses React", "type": "world", "tags": ["tech"]},
+    {"what": "Found auth bug", "type": "anomaly", "conf": 0.7},
+])
+```
+
+`recall_batch()` uses server-side FTS5 with composite scoring (BM25 × recency × priority). Falls back to sequential `recall()` calls if server FTS5 is unavailable. `remember_batch()` validates each item independently — per-item errors return `{"error": str}` without blocking other items.
 
 ### Forget and Supersede
 
@@ -356,3 +378,4 @@ See [references/advanced-operations.md](references/advanced-operations.md) for:
 - Progressive disclosure and priority-based ordering
 - Decision alternatives (`get_alternatives`) and memory consolidation (`consolidate`)
 - Reference chain traversal (`get_chain`)
+- Batch APIs (`recall_batch`, `remember_batch`) for reducing HTTP round-trips
