@@ -6,6 +6,12 @@ All notable changes to the `remembering` skill (Muninn) are documented in this f
 
 ### Added
 
+- add server-side FTS5 search and batch APIs (#298, #299)
+
+## [4.5.0] - 2026-02-16
+
+### Added
+
 - Server-side FTS5 search via `_fts5_search()` in turso.py (#298) — queries memory_fts virtual table with BM25 × recency × priority composite scoring
 - `recall_batch()` for executing multiple search queries in a single HTTP round-trip (#299) — uses server-side FTS5, falls back to sequential recall()
 - `remember_batch()` for storing multiple memories in a single HTTP round-trip (#299) — per-item validation with isolated error handling
