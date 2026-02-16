@@ -2,14 +2,15 @@
 Shared module state and constants for remembering skill.
 
 This module contains:
-- Module globals (database connection, credentials, pending writes)
-- Constants (valid types, cache paths)
+- Module globals (database credentials, pending writes)
+- Constants (valid types)
 - Zero imports from other remembering modules (prevents circular dependencies)
+
+v5.0.0: Removed local cache globals. All storage is Turso-only.
 """
 
 import threading
 import os
-from pathlib import Path
 
 # Default Turso database URL (hostname without protocol)
 _DEFAULT_URL_HOST = "assistant-memory-oaustegard.aws-us-east-1.turso.io"
@@ -26,13 +27,6 @@ TYPES = {"decision", "world", "anomaly", "experience", "interaction", "procedure
 # Track pending background writes for flush()
 _pending_writes = []
 _pending_writes_lock = threading.Lock()
-
-# Local SQLite cache configuration
-_CACHE_DIR = Path.home() / ".muninn"
-_CACHE_DB = _CACHE_DIR / "cache.db"
-_cache_conn = None
-_cache_enabled = True  # Can be disabled for testing
-_cache_warmed = False  # Track if background warming completed
 
 # Session tracking (v3.2.0)
 _session_id = None  # Lazy-initialized from env or default

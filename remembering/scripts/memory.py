@@ -8,7 +8,9 @@ This module handles:
 - Memory deletion (forget)
 - Access tracking
 
-Imports from: state, turso, cache, config
+Imports from: state, turso, config
+
+v5.0.0: Removed local cache dependency. All queries go through Turso FTS5.
 """
 
 import json
@@ -20,11 +22,7 @@ from datetime import datetime, UTC
 
 from . import state
 from .state import TYPES, get_session_id
-from .turso import _exec, _exec_batch, _fts5_search
-from .cache import (
-    _cache_available, _cache_memory, _cache_query_index,
-    _fetch_full_content, _cache_populate_full, _log_recall_query
-)
+from .turso import _exec, _exec_batch, _fts5_search, _retry_with_backoff
 # Import config_get and config_set for recall-triggers management
 from .config import config_get, config_set
 from .result import wrap_results, MemoryResult, MemoryResultList
@@ -137,11 +135,6 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
     # Clamp priority to valid range
     priority = max(-1, min(2, priority))
 
-    # Write to local cache immediately (if available) - v0.7.0
-    if _cache_available():
-        _cache_memory(mem_id, what, type, now, conf, tags, priority,
-                     refs=refs, valid_from=valid_from, session_id=session_id)
-
     if sync:
         # Blocking write to Turso
         _write_memory(mem_id, what, type, now, conf, tags, refs, priority, valid_from, session_id)
@@ -239,25 +232,25 @@ def flush(timeout: float = 5.0) -> dict:
 
 def recall(search: str = None, *, n: int = 10, tags: list = None,
            type: str = None, conf: float = None, tag_mode: str = "any",
-           use_cache: bool = True, strict: bool = False, session_id: str = None,
+           strict: bool = False, session_id: str = None,
            auto_strengthen: bool = False, raw: bool = False,
            expansion_threshold: int = 3,
            limit: int = None, fetch_all: bool = False,
            since: str = None, until: str = None,
-           tags_all: list = None, tags_any: list = None) -> MemoryResultList:
+           tags_all: list = None, tags_any: list = None,
+           # Deprecated parameters (kept for backward compat)
+           use_cache: bool = True) -> MemoryResultList:
     """Query memories with flexible filters.
 
-    v0.7.0: Uses local cache with progressive disclosure when available.
-    v0.9.0: Uses FTS5 for ranked text search instead of LIKE.
-    v0.12.0: Logs queries for retrieval instrumentation.
-    v0.12.1: Adds strict mode for timestamp-only ordering (no ranking).
-    v3.2.0: Added session_id filter for session scoping.
-    v3.3.0: Added auto_strengthen for biological memory consolidation pattern.
-    v3.4.0: Returns MemoryResult objects that validate field access.
-    v3.7.0: Added expansion_threshold parameter. Added limit as alias for n.
-    v4.1.0: Added fetch_all parameter for comprehensive memory retrieval.
+    v5.0.0: Primary search uses Turso FTS5 with automatic retry and LIKE fallback.
+            Local cache removed from hot path. use_cache parameter is ignored.
     v4.3.0: Added since/until time window parameters (#281).
     v4.3.0: Added tags_all/tags_any convenience parameters (#282).
+    v4.1.0: Added fetch_all parameter for comprehensive memory retrieval.
+    v3.7.0: Added expansion_threshold parameter. Added limit as alias for n.
+    v3.4.0: Returns MemoryResult objects that validate field access.
+    v3.3.0: Added auto_strengthen for biological memory consolidation pattern.
+    v3.2.0: Added session_id filter for session scoping.
 
     Args:
         search: Text to search for in memory summaries (FTS5 ranked search).
@@ -268,33 +261,25 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
         type: Filter by memory type
         conf: Minimum confidence threshold
         tag_mode: "any" (default) matches any tag, "all" requires all tags
-        use_cache: If True (default), check local cache first (much faster)
-        strict: If True, skip FTS5/ranking and order by timestamp DESC (v0.12.1)
+        strict: If True, skip FTS5/ranking and order by timestamp DESC
         session_id: Filter by session identifier (optional)
-        auto_strengthen: If True, automatically strengthen top 3 results (v3.3.0)
-        raw: If True, return plain dicts instead of MemoryResult objects (v3.4.0)
+        auto_strengthen: If True, automatically strengthen top 3 results
+        raw: If True, return plain dicts instead of MemoryResult objects
         expansion_threshold: Minimum results before triggering query expansion (default 3).
-            Set to 0 to disable expansion entirely. (v3.7.0)
-        limit: Deprecated alias for n. If provided, overrides n. (v3.7.0)
-        fetch_all: If True, retrieve all memories without search filtering (v4.1.0).
-            This is the explicit way to get comprehensive memory retrieval.
+            Set to 0 to disable expansion entirely.
+        limit: Deprecated alias for n. If provided, overrides n.
+        fetch_all: If True, retrieve all memories without search filtering.
             When True, the search parameter is ignored.
-        since: Filter memories created at or after this ISO timestamp (v4.3.0, #281).
-            Accepts ISO date strings (e.g., '2025-01-01' or '2025-01-01T00:00:00Z').
-            Uses inclusive bounds. Works alongside all other parameters.
-        until: Filter memories created at or before this ISO timestamp (v4.3.0, #281).
-            Accepts ISO date strings. Uses inclusive bounds.
-        tags_all: Convenience parameter requiring ALL specified tags (v4.3.0, #282).
-            Equivalent to tags=[...], tag_mode="all".
+        since: Filter memories created at or after this ISO timestamp.
+        until: Filter memories created at or before this ISO timestamp.
+        tags_all: Convenience parameter requiring ALL specified tags.
             Cannot be combined with tags_any.
-        tags_any: Convenience parameter requiring ANY of the specified tags (v4.3.0, #282).
-            Equivalent to tags=[...], tag_mode="any".
+        tags_any: Convenience parameter requiring ANY of the specified tags.
             Cannot be combined with tags_all.
+        use_cache: Deprecated (v5.0.0). Ignored - all queries go to Turso.
 
     Returns:
         MemoryResultList of MemoryResult objects (or list of dicts if raw=True).
-        MemoryResult objects validate field access and transparently resolve
-        common aliases like 'content' -> 'summary'.
     """
     # v3.7.0: Accept limit= as deprecated alias for n=
     if limit is not None:
@@ -324,52 +309,52 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
     if fetch_all:
         search = None
 
-    # Track timing for logging (v0.12.0)
+    # Track timing
     start_time = time.time()
 
     if isinstance(search, int):
         results = _query(limit=search)
         return results if raw else wrap_results(results)
 
-    # Try cache first (progressive disclosure)
-    # v2.0.1: Only trust empty cache results if warming completed, otherwise fall back to Turso
-    # v3.8.0: Session-filtered queries now use cache (#237) instead of bypassing it
-    if use_cache and _cache_available():
-        results = _cache_query_index(search=search, type=type, tags=tags, n=n, conf=conf, tag_mode=tag_mode, strict=strict, session_id=session_id, since=since, until=until)
-
-        # v2.0.1: If cache returns no results and warming isn't complete, fall back to Turso
-        # This fixes race condition where recall() called immediately after boot() returns 0 results
-        if not results and not state._cache_warmed:
-            results = _query(search=search, tags=tags, type=type, conf=conf, limit=n, tag_mode=tag_mode, session_id=session_id, since=since, until=until)
-            exec_time = (time.time() - start_time) * 1000
-            _log_recall_query(
-                query=search,
-                filters={'type': type, 'tags': tags, 'conf': conf, 'tag_mode': tag_mode, 'session_id': session_id},
-                n_requested=n,
-                n_returned=len(results),
-                exec_time_ms=exec_time,
-                used_cache=False,
-                used_semantic_fallback=False
+    # v5.0.0: Primary search path is Turso FTS5 with retry + LIKE fallback
+    if search and not strict:
+        # Try FTS5 search with retry for network hiccups
+        try:
+            results = _retry_with_backoff(
+                lambda: _fts5_search(
+                    search, n=n, type=type, tags=tags, tag_mode=tag_mode,
+                    conf=conf, session_id=session_id, since=since, until=until
+                ),
+                max_retries=3, base_delay=0.5
             )
-            return results if raw else wrap_results(results)
+        except RuntimeError as e:
+            if 'memory_fts' in str(e) or 'no such table' in str(e):
+                # FTS5 table not available on server; fall back to LIKE query
+                results = _query(search=search, tags=tags, type=type, conf=conf,
+                               limit=n, tag_mode=tag_mode, session_id=session_id,
+                               since=since, until=until)
+            else:
+                raise
 
-        # v0.13.0: Query expansion fallback - if FTS5 returns few results and search was provided,
-        # extract tags from partial results and search for those tags to find related memories
-        # Skip in strict mode. v3.7.0: threshold is configurable via expansion_threshold parameter.
-        if search and not strict and expansion_threshold > 0 and len(results) < expansion_threshold:
-            # Extract unique tags from partial results
+        # Query expansion: if FTS5 returns few results, search by extracted tags
+        if expansion_threshold > 0 and len(results) < expansion_threshold:
             expansion_tags = set()
             for r in results:
                 result_tags = r.get('tags', [])
                 if isinstance(result_tags, list):
                     expansion_tags.update(result_tags)
 
-            # Search for memories with those tags (exclude already found)
             if expansion_tags:
                 seen_ids = {r['id'] for r in results}
                 for tag in expansion_tags:
-                    # Search for this tag as a term (handles concept relationships)
-                    tag_results = _cache_query_index(search=tag, type=type, tags=tags, n=n-len(results), conf=conf, tag_mode=tag_mode, strict=strict, since=since, until=until)
+                    try:
+                        tag_results = _fts5_search(
+                            tag, n=n - len(results), type=type, tags=tags,
+                            tag_mode=tag_mode, conf=conf, since=since, until=until
+                        )
+                    except RuntimeError:
+                        # FTS5 unavailable for expansion; skip
+                        break
                     for tr in tag_results:
                         if tr['id'] not in seen_ids:
                             results.append(tr)
@@ -378,91 +363,42 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
                                 break
                     if len(results) >= n:
                         break
+    else:
+        # No search term or strict mode: use direct Turso query
+        results = _retry_with_backoff(
+            lambda: _query(search=search, tags=tags, type=type, conf=conf,
+                          limit=n, tag_mode=tag_mode, session_id=session_id,
+                          since=since, until=until),
+            max_retries=3, base_delay=0.5
+        )
 
-        if results:
-            # Check if we need to fetch full content for any results
-            need_full = [r['id'] for r in results if not r.get('has_full')]
-
-            if need_full:
-                # Lazy-load full content from Turso
-                full_content = _fetch_full_content(need_full)
-
-                # Update cache with full content
-                _cache_populate_full(full_content)
-
-                # Merge full content into results
-                full_by_id = {m['id']: m for m in full_content}
-                for r in results:
-                    if r['id'] in full_by_id:
-                        full = full_by_id[r['id']]
-                        # v2.0.0: Removed entities, memory_class, valid_to from schema
-                        r.update({
-                            'summary': full.get('summary'),
-                            'refs': full.get('refs'),
-                            'valid_from': full.get('valid_from'),
-                            'access_count': full.get('access_count'),
-                            'last_accessed': full.get('last_accessed'),
-                            'has_full': 1
-                        })
-
-            # Track access in Turso (background, don't block)
-            def _bg_track():
+    # Track access in Turso (background, don't block)
+    if results:
+        def _bg_track():
+            try:
                 _update_access_tracking([r['id'] for r in results])
-            threading.Thread(target=_bg_track, daemon=True).start()
-
-            # Auto-strengthen returned memories if requested (v3.3.0)
-            # Biological parallel: memories that participate in cognition consolidate
-            if auto_strengthen and results:
-                for r in results[:3]:  # Only top 3 to avoid over-strengthening
-                    if r.get('priority', 0) < 2:
-                        strengthen(r['id'], boost=1)
-
-            # Log query (v0.12.0)
-            exec_time = (time.time() - start_time) * 1000  # Convert to ms
-            _log_recall_query(
-                query=search,
-                filters={'type': type, 'tags': tags, 'conf': conf, 'tag_mode': tag_mode, 'session_id': session_id},
-                n_requested=n,
-                n_returned=len(results),
-                exec_time_ms=exec_time,
-                used_cache=True,
-                used_semantic_fallback=False
-            )
-
-            return results if raw else wrap_results(results)
-
-    # Fallback to direct Turso query
-    results = _query(search=search, tags=tags, type=type, conf=conf, limit=n, tag_mode=tag_mode, session_id=session_id, since=since, until=until)
+            except Exception:
+                pass  # Access tracking is best-effort
+        threading.Thread(target=_bg_track, daemon=True).start()
 
     # Auto-strengthen returned memories if requested (v3.3.0)
-    # Biological parallel: memories that participate in cognition consolidate
     if auto_strengthen and results:
-        for r in results[:3]:  # Only top 3 to avoid over-strengthening
+        for r in results[:3]:
             if r.get('priority', 0) < 2:
                 strengthen(r['id'], boost=1)
-
-    # Log query (v0.12.0)
-    exec_time = (time.time() - start_time) * 1000  # Convert to ms
-    _log_recall_query(
-        query=search,
-        filters={'type': type, 'tags': tags, 'conf': conf, 'tag_mode': tag_mode, 'session_id': session_id},
-        n_requested=n,
-        n_returned=len(results),
-        exec_time_ms=exec_time,
-        used_cache=False,
-        used_semantic_fallback=False
-    )
 
     return results if raw else wrap_results(results)
 
 
 def _update_access_tracking(memory_ids: list):
-    """Update access_count and last_accessed for memories (v0.4.0, updated v0.10.0 for cache sync)."""
+    """Update access_count and last_accessed for memories in Turso.
+
+    v5.0.0: Turso-only. Removed local cache sync.
+    """
     if not memory_ids:
         return
     now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
-    # Update Turso database
     placeholders = ", ".join("?" * len(memory_ids))
     _exec(f"""
         UPDATE memories
@@ -470,30 +406,6 @@ def _update_access_tracking(memory_ids: list):
             last_accessed = ?
         WHERE id IN ({placeholders})
     """, [now] + memory_ids)
-
-    # Update cache if available (v0.10.0)
-    if _cache_available():
-        try:
-            for mem_id in memory_ids:
-                # Update memory_index
-                state._cache_conn.execute("""
-                    UPDATE memory_index
-                    SET access_count = COALESCE(access_count, 0) + 1,
-                        last_accessed = ?
-                    WHERE id = ?
-                """, (now, mem_id))
-
-                # Update memory_full
-                state._cache_conn.execute("""
-                    UPDATE memory_full
-                    SET access_count = COALESCE(access_count, 0) + 1,
-                        last_accessed = ?
-                    WHERE id = ?
-                """, (now, mem_id))
-
-            state._cache_conn.commit()
-        except Exception as e:
-            print(f"Warning: Cache access tracking failed: {e}")
 
 
 def _query(search: str = None, tags: list = None, type: str = None,
@@ -712,20 +624,12 @@ def recall_between(after: str, before: str, *, search: str = None,
 
 
 def forget(memory_id: str) -> bool:
-    """Soft-delete a memory."""
+    """Soft-delete a memory.
+
+    v5.0.0: Turso-only. Removed local cache invalidation.
+    """
     now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     _exec("UPDATE memories SET deleted_at = ? WHERE id = ?", [now, memory_id])
-
-    # Invalidate cache (v0.13.0 bugfix)
-    if _cache_available():
-        try:
-            state._cache_conn.execute("DELETE FROM memory_index WHERE id = ?", (memory_id,))
-            state._cache_conn.execute("DELETE FROM memory_full WHERE id = ?", (memory_id,))
-            state._cache_conn.execute("DELETE FROM memory_fts WHERE id = ?", (memory_id,))
-            state._cache_conn.commit()
-        except Exception as e:
-            print(f"Warning: Failed to invalidate cache for {memory_id}: {e}")
-
     return True
 
 
@@ -733,9 +637,7 @@ def supersede(original_id: str, summary: str, type: str, *,
               tags: list = None, conf: float = None) -> str:
     """Create a patch that supersedes an existing memory. Type required. Returns new memory ID.
 
-    v0.4.0: Sets valid_to on original memory and valid_from on new memory for bitemporal tracking.
-    v0.13.0: Invalidates cache for superseded memory.
-    v2.0.0: Soft-deletes original memory (valid_to column removed from schema).
+    v5.0.0: Removed local cache operations. Turso-only.
     v3.3.0: Uses _exec_batch for single HTTP request (2x efficiency improvement).
     """
     now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
@@ -755,24 +657,9 @@ def supersede(original_id: str, summary: str, type: str, *,
           session_id, now, now, now])
     ])
 
-    # Cache invalidation (unchanged)
-    if _cache_available():
-        try:
-            state._cache_conn.execute("DELETE FROM memory_index WHERE id = ?", (original_id,))
-            state._cache_conn.execute("DELETE FROM memory_full WHERE id = ?", (original_id,))
-            state._cache_conn.execute("DELETE FROM memory_fts WHERE id = ?", (original_id,))
-            state._cache_conn.commit()
-        except Exception as e:
-            print(f"Warning: Failed to invalidate cache for superseded memory {original_id}: {e}")
-
-    # Cache new memory
-    _cache_memory(new_id, summary, type, now, conf or 0.8, tags, priority=0,
-                 refs=[original_id], valid_from=now)
-
-    # Update recall-triggers (moved from remember() to avoid duplication)
+    # Update recall-triggers
     if tags:
         try:
-            # Get current recall-triggers list
             current_triggers = config_get("recall-triggers")
             if current_triggers:
                 try:
@@ -782,14 +669,12 @@ def supersede(original_id: str, summary: str, type: str, *,
             else:
                 trigger_list = []
 
-            # Add novel tags
             trigger_set = set(trigger_list)
             new_tags = [t for t in tags if t not in trigger_set]
             if new_tags:
                 trigger_set.update(new_tags)
                 config_set("recall-triggers", json.dumps(sorted(trigger_set)), "ops")
         except Exception:
-            # Don't fail supersede() if trigger update fails
             pass
 
     return new_id
@@ -806,34 +691,15 @@ def reprioritize(memory_id: str, priority: int) -> None:
          1: Important (boost in ranking)
          2: Critical (always surface, never auto-age)
 
-    Args:
-        memory_id: Memory UUID
-        priority: New priority level (-1 to 2)
-
-    Example:
-        reprioritize("abc-123", priority=2)  # Mark as critical
-        reprioritize("xyz-789", priority=-1)  # Demote to background
+    v5.0.0: Turso-only. Removed local cache update.
     """
     priority = max(-1, min(2, priority))
 
-    # Update Turso database
     _exec("""
         UPDATE memories
         SET priority = ?
         WHERE id = ?
     """, [priority, memory_id])
-
-    # Update cache if available
-    if _cache_available():
-        try:
-            state._cache_conn.execute("""
-                UPDATE memory_index
-                SET priority = ?
-                WHERE id = ?
-            """, (priority, memory_id))
-            state._cache_conn.commit()
-        except Exception as e:
-            print(f"Warning: Cache priority update failed: {e}")
 
 
 # --- Retrieval observability and retention helpers (v3.2.0) ---
@@ -1271,11 +1137,6 @@ def remember_batch(items: list, *, sync: bool = True) -> list:
                 continue  # Skip if validation error was added
 
         priority = max(-1, min(2, priority))
-
-        # Cache locally if available
-        if _cache_available():
-            _cache_memory(mem_id, what, mem_type, now, conf, item_tags, priority,
-                         refs=refs, valid_from=valid_from, session_id=session_id)
 
         statements.append((
             """INSERT INTO memories (id, type, t, summary, confidence, tags, refs, priority,
