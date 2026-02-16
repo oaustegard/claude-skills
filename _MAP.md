@@ -1,5 +1,5 @@
 # claude-skills/
-*Files: 5 | Subdirectories: 43*
+*Files: 4 | Subdirectories: 43*
 
 ## Subdirectories
 
@@ -71,16 +71,6 @@
 - Skill Development Workflow `h2` :153
 - PR Reviews and Code Testing `h2` :264
 - Remembering Skill and Handoff Process `h2` :405
-
-### PR_160_REVIEW.md
-- PR #160 Review: Improve codemap.py with symbol hierarchy `h1` :1
-- Overview `h2` :3
-- Strengths `h2` :12
-- Issues Found `h2` :29
-- Testing Recommendations `h2` :200
-- Recommendations `h2` :234
-- Overall Assessment `h2` :252
-- Summary Checklist `h2` :264
 
 ### PR_160_REVIEW_UPDATED.md
 - PR #160 Review: Improve codemap.py with symbol hierarchy `h1` :1

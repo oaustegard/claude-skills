@@ -6,14 +6,14 @@ This module handles:
 - Boot load flag management
 - Config listing with category filtering
 
-Imports from: state, turso, cache
+Imports from: turso
+
+v5.0.0: Removed local cache dependency. All reads/writes go to Turso directly.
 """
 
 from datetime import datetime, UTC
 
-from . import state
 from .turso import _exec
-from .cache import _cache_available
 
 
 def config_get(key: str) -> str | None:
@@ -79,20 +79,10 @@ def config_set_boot_load(key: str, boot_load: bool) -> bool:
     Returns:
         True if successful
 
-    Example:
-        config_set_boot_load('github-api-endpoints', False)  # Make reference-only
-        config_set_boot_load('storage-discipline', True)      # Load at boot
+    v5.0.0: Turso-only. Removed local cache update.
     """
     val = 1 if boot_load else 0
-
-    # Update remote
     _exec("UPDATE config SET boot_load = ? WHERE key = ?", [val, key])
-
-    # Update local cache if available
-    if _cache_available():
-        state._cache_conn.execute("UPDATE config_cache SET boot_load = ? WHERE key = ?", (val, key))
-        state._cache_conn.commit()
-
     return True
 
 
@@ -104,23 +94,13 @@ def config_set_priority(key: str, priority: int) -> bool:
     Args:
         key: Config key to update
         priority: Priority level (higher = more important, default is 0)
-                  Suggested scale: 0=normal, 1-9=elevated, 10+=critical
 
     Returns:
         True if successful
 
-    Example:
-        config_set_priority('storage-rules', 10)  # Critical - show first
-        config_set_priority('fly-command', 0)     # Normal priority
+    v5.0.0: Turso-only. Removed local cache update.
     """
-    # Update remote
     _exec("UPDATE config SET priority = ? WHERE key = ?", [priority, key])
-
-    # Update local cache if available
-    if _cache_available():
-        state._cache_conn.execute("UPDATE config_cache SET priority = ? WHERE key = ?", (priority, key))
-        state._cache_conn.commit()
-
     return True
 
 

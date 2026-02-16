@@ -2,7 +2,7 @@
 Boot, journal, therapy, handoff, and export/import operations for remembering skill.
 
 This module handles:
-- Boot sequence (boot, profile, ops, _warm_cache)
+- Boot sequence (boot, profile, ops)
 - GitHub access detection and configuration
 - Journal operations (journal, journal_recent, journal_prune)
 - Therapy helpers (therapy_scope, therapy_session_count, therapy_reflect, decisions_recent)
@@ -10,21 +10,21 @@ This module handles:
 - Handoff workflow (handoff_pending, handoff_complete)
 - Export/Import (muninn_export, muninn_import)
 
-Imports from: state, turso, cache, memory, config
+Imports from: state, turso, memory, config
+
+v5.0.0: Removed local cache dependency. No more cache init or warming.
 """
 
 import json
 import os
 import shutil
 import subprocess
-import threading
 from datetime import datetime, UTC
 from pathlib import Path
 
 from . import state
 from .state import get_session_id
 from .turso import _exec, _exec_batch
-from .cache import _init_local_cache, _cache_available, _cache_config, _cache_populate_index, _cache_populate_full
 from .memory import recall, recall_since, remember, supersede
 from .config import config_list, config_set, config_delete
 from .utilities import install_utilities
@@ -386,40 +386,6 @@ def ops(include_reference: bool = False) -> list:
     return entries
 
 
-def _warm_cache():
-    """Background cache population - fetches all memories from Turso.
-
-    v2.0.0: Uses priority instead of importance.
-    v2.0.1: Sets state._cache_warmed flag when complete to fix race condition.
-    """
-    try:
-        results = _exec_batch([
-            """SELECT * FROM memories
-               WHERE deleted_at IS NULL
-               ORDER BY t DESC LIMIT 500"""
-        ])
-        full_memories = results[0]
-
-        if _cache_available():
-            memory_index = []
-            for m in full_memories:
-                memory_index.append({
-                    'id': m.get('id'),
-                    'type': m.get('type'),
-                    't': m.get('t'),
-                    'tags': m.get('tags'),
-                    'summary_preview': m.get('summary', '')[:100],
-                    'confidence': m.get('confidence'),
-                    'priority': m.get('priority', 0),
-                    'session_id': m.get('session_id'),  # v3.8.0: cache session_id (#237)
-                })
-            _cache_populate_index(memory_index)
-            _cache_populate_full(full_memories)
-            state._cache_warmed = True  # Mark as complete
-    except Exception:
-        pass  # Cache warming is best-effort
-
-
 def _load_repo_defaults() -> tuple[list, list]:
     """Load profile and ops defaults from version-controlled JSON files (#239).
 
@@ -467,10 +433,9 @@ def _load_repo_defaults() -> tuple[list, list]:
 
 
 def boot() -> str:
-    """Boot sequence: load profile + ops, start async cache population.
+    """Boot sequence: load profile + ops from Turso.
 
     Returns formatted string with complete profile and ops values.
-    Spawns background thread to populate memory cache for fast recall().
 
     Filters reference-only ops from output to reduce token usage at boot.
     Reference material (API docs, container limits, etc.) can be queried via config_get().
@@ -478,11 +443,10 @@ def boot() -> str:
     Organizes ops by topic for better cognitive navigation.
 
     Resilience: Retries transient errors (SSL, 503, 429) with exponential backoff.
-    Falls back to cached config if remote fetch fails after retries.
-    """
-    # Initialize cache
-    _init_local_cache()
+    Falls back to repo defaults if remote fetch fails after retries.
 
+    v5.0.0: Removed local cache. All reads go to Turso directly.
+    """
     # Refresh OPS_TOPICS from config (v3.6.0: dynamic loading)
     global OPS_TOPICS, _OPS_KEY_TO_TOPIC
     OPS_TOPICS = _load_ops_topics()
@@ -502,49 +466,13 @@ def boot() -> str:
         profile_data = results[0]
         ops_data = results[1]
 
-        # Cache config immediately (cache ALL config, even reference material)
-        if _cache_available():
-            _cache_config(profile_data + ops_data)
-
     except Exception as e:
-        # Fallback to PREVIOUS SESSION's cached config if remote fetch fails
-        # Note: The cache file persists on disk between sessions. This fallback
-        # only works if a prior session successfully populated config_cache.
-        # On a fresh install with no prior cache, this will fail gracefully.
-        if _cache_available():
-            # Check if previous session cached any config
-            cached_count = state._cache_conn.execute(
-                "SELECT COUNT(*) FROM config_cache"
-            ).fetchone()[0]
-
-            if cached_count > 0:
-                print(f"Warning: Remote config fetch failed, using previous session's cache: {e}")
-                profile_data = state._cache_conn.execute(
-                    "SELECT * FROM config_cache WHERE category = 'profile' ORDER BY key"
-                ).fetchall()
-                profile_data = [dict(row) for row in profile_data]
-
-                ops_data = state._cache_conn.execute(
-                    "SELECT * FROM config_cache WHERE category = 'ops' ORDER BY key"
-                ).fetchall()
-                ops_data = [dict(row) for row in ops_data]
-            else:
-                # Cache exists but is empty (fresh session) - try repo defaults (#239)
-                profile_data, ops_data = _load_repo_defaults()
-                if profile_data or ops_data:
-                    print(f"Warning: Remote config fetch failed, using repo defaults: {e}")
-                else:
-                    return f"ERROR: Unable to load config (remote failed: {e}, cache empty, no defaults)"
+        # Fallback to repo defaults (#239) if remote fetch fails
+        profile_data, ops_data = _load_repo_defaults()
+        if profile_data or ops_data:
+            print(f"Warning: Remote config fetch failed, using repo defaults: {e}")
         else:
-            # No cache file at all - try repo defaults (#239)
-            profile_data, ops_data = _load_repo_defaults()
-            if profile_data or ops_data:
-                print(f"Warning: Remote config fetch failed, using repo defaults: {e}")
-            else:
-                return f"ERROR: Unable to load config (remote failed: {e}, no cache or defaults available)"
-
-    # Start async cache warming
-    threading.Thread(target=_warm_cache, daemon=True).start()
+            return f"ERROR: Unable to load config (remote failed: {e}, no defaults available)"
 
     # Detect GitHub access methods
     github_access = detect_github_access()

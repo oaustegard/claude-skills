@@ -1,4 +1,7 @@
-"""Remembering - Minimal persistent memory for Claude."""
+"""Remembering - Minimal persistent memory for Claude.
+
+v5.0.0: Removed local SQLite cache. All operations go through Turso FTS5.
+"""
 
 import requests
 import json
@@ -6,9 +9,7 @@ import uuid
 import threading
 import os
 import time
-import sqlite3
 from datetime import datetime, UTC
-from pathlib import Path
 
 # Import module state and constants
 from . import state
@@ -19,16 +20,6 @@ from .turso import (
     _init, _retry_with_backoff,
     _exec, _exec_batch, _parse_memory_row,
     _fts5_search  # v4.5.0: Server-side FTS5 search (#298)
-)
-
-# Import cache layer
-from .cache import (
-    _init_local_cache, _cache_available, _cache_clear,
-    _cache_populate_index, _cache_populate_full, _cache_config,
-    _cache_query_index, _escape_fts5_query, _cache_row_to_dict,
-    _cache_memory, _fetch_full_content, cache_stats,
-    _log_recall_query,
-    recall_stats, top_queries  # v3.2.0: observability
 )
 
 # Import memory layer
@@ -63,7 +54,7 @@ from .config import (
 
 # Import boot layer
 from .boot import (
-    profile, ops, _warm_cache, boot,
+    profile, ops, boot,
     detect_github_access,  # v3.5.0: GitHub access detection
     github_api,  # v3.8.0: Unified GitHub API interface (#240)
     journal, journal_recent, journal_prune,
@@ -93,16 +84,14 @@ __all__ = [
     "group_by_type", "group_by_tag",  # analysis helpers
     "handoff_pending", "handoff_complete",  # handoff workflow
     "muninn_export", "muninn_import",  # export/import
-    "cache_stats",  # cache diagnostics
     "reprioritize",  # priority adjustment
-    "strengthen", "weaken",  # memory consolidation (v3.3.0) - working implementations
+    "strengthen", "weaken",  # memory consolidation (v3.3.0)
     "install_utilities", "UTIL_DIR",  # utilities
     "get_alternatives", "consolidate",  # v4.2.0: decision alternatives (#254) and consolidation (#253)
     "get_chain",  # v4.3.0: reference chain traversal (#283)
     "recall_batch", "remember_batch",  # v4.5.0: batch APIs (#299)
     "get_session_id", "set_session_id",  # session management (v3.2.0)
     "session_save", "session_resume", "sessions",  # v4.3.0: session continuity (#231)
-    "recall_stats", "top_queries",  # retrieval observability (v3.2.0)
     "memory_histogram", "prune_by_age", "prune_by_priority",  # retention helpers (v3.2.0)
     # v3.4.0: Type-safe results and proactive hints
     "MemoryResult", "MemoryResultList", "VALID_FIELDS", "recall_hints",
