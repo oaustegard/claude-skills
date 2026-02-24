@@ -6,6 +6,7 @@ and prompt caching support for optimized token usage.
 """
 
 import json
+import os
 import threading
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -23,11 +24,13 @@ except ImportError:
 
 def get_anthropic_api_key() -> str:
     """
-    Get Anthropic API key from project knowledge files.
+    Get Anthropic API key from environment or project knowledge files.
 
     Priority order:
-    1. Individual file: /mnt/project/ANTHROPIC_API_KEY.txt
-    2. Combined file: /mnt/project/API_CREDENTIALS.json
+    1. ANTHROPIC_API_KEY environment variable
+    2. API_KEY from /mnt/project/claude.env
+    3. Individual file: /mnt/project/ANTHROPIC_API_KEY.txt
+    4. Combined file: /mnt/project/API_CREDENTIALS.json
 
     Returns:
         str: Anthropic API key
@@ -35,7 +38,28 @@ def get_anthropic_api_key() -> str:
     Raises:
         ValueError: If no API key found in any source
     """
-    # Pattern 1: Individual key file (recommended)
+    # Pattern 1: Environment variable (standard Anthropic convention)
+    key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if key:
+        return key
+
+    # Pattern 2: claude.env file with API_KEY variable
+    claude_env = Path("/mnt/project/claude.env")
+    if claude_env.exists():
+        try:
+            for line in claude_env.read_text().splitlines():
+                line = line.strip()
+                if line.startswith("API_KEY="):
+                    key = line[len("API_KEY="):].strip().strip('"').strip("'")
+                    if key:
+                        return key
+        except (IOError, OSError) as e:
+            raise ValueError(
+                f"Found claude.env but couldn't read it: {e}\n"
+                f"Please check file permissions"
+            )
+
+    # Pattern 3: Individual key file (recommended for project knowledge)
     key_file = Path("/mnt/project/ANTHROPIC_API_KEY.txt")
     if key_file.exists():
         try:
@@ -48,7 +72,7 @@ def get_anthropic_api_key() -> str:
                 f"Please check file permissions or recreate the file"
             )
 
-    # Pattern 2: Combined credentials file
+    # Pattern 4: Combined credentials file
     creds_file = Path("/mnt/project/API_CREDENTIALS.json")
     if creds_file.exists():
         try:
@@ -66,11 +90,16 @@ def get_anthropic_api_key() -> str:
     # No key found - provide helpful error message
     raise ValueError(
         "No Anthropic API key found!\n\n"
-        "Add a project knowledge file using one of these methods:\n\n"
-        "Option 1 (recommended): Individual file\n"
+        "Provide a key using one of these methods:\n\n"
+        "Option 1 (recommended): Environment variable\n"
+        "  export ANTHROPIC_API_KEY=sk-ant-api03-...\n\n"
+        "Option 2: claude.env project knowledge file\n"
+        "  File: claude.env\n"
+        "  Content: API_KEY=sk-ant-api03-...\n\n"
+        "Option 3: Individual file\n"
         "  File: ANTHROPIC_API_KEY.txt\n"
         "  Content: sk-ant-api03-...\n\n"
-        "Option 2: Combined file\n"
+        "Option 4: Combined file\n"
         "  File: API_CREDENTIALS.json\n"
         "  Content: {\"anthropic_api_key\": \"sk-ant-api03-...\"}\n\n"
         "Get your API key from: https://console.anthropic.com/settings/keys"
@@ -768,6 +797,81 @@ def get_available_models() -> list[str]:
         "claude-3-5-sonnet-20241022",
         "claude-3-5-haiku-20241022",
     ]
+
+
+def parse_json_response(raw: str) -> dict:
+    """
+    Parse a JSON response from Claude, stripping markdown code fences if present.
+
+    Claude sometimes wraps JSON in markdown fences (```json ... ```) despite
+    instructions to return plain JSON. This utility handles both cases.
+
+    Args:
+        raw: Raw response text from Claude (with or without markdown fences)
+
+    Returns:
+        dict: Parsed JSON object
+
+    Raises:
+        json.JSONDecodeError: If the text cannot be parsed as JSON after stripping fences
+    """
+    text = raw.strip()
+    if text.startswith("```"):
+        # Strip opening fence (```json or ``` or any variant)
+        text = text.split("\n", 1)[1] if "\n" in text else text[3:]
+        # Strip closing fence
+        text = text.rsplit("```", 1)[0]
+        text = text.strip()
+    return json.loads(text)
+
+
+def invoke_claude_json(
+    prompt: Union[str, list[dict]],
+    model: str = "claude-sonnet-4-5-20250929",
+    system: Union[str, list[dict], None] = None,
+    max_tokens: int = 4096,
+    temperature: float = 1.0,
+    cache_system: bool = False,
+    cache_prompt: bool = False,
+    messages: list[dict] | None = None,
+    **kwargs
+) -> dict:
+    """
+    Invoke Claude and parse the response as JSON, stripping markdown fences if present.
+
+    Wrapper around invoke_claude() that automatically applies parse_json_response().
+    Use when Claude is expected to return structured JSON output.
+
+    Args:
+        prompt: The user message to send to Claude
+        model: Claude model to use
+        system: Optional system prompt
+        max_tokens: Maximum tokens in response
+        temperature: Randomness 0-1
+        cache_system: Add cache_control to system prompt
+        cache_prompt: Add cache_control to user prompt
+        messages: Optional pre-built messages list
+        **kwargs: Additional API parameters
+
+    Returns:
+        dict: Parsed JSON response
+
+    Raises:
+        ClaudeInvocationError: If API call fails
+        json.JSONDecodeError: If response cannot be parsed as JSON
+    """
+    raw = invoke_claude(
+        prompt=prompt,
+        model=model,
+        system=system,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        cache_system=cache_system,
+        cache_prompt=cache_prompt,
+        messages=messages,
+        **kwargs
+    )
+    return parse_json_response(raw)
 
 
 if __name__ == "__main__":

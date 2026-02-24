@@ -4,10 +4,10 @@
 ## Files
 
 ### claude_client.py
-> Imports: `json, threading, pathlib, concurrent.futures, typing`...
-- **get_anthropic_api_key** (f) `()` :24
-- **ClaudeInvocationError** (C) :80
-  - **__init__** (m) `(self, message: str, status_code: int = None, details: Any = None)` :82
+> Imports: `json, os, threading, pathlib, concurrent.futures`...
+- **get_anthropic_api_key** (f) `()` :25
+- **ClaudeInvocationError** (C) :109
+  - **__init__** (m) `(self, message: str, status_code: int = None, details: Any = None)` :111
 - **invoke_claude** (f) `(
     prompt: Union[str, list[dict]],
     model: str = "claude-sonnet-4-5-20250929",
@@ -19,7 +19,7 @@
     cache_prompt: bool = False,
     messages: list[dict] | None = None,
     **kwargs
-)` :168
+)` :197
 - **invoke_claude_streaming** (f) `(
     prompt: Union[str, list[dict]],
     callback: callable = None,
@@ -30,7 +30,7 @@
     cache_system: bool = False,
     cache_prompt: bool = False,
     **kwargs
-)` :298
+)` :327
 - **invoke_parallel** (f) `(
     prompts: list[dict],
     model: str = "claude-sonnet-4-5-20250929",
@@ -38,7 +38,7 @@
     max_workers: int = 5,
     shared_system: Union[str, list[dict], None] = None,
     cache_shared_system: bool = False
-)` :373
+)` :402
 - **invoke_parallel_streaming** (f) `(
     prompts: list[dict],
     callbacks: list[callable] = None,
@@ -47,12 +47,12 @@
     max_workers: int = 5,
     shared_system: Union[str, list[dict], None] = None,
     cache_shared_system: bool = False
-)` :502
-- **InterruptToken** (C) :573
-  - **__init__** (m) `(self)` :575
-  - **interrupt** (m) `(self)` :578
-  - **is_interrupted** (m) `(self)` :582
-  - **reset** (m) `(self)` :586
+)` :531
+- **InterruptToken** (C) :602
+  - **__init__** (m) `(self)` :604
+  - **interrupt** (m) `(self)` :607
+  - **is_interrupted** (m) `(self)` :611
+  - **reset** (m) `(self)` :615
 - **invoke_parallel_interruptible** (f) `(
     prompts: list[dict],
     interrupt_token: InterruptToken = None,
@@ -61,8 +61,8 @@
     max_workers: int = 5,
     shared_system: Union[str, list[dict], None] = None,
     cache_shared_system: bool = False
-)` :591
-- **ConversationThread** (C) :667
+)` :620
+- **ConversationThread** (C) :696
   - **__init__** (m) `(
         self,
         system: Union[str, list[dict], None] = None,
@@ -70,12 +70,24 @@
         max_tokens: int = 4096,
         temperature: float = 1.0,
         cache_system: bool = True
-    )` :676
-  - **send** (m) `(self, user_message: Union[str, list[dict]], cache_history: bool = True)` :701
-  - **get_messages** (m) `(self)` :744
-  - **clear** (m) `(self)` :748
-  - **__len__** (m) `(self)` :752
-- **get_available_models** (f) `()` :757
+    )` :705
+  - **send** (m) `(self, user_message: Union[str, list[dict]], cache_history: bool = True)` :730
+  - **get_messages** (m) `(self)` :773
+  - **clear** (m) `(self)` :777
+  - **__len__** (m) `(self)` :781
+- **get_available_models** (f) `()` :786
+- **parse_json_response** (f) `(raw: str)` :802
+- **invoke_claude_json** (f) `(
+    prompt: Union[str, list[dict]],
+    model: str = "claude-sonnet-4-5-20250929",
+    system: Union[str, list[dict], None] = None,
+    max_tokens: int = 4096,
+    temperature: float = 1.0,
+    cache_system: bool = False,
+    cache_prompt: bool = False,
+    messages: list[dict] | None = None,
+    **kwargs
+)` :828
 
 ### test_caching.py
 > Imports: `sys, pathlib, claude_client`
