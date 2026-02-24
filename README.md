@@ -71,7 +71,7 @@ For complete documentation, see [templates/installation/README.md](templates/ins
    # NOTE: Do NOT include a VERSION file in your ZIP
    # VERSION files are workflow metadata and will be ignored
    ```
-3. Upload the ZIP to the `uploads/` directory
+3. Upload the ZIP to the `.uploads/` directory
 4. The workflow will automatically create a PR with your skill content
 5. When ready to release, update the VERSION file separately (see "Releasing Skills" below)
 

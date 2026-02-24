@@ -22,7 +22,7 @@ You **MUST** update `metadata.version` in `SKILL.md` frontmatter:
 **Workflow:**
 1. Make code changes
 2. Update `SKILL.md` frontmatter: `metadata.version: X.Y.Z`
-3. Refresh code maps: `python mapping-codebases/scripts/codemap.py /home/user/claude-skills --skip uploads,assets`
+3. Refresh code maps: `python mapping-codebases/scripts/codemap.py /home/user/claude-skills --skip .uploads,assets`
 4. Commit with version bump included in the same commit or separate commit
 5. Push
 

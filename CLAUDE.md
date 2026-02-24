@@ -136,7 +136,7 @@ This repository has navigable code maps generated via the mapping-codebases skil
 
 ```bash
 # Refresh all _MAP.md files to reflect code changes
-python /home/user/claude-skills/mapping-codebases/scripts/codemap.py /home/user/claude-skills --skip uploads,assets
+python /home/user/claude-skills/mapping-codebases/scripts/codemap.py /home/user/claude-skills --skip .uploads,assets
 
 # Then stage and commit
 git add .
