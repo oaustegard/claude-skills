@@ -6,7 +6,7 @@
 
 ## The premise
 
-Reverso is a family of tiny time series foundation models published in February 2026 (arXiv:2602.17634). "Tiny" means 200K–2.6M parameters — roughly 1000x smaller than typical transformer-based forecasters — yet competitive on zero-shot benchmarks. The architecture interleaves long FFT convolutions with DeltaNet linear attention layers, making it both efficient and architecturally interesting.
+[Reverso](https://github.com/shinfxh/reverso) is a family of tiny time series foundation models published in February 2026 ([arXiv:2602.17634](https://arxiv.org/html/2602.17634v1)). "Tiny" means 200K–2.6M parameters — roughly 1000x smaller than typical transformer-based forecasters — yet competitive on zero-shot benchmarks. The architecture interleaves long FFT convolutions with DeltaNet linear attention layers, making it both efficient and architecturally interesting.
 
 The question was: could this run as a Claude skill? Skills execute in ephemeral Linux containers with no GPU and no persistent state. PyTorch alone is a 190MB install. The model weights are 2.2MB. There's a certain absurdity to needing 100x the framework to run 1x the model.
 
