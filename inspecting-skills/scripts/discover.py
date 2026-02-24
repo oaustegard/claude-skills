@@ -99,12 +99,12 @@ def discover_all_skills(
 
     Args:
         skills_root: Root directory containing skill directories
-        exclude: Set of skill names to exclude (e.g., {"templates", "uploads"})
+        exclude: Set of skill names to exclude (e.g., {"templates", ".uploads"})
 
     Returns:
         List of SkillLayout objects for skills with Python code
     """
-    exclude = exclude or {"templates", "uploads", "scripts", ".github", ".git"}
+    exclude = exclude or {"templates", "uploads", ".uploads", "scripts", ".github", ".git"}
 
     skills = []
 

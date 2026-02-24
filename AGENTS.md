@@ -41,7 +41,7 @@ claude-skills/
 │   ├── scripts/            # Optional: executable code for deterministic operations
 │   ├── references/         # Optional: detailed docs loaded on demand
 │   └── assets/             # Optional: templates, files used in output
-├── uploads/                # Drop zone for .zip files (triggers automation)
+├── .uploads/               # Drop zone for .zip files (triggers automation)
 └── .github/workflows/      # Automation for skill uploads
     └── skill-upload.yml
 ```
@@ -110,14 +110,14 @@ The conceptual workflow when creating skills:
 
 ### Uploading Skills (Automated Workflow)
 
-When a .zip file is pushed to `uploads/`:
+When a .zip file is pushed to `.uploads/`:
 
 1. GitHub Actions workflow `skill-upload.yml` is triggered
 2. Validates skill structure (must contain SKILL.md at root)
 3. Runs security checks (path traversal, blocked file types, zip bomb)
 4. Extracts to root directory as `skill-name/`
 5. Creates PR with changes
-6. Deletes original .zip from uploads/
+6. Deletes original .zip from .uploads/
 
 **Security validations**:
 - Path traversal detection

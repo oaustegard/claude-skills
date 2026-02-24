@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Process skill uploads from the uploads/ directory
+# Process skill uploads from the .uploads/ directory
 # This script is called by the skill-upload.yml GitHub Actions workflow
 
 # Check if this is a manual trigger (workflow_dispatch) or automatic (push)
@@ -10,7 +10,7 @@ EVENT_NAME="${GITHUB_EVENT_NAME:-push}"
 if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
   echo "========================================="
   echo "Manual workflow trigger detected"
-  echo "Will process all zip files in uploads/"
+  echo "Will process all zip files in .uploads/"
   echo "========================================="
   echo ""
 else
@@ -21,7 +21,7 @@ else
     BEFORE_COMMIT="HEAD~1"
   fi
 
-  ADDED_OR_MODIFIED=$(git diff --name-status "$BEFORE_COMMIT" HEAD 2>/dev/null | grep -E '^(A|M)\s+uploads/.*\.zip$' || true)
+  ADDED_OR_MODIFIED=$(git diff --name-status "$BEFORE_COMMIT" HEAD 2>/dev/null | grep -E '^(A|M)\s+\.uploads/.*\.zip$' || true)
 
   if [ -z "$ADDED_OR_MODIFIED" ]; then
     echo "========================================="
@@ -37,12 +37,12 @@ else
   echo ""
 fi
 
-# Find all zip files in uploads directory
-ZIP_FILES=$(find uploads -name "*.zip" -type f 2>/dev/null || true)
+# Find all zip files in .uploads directory
+ZIP_FILES=$(find .uploads -name "*.zip" -type f 2>/dev/null || true)
 
 if [ -z "$ZIP_FILES" ]; then
   echo "========================================="
-  echo "No .zip files found in uploads directory."
+  echo "No .zip files found in .uploads directory."
   echo "This is normal if:"
   echo "  - Zip files were already processed"
   echo "  - Zip files were manually deleted"

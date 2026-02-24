@@ -93,7 +93,7 @@ def find_skill_directories(repo_root: Path) -> list[Path]:
     skill_dirs = []
 
     # Exclude special directories
-    exclude = {'.git', '.github', 'uploads', 'templates', 'scripts', '__pycache__'}
+    exclude = {'.git', '.github', '.uploads', 'uploads', 'templates', 'scripts', '__pycache__'}
 
     for item in repo_root.iterdir():
         if item.is_dir() and item.name not in exclude:

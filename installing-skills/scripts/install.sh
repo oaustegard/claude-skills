@@ -5,7 +5,7 @@ set -e
 SKILLS_DIR="/mnt/skills/user"
 API_URL="https://api.github.com/repos/oaustegard/claude-skills/contents"
 BASE_URL="https://raw.githubusercontent.com/oaustegard/claude-skills/main"
-EXCLUDE_DIRS="templates|\.github|\.claude|uploads"
+EXCLUDE_DIRS="templates|\.github|\.claude|\.uploads"
 
 echo "Installing skills from github.com/oaustegard/claude-skills"
 

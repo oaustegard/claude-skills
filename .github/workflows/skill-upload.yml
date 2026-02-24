@@ -3,7 +3,7 @@ name: Upload Skill
 on:
   push:
     paths:
-      - 'uploads/**.zip'
+      - '.uploads/**.zip'
   workflow_dispatch:
 
 permissions:
