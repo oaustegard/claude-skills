@@ -84,7 +84,7 @@ The multi-pattern test suite — pure sines at different periods, damped oscilla
 
 ## Phase 5: The final skill
 
-[The forecasting-reverso skill]((../forecasting-reverso/)) consists of:
+[The forecasting-reverso skill](../forecasting-reverso/) consists of:
 
 - **SKILL.md** (112 lines): Setup instructions, weight acquisition (HuggingFace download or user upload), forecast API, visualization template
 - **scripts/reverso.py** (797 lines): Complete inference engine — all model components, preprocessing, autoregressive rollout
