@@ -1,5 +1,5 @@
 # claude-skills/
-*Files: 4 | Subdirectories: 43*
+*Files: 5 | Subdirectories: 44*
 
 ## Subdirectories
 
@@ -43,6 +43,7 @@
 - [sampling-bluesky-zeitgeist/](./sampling-bluesky-zeitgeist/_MAP.md)
 - [scripts/](./scripts/_MAP.md)
 - [templates/](./templates/_MAP.md)
+- [tiling-tree/](./tiling-tree/_MAP.md)
 - [updating-knowledge/](./updating-knowledge/_MAP.md)
 - [using-webctl/](./using-webctl/_MAP.md)
 - [versioning-skills/](./versioning-skills/_MAP.md)
@@ -89,4 +90,8 @@
 - Contributing Skills `h2` :56
 - Releasing Skills `h2` :85
 - Resources `h2` :135
+
+## Other Files
+
+- boot.sh
 
