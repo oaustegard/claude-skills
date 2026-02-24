@@ -8,7 +8,7 @@
 
 [Reverso](https://github.com/shinfxh/reverso) is a family of tiny time series foundation models published in February 2026 ([arXiv:2602.17634](https://arxiv.org/html/2602.17634v1)). "Tiny" means 200K–2.6M parameters — roughly 1000x smaller than typical transformer-based forecasters — yet competitive on zero-shot benchmarks. The architecture interleaves long FFT convolutions with DeltaNet linear attention layers, making it both efficient and architecturally interesting.
 
-The question was: could this run as a Claude skill? Skills execute in ephemeral Linux containers with no GPU and no persistent state. PyTorch alone is a 190MB install. The model weights are 2.2MB. There's a certain absurdity to needing 100x the framework to run 1x the model.
+The question was: could this run as a Claude skill? Skills execute in ephemeral Linux containers with no GPU and no persistent state. PyTorch alone is a 190MB install. The model weights are 2.2MB. There's a certain absurdity to needing 100x the framework to run 1x the model. (tl;dr: [yes](../forecasting-reverso/SKILL.md))
 
 ## Phase 1: Feasibility (with Sonnet)
 
@@ -84,7 +84,7 @@ The multi-pattern test suite — pure sines at different periods, damped oscilla
 
 ## Phase 5: The final skill
 
-The packaged skill consists of:
+[The forecasting-reverso skill]((../forecasting-reverso/)) consists of:
 
 - **SKILL.md** (112 lines): Setup instructions, weight acquisition (HuggingFace download or user upload), forecast API, visualization template
 - **scripts/reverso.py** (797 lines): Complete inference engine — all model components, preprocessing, autoregressive rollout
