@@ -95,12 +95,13 @@
 - Advanced Topics `h2` :362
 
 ### _ARCH.md
-- Remembering - Architecture Reference `h1` :1
+- Remembering — Architecture Reference `h1` :1
 - Schema Overview `h2` :5
-- Module Map `h2` :70
-- Data Flow `h2` :113
-- Key Design Decisions `h2` :172
-- Deprecated / Removed `h2` :185
-- Credential Resolution Order `h2` :196
-- Performance Characteristics `h2` :209
+- Module Map `h2` :48
+- Data Flow `h2` :92
+- Runtime Utilities (muninn_utils) `h2` :154
+- Key Design Decisions `h2` :186
+- Performance Characteristics `h2` :202
+- Credential Resolution Order `h2` :213
+- Deprecated / Removed `h2` :226
 

@@ -1,6 +1,6 @@
-# Remembering - Architecture Reference
+# Remembering — Architecture Reference
 
-> Generated for developer orientation. Reduces repeated archaeology sessions.
+> Developer orientation document. Reduces repeated archaeology sessions.
 
 ## Schema Overview
 
@@ -11,17 +11,19 @@ Two tables, no joins at query time:
 ```
 config                              memories
 ├── key TEXT PK                     ├── id TEXT PK (UUID)
-├── value TEXT                      ├── type TEXT (decision|world|anomaly|experience|interaction)
-├── category TEXT (profile|ops|     ├── t TEXT (ISO timestamp, creation time)
-│   journal)                        ├── summary TEXT (content)
-├── updated_at TEXT                 ├── confidence REAL (0.0-1.0)
-├── char_limit INTEGER              ├── tags TEXT (JSON array)
-├── read_only BOOLEAN               ├── refs TEXT (JSON array: memory IDs + typed objects)
-├── boot_load INTEGER (0|1)         ├── priority INTEGER (-1 bg, 0 normal, 1 important, 2 critical)
-└── priority INTEGER                ├── session_id TEXT
-                                    ├── created_at TEXT
-Indexes:                            ├── updated_at TEXT
-  idx_config_category               ├── deleted_at TEXT (soft delete)
+├── value TEXT                      ├── type TEXT
+├── category TEXT (profile|ops|     │   (decision|world|anomaly|
+│   journal)                        │    experience|interaction|procedure)
+├── updated_at TEXT                 ├── t TEXT (ISO timestamp, creation time)
+├── char_limit INTEGER              ├── summary TEXT (content)
+├── read_only BOOLEAN               ├── confidence REAL (0.0-1.0)
+├── boot_load INTEGER (0|1)         ├── tags TEXT (JSON array)
+└── priority INTEGER                ├── refs TEXT (JSON array: memory IDs + typed objects)
+                                    ├── priority INTEGER (-1 bg, 0 normal, 1 important, 2 critical)
+Indexes:                            ├── session_id TEXT
+  idx_config_category               ├── created_at TEXT
+                                    ├── updated_at TEXT
+                                    ├── deleted_at TEXT (soft delete)
                                     ├── valid_from TEXT
                                     ├── access_count INTEGER
                                     └── last_accessed TEXT
@@ -31,7 +33,7 @@ Indexes:                            ├── updated_at TEXT
                                       idx_memories_priority (priority DESC, t DESC)
                                       idx_memories_session_id (session_id)
 
-memory_fts (FTS5 virtual table, v4.5.0 #298)
+memory_fts (FTS5 virtual table)
 ├── id UNINDEXED
 ├── summary
 └── tags
@@ -43,30 +45,6 @@ Triggers:
   memories_fts_sd: soft-DELETE → FTS5 removal
 ```
 
-### Local Cache (~/.muninn/cache.db)
-
-SQLite with FTS5. Populated at boot, updated on writes.
-
-```
-memory_index          memory_full           memory_fts (FTS5)
-├── id TEXT PK        ├── id TEXT PK        ├── id UNINDEXED
-├── type              ├── summary           ├── summary
-├── t                 ├── refs              └── tags
-├── tags (JSON)       ├── valid_from        tokenize='porter unicode61'
-├── summary_preview   ├── access_count
-├── confidence        └── last_accessed     config_cache
-├── priority                                ├── key TEXT PK
-├── session_id        recall_logs           ├── value
-├── last_accessed     ├── id TEXT PK        ├── category
-├── access_count      ├── t, query          └── boot_load
-└── has_full (0|1)    ├── filters (JSON)
-                      ├── n_requested       cache_meta
-                      ├── n_returned        ├── key TEXT PK
-                      ├── exec_time_ms      └── value
-                      ├── used_cache
-                      └── used_semantic_fallback
-```
-
 ## Module Map
 
 ```
@@ -75,19 +53,22 @@ remembering/
 ├── _ARCH.md                 This file
 │
 └── scripts/
-    ├── __init__.py          API export manifest (~100 lines)
+    ├── __init__.py          API export manifest
     ├── state.py             Module globals, constants, session ID
     │                        Zero imports from other modules (breaks cycles)
-    ├── turso.py             Turso HTTP API: _exec(), _exec_batch(), _fts5_search(), credential loading
-    ├── cache.py             Local SQLite + FTS5: init, query, populate, stats
-    ├── memory.py            Core CRUD: remember, recall, forget, supersede, get_chain, recall_batch, remember_batch
+    ├── turso.py             Turso HTTP API: _exec(), _exec_batch(), _fts5_search(),
+    │                        credential loading, retry logic (503/429/SSL)
+    ├── memory.py            Core CRUD: remember, recall, forget, supersede,
+    │                        get_chain, recall_batch, remember_batch,
+    │                        recall_since, recall_between, group_by_type, group_by_tag
     ├── config.py            Config CRUD: get/set/delete/list
     ├── boot.py              Boot sequence, journal, therapy, handoff, session continuity
-    ├── hints.py             Proactive memory surfacing (recall_hints)
+    ├── hints.py             Proactive memory surfacing via Turso FTS5 (recall_hints)
     ├── result.py            Type-safe MemoryResult/MemoryResultList wrappers
-    ├── utilities.py         Runtime utility code injection from memories
+    ├── utilities.py         Runtime utility installation: materializes utility-code
+    │                        memories to /home/claude/muninn_utils/ at boot
     └── defaults/
-        ├── ops.json         Fallback ops config
+        ├── ops.json         Fallback ops config (used if Turso unreachable)
         └── profile.json     Fallback profile config
 ```
 
@@ -98,14 +79,12 @@ state.py (no internal imports)
   ↑
 turso.py (imports state)
   ↑
-cache.py (imports state, turso)
+config.py (imports state, turso)
   ↑
-config.py (imports state, turso, cache)
+memory.py (imports state, turso, config, result)
   ↑
-memory.py (imports state, turso, cache, config, result)
-  ↑
-boot.py (imports state, turso, cache, memory, config, utilities)
-hints.py (imports state, turso, cache, memory)
+boot.py (imports state, turso, memory, config, utilities)
+hints.py (imports state, turso, memory)
 result.py (no internal imports)
 utilities.py (imports state, turso)
 ```
@@ -116,16 +95,12 @@ utilities.py (imports state, turso)
 
 ```
 boot()
-  ├─ _init_local_cache()          Create/open ~/.muninn/cache.db
-  ├─ _load_ops_topics()           Load topic mapping from config
-  ├─ _exec_batch([profile, ops])  Single HTTP request for both
-  │    └─ _cache_config()         Write-through to local cache
-  ├─ Thread → _warm_cache()       Background: fetch 500 recent memories
-  │    ├─ _cache_populate_index()  Headlines only
-  │    └─ _cache_populate_full()   Full content + FTS5 index
-  ├─ detect_github_access()       Check gh CLI + tokens
-  ├─ install_utilities()          Materialize utility-code memories to disk
-  └─ _format_boot_output()        Markdown with organized sections
+  ├─ turso._init()                 Load credentials, set headers
+  ├─ _load_ops_topics()            Load topic mapping from config table
+  ├─ _exec_batch([profile, ops])   Single HTTP request for both config sections
+  ├─ detect_github_access()        Check gh CLI + tokens
+  ├─ install_utilities()           Materialize utility-code memories to disk
+  └─ _format_boot_output()         Markdown with organized sections
 ```
 
 ### Write Path (remember)
@@ -134,10 +109,10 @@ boot()
 remember(what, type, ...)
   ├─ Validate type ∈ TYPES
   ├─ Generate UUID, timestamp
-  ├─ _cache_memory()              Write-through: index + full + FTS5
-  ├─ if sync: _write_memory()     Blocking HTTP to Turso
-  │  else: Thread → _write_memory()  Background write
-  └─ Update recall-triggers config  Auto-append novel tags
+  ├─ if sync=True: _write_memory()        Blocking HTTP POST to Turso
+  │  else: Thread → _write_memory()       Background write, returns immediately
+  ├─ _fts5_sync (via trigger)             Turso triggers handle FTS5 index
+  └─ Auto-append novel tags to config     recall-triggers config entry
 ```
 
 ### Read Path (recall)
@@ -145,20 +120,27 @@ remember(what, type, ...)
 ```
 recall(search, ...)
   ├─ Resolve tags_all/tags_any → tags + tag_mode
-  ├─ if cache available:
-  │    ├─ _cache_query_index()    FTS5 MATCH + BM25 + recency + priority
-  │    ├─ if few results:         Query expansion via tags
-  │    ├─ _fetch_full_content()   Lazy-load from Turso for cache misses
-  │    └─ _cache_populate_full()  Update cache with fetched content
-  ├─ else: _query()              Direct Turso SQL (LIKE search)
-  ├─ _update_access_tracking()   Background: increment counters
-  └─ wrap_results()              → MemoryResultList
+  ├─ _fts5_search()                FTS5 MATCH with Porter stemming + BM25 ranking
+  │    └─ on failure/empty:        LIKE fallback via _query()
+  ├─ if few results:               Query expansion via tags
+  ├─ _update_access_tracking()     Background: increment counters in Turso
+  └─ wrap_results()                → MemoryResultList
+```
+
+### Retry Logic
+
+```
+_retry_with_backoff(fn, ...)
+  ├─ Transient errors: 503, 429, ssl.SSLError, ConnectionError
+  ├─ Non-transient: 400, 401, 403, 404 → immediate raise
+  ├─ Backoff: 1s → 2s → 4s (3 attempts default)
+  └─ Exhaustion: raises last exception
 ```
 
 ### Ranking Algorithm
 
 ```
-With search term:
+With search term (FTS5):
   composite_rank = BM25(fts) * recency_weight * priority_weight
 
 Without search term:
@@ -169,29 +151,64 @@ Where:
   priority_weight = 1 + priority * 0.5                  [-1→0.5, 0→1.0, 1→1.5, 2→2.0]
 ```
 
+## Runtime Utilities (muninn_utils)
+
+At boot, `install_utilities()` materializes memories tagged `utility-code` from Turso
+into `/home/claude/muninn_utils/`. These are not part of the skill ZIP — they live in
+the database and are written to disk at runtime.
+
+Current utilities (as of v5.0.0):
+
+| Utility | Purpose |
+|---------|---------|
+| `therapy.py` | Structured memory consolidation and quality improvement sessions |
+| `connection_finder.py` | Finds semantically related orphan memories for ref-building |
+| `serendipity.py` | Surfaces unconnected memory pairs that might be related |
+| `bulk_forget.py` | Delete multiple memories at once with logging |
+| `batch_supersede.py` | Supersede multiple memories with same content |
+| `add_ref.py` | Add reference between two memories without full supersede |
+| `deliver.py` | Fuse memory storage + file output into single call |
+| `task.py` | Structural forcing function for multi-step work |
+| `validate_fields.py` | Validate recall field access before use |
+| `memory_graph.py` | Generate interactive D3 force graph of memory topology |
+| `strengthen_memory.py` | Boost priority/confidence for important memories |
+| `github_pages.py` | Publish files to oaustegard.github.io via PR |
+| `whtwnd.py` | Post/update/delete blog entries on WhiteWind (AT Protocol) |
+| `wisp_deploy.py` | Deploy single-file static sites to wisp.place |
+| `margin.py` | Read/write web annotations via margin.at |
+| `tangled.py` | Social interactions with tangled.org (AT Protocol) |
+| `backup_zip.py` | Date-stamped zip of a directory to /mnt/user-data/outputs |
+| `test_remembering.py` | Comprehensive test suite (80 tests), run as muninn_utils module |
+
+Utilities import from `remembering.scripts` with the skill directory on `sys.path`.
+To update a utility, change the memory content in Turso (not a file in this repo).
+
 ## Key Design Decisions
 
 | Decision | Rationale |
 |----------|-----------|
 | Turso HTTP API (not SQLite driver) | Works in sandboxed environments without native extensions |
+| Turso as sole storage | Eliminated local SQLite sync complexity (~737 lines). Cache latency savings (~145ms) are negligible vs tool call overhead (~3-4s) |
 | Two-table schema (config + memories) | Config is small/static (boot), memories grow unbounded |
 | FTS5 with Porter stemmer | Morphological matching (running→run) without external dependencies |
-| Write-through cache | Immediate local availability, eventual remote consistency |
+| Server-side FTS5 triggers | FTS5 index kept consistent by DB triggers, not application code |
 | Soft deletes (deleted_at) | Refs integrity: superseded memories still resolve for chains |
 | JSON arrays for tags/refs | Flexible schema within SQLite, parsed on read |
 | Priority clamping [-1, 2] | Bounded range prevents runaway priority inflation |
 | Background access tracking | Don't block recall() for analytics updates |
+| Retry with backoff | Handles transient Turso 503/429/SSL errors without caller involvement |
+| Utilities stored as memories | No install step; utilities boot with the skill, versioned in DB |
 
-## Deprecated / Removed
+## Performance Characteristics
 
-| What | When | Notes |
-|------|------|-------|
-| Embeddings (OpenAI) | v4.0.0 | Removed dependency. FTS5+BM25 sufficient |
-| entities column | v2.0.0 | Removed from schema |
-| importance/salience | v2.0.0 | Replaced by priority integer |
-| memory_class | v2.0.0 | Removed (was unused) |
-| valid_to column | v2.0.0 | Soft delete via deleted_at instead |
-| remember_bg() | v0.6.0 | Deprecated alias for remember(sync=False) |
+| Operation | Typical Latency | Notes |
+|-----------|----------------|-------|
+| boot() | ~150ms | Single HTTP batch request, no background warming |
+| recall() | ~150ms | Network round-trip to Turso FTS5 |
+| remember(sync=True) | ~150ms | Blocking HTTP write |
+| remember(sync=False) | <1ms | Returns immediately, background write |
+| FTS5 MATCH | <5ms server-side | Porter stemmer + BM25 ranking, executed in Turso |
+| recall_batch() | ~150ms | Single HTTP batch for multiple queries |
 
 ## Credential Resolution Order
 
@@ -206,13 +223,18 @@ Where:
 5. Default URL: https://assistant-memory-oaustegard.aws-us-east-1.turso.io
 ```
 
-## Performance Characteristics
+## Deprecated / Removed
 
-| Operation | Typical Latency | Notes |
-|-----------|----------------|-------|
-| boot() | ~150ms | Single HTTP batch + background cache warm |
-| recall() cache hit | <5ms | Local FTS5 query |
-| recall() cache miss | 150ms+ | Network round-trip to Turso |
-| remember(sync=True) | 150ms+ | Blocking HTTP write |
-| remember(sync=False) | <1ms | Returns immediately, background write |
-| FTS5 MATCH | <1ms | Porter stemmer + BM25 ranking |
+| What | When | Notes |
+|------|------|-------|
+| Local SQLite cache (~/.muninn/cache.db) | v5.0.0 (#300, #301) | Eliminated in favor of Turso FTS5. Net -570 lines |
+| cache.py | v5.0.0 | Deleted (737 lines). Was memory_index, memory_full, memory_fts, recall_logs, cache_meta tables |
+| cache_stats, recall_stats, top_queries | v5.0.0 | Exported functions removed with cache module |
+| use_cache parameter in recall() | v5.0.0 | Deprecated. Accepted but ignored |
+| Background cache warming thread | v5.0.0 | Removed from boot sequence |
+| Embeddings (OpenAI) | v4.0.0 | Removed dependency. FTS5+BM25 sufficient |
+| entities column | v2.0.0 | Removed from schema |
+| importance/salience | v2.0.0 | Replaced by priority integer |
+| memory_class | v2.0.0 | Removed (was unused) |
+| valid_to column | v2.0.0 | Soft delete via deleted_at instead |
+| remember_bg() | v0.6.0 | Deprecated alias for remember(sync=False) |
