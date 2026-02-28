@@ -6,6 +6,20 @@ All notable changes to the `remembering` skill (Muninn) are documented in this f
 
 ### Added
 
+- v5.1.0 — partial IDs, curation, episodic scoring, decision traces, FTS5 improvements
+
+### Fixed
+
+- resolve issues #311 and #312 in claude_client.py
+
+### Other
+
+- rename uploads/ to .uploads/ and update all references
+
+## [5.1.0] - 2026-02-28
+
+### Added
+
 - **Partial ID support** (#244): `forget()`, `supersede()`, `reprioritize()`, `strengthen()`, `weaken()` now accept abbreviated memory IDs. Resolves unique prefix to full UUID; raises `ValueError` on ambiguous or unmatched prefixes. New `_resolve_memory_id()` helper.
 - **Autonomous memory curation** (#295): New `curate()` function detects consolidation opportunities, stale memories, and recommends cleanup actions. Supports `dry_run=True` (analysis only) and `dry_run=False` (auto-apply consolidation and demotion).
 - **Episodic relevance scoring** (#296): New `episodic=True` parameter on `recall()` adds access-pattern boosting to composite score: `ln(1 + access_count) × 0.2`. Rewards memories validated through repeated retrieval.
