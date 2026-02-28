@@ -198,6 +198,13 @@ Add scripts/ when Claude would repeatedly write similar code:
 
 Scripts should have explicit error handling and no "magic numbers".
 
+**Python script standards:**
+- Type hints on all public function signatures
+- Catch specific exceptions (never bare `except:`)
+- No mutable default arguments (`def f(items=[])` → `def f(items=None)`)
+- Brief docstrings on public functions (parameters + return value)
+- Use `uv` for dependency management when scripts require packages
+
 ### 4. Token Efficiency
 
 Challenge each line:
@@ -282,6 +289,12 @@ Before uploading a skill:
 - [ ] No over-explanations of basic concepts
 - [ ] Scripts tested if present
 - [ ] Unused directories deleted
+
+## Commit Hygiene
+
+- No commented-out code (delete it or don't commit it)
+- No debug print statements or breakpoints
+- No hardcoded credentials (use `.env` files)
 
 ## Anti-Patterns to Avoid
 

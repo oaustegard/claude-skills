@@ -60,11 +60,12 @@
 - Working with Skills `h2` :56
 - Key Skills in This Repository `h2` :141
 - Important Implementation Patterns `h2` :159
-- Git Workflow `h2` :210
-- Common Tasks `h2` :229
-- Architecture Notes `h2` :258
-- Anti-Patterns to Avoid `h2` :286
-- License `h2` :298
+- Git Workflow `h2` :217
+- Common Tasks `h2` :236
+- Architecture Notes `h2` :265
+- Commit Hygiene `h2` :293
+- Anti-Patterns to Avoid `h2` :299
+- License `h2` :311
 
 ### CLAUDE.md
 - Muninn Boot `h2` :3
