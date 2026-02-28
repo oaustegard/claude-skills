@@ -2,7 +2,7 @@
 name: browsing-bluesky
 description: Browse Bluesky content via API and firehose - search posts, fetch user activity, sample trending topics, read feeds and lists, analyze and categorize accounts. Supports authenticated access for personalized feeds. Use for Bluesky research, user monitoring, trend analysis, feed reading, firehose sampling, account categorization.
 metadata:
-  version: 0.5.0
+  version: 0.5.1
 ---
 
 # Browsing Bluesky
@@ -122,7 +122,14 @@ data = sample_firehose(duration=30)  # Full firehose sample
 data = sample_firehose(duration=20, filter="python")  # Filtered sample
 ```
 
-Returns: `topWords`, `topPhrases`, `entities`, `samplePosts`, `stats`
+Returns dict with keys:
+- **window**: `{startTime, endTime, durationSeconds}` — sampling time range
+- **stats**: `{totalReceived, totalPosts, postsPerSecond, filter, languages}` — volume metrics and language breakdown
+- **topWords**: `[[word, count], ...]` — top 50 words (count >= 3)
+- **topPhrases**: `[[bigram, count], ...]` — top 30 bigrams (count >= 2)
+- **topTrigrams**: `[[trigram, count], ...]` — top 20 trigrams (count >= 2)
+- **entities**: `[[entity, count], ...]` — top 25 handles/hashtags (count >= 2)
+- **samplePosts**: `[{text, altTexts, hasImages}, ...]` — first 50 matching posts
 
 ### Read Feeds and Lists
 

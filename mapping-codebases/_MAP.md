@@ -10,7 +10,8 @@
 ### CHANGELOG.md
 - mapping-codebases - Changelog `h1` :1
 - [0.7.0] - 2026-02-28 `h2` :5
-- [0.6.0] - 2026-02-03 `h2` :21
+- [0.7.0] - 2026-02-28 `h2` :12
+- [0.6.0] - 2026-02-03 `h2` :28
 
 ### README.md
 - mapping-codebases `h1` :1

@@ -35,9 +35,9 @@
 - Implementation `h2` :12
 - Authentication (Optional) `h2` :34
 - Research Workflows `h2` :66
-- API Endpoint Notes `h2` :188
-- Return Format `h2` :197
-- Account Analysis `h2` :212
+- API Endpoint Notes `h2` :195
+- Return Format `h2` :204
+- Account Analysis `h2` :219
 
 ### __init__.py
 > Imports: `.scripts.bsky`
