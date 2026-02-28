@@ -1,5 +1,5 @@
 # orchestrating-skills/
-*Files: 1 | Subdirectories: 2*
+*Files: 2 | Subdirectories: 2*
 
 ## Subdirectories
 
@@ -8,14 +8,23 @@
 
 ## Files
 
+### CHANGELOG.md
+- Changelog `h1` :1
+- 0.3.0 (2026-02-28) `h2` :3
+- 0.2.0 (2026-02-27) `h2` :23
+- 0.1.0 (2026-02-27) `h2` :43
+- [0.2.0] - 2026-02-28 `h2` :50
+
 ### SKILL.md
-- Skill-Aware Orchestration `h1` :17
-- When to Use `h2` :22
-- When NOT to Use `h2` :29
-- Quick Start `h2` :35
-- Four-Phase Pipeline `h2` :50
-- Built-in Skill Library `h2` :100
-- API Reference `h2` :118
-- Extending the Skill Library `h2` :155
-- Architecture Details `h2` :176
+- Skill-Aware Orchestration `h1` :15
+- When to Use `h2` :20
+- When NOT to Use `h2` :26
+- Quick Start `h2` :32
+- Dependencies `h2` :47
+- Four-Phase Pipeline `h2` :53
+- Built-in Skill Library `h2` :97
+- API Reference `h2` :113
+- Extending the Skill Library `h2` :150
+- Persisting Findings with `remember` `h2` :167
+- Architecture Details `h2` :207
 

@@ -114,7 +114,7 @@ def build_subagent_prompt(
 
 
 def build_all_prompts(plan: dict, context: str, skills: dict) -> list[dict]:
-    """Build prompt dicts for all delegated subtasks. Skips self-answered."""
+    """Build prompt dicts for all delegated subtasks. Skips self-answered and pipeline-only."""
     prompts = []
 
     for subtask in plan.get("subtasks", []):
@@ -126,6 +126,10 @@ def build_all_prompts(plan: dict, context: str, skills: dict) -> list[dict]:
             "system_prompt": "You are a helpful assistant. Use only the provided context.",
             "output_hint": "structured response",
         })
+
+        # Pipeline-only skills (e.g. remember) are handled in Phase 4, not as subagents
+        if skill.get("_pipeline_only"):
+            continue
 
         pointers = subtask.get("context_pointers", {})
         context_slice = extract_context_subset(
@@ -149,16 +153,26 @@ def build_all_prompts(plan: dict, context: str, skills: dict) -> list[dict]:
 # Result collection
 # ---------------------------------------------------------------------------
 
-def collect_results(plan: dict, subagent_responses: list[str]) -> str:
-    """Merge self-answered and subagent responses for the synthesizer."""
+def collect_results(plan: dict, subagent_responses: list[str], skills: dict | None = None) -> str:
+    """Merge self-answered and subagent responses for the synthesizer.
+
+    Pipeline-only skills (e.g. remember) are excluded — they execute in Phase 4
+    and produce storage artifacts, not analytical content for synthesis.
+    """
     parts = []
     resp_idx = 0
+    skills = skills or {}
 
     for i, subtask in enumerate(plan.get("subtasks", []), 1):
         task_desc = subtask.get("task", f"Subtask {i}")
-        skill = subtask.get("skill", "")
+        skill_name = subtask.get("skill", "")
+        skill_spec = skills.get(skill_name, {})
 
-        if skill == "self":
+        # Pipeline-only skills are not included in synthesis input
+        if skill_spec.get("_pipeline_only"):
+            continue
+
+        if skill_name == "self":
             answer = subtask.get("answer", "(no answer)")
             parts.append(f"### Subtask {i}: {task_desc}\n[self-answered]\n{answer}")
         else:
@@ -167,7 +181,7 @@ def collect_results(plan: dict, subagent_responses: list[str]) -> str:
                 resp_idx += 1
             else:
                 response = "(no response)"
-            parts.append(f"### Subtask {i}: {task_desc}\n[{skill}]\n{response}")
+            parts.append(f"### Subtask {i}: {task_desc}\n[{skill_name}]\n{response}")
 
     return "\n\n---\n\n".join(parts)
 

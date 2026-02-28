@@ -1,31 +1,71 @@
 # scripts/
+*Files: 5*
 
-## client.py
-Minimal Claude API client. No SDK dependency.
-- `call_claude(prompt, system, model, max_tokens, temperature) → str`
-- `call_claude_json(prompt, system, model, max_tokens, temperature) → dict`
-- `call_parallel(prompts, model, max_tokens, max_workers) → list[str]`
+## Files
 
-## orchestrate.py
-Main pipeline entry point.
-- `orchestrate(context, task, model, max_tokens, synthesis_max_tokens, max_workers, skills, verbose) → dict`
-- `_plan(context, task, model) → dict` — Phase 1 decomposition
-- `_execute(prompts, model, max_tokens, max_workers) → list[str]` — Phase 3 parallel
-- `_synthesize(original_task, collected, model, max_tokens) → str` — Phase 4
+### __init__.py
+> Imports: `.orchestrate`
+- *No top-level symbols*
 
-## assembler.py
-Deterministic context extraction and prompt assembly.
-- `extract_sections(context, headers) → str`
-- `extract_lines(context, ranges) → str`
-- `extract_context_subset(context, sections, line_ranges) → str`
-- `build_subagent_prompt(task, context_slice, skill_system, output_hint) → dict`
-- `build_all_prompts(plan, context, skills) → list[dict]`
-- `collect_results(plan, subagent_responses) → str`
-- `build_synthesis_prompt(original_task, collected_results) → dict`
+### assembler.py
+> Imports: `re, typing`
+- **extract_sections** (f) `(context: str, headers: list[str])` :19
+- **extract_lines** (f) `(context: str, ranges: list[tuple[int, int]])` :62
+- **extract_context_subset** (f) `(
+    context: str,
+    sections: Optional[list[str]] = None,
+    line_ranges: Optional[list[tuple[int, int]]] = None,
+)` :73
+- **build_subagent_prompt** (f) `(
+    task_description: str,
+    context_slice: str,
+    skill_system: str,
+    output_hint: str,
+)` :95
+- **build_all_prompts** (f) `(plan: dict, context: str, skills: dict)` :116
+- **collect_results** (f) `(plan: dict, subagent_responses: list[str], skills: dict | None = None)` :156
+- **build_synthesis_prompt** (f) `(original_task: str, collected_results: str)` :189
 
-## skill_library.py
-Built-in skill definitions.
-- `SKILLS: dict` — 8 analytical skills
-- `get_skill(name) → dict | None`
-- `list_skills() → list[str]`
-- `skill_catalog() → str`
+### client.py
+> Imports: `json, os, re, concurrent.futures, pathlib`
+- **call_claude** (f) `(
+    prompt: str,
+    system: str = "",
+    model: str = "claude-sonnet-4-6",
+    max_tokens: int = 4096,
+    temperature: float = 0.3,
+)` :42
+- **call_claude_json** (f) `(
+    prompt: str,
+    system: str = "",
+    model: str = "claude-sonnet-4-6",
+    max_tokens: int = 4096,
+    temperature: float = 0.2,
+)` :74
+- **call_parallel** (f) `(
+    prompts: list[dict],
+    model: str = "claude-sonnet-4-6",
+    max_tokens: int = 4096,
+    max_workers: int = 5,
+)` :89
+
+### orchestrate.py
+> Imports: `argparse, json, sys, pathlib, typing`
+- **orchestrate** (f) `(
+    context: str,
+    task: str,
+    model: str = "claude-sonnet-4-6",
+    max_tokens: int = 2048,
+    synthesis_max_tokens: int = 4096,
+    max_workers: int = 5,
+    skills: Optional[dict] = None,
+    persist: bool = False,
+    verbose: bool = False,
+)` :231
+- **main** (f) `()` :361
+
+### skill_library.py
+- **get_skill** (f) `(name: str)` :146
+- **list_skills** (f) `()` :151
+- **skill_catalog** (f) `()` :156
+

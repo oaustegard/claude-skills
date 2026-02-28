@@ -8,7 +8,7 @@ description: >-
   perspectives, when context is large and subtasks only need portions, or when
   orchestrating-agents spawns too many redundant subagents.
 metadata:
-  version: 0.2.0
+  version: 0.3.0
   depends_on: []
 ---
 
@@ -96,7 +96,7 @@ response that reads as if a single expert wrote it.
 
 ## Built-in Skill Library
 
-Eight task-oriented skills:
+Eight analytical skills plus one pipeline skill:
 
 | Skill | Purpose |
 |-------|---------|
@@ -108,6 +108,7 @@ Eight task-oriented skills:
 | `classification` | Categorize items with rationale |
 | `summarization` | Produce concise summaries |
 | `gap_analysis` | Identify missing information |
+| `remember` | Persist key findings to long-term memory via `remembering` skill (pipeline-only, runs post-synthesis) |
 
 ## API Reference
 
@@ -122,6 +123,7 @@ Returns:
     "subtask_count": 4,
     "self_answered": 1,
     "delegated": 3,
+    "memory_ids": ["abc123"],  # populated when remember subtasks ran
 }
 ```
 
@@ -132,7 +134,8 @@ Parameters:
 - `max_tokens` (int): Per-subagent token limit, default 2048
 - `synthesis_max_tokens` (int): Synthesis token limit, default 4096
 - `max_workers` (int): Parallel subagent limit, default 5
-- `skills` (dict): Custom skill library (overrides built-in)
+- `skills` (dict): Custom skill library (merged with built-in)
+- `persist` (bool): Auto-append a `remember` subtask to store findings, default False
 - `verbose` (bool): Print progress to stderr
 
 ### CLI
@@ -160,6 +163,46 @@ custom_skills = {
 
 result = orchestrate(context=code, task="Review this PR", skills=custom_skills)
 ```
+
+## Persisting Findings with `remember`
+
+`remember` is a **pipeline skill** — it executes in Phase 4 after synthesis, not as a
+parallel subagent. It uses LLM distillation to extract the key insight from the synthesized
+result, then writes it to long-term memory via the `remembering` skill.
+
+### Two ways to activate persistence
+
+**1. `persist=True` (automatic)**
+
+```python
+result = orchestrate(
+    context=open("report.md").read(),
+    task="Compare approaches A and B",
+    persist=True,  # auto-injects a remember subtask
+    verbose=True,
+)
+print(result["memory_ids"])  # ['abc123']
+```
+
+**2. Planner-emitted (explicit)**
+
+The orchestrator planner can emit `remember` as a subtask when the task description
+implies storage:
+
+```json
+{
+  "task": "Store the key findings from this analysis",
+  "skill": "remember",
+  "context_pointers": {}
+}
+```
+
+### Requirements
+
+- `remembering` skill must be installed (`/mnt/skills/user/remembering` or
+  `/home/user/claude-skills/remembering`)
+- Turso credentials must be available (auto-detected by the remembering skill)
+- If unavailable, persistence is skipped silently and `memory_ids` returns `[]`
 
 ## Architecture Details
 
