@@ -480,6 +480,9 @@ def boot() -> str:
     # Install utility code memories to disk
     installed_utils = install_utilities()
 
+    # Surface incomplete cross-session tasks (#332)
+    pending_tasks = _load_incomplete_tasks()
+
     # Filter ops by boot_load flag (progressive disclosure)
     # Reference-only entries (boot_load=0) excluded from boot output but accessible via config_get()
     # Note: Turso returns boot_load as string ('0' or '1')
@@ -490,7 +493,38 @@ def boot() -> str:
     ops_by_topic, uncategorized = group_ops_by_topic(core_ops)
 
     # Format output with markdown headings
-    return _format_boot_output(profile_data, ops_by_topic, uncategorized, reference_ops, installed_utils, github_access)
+    return _format_boot_output(profile_data, ops_by_topic, uncategorized, reference_ops, installed_utils, github_access, pending_tasks)
+
+
+def _load_incomplete_tasks() -> list:
+    """Load incomplete persisted tasks for boot display (#332).
+
+    Returns list of (name, task_type, pending_steps) tuples.
+    Safe to call — returns empty list on any error.
+    """
+    try:
+        rows = _exec(
+            "SELECT value FROM config WHERE category = 'task-state'",
+        )
+        result = []
+        for row in rows:
+            try:
+                import json as _json
+                state = _json.loads(row.get('value', '{}'))
+                steps = state.get('steps', {})
+                pending = [s for s, done in steps.items() if not done]
+                if pending:
+                    result.append({
+                        'name': state.get('name', '?'),
+                        'task_type': state.get('task_type'),
+                        'pending': pending,
+                        'created': state.get('created', 0),
+                    })
+            except Exception:
+                continue
+        return result
+    except Exception:
+        return []
 
 
 def _format_entry(entry: dict) -> str:
@@ -507,7 +541,8 @@ def _format_entry(entry: dict) -> str:
 
 def _format_boot_output(profile_data: list, ops_by_topic: dict,
                         uncategorized: list, reference_ops: list,
-                        installed_utils: dict, github_access: dict = None) -> str:
+                        installed_utils: dict, github_access: dict = None,
+                        pending_tasks: list = None) -> str:
     """Format boot output with organized sections.
 
     v3.6.0: Entries within each topic are pre-sorted by priority (descending)
@@ -589,6 +624,20 @@ def _format_boot_output(profile_data: list, ops_by_topic: dict,
     else:
         output.append("\n## Utilities")
         output.append("  None installed (tag memories with 'utility-code' to add)")
+
+    # Incomplete tasks section (#332: cross-session task awareness)
+    if pending_tasks:
+        output.append(f"\n# INCOMPLETE TASKS ({len(pending_tasks)})")
+        output.append("⚠️  Resume these before starting new work:")
+        from datetime import datetime, UTC
+        now_ts = datetime.now(UTC).timestamp()
+        for t in pending_tasks:
+            age_h = (now_ts - t.get('created', now_ts)) / 3600
+            age_str = f"{age_h:.0f}h ago" if age_h < 48 else f"{age_h/24:.0f}d ago"
+            type_tag = f" [{t['task_type']}]" if t.get('task_type') else ""
+            output.append(f"  ○ {t['name']}{type_tag} ({age_str})")
+            output.append(f"    Pending: {', '.join(t['pending'])}")
+            output.append(f"    Resume: t = task_resume('{t['name']}')")
 
     return '\n'.join(output)
 

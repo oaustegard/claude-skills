@@ -72,9 +72,9 @@
 - Test Before PR `h2` :70
 - Environment-Specific Tips `h2` :83
 - Code Maps `h2` :123
-- Skill Development Workflow `h2` :166
-- PR Reviews and Code Testing `h2` :277
-- Remembering Skill and Handoff Process `h2` :418
+- Skill Development Workflow `h2` :179
+- PR Reviews and Code Testing `h2` :290
+- Remembering Skill and Handoff Process `h2` :431
 
 ### README.md
 - claude-skills `h1` :1

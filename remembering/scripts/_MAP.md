@@ -1,5 +1,5 @@
 # scripts/
-*Files: 10 | Subdirectories: 1*
+*Files: 11 | Subdirectories: 1*
 
 ## Subdirectories
 
@@ -21,23 +21,23 @@
 - **profile** (f) `()` :364
 - **ops** (f) `(include_reference: bool = False)` :369
 - **boot** (f) `()` :435
-- **journal** (f) `(topics: list = None, user_stated: str = None, my_intent: str = None)` :596
-- **journal_recent** (f) `(n: int = 10)` :613
-- **journal_prune** (f) `(keep: int = 40)` :629
-- **therapy_scope** (f) `()` :643
-- **therapy_session_count** (f) `()` :658
-- **decisions_recent** (f) `(n: int = 10, conf: float = 0.7)` :667
+- **journal** (f) `(topics: list = None, user_stated: str = None, my_intent: str = None)` :645
+- **journal_recent** (f) `(n: int = 10)` :662
+- **journal_prune** (f) `(keep: int = 40)` :678
+- **therapy_scope** (f) `()` :692
+- **therapy_session_count** (f) `()` :707
+- **decisions_recent** (f) `(n: int = 10, conf: float = 0.7)` :716
 - **therapy_reflect** (f) `(*, n_sample: int = 20, similarity_threshold: int = 3,
-                     dry_run: bool = True)` :680
-- **group_by_type** (f) `(memories: list)` :810
-- **group_by_tag** (f) `(memories: list)` :826
-- **muninn_export** (f) `()` :846
-- **session_save** (f) `(summary: str = None, context: dict = None)` :863
-- **session_resume** (f) `(session_id: str = None)` :913
-- **sessions** (f) `(n: int = 10, *, include_counts: bool = False)` :985
-- **handoff_pending** (f) `()` :1050
-- **handoff_complete** (f) `(handoff_id: str, completion_notes: str, version: str = None)` :1065
-- **muninn_import** (f) `(data: dict, *, merge: bool = False)` :1097
+                     dry_run: bool = True)` :729
+- **group_by_type** (f) `(memories: list)` :859
+- **group_by_tag** (f) `(memories: list)` :875
+- **muninn_export** (f) `()` :895
+- **session_save** (f) `(summary: str = None, context: dict = None)` :912
+- **session_resume** (f) `(session_id: str = None)` :962
+- **sessions** (f) `(n: int = 10, *, include_counts: bool = False)` :1034
+- **handoff_pending** (f) `()` :1099
+- **handoff_complete** (f) `(handoff_id: str, completion_notes: str, version: str = None)` :1114
+- **muninn_import** (f) `(data: dict, *, merge: bool = False)` :1146
 
 ### bootstrap.py
 > Imports: `sys, os, scripts`
@@ -146,6 +146,21 @@
 > Imports: `threading, os`
 - **get_session_id** (f) `()` :35
 - **set_session_id** (f) `(session_id: str)` :51
+
+### task.py
+> Imports: `json, sys, time, contextlib, datetime`
+- **Task** (C) :88
+  - **__init__** (m) `(self, name: str, steps=None, task_type: str = None,
+                 require_store: bool = True, persist: bool = True)` :101
+  - **done** (m) `(self, step: str)` :127
+  - **pending** (m) `(self)` :136
+  - **status** (m) `(self)` :140
+  - **incomplete_prefix** (m) `(self, content: str)` :154
+  - **complete** (m) `(self)` :163
+- **task** (f) `(name: str, steps=None, task_type: str = None,
+         require_store: bool = True, persist: bool = True)` :206
+- **task_resume** (f) `(name: str)` :229
+- **incomplete_tasks** (f) `()` :251
 
 ### turso.py
 > Imports: `importlib, importlib.util, json, os, time`...

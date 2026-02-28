@@ -29,22 +29,22 @@
 ### advanced-operations.md
 - Remembering - Advanced Operations Reference `h1` :1
 - Boot CAPABILITIES Section (v3.5.0) `h2` :5
-- Progressive Disclosure (v2.1.0) `h2` :54
-- Priority-Based Ordering (v3.6.0) `h2` :78
-- Dynamic Topic Categories (v3.6.0) `h2` :91
-- Priority System (v2.0.0) `h2` :111
-- Date-Filtered Queries `h2` :154
-- Therapy Helpers `h2` :174
-- Analysis Helpers `h2` :197
-- FTS5 Search with Porter Stemmer (v0.13.0) `h2` :214
-- Handoff Convention `h2` :236
-- Session Scoping (v3.2.0) `h2` :291
-- Retrieval Observability (v3.2.0) `h2` :308
-- Retention Management (v3.2.0) `h2` :325
-- Export/Import for Portability `h2` :347
-- Type-Safe Results (v3.4.0) `h2` :369
-- Proactive Memory Hints (v3.4.0) `h2` :405
-- Unified GitHub API (v3.8.0) `h2` :429
+- Progressive Disclosure (v2.1.0) `h2` :79
+- Priority-Based Ordering (v3.6.0) `h2` :103
+- Dynamic Topic Categories (v3.6.0) `h2` :116
+- Priority System (v2.0.0) `h2` :136
+- Date-Filtered Queries `h2` :179
+- Therapy Helpers `h2` :199
+- Analysis Helpers `h2` :222
+- FTS5 Search with Porter Stemmer (v0.13.0) `h2` :239
+- Handoff Convention `h2` :261
+- Session Scoping (v3.2.0) `h2` :316
+- Retrieval Observability (v3.2.0) `h2` :333
+- Retention Management (v3.2.0) `h2` :350
+- Export/Import for Portability `h2` :372
+- Type-Safe Results (v3.4.0) `h2` :394
+- Proactive Memory Hints (v3.4.0) `h2` :430
+- Unified GitHub API (v3.8.0) `h2` :454
 
 ### claude-ai-project-instructions.md
 - Muninn `h1` :1
