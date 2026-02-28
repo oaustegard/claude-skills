@@ -382,7 +382,7 @@ def sample_firehose(duration: int = 10, filter: Optional[str] = None) -> Dict[st
         filter: Optional term to filter posts (case-insensitive)
 
     Returns:
-        Dict with topWords, topPhrases, entities, samplePosts, stats
+        Dict with window, stats, topWords, topPhrases, topTrigrams, entities, samplePosts
     """
     script_dir = Path(__file__).parent  # browsing-bluesky/scripts/
     zeitgeist_script = script_dir / "zeitgeist-sample.js"
