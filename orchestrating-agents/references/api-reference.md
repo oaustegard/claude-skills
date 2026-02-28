@@ -4,15 +4,16 @@ Detailed API documentation for the orchestrating-agents skill.
 
 ## API Models
 
-### Available Models (as of 2025)
+### Available Models (as of 2026)
 
-| Model | Description | Max Tokens | Best For |
+| Model | Description | Max Output | Best For |
 |-------|-------------|------------|----------|
-| claude-sonnet-4-5-20250929 | Latest Sonnet 4.5 | 8192 | Balanced performance/cost |
-| claude-sonnet-4-20250514 | Sonnet 4 | 8192 | Complex reasoning |
-| claude-opus-4-20250514 | Opus 4 | 8192 | Highest capability |
-| claude-3-5-sonnet-20241022 | Claude 3.5 Sonnet | 8192 | Legacy support |
-| claude-3-5-haiku-20241022 | Claude 3.5 Haiku | 8192 | Fast, cost-effective |
+| claude-sonnet-4-6 | Sonnet 4.6 (default) | 64K | Balanced speed/intelligence |
+| claude-opus-4-6 | Opus 4.6 | 128K | Highest capability, agents |
+| claude-haiku-4-5-20251001 | Haiku 4.5 | 64K | Fast, cost-effective |
+| claude-sonnet-4-6 | Sonnet 4.5 (legacy) | 64K | Legacy support |
+| claude-sonnet-4-20250514 | Sonnet 4 (legacy) | 64K | Legacy support |
+| claude-opus-4-20250514 | Opus 4 (legacy) | 32K | Legacy support |
 
 ## Rate Limits
 
@@ -341,7 +342,7 @@ def progress_callback(chunk):
 response = invoke_claude_streaming(
     prompt="Write a comprehensive analysis...",
     callback=progress_callback,
-    model="claude-sonnet-4-5-20250929",
+    model="claude-sonnet-4-6",
     max_tokens=4096
 )
 ```

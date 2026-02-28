@@ -196,7 +196,7 @@ def _format_message_with_cache(
 
 def invoke_claude(
     prompt: Union[str, list[dict]],
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "claude-sonnet-4-6",
     system: Union[str, list[dict], None] = None,
     max_tokens: int = 4096,
     temperature: float = 1.0,
@@ -211,7 +211,7 @@ def invoke_claude(
 
     Args:
         prompt: The user message to send to Claude (string or list of content blocks)
-        model: Claude model to use (default: claude-sonnet-4-5-20250929)
+        model: Claude model to use (default: claude-sonnet-4-6)
         system: Optional system prompt to set context/role (string or list of content blocks)
         max_tokens: Maximum tokens in response (default: 4096)
         temperature: Randomness 0-1 (default: 1.0)
@@ -241,8 +241,8 @@ def invoke_claude(
         elif not prompt:
             raise ValueError("Prompt cannot be empty")
 
-    if max_tokens < 1 or max_tokens > 8192:
-        raise ValueError("max_tokens must be between 1 and 8192")
+    if max_tokens < 1 or max_tokens > 128000:
+        raise ValueError("max_tokens must be between 1 and 128000")
 
     if not 0 <= temperature <= 1:
         raise ValueError("temperature must be between 0 and 1")
@@ -327,7 +327,7 @@ def _build_messages(
 def invoke_claude_streaming(
     prompt: Union[str, list[dict]],
     callback: callable = None,
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "claude-sonnet-4-6",
     system: Union[str, list[dict], None] = None,
     max_tokens: int = 4096,
     temperature: float = 1.0,
@@ -401,7 +401,7 @@ def invoke_claude_streaming(
 
 def invoke_parallel(
     prompts: list[dict],
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "claude-sonnet-4-6",
     max_tokens: int = 4096,
     max_workers: int = 5,
     shared_system: Union[str, list[dict], None] = None,
@@ -531,7 +531,7 @@ def invoke_parallel(
 def invoke_parallel_streaming(
     prompts: list[dict],
     callbacks: list[callable] = None,
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "claude-sonnet-4-6",
     max_tokens: int = 4096,
     max_workers: int = 5,
     shared_system: Union[str, list[dict], None] = None,
@@ -620,7 +620,7 @@ class InterruptToken:
 def invoke_parallel_interruptible(
     prompts: list[dict],
     interrupt_token: InterruptToken = None,
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "claude-sonnet-4-6",
     max_tokens: int = 4096,
     max_workers: int = 5,
     shared_system: Union[str, list[dict], None] = None,
@@ -705,7 +705,7 @@ class ConversationThread:
     def __init__(
         self,
         system: Union[str, list[dict], None] = None,
-        model: str = "claude-sonnet-4-5-20250929",
+        model: str = "claude-sonnet-4-6",
         max_tokens: int = 4096,
         temperature: float = 1.0,
         cache_system: bool = True
@@ -791,11 +791,12 @@ def get_available_models() -> list[str]:
         list[str]: List of model identifiers
     """
     return [
-        "claude-sonnet-4-5-20250929",
-        "claude-sonnet-4-20250514",
-        "claude-opus-4-20250514",
-        "claude-3-5-sonnet-20241022",
-        "claude-3-5-haiku-20241022",
+        "claude-sonnet-4-6",               # Latest Sonnet (default)
+        "claude-opus-4-6",                  # Latest Opus (highest capability)
+        "claude-haiku-4-5-20251001",        # Haiku 4.5 (fast, cost-effective)
+        "claude-sonnet-4-5-20250929",       # Legacy Sonnet 4.5
+        "claude-sonnet-4-20250514",         # Legacy Sonnet 4
+        "claude-opus-4-20250514",           # Legacy Opus 4
     ]
 
 
@@ -827,7 +828,7 @@ def parse_json_response(raw: str) -> dict:
 
 def invoke_claude_json(
     prompt: Union[str, list[dict]],
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "claude-sonnet-4-6",
     system: Union[str, list[dict], None] = None,
     max_tokens: int = 4096,
     temperature: float = 1.0,

@@ -2,7 +2,7 @@
 name: orchestrating-agents
 description: Orchestrates parallel API instances, delegated sub-tasks, and multi-agent workflows with streaming and tool-enabled delegation patterns. Use for parallel analysis, multi-perspective reviews, or complex task decomposition.
 metadata:
-  version: 0.1.2
+  version: 0.2.0
 ---
 
 # Orchestrating Agents
@@ -35,7 +35,7 @@ from claude_client import invoke_claude
 
 response = invoke_claude(
     prompt="Analyze this code for security vulnerabilities: ...",
-    model="claude-sonnet-4-5-20250929"
+    model="claude-sonnet-4-6"
 )
 print(response)
 ```
@@ -60,7 +60,7 @@ prompts = [
     }
 ]
 
-results = invoke_parallel(prompts, model="claude-sonnet-4-5-20250929")
+results = invoke_parallel(prompts, model="claude-sonnet-4-6")
 
 for i, result in enumerate(results):
     print(f"\n=== Perspective {i+1} ===")
@@ -195,7 +195,7 @@ Single synchronous invocation with full control:
 ```python
 invoke_claude(
     prompt: str | list[dict],
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "claude-sonnet-4-6",
     system: str | list[dict] | None = None,
     max_tokens: int = 4096,
     temperature: float = 1.0,
@@ -209,7 +209,7 @@ invoke_claude(
 
 **Parameters:**
 - `prompt`: The user message (string or list of content blocks)
-- `model`: Claude model to use (default: claude-sonnet-4-5-20250929)
+- `model`: Claude model to use (default: claude-sonnet-4-6)
 - `system`: Optional system prompt (string or list of content blocks)
 - `max_tokens`: Maximum tokens in response (default: 4096)
 - `temperature`: Randomness 0-1 (default: 1.0)
@@ -230,7 +230,7 @@ Concurrent invocations using lightweight workflow pattern:
 ```python
 invoke_parallel(
     prompts: list[dict],
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "claude-sonnet-4-6",
     max_tokens: int = 4096,
     max_workers: int = 5,
     shared_system: str | list[dict] | None = None,
@@ -258,7 +258,7 @@ Stream responses in real-time with optional callbacks:
 invoke_claude_streaming(
     prompt: str | list[dict],
     callback: callable = None,
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "claude-sonnet-4-6",
     system: str | list[dict] | None = None,
     max_tokens: int = 4096,
     temperature: float = 1.0,
@@ -282,7 +282,7 @@ Parallel invocations with per-agent streaming callbacks:
 invoke_parallel_streaming(
     prompts: list[dict],
     callbacks: list[callable] = None,
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "claude-sonnet-4-6",
     max_tokens: int = 4096,
     max_workers: int = 5,
     shared_system: str | list[dict] | None = None,
@@ -319,7 +319,7 @@ Manages multi-turn conversations with automatic caching:
 ```python
 thread = ConversationThread(
     system: str | list[dict] | None = None,
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "claude-sonnet-4-6",
     max_tokens: int = 4096,
     temperature: float = 1.0,
     cache_system: bool = True
