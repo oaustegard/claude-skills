@@ -328,17 +328,26 @@ def _escape_fts5_server(query: str) -> str:
 def _fts5_search(search: str, *, n: int = 10, type: str = None,
                  tags: list = None, tag_mode: str = "any",
                  conf: float = None, session_id: str = None,
-                 since: str = None, until: str = None) -> list:
+                 since: str = None, until: str = None,
+                 episodic: bool = False) -> list:
     """Server-side FTS5 search via Turso with BM25 × recency × priority ranking.
 
     Queries the memory_fts virtual table on Turso, joining with the memories
     table for filtering and composite scoring. Returns ranked results without
     needing the local SQLite cache.
 
-    Composite score formula:
+    Standard composite score formula:
         bm25_score × (1 + priority × 0.3) × recency_decay
 
-    Where recency_decay = 1 / (1 + age_in_days × 0.01)
+    Episodic composite score formula (v5.1.0, #296):
+        bm25_score × (1 + priority × 0.3) × recency_decay × access_boost
+
+    Where:
+        recency_decay = 1 / (1 + age_in_days × 0.01)
+        access_boost = 1 + ln(1 + access_count) × 0.2  (episodic mode only)
+
+    BM25 column weights: id=0, summary=1.0, tags=1.0
+    (v5.1.0: tags weight increased from 0.5 to 1.0 for better tag search, #309)
 
     Args:
         search: Text to search for (required)
@@ -350,6 +359,7 @@ def _fts5_search(search: str, *, n: int = 10, type: str = None,
         session_id: Filter by session identifier
         since: Inclusive lower bound on timestamp (ISO format)
         until: Inclusive upper bound on timestamp (ISO format)
+        episodic: If True, include access-pattern boosting in score (#296)
 
     Returns:
         List of memory dicts with bm25_score and composite_score fields.
@@ -358,6 +368,7 @@ def _fts5_search(search: str, *, n: int = 10, type: str = None,
     Raises:
         RuntimeError: If FTS5 table doesn't exist or query fails
 
+    v5.1.0: Added episodic scoring mode (#296), increased tag weight (#309).
     v4.5.0: Initial implementation (#298).
     """
     fts_query = _escape_fts5_server(search)
@@ -404,13 +415,28 @@ def _fts5_search(search: str, *, n: int = 10, type: str = None,
     where = " AND ".join(conditions)
     params.append(n)
 
+    # v5.1.0: BM25 weights — id=0, summary=1.0, tags=1.0 (tags raised from 0.5, #309)
+    bm25_expr = "bm25(memory_fts, 0, 1.0, 1.0)"
+
+    # v5.1.0: Episodic scoring adds access-pattern boost (#296)
+    if episodic:
+        composite_expr = (
+            f"{bm25_expr}"
+            f" * (1.0 + COALESCE(m.priority, 0) * 0.3)"
+            f" * (1.0 / (1.0 + (julianday('now') - julianday(m.t)) * 0.01))"
+            f" * (1.0 + ln(1.0 + COALESCE(m.access_count, 0)) * 0.2)"
+        )
+    else:
+        composite_expr = (
+            f"{bm25_expr}"
+            f" * (1.0 + COALESCE(m.priority, 0) * 0.3)"
+            f" * (1.0 / (1.0 + (julianday('now') - julianday(m.t)) * 0.01))"
+        )
+
     sql = f"""
         SELECT m.*,
-               bm25(memory_fts, 0, 1.0, 0.5) AS bm25_score,
-               bm25(memory_fts, 0, 1.0, 0.5)
-                 * (1.0 + COALESCE(m.priority, 0) * 0.3)
-                 * (1.0 / (1.0 + (julianday('now') - julianday(m.t)) * 0.01))
-               AS composite_score
+               {bm25_expr} AS bm25_score,
+               {composite_expr} AS composite_score
         FROM memory_fts f
         JOIN memories m ON f.id = m.id
         WHERE memory_fts MATCH ?

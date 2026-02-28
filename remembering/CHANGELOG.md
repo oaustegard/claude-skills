@@ -2,6 +2,17 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [5.1.0] - 2026-02-28
+
+### Added
+
+- **Partial ID support** (#244): `forget()`, `supersede()`, `reprioritize()`, `strengthen()`, `weaken()` now accept abbreviated memory IDs. Resolves unique prefix to full UUID; raises `ValueError` on ambiguous or unmatched prefixes. New `_resolve_memory_id()` helper.
+- **Autonomous memory curation** (#295): New `curate()` function detects consolidation opportunities, stale memories, and recommends cleanup actions. Supports `dry_run=True` (analysis only) and `dry_run=False` (auto-apply consolidation and demotion).
+- **Episodic relevance scoring** (#296): New `episodic=True` parameter on `recall()` adds access-pattern boosting to composite score: `ln(1 + access_count) × 0.2`. Rewards memories validated through repeated retrieval.
+- **Decision trace storage** (#297): New `decision_trace()` convenience function creates structured decision memories with standardized fields (choice, context, rationale, alternatives, tradeoffs, contraindications). Auto-tagged `"decision-trace"`.
+- **FTS5 tag weight increase** (#309): Tag column BM25 weight raised from 0.5 to 1.0, so tagged memories rank higher when queries match tag terms.
+- **Improved summary_preview** (#309): Large multi-topic memories (>150 chars) now have tag-prefixed previews (e.g., `[mcp, architecture] Content...`), preventing misleading truncation.
+
 ## [5.0.0] - 2026-02-16
 
 ### Added

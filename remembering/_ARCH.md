@@ -35,8 +35,8 @@ Indexes:                            ├── session_id TEXT
 
 memory_fts (FTS5 virtual table)
 ├── id UNINDEXED
-├── summary
-└── tags
+├── summary           (BM25 weight: 1.0)
+└── tags              (BM25 weight: 1.0, raised from 0.5 in v5.1.0 #309)
 tokenize='porter unicode61'
 
 Triggers:
@@ -60,7 +60,8 @@ remembering/
     │                        credential loading, retry logic (503/429/SSL)
     ├── memory.py            Core CRUD: remember, recall, forget, supersede,
     │                        get_chain, recall_batch, remember_batch,
-    │                        recall_since, recall_between, group_by_type, group_by_tag
+    │                        recall_since, recall_between, group_by_type, group_by_tag,
+    │                        curate (#295), decision_trace (#297), _resolve_memory_id (#244)
     ├── config.py            Config CRUD: get/set/delete/list
     ├── boot.py              Boot sequence, journal, therapy, handoff, session continuity
     ├── hints.py             Proactive memory surfacing via Turso FTS5 (recall_hints)
@@ -141,14 +142,19 @@ _retry_with_backoff(fn, ...)
 
 ```
 With search term (FTS5):
-  composite_rank = BM25(fts) * recency_weight * priority_weight
+  composite_score = BM25(fts) × priority_weight × recency_decay
+
+With search term + episodic=True (v5.1.0, #296):
+  composite_score = BM25(fts) × priority_weight × recency_decay × access_boost
 
 Without search term:
-  composite_score = recency_weight * priority_weight
+  composite_score = recency_weight × priority_weight
 
 Where:
-  recency_weight = 1 / (1 + days_since_access / 30)    [0.5 if never accessed]
-  priority_weight = 1 + priority * 0.5                  [-1→0.5, 0→1.0, 1→1.5, 2→2.0]
+  recency_decay  = 1 / (1 + age_in_days × 0.01)
+  priority_weight = 1 + priority × 0.3               [-1→0.7, 0→1.0, 1→1.3, 2→1.6]
+  access_boost   = 1 + ln(1 + access_count) × 0.2    [0→1.0, 1→1.14, 10→1.48]
+  BM25 weights   = id:0, summary:1.0, tags:1.0       (tags raised from 0.5 in v5.1.0 #309)
 ```
 
 ## Runtime Utilities (muninn_utils)

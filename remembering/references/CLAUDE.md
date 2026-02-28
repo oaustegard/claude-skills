@@ -154,13 +154,14 @@ from scripts import group_by_type, group_by_tag
 from scripts import handoff_pending, handoff_complete
 from scripts import muninn_export, muninn_import
 from scripts import strengthen, weaken
-from scripts import cache_stats
 # v3.4.0: Type-safe results and proactive hints
 from scripts import MemoryResult, MemoryResultList, VALID_FIELDS, recall_hints
 # v3.5.0: GitHub access detection
 from scripts import detect_github_access
 # v4.5.0: Batch APIs
 from scripts import recall_batch, remember_batch
+# v5.1.0: Autonomous curation, decision traces
+from scripts import curate, decision_trace
 
 # Store a memory (type required)
 id = remember("User prefers dark mode", "decision", tags=["ui"], conf=0.9)
@@ -174,14 +175,16 @@ memories = recall("dark mode")  # FTS5 search with BM25 ranking
 memories = recall(type="decision", conf=0.8)  # filtered by type and confidence
 memories = recall(tags=["ui"])  # by tag (any match)
 memories = recall(tags=["urgent", "task"], tag_mode="all")  # require all tags
-# v0.13.0: Query expansion fallback automatically extracts tags from partial results
+# v5.1.0: Episodic scoring adds access-pattern boosting
+memories = recall("architecture", episodic=True)
 
 # Query memories - date-filtered
 recent = recall_since("2025-12-01T00:00:00Z", n=50)  # after timestamp
 range_mems = recall_between("2025-12-01T00:00:00Z", "2025-12-26T00:00:00Z")
 
-# Soft delete
-forget(memory_id)
+# Soft delete (supports partial IDs since v5.1.0)
+forget(memory_id)          # Full UUID
+forget("d5022772")         # Partial prefix (must be unique)
 
 # Version a memory (creates new, links to old)
 new_id = supersede(old_id, "Updated preference", "decision")
@@ -231,6 +234,17 @@ ids = remember_batch([
 state = muninn_export()  # all config + memories as JSON
 stats = muninn_import(state, merge=True)  # merge into existing
 stats = muninn_import(state, merge=False)  # replace all (destructive!)
+
+# Decision traces (v5.1.0) - structured architectural documentation
+decision_trace(
+    choice="Chose X", context="Problem Y", rationale="Because Z",
+    alternatives=[{"option": "A", "rejected": "reason"}],
+    tags=["architecture"]
+)
+
+# Autonomous curation (v5.1.0) - memory health management
+report = curate(dry_run=True)   # analyze without changes
+report = curate(dry_run=False)  # auto-consolidate and demote stale
 ```
 
 ## Memory Types

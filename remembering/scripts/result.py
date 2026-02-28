@@ -242,17 +242,35 @@ class MemoryResultList(list):
 def _normalize_memory(data: dict) -> dict:
     """Ensure a memory dict has all standard computed fields.
 
+    v5.1.0: summary_preview now includes tag context for multi-topic memories (#309).
     v3.7.0: Normalizes results from any source (cache or Turso) to have
     a consistent set of fields, preventing silent failures when code
     assumes fields like summary_preview exist.
 
     Adds missing computed fields:
-    - summary_preview: First 100 chars of summary (if summary present)
+    - summary_preview: Tag-prefixed first ~100 chars of summary (if summary present)
     - alternatives: Extracted from refs for decision memories (v4.2.0, #254)
     """
     if 'summary_preview' not in data and 'summary' in data:
         summary = data.get('summary') or ''
-        data['summary_preview'] = summary[:100]
+        tags_raw = data.get('tags')
+
+        # v5.1.0: Front-load tag context in preview for large multi-topic memories (#309)
+        # This ensures previews capture topical scope even when content starts with
+        # structurally-first (but potentially less relevant) material.
+        tag_prefix = ''
+        if tags_raw:
+            import json
+            try:
+                tag_list = json.loads(tags_raw) if isinstance(tags_raw, str) else (tags_raw or [])
+            except (json.JSONDecodeError, TypeError):
+                tag_list = []
+            if tag_list and len(summary) > 150:
+                # Only prefix tags on large memories where preview truncation matters
+                tag_prefix = '[' + ', '.join(tag_list[:5]) + '] '
+
+        preview_budget = 100 - len(tag_prefix)
+        data['summary_preview'] = tag_prefix + summary[:max(preview_budget, 50)]
 
     # v4.2.0: Extract alternatives from refs for decision memories (#254)
     if 'alternatives' not in data and data.get('type') == 'decision':
