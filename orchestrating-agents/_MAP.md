@@ -1,5 +1,5 @@
 # orchestrating-agents/
-*Files: 2 | Subdirectories: 2*
+*Files: 3 | Subdirectories: 2*
 
 ## Subdirectories
 
@@ -7,6 +7,10 @@
 - [scripts/](./scripts/_MAP.md)
 
 ## Files
+
+### CHANGELOG.md
+- orchestrating-agents - Changelog `h1` :1
+- [0.2.0] - 2026-02-28 `h2` :5
 
 ### README.md
 - orchestrating-agents `h1` :1
