@@ -2,7 +2,7 @@
 name: invoking-gemini
 description: Invokes Google Gemini models for structured outputs, multi-modal tasks, and Google-specific features. Use when users request Gemini, structured JSON output, Google API integration, or cost-effective parallel processing.
 metadata:
-  version: 0.0.3
+  version: 0.1.0
 ---
 
 # Invoking Gemini
@@ -53,27 +53,39 @@ See [references/models.md](references/models.md) for full model details.
 
 **Prerequisites:**
 
-1. Install google-generativeai:
-   ```bash
-   uv pip install google-generativeai pydantic
-   ```
+```bash
+uv pip install requests pydantic
+# google-generativeai only needed for direct API fallback:
+# uv pip install google-generativeai
+```
 
-2. Configure API key via project knowledge file:
+**Credentials — Option A (recommended): Cloudflare AI Gateway**
 
-   **Option 1 (recommended): Individual file**
-   - Create document: `GOOGLE_API_KEY.txt`
-   - Content: Your API key (e.g., `AIzaSy...`)
+Requests are routed through [Cloudflare AI Gateway](https://developers.cloudflare.com/ai-gateway/),
+bypassing IP blocks and gaining caching, analytics, and rate limiting.
 
-   **Option 2: Combined file**
-   - Create document: `API_CREDENTIALS.json`
-   - Content:
-     ```json
-     {
-       "google_api_key": "AIzaSy..."
-     }
-     ```
+Create `/mnt/project/proxy.env`:
+```
+CF_ACCOUNT_ID=<your-cloudflare-account-id>
+CF_GATEWAY_ID=<your-gateway-name>
+CF_API_TOKEN=<your-cf-api-token>
+# GOOGLE_API_KEY only needed if not using Cloudflare BYOK:
+# GOOGLE_API_KEY=AIzaSy...
+```
 
-   Get your API key: https://console.cloud.google.com/apis/credentials
+- Get your Cloudflare Account ID: Cloudflare dashboard → right sidebar
+- Create a gateway: Cloudflare dashboard → AI Gateway → Create gateway
+- Generate an API token: https://dash.cloudflare.com/profile/api-tokens
+- Store your Gemini key in the gateway (BYOK): AI Gateway → your gateway → API Keys
+
+**Credentials — Option B: Direct Google API (fallback)**
+
+If no `proxy.env` is found, the client falls back to direct Google API access:
+
+- Create document: `GOOGLE_API_KEY.txt` (content: `AIzaSy...`)
+- Or create `API_CREDENTIALS.json`: `{"google_api_key": "AIzaSy..."}`
+
+  Get your API key: https://console.cloud.google.com/apis/credentials
 
 ## Basic Usage
 
@@ -274,14 +286,25 @@ See [references/examples.md](references/examples.md) for:
 
 ## Troubleshooting
 
-**"API key not configured":**
-- Add project knowledge file `GOOGLE_API_KEY.txt` with your API key
-- Or add to `API_CREDENTIALS.json`: `{"google_api_key": "AIzaSy..."}`
+**"No credentials configured":**
+- Create `/mnt/project/proxy.env` with `CF_ACCOUNT_ID`, `CF_GATEWAY_ID`, `CF_API_TOKEN`
+- Or add `GOOGLE_API_KEY.txt` for direct API access
 - See Setup section above for details
+
+**CF Gateway 401/403:**
+- Verify your `CF_API_TOKEN` has AI Gateway permissions
+- Check that gateway authentication is enabled in the Cloudflare dashboard
+- If not using BYOK, add `GOOGLE_API_KEY` to `proxy.env`
+
+**CF Gateway 429 (rate limited):**
+- The client automatically retries with exponential backoff
+- Check your gateway's rate limit settings in Cloudflare dashboard
 
 **Import errors:**
 ```bash
-uv pip install google-generativeai pydantic
+uv pip install requests pydantic
+# For direct API fallback only:
+uv pip install google-generativeai
 ```
 
 **Schema validation failures:**
