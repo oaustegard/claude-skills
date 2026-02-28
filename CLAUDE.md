@@ -67,6 +67,19 @@ git checkout -b claude/new-feature-<session-id>
 - Attempting to push to a deleted branch will fail with 403 errors
 - Always verify branch state before assuming continuity
 
+## Test Before PR
+
+**CRITICAL**: Always test your code changes before creating a PR or pushing. Static analysis and syntax checks are not sufficient — run the actual functions against the live system to verify behavior.
+
+**Required testing workflow:**
+1. Verify syntax (AST parse or import check)
+2. Run the new/modified functions with real inputs and assert expected behavior
+3. Test edge cases (invalid inputs, empty results, error paths)
+4. Clean up any test data created during testing
+5. Only after all tests pass: commit, push, and create PR
+
+**If you cannot test** (e.g., missing credentials, network issues), explicitly tell the user what you were unable to verify rather than silently skipping tests.
+
 ## Environment-Specific Tips
 
 ### Environment Variable Access
