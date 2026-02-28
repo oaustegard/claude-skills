@@ -10,7 +10,7 @@
   - **__init__** (m) `(self, message: str, status_code: int = None, details: Any = None)` :111
 - **invoke_claude** (f) `(
     prompt: Union[str, list[dict]],
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "claude-sonnet-4-6",
     system: Union[str, list[dict], None] = None,
     max_tokens: int = 4096,
     temperature: float = 1.0,
@@ -23,7 +23,7 @@
 - **invoke_claude_streaming** (f) `(
     prompt: Union[str, list[dict]],
     callback: callable = None,
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "claude-sonnet-4-6",
     system: Union[str, list[dict], None] = None,
     max_tokens: int = 4096,
     temperature: float = 1.0,
@@ -33,7 +33,7 @@
 )` :327
 - **invoke_parallel** (f) `(
     prompts: list[dict],
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "claude-sonnet-4-6",
     max_tokens: int = 4096,
     max_workers: int = 5,
     shared_system: Union[str, list[dict], None] = None,
@@ -42,7 +42,7 @@
 - **invoke_parallel_streaming** (f) `(
     prompts: list[dict],
     callbacks: list[callable] = None,
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "claude-sonnet-4-6",
     max_tokens: int = 4096,
     max_workers: int = 5,
     shared_system: Union[str, list[dict], None] = None,
@@ -56,7 +56,7 @@
 - **invoke_parallel_interruptible** (f) `(
     prompts: list[dict],
     interrupt_token: InterruptToken = None,
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "claude-sonnet-4-6",
     max_tokens: int = 4096,
     max_workers: int = 5,
     shared_system: Union[str, list[dict], None] = None,
@@ -66,7 +66,7 @@
   - **__init__** (m) `(
         self,
         system: Union[str, list[dict], None] = None,
-        model: str = "claude-sonnet-4-5-20250929",
+        model: str = "claude-sonnet-4-6",
         max_tokens: int = 4096,
         temperature: float = 1.0,
         cache_system: bool = True
@@ -76,10 +76,10 @@
   - **clear** (m) `(self)` :777
   - **__len__** (m) `(self)` :781
 - **get_available_models** (f) `()` :786
-- **parse_json_response** (f) `(raw: str)` :802
+- **parse_json_response** (f) `(raw: str)` :803
 - **invoke_claude_json** (f) `(
     prompt: Union[str, list[dict]],
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "claude-sonnet-4-6",
     system: Union[str, list[dict], None] = None,
     max_tokens: int = 4096,
     temperature: float = 1.0,
@@ -87,7 +87,7 @@
     cache_prompt: bool = False,
     messages: list[dict] | None = None,
     **kwargs
-)` :828
+)` :829
 
 ### test_caching.py
 > Imports: `sys, pathlib, claude_client`
