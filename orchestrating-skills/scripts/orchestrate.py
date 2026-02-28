@@ -185,7 +185,7 @@ def _persist(
     except Exception:
         # Fallback: persist a brief summary directly
         content = f"{task}: {synthesized_result[:500]}"
-        mem_type = "world"
+        mem_type = "analysis"
         tags = []
         priority = 0
 

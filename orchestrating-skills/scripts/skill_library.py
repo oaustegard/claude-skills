@@ -127,12 +127,12 @@ PIPELINE_SKILLS = {
             "extract the most valuable insight for long-term storage.\n\n"
             "Return ONLY valid JSON with these fields:\n"
             '{"content": "concise insight (1-3 sentences)", '
-            '"type": "world|decision|experience|procedure|anomaly|interaction", '
+            '"type": "analysis|decision|experience|procedure|world|anomaly", '
             '"tags": ["tag1", "tag2"], '
             '"priority": 0}\n\n'
             "Guidelines:\n"
             "- content: the key finding or decision, not a summary of the process\n"
-            "- type: 'decision' for choices made, 'world' for factual findings, "
+            "- type: 'analysis' for findings, 'decision' for choices made, "
             "'experience' for observations, 'procedure' for how-to knowledge\n"
             "- tags: 2-5 lowercase hyphenated identifiers relevant to the domain\n"
             "- priority: 1 for significant/durable insights, 0 for routine observations"
