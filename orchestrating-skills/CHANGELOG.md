@@ -47,6 +47,16 @@
 - Section header context pointers
 - Parallel execution via orchestrating-agents
 
+## [0.3.0] - 2026-02-28
+
+### Added
+
+- add remember as first-class pipeline skill (closes #328)
+
+### Fixed
+
+- add analysis memory type instead of overloading world (#328)
+
 ## [0.2.0] - 2026-02-28
 
 ### Other

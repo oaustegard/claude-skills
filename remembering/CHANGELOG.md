@@ -4,6 +4,13 @@ All notable changes to the `remembering` skill (Muninn) are documented in this f
 
 ## [5.1.1] - 2026-02-28
 
+### Fixed
+
+- add analysis memory type instead of overloading world (#328)
+- skip gh install when already available (#245)
+
+## [5.1.1] - 2026-02-28
+
 ### Added
 
 - `analysis` memory type for findings from structured analysis or research (#328)
