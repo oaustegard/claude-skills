@@ -1,5 +1,5 @@
 # claude-skills/
-*Files: 4 | Subdirectories: 45*
+*Files: 4 | Subdirectories: 46*
 
 ## Subdirectories
 
@@ -39,6 +39,7 @@
 - [making-waffles/](./making-waffles/_MAP.md)
 - [mapping-codebases/](./mapping-codebases/_MAP.md)
 - [orchestrating-agents/](./orchestrating-agents/_MAP.md)
+- [orchestrating-skills/](./orchestrating-skills/_MAP.md)
 - [remembering/](./remembering/_MAP.md)
 - [reviewing-ai-papers/](./reviewing-ai-papers/_MAP.md)
 - [sampling-bluesky-zeitgeist/](./sampling-bluesky-zeitgeist/_MAP.md)
