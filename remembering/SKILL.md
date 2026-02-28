@@ -2,7 +2,7 @@
 name: remembering
 description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, retention management, type-safe results, proactive memory hints, GitHub access detection, autonomous curation, episodic scoring, and decision traces.
 metadata:
-  version: 5.2.0
+  version: 5.3.0
 ---
 
 # Remembering - Advanced Operations
@@ -420,6 +420,53 @@ How it works:
 
 Integrates into the existing therapy workflow between pruning and synthesis phases.
 
+## Task Discipline (v5.3.0, #332)
+
+Structural enforcement for multi-step work. Prevents premature completion.
+
+```python
+from scripts.task import task, task_resume, incomplete_tasks, recall_gate
+
+# Create task with type-specific checklist
+t = task("Analyze bluesky trends", task_type="analysis")
+# Steps auto-loaded: recall → synthesize → verify → store
+
+# Mark steps complete
+t.done("recall").done("synthesize").done("verify")
+
+# Prefix incomplete output with warning
+output = t.incomplete_prefix("My analysis...")
+# → "INCOMPLETE: [store not done]\n\nMy analysis..."
+
+# deliver() auto-marks store step
+deliver(content, "analysis", tags=["trends"], task=t)
+
+# complete() raises with structured report if steps remain
+print(t.complete())
+# → "✓ Task 'Analyze bluesky trends' complete (12.3s)\n  Type: analysis\n  Verified:..."
+
+# Cross-session continuity — tasks persist in Turso
+t = task_resume("Analyze bluesky trends")  # → Task object or None
+
+# Boot surfaces incomplete tasks automatically
+# → # INCOMPLETE TASKS (1)\n⚠️  Resume these before starting new work:...
+
+# recall_gate: enforce recall() before analysis
+with recall_gate("bluesky zeitgeist") as gate:
+    results = gate.recall("bluesky trends", n=10)
+    # ... analyze results
+# Raises if recall not called or returns empty
+```
+
+Task types and their checklists:
+
+| Type | Steps |
+|------|-------|
+| `analysis` | recall → synthesize → verify → store |
+| `research` | recall → search → read → synthesize → store |
+| `synthesis` | recall → outline → write → verify → store |
+| `zeitgeist` | recall → sample → cluster → summarize → store |
+
 ## Advanced Topics
 
 For architecture details, see [_ARCH.md](_ARCH.md).
@@ -443,3 +490,4 @@ See [references/advanced-operations.md](references/advanced-operations.md) for:
 - Autonomous curation (`curate`) for memory health management
 - Decision traces (`decision_trace`) for structured architectural documentation
 - Episodic relevance scoring (`episodic=True` in `recall`) for access-pattern boosting
+- Task discipline (`task`, `task_resume`, `incomplete_tasks`, `recall_gate`) for structural enforcement

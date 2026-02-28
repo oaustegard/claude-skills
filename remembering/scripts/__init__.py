@@ -1,5 +1,7 @@
 """Remembering - Minimal persistent memory for Claude.
 
+v5.3.0: Task discipline (#332) — type-specific checklists, verification reports,
+        cross-session persistence, recall_gate context manager, boot surfacing.
 v5.1.0: Partial ID support (#244), autonomous curation (#295), episodic scoring (#296),
         decision traces (#297), FTS5 tag weight + preview improvements (#309).
 v5.0.0: Removed local SQLite cache. All operations go through Turso FTS5.
@@ -71,6 +73,12 @@ from .boot import (
 # Import utilities layer
 from .utilities import install_utilities, UTIL_DIR
 
+# Import task discipline layer (#332)
+from .task import (
+    task, Task, task_resume, incomplete_tasks,
+    recall_gate, CHECKLISTS,
+)
+
 # Short aliases
 r = remember
 q = recall
@@ -101,5 +109,8 @@ __all__ = [
     # v3.4.0: Type-safe results and proactive hints
     "MemoryResult", "MemoryResultList", "VALID_FIELDS", "recall_hints",
     "_exec",  # v3.9.0: Raw SQL execution for utilities
-    "r", "q", "j", "TYPES"  # aliases & constants
+    "r", "q", "j", "TYPES",  # aliases & constants
+    # v5.2.0: Task discipline (#332)
+    "task", "Task", "task_resume", "incomplete_tasks",
+    "recall_gate", "CHECKLISTS",
 ]
