@@ -143,6 +143,19 @@ This repository has navigable code maps generated via the mapping-codebases skil
 
 **Why this matters**: This repository has 36 skills with scripts, references, and supporting files. Maps provide structure without overwhelming context windows.
 
+**Anti-pattern to avoid**: Running multiple grep calls to locate functions or understand a module's structure is a signal you should have read the `_MAP.md` first. If you find yourself issuing a second grep to explore the same skill or script directory, stop — read that directory's `_MAP.md` instead.
+
+```bash
+# WRONG: multiple greps to understand a module
+grep -n "install_utilities" remembering/scripts/boot.py
+grep -n "PURPOSE\|USE WHEN\|DEPS" remembering/references/CLAUDE.md
+grep -n "utility-code\|muninn_utils" remembering/SKILL.md
+
+# RIGHT: one read to orient, then targeted lookups
+Read remembering/scripts/_MAP.md   # shows install_utilities signature + line number
+Read remembering/references/_MAP.md  # shows what advanced-operations.md covers
+```
+
 ### Keeping Maps Fresh
 
 **CRITICAL - Before ANY git commit:**

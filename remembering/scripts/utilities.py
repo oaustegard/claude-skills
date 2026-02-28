@@ -11,7 +11,7 @@ def install_utilities() -> dict:
     Called by boot() after cache refresh.
 
     Returns:
-        Dict mapping utility names to file paths
+        Dict mapping utility names to {"path": file_path, "use_when": str|None}
     """
     from .memory import recall
 
@@ -36,9 +36,16 @@ def install_utilities() -> dict:
             continue
         code = content.split(CODE_START, 1)[1].split(CODE_END, 1)[0].strip()
 
+        # Parse USE WHEN: from header (between PURPOSE: and DEPS:)
+        use_when = None
+        for line in content.split("\n"):
+            if line.startswith("USE WHEN:"):
+                use_when = line.replace("USE WHEN:", "").strip()
+                break
+
         file_path = os.path.join(UTIL_DIR, f"{name}.py")
         with open(file_path, 'w') as f:
             f.write(code + "\n")
-        installed[name] = file_path
+        installed[name] = {"path": file_path, "use_when": use_when}
 
     return installed

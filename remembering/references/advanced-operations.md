@@ -26,7 +26,32 @@ Boot includes a `# CAPABILITIES` section reporting:
 **Utilities:**
 - Extracts utility-code memories to `/home/claude/muninn_utils/`
 - Adds to Python path for direct import
-- Lists available utilities with import syntax
+- Lists available utilities with import syntax and `USE WHEN` guidance
+
+### Utility Memory Storage Format
+
+Utility memories tagged `utility-code` must follow this header format:
+
+```
+NAME: module_name
+PURPOSE: one-line description of what it does
+USE WHEN: phrase describing when to reach for this — NOT alternatives (e.g. "checking GitHub issue status — NOT gh CLI")
+DEPS: comma-separated Python package requirements
+<<<PYTHON>>>
+# ... module code ...
+<<<END>>>
+```
+
+The `USE WHEN:` field (positioned between `PURPOSE:` and `DEPS:`) is displayed as an inline comment in boot output:
+
+```
+## Utilities (3)
+  from muninn_utils import github_tasks  # checking GitHub issue status — NOT gh CLI
+  from muninn_utils import strengthen_memory  # reinforcing memories after recall
+  from muninn_utils import therapy  # memory consolidation and deduplication
+```
+
+This field is optional but strongly recommended — it eliminates guesswork about which utility to use for a given task.
 
 ### Detecting GitHub Access Programmatically
 
