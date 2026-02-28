@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.3.0 (2026-02-28)
+
+### Added
+- `remember` as a first-class pipeline skill (closes #328)
+  - Executes post-synthesis in Phase 4, not as a parallel subagent
+  - Uses LLM distillation to extract the key insight before writing to memory
+  - Falls back gracefully if `remembering` skill is unavailable
+- `persist=True` parameter on `orchestrate()` — auto-injects a `remember` subtask
+  without requiring it in the planner's JSON
+- `memory_ids` field in the return dict — list of stored memory IDs
+- `PIPELINE_SKILLS` dict in `skill_library.py` for skills that run outside Phase 3
+
+### Changed
+- `collect_results()` now accepts `skills` kwarg; pipeline-only skills are excluded
+  from synthesis input (storage artifacts, not analytical content)
+- `build_all_prompts()` skips pipeline-only skills (they have no subagent prompt)
+- `skill_catalog()` includes pipeline skills so the planner can emit them
+- `orchestrate()` `skills` kwarg now **merges** with built-in skills instead of
+  replacing them entirely
+
 ## 0.2.0 (2026-02-27)
 
 ### Breaking Changes

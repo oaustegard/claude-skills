@@ -116,9 +116,36 @@ SKILLS = {
 }
 
 
+PIPELINE_SKILLS = {
+    "remember": {
+        "description": (
+            "Persist key findings, decisions, or conclusions to long-term memory. "
+            "Use as the final subtask when analytical work should be stored for future sessions."
+        ),
+        "system_prompt": (
+            "You are a memory distillation specialist. Given a completed analysis, "
+            "extract the most valuable insight for long-term storage.\n\n"
+            "Return ONLY valid JSON with these fields:\n"
+            '{"content": "concise insight (1-3 sentences)", '
+            '"type": "analysis|decision|experience|procedure|world|anomaly", '
+            '"tags": ["tag1", "tag2"], '
+            '"priority": 0}\n\n'
+            "Guidelines:\n"
+            "- content: the key finding or decision, not a summary of the process\n"
+            "- type: 'analysis' for findings, 'decision' for choices made, "
+            "'experience' for observations, 'procedure' for how-to knowledge\n"
+            "- tags: 2-5 lowercase hyphenated identifiers relevant to the domain\n"
+            "- priority: 1 for significant/durable insights, 0 for routine observations"
+        ),
+        "output_hint": '{"content": str, "type": str, "tags": list, "priority": 0|1}',
+        "_pipeline_only": True,
+    },
+}
+
+
 def get_skill(name: str) -> dict | None:
-    """Get a skill by name."""
-    return SKILLS.get(name)
+    """Get a skill by name. Includes pipeline-only skills."""
+    return SKILLS.get(name) or PIPELINE_SKILLS.get(name)
 
 
 def list_skills() -> list[str]:
@@ -127,5 +154,7 @@ def list_skills() -> list[str]:
 
 
 def skill_catalog() -> str:
-    """Compact catalog string for orchestrator prompts."""
-    return "\n".join(f"- {name}: {s['description']}" for name, s in SKILLS.items())
+    """Compact catalog string for orchestrator prompts (includes pipeline skills)."""
+    lines = [f"- {name}: {s['description']}" for name, s in SKILLS.items()]
+    lines += [f"- {name}: {s['description']}" for name, s in PIPELINE_SKILLS.items()]
+    return "\n".join(lines)

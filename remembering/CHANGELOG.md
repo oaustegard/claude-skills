@@ -2,6 +2,12 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [5.1.1] - 2026-02-28
+
+### Added
+
+- `analysis` memory type for findings from structured analysis or research (#328)
+
 ## [5.1.0] - 2026-02-28
 
 ### Added

@@ -2,7 +2,7 @@
 name: remembering
 description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, retention management, type-safe results, proactive memory hints, GitHub access detection, autonomous curation, episodic scoring, and decision traces.
 metadata:
-  version: 5.1.0
+  version: 5.1.1
 ---
 
 # Remembering - Advanced Operations
@@ -44,9 +44,10 @@ Boot includes a `# CAPABILITIES` section reporting GitHub access and installed u
 | `anomaly` | Errors, bugs, unexpected behavior | |
 | `experience` | General observations, catch-all | |
 | `procedure` | Workflows, step-by-step processes, decision trees | conf=0.9, priority=1 |
+| `analysis` | Findings from structured analysis or research | |
 
 ```python
-from scripts import TYPES  # {'decision', 'world', 'anomaly', 'experience', 'procedure'}
+from scripts import TYPES  # {'decision', 'world', 'anomaly', 'experience', 'procedure', 'analysis', ...}
 ```
 
 ### Procedural Memories (v4.4.0)
