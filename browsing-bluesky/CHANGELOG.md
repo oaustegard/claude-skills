@@ -2,6 +2,16 @@
 
 All notable changes to the `browsing-bluesky` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.5.1] - 2026-02-28
+
+### Fixed
+
+- document actual sample_firehose() return format and add missing bsky utility exports
+
+### Other
+
+- Add fetch_all parameter to recall() for comprehensive memory retrieval
+
 ## [0.5.0] - 2026-02-08
 
 ### Added
