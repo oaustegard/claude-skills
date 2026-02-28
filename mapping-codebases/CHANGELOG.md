@@ -6,6 +6,13 @@ All notable changes to the `mapping-codebases` skill are documented in this file
 
 ### Added
 
+- add TS signatures, export defaults, Go/Rust/Ruby methods, verbose flag
+- fix three issues - aliases, expansion threshold, return format (v3.7.0)
+
+## [0.7.0] - 2026-02-28
+
+### Added
+
 - TypeScript: full function/method signatures with parameters and return types (#234)
 - TypeScript: `export default` function, class, and identifier declarations (#233)
 - TypeScript: `export interface` and `export const/let` declarations
