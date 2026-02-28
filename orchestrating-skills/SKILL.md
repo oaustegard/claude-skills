@@ -1,17 +1,15 @@
 ---
 name: orchestrating-skills
 description: >-
-  Skill-aware orchestration with bash-mediated context routing. Decomposes complex
-  tasks into skill-typed subtasks, extracts targeted context subsets without redundant
-  reparsing, executes subagents in parallel with specialized instructions, and
-  synthesizes results. Self-answers trivial subtasks inline. Use when tasks require
-  multiple analytical perspectives (comparison + critique + synthesis), when context
-  is large and subtasks only need portions, or when orchestrating-agents spawns too
-  many redundant subagents.
+  Skill-aware orchestration with context routing. Decomposes complex tasks into
+  skill-typed subtasks, extracts targeted context subsets, executes subagents in
+  parallel, and synthesizes results. Self-answers trivial lookups inline. No SDK
+  dependency — uses raw HTTP via httpx. Use when tasks require multiple analytical
+  perspectives, when context is large and subtasks only need portions, or when
+  orchestrating-agents spawns too many redundant subagents.
 metadata:
-  version: 0.1.0
-  depends_on:
-    - orchestrating-agents
+  version: 0.2.0
+  depends_on: []
 ---
 
 # Skill-Aware Orchestration
@@ -23,8 +21,7 @@ redundant context processing and reflexive subagent spawning.
 
 - Task requires **multiple analytical perspectives** (e.g., compare + critique + synthesize)
 - Context is large and **subtasks only need portions** of it
-- Simple subtasks should be **self-answered** without spawning subagents
-- Current `orchestrating-agents` + `tiling-tree` pattern produces too many redundant calls
+- Simple lookups should be **self-answered** without spawning subagents
 
 ## When NOT to Use
 
@@ -47,6 +44,12 @@ result = orchestrate(
 print(result["result"])
 ```
 
+## Dependencies
+
+- **httpx** (usually pre-installed; `pip install httpx` if not)
+- **No Anthropic SDK required**
+- API key: reads `ANTHROPIC_API_KEY` env var or `/mnt/project/claude.env`
+
 ## Four-Phase Pipeline
 
 ### Phase 1: Planning (LLM)
@@ -62,72 +65,63 @@ The orchestrator reads the full context **once** and produces a JSON plan:
       "context_pointers": {"sections": ["Architecture A", "Architecture B"]}
     },
     {
-      "task": "Extract all cost figures and projections",
-      "skill": "fact_extraction",
-      "context_pointers": {"sections": ["Cost Analysis"]}
-    },
-    {
-      "task": "What is the team's current headcount?",
+      "task": "What is the project budget?",
       "skill": "self",
-      "answer": "12 engineers (stated in paragraph 2)"
+      "answer": "$2.4M"
     }
   ]
 }
 ```
 
 Key behaviors:
-- Assigns exactly one skill per subtask from the built-in library
-- Uses `"self"` for trivial lookups (avoids spawning a subagent for simple questions)
-- Context pointers use **section headers** (structural, edit-resilient) as primary method
+- Assigns one skill per subtask from the built-in library
+- Uses `"self"` for direct lookups (numbers, names, dates) — no subagent spawned
+- Self-answering is an LLM judgment call, not a sentence-count heuristic
+- Context pointers use **section headers** (structural, edit-resilient)
 
 ### Phase 2: Assembly (Deterministic Code)
 
-No LLM calls. The assembler:
-1. Extracts context subsets using section headers or line ranges
-2. Pairs each subset with the assigned skill's system prompt
-3. Builds prompt dicts ready for `invoke_parallel`
+No LLM calls. Extracts context subsets using section headers or line ranges,
+pairs each with the assigned skill's system prompt, builds prompt dicts.
 
 ### Phase 3: Execution (Parallel LLM)
 
-Subagent prompts run in parallel via `orchestrating-agents.invoke_parallel`.
+Delegated subtasks run in parallel via `concurrent.futures.ThreadPoolExecutor`.
 Each subagent receives **only its context slice** and **skill-specific instructions**.
 
-### Phase 4: Synthesis (Deterministic Code + LLM)
+### Phase 4: Synthesis (LLM)
 
-1. Code collects results and interleaves self-answered results
-2. A synthesizer LLM combines all results into a coherent response
+Collects all results (self-answered + subagent), synthesizes into a coherent
+response that reads as if a single expert wrote it.
 
 ## Built-in Skill Library
 
-Eight task-oriented skills, each with specialized system prompt and output schema:
+Eight task-oriented skills:
 
-| Skill | Purpose | Self-answer ceiling |
-|-------|---------|-------------------|
-| `analytical_comparison` | Compare items along dimensions with trade-offs | 2 sentences |
-| `fact_extraction` | Extract facts with source attribution | 3 sentences |
-| `structured_synthesis` | Combine multiple sources into narrative | 1 sentence |
-| `causal_reasoning` | Identify cause-effect chains | 1 sentence |
-| `critique` | Evaluate arguments for soundness | 1 sentence |
-| `classification` | Categorize items with rationale | 5 sentences |
-| `summarization` | Produce concise summaries | 4 sentences |
-| `gap_analysis` | Identify missing information | 2 sentences |
-
-The self-answer ceiling determines when the orchestrator handles a subtask inline
-rather than spawning a subagent.
+| Skill | Purpose |
+|-------|---------|
+| `analytical_comparison` | Compare items along dimensions with trade-offs |
+| `fact_extraction` | Extract facts with source attribution |
+| `structured_synthesis` | Combine multiple sources into narrative |
+| `causal_reasoning` | Identify cause-effect chains |
+| `critique` | Evaluate arguments for soundness |
+| `classification` | Categorize items with rationale |
+| `summarization` | Produce concise summaries |
+| `gap_analysis` | Identify missing information |
 
 ## API Reference
 
 ### `orchestrate(context, task, **kwargs) -> dict`
 
-Main entry point. Returns:
+Returns:
 
 ```python
 {
     "result": "Final synthesized response",
-    "plan": {...},           # Orchestrator's decomposition
-    "subtask_count": 4,      # Total subtasks
-    "self_answered": 1,      # Handled inline
-    "delegated": 3,          # Sent to subagents
+    "plan": {...},
+    "subtask_count": 4,
+    "self_answered": 1,
+    "delegated": 3,
 }
 ```
 
@@ -135,10 +129,9 @@ Parameters:
 - `context` (str): Full context to process
 - `task` (str): What to accomplish
 - `model` (str): Claude model, default `claude-sonnet-4-6`
-- `max_tokens` (int): Per-subagent token limit, default 4096
-- `synthesis_max_tokens` (int): Synthesis token limit, default 8192
+- `max_tokens` (int): Per-subagent token limit, default 2048
+- `synthesis_max_tokens` (int): Synthesis token limit, default 4096
 - `max_workers` (int): Parallel subagent limit, default 5
-- `self_answer_ceiling` (int): Sentence threshold for self-answering, default 3
 - `skills` (dict): Custom skill library (overrides built-in)
 - `verbose` (bool): Print progress to stderr
 
@@ -148,35 +141,27 @@ Parameters:
 python orchestrate.py \
     --context-file report.md \
     --task "Analyze this report" \
-    --verbose \
-    --json
+    --verbose --json
 ```
 
 ## Extending the Skill Library
 
-Add custom skills by passing a dict to `orchestrate(skills=...)`:
-
 ```python
+from skill_library import SKILLS
+
 custom_skills = {
+    **SKILLS,
     "code_review": {
         "description": "Review code for bugs, style, and security",
         "system_prompt": "You are a code review specialist...",
         "output_hint": "issues_list with severity and fix suggestions",
-        "self_answer_ceiling": 1,
     }
 }
 
-# Merge with built-in skills
-from skill_library import SKILLS
-all_skills = {**SKILLS, **custom_skills}
-
-result = orchestrate(context=code, task="Review this PR", skills=all_skills)
+result = orchestrate(context=code, task="Review this PR", skills=custom_skills)
 ```
 
 ## Architecture Details
 
-See [references/architecture.md](references/architecture.md) for:
-- Context pointer design decisions
-- Self-answering heuristics
-- Token efficiency analysis
-- Comparison with SkillOrchestra (arXiv 2602.19672)
+See [references/architecture.md](references/architecture.md) for design decisions,
+token efficiency analysis, and comparison with SkillOrchestra (arXiv 2602.19672).

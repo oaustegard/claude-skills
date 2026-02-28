@@ -39,24 +39,24 @@ Implementation in `assembler.py`:
 
 ### Self-Answering Heuristics
 
-The orchestrator uses a **sentence ceiling** per skill to decide whether to self-answer:
+**v0.1.0** used per-skill sentence count ceilings. This was dropped in v0.2.0
+because:
 
-```
-If estimated_answer_length < skill.self_answer_ceiling sentences:
-    Use skill="self" and provide inline answer
-Else:
-    Delegate to subagent
-```
+1. The planner LLM ignored the ceilings in practice (0 self-answers on test doc)
+2. Sentence counts are a poor proxy for task complexity — a 2-sentence causal
+   chain is harder than a 5-sentence list of facts
+3. The ceiling was a coarse Python parameter trying to encode what should be an
+   agentic judgment call
 
-Ceilings vary by skill complexity:
-- `classification` (5): Simple categorization often needs one word
-- `summarization` (4): Brief summaries can be inline
-- `fact_extraction` (3): Single-fact lookups are trivial
-- `analytical_comparison` (2): Even short comparisons benefit from structure
-- `critique`, `causal_reasoning`, `structured_synthesis` (1): Almost always needs depth
+**v0.2.0** gives the planner clear criteria instead:
 
-The orchestrator LLM makes this judgment during planning. The ceiling is guidance,
-not a hard rule — the LLM can override based on context complexity.
+> Use "self" when the answer is a direct lookup — a number, a name, a date,
+> a definition — that requires no reasoning, analysis, or comparison. If you
+> already know the answer from reading the context, include it inline.
+
+This produces correct self-answering behavior: on a mixed task with 3 lookups
+and 1 analytical comparison, the planner self-answered the 3 lookups and
+delegated only the comparison.
 
 ### Skill Granularity: Broad Taxonomy
 
@@ -164,15 +164,13 @@ skill system with key differences:
 |--------|---------------|------------|
 | Skill source | Learned from training data | Explicit skill library with system prompts |
 | Context routing | Embedding-based retrieval | Structural extraction (headers/lines) |
-| Self-answering | Confidence threshold | Sentence ceiling per skill type |
-| Parallelism | Framework-dependent | ThreadPoolExecutor via orchestrating-agents |
+| Self-answering | Confidence threshold | LLM judgment (lookup vs. analysis) |
+| Parallelism | Framework-dependent | ThreadPoolExecutor + httpx (no SDK) |
 | Extensibility | Requires retraining | Pass custom skill dict at runtime |
 
 ## Error Handling
 
-- **Orchestrator produces invalid JSON**: `invoke_claude_json` retries with fence-stripping
+- **Orchestrator produces invalid JSON**: `call_claude_json` strips markdown fences before parsing
 - **Unknown skill in plan**: Falls back to generic "helpful assistant" system prompt
-- **Subagent failure**: `invoke_parallel` raises `ClaudeInvocationError`; caller can
-  retry or degrade gracefully
+- **Subagent failure**: `httpx` raises on HTTP errors; `call_parallel` propagates exceptions
 - **Empty context slice**: If section headers don't match, falls back to full context
-  (logged as warning in verbose mode)

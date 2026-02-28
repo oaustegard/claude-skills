@@ -1,54 +1,31 @@
 # scripts/
-*Files: 4*
 
-## Files
+## client.py
+Minimal Claude API client. No SDK dependency.
+- `call_claude(prompt, system, model, max_tokens, temperature) → str`
+- `call_claude_json(prompt, system, model, max_tokens, temperature) → dict`
+- `call_parallel(prompts, model, max_tokens, max_workers) → list[str]`
 
-### __init__.py
-> Imports: `.orchestrate, .skill_library, .assembler`
-- *No top-level symbols*
+## orchestrate.py
+Main pipeline entry point.
+- `orchestrate(context, task, model, max_tokens, synthesis_max_tokens, max_workers, skills, verbose) → dict`
+- `_plan(context, task, model) → dict` — Phase 1 decomposition
+- `_execute(prompts, model, max_tokens, max_workers) → list[str]` — Phase 3 parallel
+- `_synthesize(original_task, collected, model, max_tokens) → str` — Phase 4
 
-### assembler.py
-> Imports: `re, typing`
-- **extract_sections** (f) `(context: str, headers: list[str])` :21
-- **extract_lines** (f) `(context: str, ranges: list[tuple[int, int]])` :78
-- **extract_context_subset** (f) `(
-    context: str,
-    sections: Optional[list[str]] = None,
-    line_ranges: Optional[list[tuple[int, int]]] = None,
-)` :101
-- **build_subagent_prompt** (f) `(
-    task_description: str,
-    context_slice: str,
-    skill_system: str,
-    output_hint: str,
-)` :143
-- **build_all_prompts** (f) `(plan: dict, context: str, skills: dict)` :176
-- **collect_results** (f) `(
-    plan: dict,
-    subagent_responses: list[str],
-)` :238
-- **build_synthesis_prompt** (f) `(
-    original_task: str,
-    collected_results: str,
-)` :284
+## assembler.py
+Deterministic context extraction and prompt assembly.
+- `extract_sections(context, headers) → str`
+- `extract_lines(context, ranges) → str`
+- `extract_context_subset(context, sections, line_ranges) → str`
+- `build_subagent_prompt(task, context_slice, skill_system, output_hint) → dict`
+- `build_all_prompts(plan, context, skills) → list[dict]`
+- `collect_results(plan, subagent_responses) → str`
+- `build_synthesis_prompt(original_task, collected_results) → dict`
 
-### orchestrate.py
-> Imports: `argparse, json, sys, os, pathlib`...
-- **orchestrate** (f) `(
-    context: str,
-    task: str,
-    model: str = "claude-sonnet-4-6",
-    max_tokens: int = 4096,
-    synthesis_max_tokens: int = 8192,
-    max_workers: int = 5,
-    self_answer_ceiling: int = 3,
-    skills: Optional[dict] = None,
-    verbose: bool = False,
-)` :230
-- **main** (f) `()` :336
-
-### skill_library.py
-- **get_skill** (f) `(name: str)` :162
-- **list_skills** (f) `()` :167
-- **skill_catalog** (f) `()` :172
-
+## skill_library.py
+Built-in skill definitions.
+- `SKILLS: dict` — 8 analytical skills
+- `get_skill(name) → dict | None`
+- `list_skills() → list[str]`
+- `skill_catalog() → str`

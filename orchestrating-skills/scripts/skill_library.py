@@ -1,166 +1,123 @@
 """
 Task-oriented skill library for orchestrated workflows.
 
-Each skill defines a system prompt, output schema hint, and self-answer threshold
-that the orchestrator uses to route subtasks to appropriately-instructed subagents.
+Each skill defines a system prompt and output hint. Self-answering decisions
+are made by the orchestrator LLM based on task complexity, not sentence counts.
 """
 
 SKILLS = {
     "analytical_comparison": {
-        "description": "Compare two or more items along specified dimensions, producing a structured evaluation with trade-offs.",
+        "description": "Compare items along dimensions with trade-offs and a recommendation.",
         "system_prompt": (
-            "You are an analytical comparison specialist. Your task is to compare "
-            "the given items along the dimensions specified, producing a structured "
-            "evaluation.\n\n"
-            "Requirements:\n"
+            "You are an analytical comparison specialist. Compare the given items "
+            "along the specified dimensions.\n\n"
             "- Evaluate each item on every dimension\n"
-            "- State trade-offs explicitly (what you gain vs. lose)\n"
-            "- Avoid false equivalences — if one option dominates, say so\n"
-            "- Use concrete evidence from the provided context, not general knowledge\n\n"
-            "Output format:\n"
-            "1. Dimension-by-dimension analysis\n"
-            "2. Trade-off summary\n"
-            "3. Recommendation with confidence level (high/medium/low)"
+            "- State trade-offs explicitly\n"
+            "- If one option dominates, say so\n"
+            "- Use evidence from context, not general knowledge\n"
+            "- Be direct and concise — no preamble, no filler\n\n"
+            "Structure: dimension analysis → trade-off summary → recommendation with confidence"
         ),
-        "output_hint": "comparison_table + trade_offs + recommendation",
-        "self_answer_ceiling": 2,
+        "output_hint": "comparison + trade_offs + recommendation",
     },
     "fact_extraction": {
-        "description": "Extract specific facts, data points, or claims from context, with source attribution.",
+        "description": "Extract facts and data points with source attribution.",
         "system_prompt": (
-            "You are a fact extraction specialist. Your task is to identify and "
-            "extract specific facts, data points, or claims from the provided context.\n\n"
-            "Requirements:\n"
-            "- Extract only what is explicitly stated — no inferences\n"
-            "- Attribute each fact to its source location (section header or line)\n"
-            "- Flag ambiguous or contradictory statements\n"
-            "- Preserve exact numbers, dates, and proper nouns\n\n"
-            "Output format:\n"
-            "Return a list of extracted facts, each with:\n"
-            "- fact: The extracted statement\n"
-            "- source: Where in the context it appears\n"
-            "- confidence: high (verbatim) / medium (paraphrased) / low (implied)"
+            "You are a fact extraction specialist. Extract specific facts, "
+            "data points, and claims from the provided context.\n\n"
+            "- Only what is explicitly stated — no inferences\n"
+            "- Attribute each fact to its source section\n"
+            "- Flag contradictions\n"
+            "- Preserve exact numbers, dates, proper nouns\n"
+            "- Tabular format preferred when extracting many items\n\n"
+            "Structure: list of {fact, source, confidence: high|medium|low}"
         ),
         "output_hint": "list of {fact, source, confidence}",
-        "self_answer_ceiling": 3,
     },
     "structured_synthesis": {
-        "description": "Combine information from multiple sources into a coherent narrative or document section.",
+        "description": "Combine multiple sources into a coherent narrative.",
         "system_prompt": (
-            "You are a synthesis specialist. Your task is to combine information "
-            "from multiple context sections into a coherent, well-structured output.\n\n"
-            "Requirements:\n"
-            "- Integrate, don't concatenate — find connections between sources\n"
+            "You are a synthesis specialist. Combine information from multiple "
+            "context sections into a coherent output.\n\n"
+            "- Integrate, don't concatenate\n"
             "- Resolve contradictions by noting both positions\n"
-            "- Maintain logical flow (cause→effect, general→specific, or chronological)\n"
-            "- Cite which source contributed each point\n\n"
-            "Output format:\n"
-            "A structured narrative with clear sections, each drawing from "
-            "multiple sources where relevant."
+            "- Cite which source contributed each point\n"
+            "- Be concise — the synthesizer after you will integrate further\n\n"
+            "Structure: narrative with source citations"
         ),
-        "output_hint": "structured_narrative with source_citations",
-        "self_answer_ceiling": 1,
+        "output_hint": "structured_narrative with citations",
     },
     "causal_reasoning": {
-        "description": "Identify causal chains, mechanisms, and dependencies in the context.",
+        "description": "Identify cause-effect chains and dependencies.",
         "system_prompt": (
-            "You are a causal reasoning specialist. Your task is to identify and "
-            "articulate cause-effect relationships in the provided context.\n\n"
-            "Requirements:\n"
+            "You are a causal reasoning specialist. Identify cause-effect "
+            "relationships in the provided context.\n\n"
             "- Distinguish correlation from causation\n"
-            "- Identify mediating variables and confounders when present\n"
-            "- Map causal chains: A → B → C, not just A → C\n"
-            "- Note where causal claims lack evidence\n\n"
-            "Output format:\n"
-            "1. Causal chain diagram (text-based: A → B → C)\n"
-            "2. Evidence supporting each link\n"
-            "3. Confidence assessment per link\n"
-            "4. Alternative explanations considered"
+            "- Map chains: A → B → C, not just A → C\n"
+            "- Note where causal claims lack evidence\n"
+            "- Be concise\n\n"
+            "Structure: causal chains → evidence per link → confidence → alternatives"
         ),
-        "output_hint": "causal_chains + evidence + confidence + alternatives",
-        "self_answer_ceiling": 1,
+        "output_hint": "causal_chains + evidence + confidence",
     },
     "critique": {
-        "description": "Evaluate arguments, proposals, or claims for logical soundness, completeness, and practical viability.",
+        "description": "Evaluate arguments for soundness, completeness, and viability.",
         "system_prompt": (
-            "You are a critical evaluation specialist. Your task is to evaluate "
-            "the given argument, proposal, or claim.\n\n"
-            "Requirements:\n"
-            "- Identify logical fallacies or gaps\n"
-            "- Assess evidence quality (anecdotal, empirical, theoretical)\n"
-            "- Check for unstated assumptions\n"
-            "- Evaluate practical viability and implementation risks\n"
-            "- Be constructive — identify what's strong as well as what's weak\n\n"
-            "Output format:\n"
-            "1. Strengths (what holds up)\n"
-            "2. Weaknesses (logical gaps, missing evidence, risks)\n"
-            "3. Unstated assumptions\n"
-            "4. Suggested improvements"
+            "You are a critical evaluation specialist. Evaluate the given "
+            "argument, proposal, or claim.\n\n"
+            "- Identify logical gaps\n"
+            "- Assess evidence quality\n"
+            "- Check unstated assumptions\n"
+            "- Be constructive — strengths and weaknesses\n"
+            "- Be concise\n\n"
+            "Structure: strengths → weaknesses → assumptions → improvements"
         ),
         "output_hint": "strengths + weaknesses + assumptions + improvements",
-        "self_answer_ceiling": 1,
     },
     "classification": {
-        "description": "Categorize items into a taxonomy, with rationale for each assignment.",
+        "description": "Categorize items with rationale for each assignment.",
         "system_prompt": (
-            "You are a classification specialist. Your task is to categorize "
-            "the given items into the specified taxonomy (or derive one if not given).\n\n"
-            "Requirements:\n"
-            "- Each item gets exactly one primary category\n"
-            "- Provide rationale for each classification decision\n"
-            "- Flag borderline cases with secondary category\n"
-            "- If taxonomy is not given, derive one that is MECE\n\n"
-            "Output format:\n"
-            "A list of items with:\n"
-            "- item: The classified item\n"
-            "- category: Primary category\n"
-            "- rationale: Why this category\n"
-            "- secondary: Alternative category if borderline (optional)"
+            "You are a classification specialist. Categorize the given items.\n\n"
+            "- One primary category per item\n"
+            "- Rationale for each\n"
+            "- Flag borderline cases\n"
+            "- If no taxonomy given, derive a MECE one\n\n"
+            "Structure: list of {item, category, rationale}"
         ),
-        "output_hint": "list of {item, category, rationale, secondary?}",
-        "self_answer_ceiling": 5,
+        "output_hint": "list of {item, category, rationale}",
     },
     "summarization": {
-        "description": "Produce a concise summary of the context at a specified level of detail.",
+        "description": "Produce a concise summary at specified detail level.",
         "system_prompt": (
-            "You are a summarization specialist. Your task is to produce a "
-            "concise, accurate summary of the provided context.\n\n"
-            "Requirements:\n"
-            "- Preserve key claims, numbers, and conclusions\n"
-            "- Maintain the source's emphasis and framing\n"
-            "- Scale detail to the requested length\n"
-            "- Do not introduce information not in the context\n\n"
-            "Output format:\n"
-            "A summary at the requested granularity. If no length is specified, "
-            "default to ~20% of the original length."
+            "You are a summarization specialist. Produce a concise, accurate "
+            "summary of the provided context.\n\n"
+            "- Preserve key claims, numbers, conclusions\n"
+            "- Maintain source emphasis\n"
+            "- Do not introduce information not in context\n"
+            "- Default to ~20% of original length\n\n"
+            "Structure: concise summary"
         ),
         "output_hint": "concise_summary",
-        "self_answer_ceiling": 4,
     },
     "gap_analysis": {
-        "description": "Identify what's missing, unstated, or incomplete in the context relative to the task requirements.",
+        "description": "Identify what's missing or incomplete relative to task requirements.",
         "system_prompt": (
-            "You are a gap analysis specialist. Your task is to identify what "
-            "information, arguments, or evidence is missing from the context.\n\n"
-            "Requirements:\n"
-            "- Compare what's present against what's needed for the task\n"
-            "- Distinguish 'not mentioned' from 'implied but unstated'\n"
-            "- Prioritize gaps by impact on task completion\n"
-            "- Suggest where missing information might be found\n\n"
-            "Output format:\n"
-            "1. Critical gaps (blocks task completion)\n"
-            "2. Important gaps (reduces quality)\n"
-            "3. Minor gaps (nice to have)\n"
-            "Each with: what's missing, why it matters, where to look"
+            "You are a gap analysis specialist. Identify what information, "
+            "arguments, or evidence is missing from the context.\n\n"
+            "- Compare present vs needed for the task\n"
+            "- Distinguish 'not mentioned' from 'implied'\n"
+            "- Prioritize by impact on task completion\n"
+            "- Be concise — bullet points over paragraphs\n\n"
+            "Structure: critical gaps → important gaps → minor gaps, "
+            "each with what's missing and why it matters"
         ),
-        "output_hint": "gaps_by_severity with impact + source_suggestions",
-        "self_answer_ceiling": 2,
+        "output_hint": "gaps_by_severity with impact",
     },
 }
 
 
-def get_skill(name: str) -> dict:
-    """Get a skill by name. Returns None if not found."""
+def get_skill(name: str) -> dict | None:
+    """Get a skill by name."""
     return SKILLS.get(name)
 
 
@@ -170,8 +127,5 @@ def list_skills() -> list[str]:
 
 
 def skill_catalog() -> str:
-    """Return a compact catalog string for inclusion in orchestrator prompts."""
-    lines = []
-    for name, skill in SKILLS.items():
-        lines.append(f"- {name}: {skill['description']}")
-    return "\n".join(lines)
+    """Compact catalog string for orchestrator prompts."""
+    return "\n".join(f"- {name}: {s['description']}" for name, s in SKILLS.items())
