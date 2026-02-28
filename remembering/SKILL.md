@@ -2,7 +2,7 @@
 name: remembering
 description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, retention management, type-safe results, proactive memory hints, GitHub access detection, autonomous curation, episodic scoring, and decision traces.
 metadata:
-  version: 5.1.1
+  version: 5.2.0
 ---
 
 # Remembering - Advanced Operations

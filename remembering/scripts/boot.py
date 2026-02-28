@@ -518,7 +518,7 @@ def _format_boot_output(profile_data: list, ops_by_topic: dict,
         ops_by_topic: Dict of {topic: [entries]} from group_ops_by_topic(), sorted by priority
         uncategorized: List of ops entries not in any topic, sorted by priority
         reference_ops: List of reference-only ops (boot_load=0)
-        installed_utils: Dict of {name: path} from install_utilities()
+        installed_utils: Dict of {name: {"path": path, "use_when": str|None}} from install_utilities()
         github_access: Dict from detect_github_access() with GitHub capabilities
 
     Returns:
@@ -580,7 +580,12 @@ def _format_boot_output(profile_data: list, ops_by_topic: dict,
     if installed_utils:
         output.append(f"\n## Utilities ({len(installed_utils)})")
         for name in sorted(installed_utils.keys()):
-            output.append(f"  from muninn_utils import {name}")
+            info = installed_utils[name]
+            use_when = info.get("use_when") if isinstance(info, dict) else None
+            line = f"  from muninn_utils import {name}"
+            if use_when:
+                line += f"  # {use_when}"
+            output.append(line)
     else:
         output.append("\n## Utilities")
         output.append("  None installed (tag memories with 'utility-code' to add)")
