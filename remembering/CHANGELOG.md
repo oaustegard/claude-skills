@@ -2,6 +2,12 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [5.2.0] - 2026-02-28
+
+### Added
+
+- show USE WHEN directives for utilities in boot CAPABILITIES
+
 ## [5.1.1] - 2026-02-28
 
 ### Fixed
