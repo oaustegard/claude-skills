@@ -4,6 +4,12 @@
 
 set -e
 
+# Skip install if gh is already available
+if command -v gh >/dev/null 2>&1; then
+    echo "gh $(gh --version | head -1 | awk '{print $3}') already installed"
+    exit 0
+fi
+
 mkdir -p -m 755 /etc/apt/keyrings
 out=$(mktemp)
 wget -nv -O"$out" https://cli.github.com/packages/githubcli-archive-keyring.gpg

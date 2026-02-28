@@ -68,11 +68,12 @@
 ### CLAUDE.md
 - Muninn Boot `h2` :3
 - Claude Code on the Web Development `h2` :37
-- Environment-Specific Tips `h2` :70
-- Code Maps `h2` :110
-- Skill Development Workflow `h2` :153
-- PR Reviews and Code Testing `h2` :264
-- Remembering Skill and Handoff Process `h2` :405
+- Test Before PR `h2` :70
+- Environment-Specific Tips `h2` :83
+- Code Maps `h2` :123
+- Skill Development Workflow `h2` :166
+- PR Reviews and Code Testing `h2` :277
+- Remembering Skill and Handoff Process `h2` :418
 
 ### README.md
 - claude-skills `h1` :1
