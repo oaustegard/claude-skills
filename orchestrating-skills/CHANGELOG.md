@@ -26,3 +26,9 @@
 - 8 built-in skills
 - Section header context pointers
 - Parallel execution via orchestrating-agents
+
+## [0.2.0] - 2026-02-28
+
+### Other
+
+- orchestrating-skills v0.2.0: drop SDK, fix self-answering, 47% faster
