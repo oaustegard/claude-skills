@@ -1,5 +1,7 @@
 """Remembering - Minimal persistent memory for Claude.
 
+v5.1.0: Partial ID support (#244), autonomous curation (#295), episodic scoring (#296),
+        decision traces (#297), FTS5 tag weight + preview improvements (#309).
 v5.0.0: Removed local SQLite cache. All operations go through Turso FTS5.
 """
 
@@ -24,7 +26,7 @@ from .turso import (
 
 # Import memory layer
 from .memory import (
-    _write_memory, remember, remember_bg, flush,
+    _write_memory, _resolve_memory_id, remember, remember_bg, flush,
     recall, _update_access_tracking, _query,
     recall_since, recall_between,
     forget, supersede, reprioritize,
@@ -32,7 +34,8 @@ from .memory import (
     memory_histogram, prune_by_age, prune_by_priority,  # v3.2.0: retention helpers
     get_alternatives, consolidate,  # v4.2.0: decision alternatives (#254) and consolidation (#253)
     get_chain,  # v4.3.0: reference chain traversal (#283)
-    recall_batch, remember_batch  # v4.5.0: batch APIs (#299)
+    recall_batch, remember_batch,  # v4.5.0: batch APIs (#299)
+    curate, decision_trace  # v5.1.0: autonomous curation (#295) and decision traces (#297)
 )
 
 # Import result types (v3.4.0: type-safe memory results, v3.7.0: normalization)
@@ -90,6 +93,8 @@ __all__ = [
     "get_alternatives", "consolidate",  # v4.2.0: decision alternatives (#254) and consolidation (#253)
     "get_chain",  # v4.3.0: reference chain traversal (#283)
     "recall_batch", "remember_batch",  # v4.5.0: batch APIs (#299)
+    "curate", "decision_trace",  # v5.1.0: autonomous curation (#295) and decision traces (#297)
+    "_resolve_memory_id",  # v5.1.0: partial ID resolution (#244)
     "get_session_id", "set_session_id",  # session management (v3.2.0)
     "session_save", "session_resume", "sessions",  # v4.3.0: session continuity (#231)
     "memory_histogram", "prune_by_age", "prune_by_priority",  # retention helpers (v3.2.0)

@@ -69,11 +69,11 @@
              sync: bool = True, session_id: str = None,
              alternatives: list = None,
              # Deprecated parameters (ignored in v2.0.0, kept for backward compat)
-             entities: list = None, importance: float = None, memory_class: str = None)` :68
+             entities: list = None, importance: float = None, memory_class: str = None)` :106
 - **remember_bg** (f) `(what: str, type: str, *, tags: list = None, conf: float = None,
                 entities: list = None, refs: list = None,
-                importance: float = None, memory_class: str = None, valid_from: str = None)` :184
-- **flush** (f) `(timeout: float = 5.0)` :201
+                importance: float = None, memory_class: str = None, valid_from: str = None)` :222
+- **flush** (f) `(timeout: float = 5.0)` :239
 - **recall** (f) `(search: str = None, *, n: int = 10, tags: list = None,
            type: str = None, conf: float = None, tag_mode: str = "any",
            strict: bool = False, session_id: str = None,
@@ -82,32 +82,41 @@
            limit: int = None, fetch_all: bool = False,
            since: str = None, until: str = None,
            tags_all: list = None, tags_any: list = None,
+           episodic: bool = False,
            # Deprecated parameters (kept for backward compat)
-           use_cache: bool = True)` :233
+           use_cache: bool = True)` :271
 - **recall_since** (f) `(after: str, *, search: str = None, n: int = 50,
                  type: str = None, tags: list = None, tag_mode: str = "any",
-                 session_id: str = None, raw: bool = False)` :490
+                 session_id: str = None, raw: bool = False)` :534
 - **recall_between** (f) `(after: str, before: str, *, search: str = None,
                    n: int = 100, type: str = None, tags: list = None,
-                   tag_mode: str = "any", session_id: str = None, raw: bool = False)` :557
-- **forget** (f) `(memory_id: str)` :626
+                   tag_mode: str = "any", session_id: str = None, raw: bool = False)` :601
+- **forget** (f) `(memory_id: str)` :670
 - **supersede** (f) `(original_id: str, summary: str, type: str, *,
-              tags: list = None, conf: float = None)` :636
-- **reprioritize** (f) `(memory_id: str, priority: int)` :685
-- **memory_histogram** (f) `()` :707
-- **prune_by_age** (f) `(older_than_days: int, priority_floor: int = 0, dry_run: bool = True)` :763
-- **prune_by_priority** (f) `(max_priority: int = -1, dry_run: bool = True)` :809
-- **strengthen** (f) `(memory_id: str, boost: int = 1)` :848
-- **weaken** (f) `(memory_id: str, drop: int = 1)` :888
+              tags: list = None, conf: float = None)` :696
+- **reprioritize** (f) `(memory_id: str, priority: int)` :749
+- **memory_histogram** (f) `()` :773
+- **prune_by_age** (f) `(older_than_days: int, priority_floor: int = 0, dry_run: bool = True)` :829
+- **prune_by_priority** (f) `(max_priority: int = -1, dry_run: bool = True)` :875
+- **strengthen** (f) `(memory_id: str, boost: int = 1)` :914
+- **weaken** (f) `(memory_id: str, drop: int = 1)` :957
 - **recall_batch** (f) `(queries: list, *, n: int = 10, type: str = None,
                  tags: list = None, tag_mode: str = "any",
                  conf: float = None, session_id: str = None,
-                 raw: bool = False)` :922
-- **remember_batch** (f) `(items: list, *, sync: bool = True)` :1050
-- **get_alternatives** (f) `(memory_id: str)` :1192
-- **get_chain** (f) `(memory_id: str, depth: int = 3)` :1231
+                 raw: bool = False)` :994
+- **remember_batch** (f) `(items: list, *, sync: bool = True)` :1123
+- **get_alternatives** (f) `(memory_id: str)` :1265
+- **get_chain** (f) `(memory_id: str, depth: int = 3)` :1304
 - **consolidate** (f) `(*, tags: list = None, min_cluster: int = 3, dry_run: bool = True,
-                session_id: str = None)` :1301
+                session_id: str = None)` :1374
+- **curate** (f) `(*, dry_run: bool = True, consolidation_threshold: int = 3,
+           stale_days: int = 90, low_priority_cap: int = -1,
+           max_actions: int = 20)` :1519
+- **decision_trace** (f) `(choice: str, context: str, rationale: str, *,
+                   alternatives: list = None, tradeoffs: str = None,
+                   contraindications: str = None, tags: list = None,
+                   refs: list = None, conf: float = 0.9,
+                   priority: int = 1)` :1644
 
 ### result.py
 > Imports: `typing`
@@ -131,7 +140,7 @@
 - **MemoryResultList** (C) :225
   - **__repr__** (m) `(self)` :232
   - **to_dicts** (m) `(self)` :237
-- **wrap_results** (f) `(results: List[dict])` :276
+- **wrap_results** (f) `(results: List[dict])` :294
 
 ### state.py
 > Imports: `threading, os`

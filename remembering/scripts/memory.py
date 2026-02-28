@@ -48,6 +48,44 @@ def _auto_flush_on_exit():
 
 
 
+def _resolve_memory_id(memory_id: str) -> str:
+    """Resolve a full or partial memory ID to a full UUID.
+
+    Supports both full UUIDs (36 chars with hyphens) and unique prefixes.
+    For full UUIDs, returns as-is without database lookup.
+    For partial IDs, queries for active memories matching the prefix.
+
+    Args:
+        memory_id: Full UUID or unique prefix of a memory ID.
+
+    Returns:
+        Full UUID string.
+
+    Raises:
+        ValueError: If partial ID matches zero or multiple memories.
+
+    v5.1.0: Added for partial ID support (#244).
+    """
+    # Full UUID — return as-is
+    if len(memory_id) == 36 and memory_id.count('-') == 4:
+        return memory_id
+
+    # Partial ID — resolve via prefix match
+    matches = _exec(
+        "SELECT id FROM memories WHERE id LIKE ? AND deleted_at IS NULL",
+        [f"{memory_id}%"]
+    )
+    if len(matches) == 0:
+        raise ValueError(f"No active memory found matching prefix '{memory_id}'")
+    if len(matches) > 1:
+        ids = [m['id'][:12] + '...' for m in matches[:5]]
+        raise ValueError(
+            f"Partial id '{memory_id}' matches {len(matches)} memories: {ids}. "
+            "Provide a longer prefix for a unique match."
+        )
+    return matches[0]['id']
+
+
 def _write_memory(mem_id: str, what: str, type: str, now: str, conf: float,
                   tags: list, refs: list, priority: int, valid_from: str, session_id: str) -> None:
     """Internal helper: write memory to Turso (blocking).
@@ -238,10 +276,12 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
            limit: int = None, fetch_all: bool = False,
            since: str = None, until: str = None,
            tags_all: list = None, tags_any: list = None,
+           episodic: bool = False,
            # Deprecated parameters (kept for backward compat)
            use_cache: bool = True) -> MemoryResultList:
     """Query memories with flexible filters.
 
+    v5.1.0: Added episodic relevance scoring (#296).
     v5.0.0: Primary search uses Turso FTS5 with automatic retry and LIKE fallback.
             Local cache removed from hot path. use_cache parameter is ignored.
     v4.3.0: Added since/until time window parameters (#281).
@@ -276,6 +316,9 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
             Cannot be combined with tags_any.
         tags_any: Convenience parameter requiring ANY of the specified tags.
             Cannot be combined with tags_all.
+        episodic: If True, include access-pattern boosting in ranking (#296).
+            Frequently accessed memories get a logarithmic boost, rewarding
+            validated-useful memories over unaccessed ones.
         use_cache: Deprecated (v5.0.0). Ignored - all queries go to Turso.
 
     Returns:
@@ -323,7 +366,8 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
             results = _retry_with_backoff(
                 lambda: _fts5_search(
                     search, n=n, type=type, tags=tags, tag_mode=tag_mode,
-                    conf=conf, session_id=session_id, since=since, until=until
+                    conf=conf, session_id=session_id, since=since, until=until,
+                    episodic=episodic
                 ),
                 max_retries=3, base_delay=0.5
             )
@@ -624,12 +668,28 @@ def recall_between(after: str, before: str, *, search: str = None,
 
 
 def forget(memory_id: str) -> bool:
-    """Soft-delete a memory.
+    """Soft-delete a memory. Supports both full and partial UUIDs.
 
+    If a full UUID is provided, performs exact match deletion.
+    If a partial ID is provided (prefix), resolves to a single memory
+    via prefix matching. Raises ValueError if the prefix matches zero
+    or more than one active memory.
+
+    Args:
+        memory_id: Full UUID or unique prefix of a memory ID.
+
+    Returns:
+        True if the memory was successfully soft-deleted.
+
+    Raises:
+        ValueError: If partial ID matches zero or multiple memories.
+
+    v5.1.0: Added partial ID support with prefix matching (#244).
     v5.0.0: Turso-only. Removed local cache invalidation.
     """
+    resolved_id = _resolve_memory_id(memory_id)
     now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-    _exec("UPDATE memories SET deleted_at = ? WHERE id = ?", [now, memory_id])
+    _exec("UPDATE memories SET deleted_at = ? WHERE id = ?", [now, resolved_id])
     return True
 
 
@@ -637,9 +697,13 @@ def supersede(original_id: str, summary: str, type: str, *,
               tags: list = None, conf: float = None) -> str:
     """Create a patch that supersedes an existing memory. Type required. Returns new memory ID.
 
+    Supports partial IDs for original_id (v5.1.0, #244).
+
+    v5.1.0: Added partial ID support (#244).
     v5.0.0: Removed local cache operations. Turso-only.
     v3.3.0: Uses _exec_batch for single HTTP request (2x efficiency improvement).
     """
+    original_id = _resolve_memory_id(original_id)
     now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     new_id = str(uuid.uuid4())
     session_id = get_session_id()
@@ -683,7 +747,7 @@ def supersede(original_id: str, summary: str, type: str, *,
 # --- Priority adjustment functions (v2.0.0) ---
 
 def reprioritize(memory_id: str, priority: int) -> None:
-    """Adjust priority for a memory.
+    """Adjust priority for a memory. Supports partial IDs.
 
     Priority levels:
         -1: Background (low-value, can age out first)
@@ -691,15 +755,17 @@ def reprioritize(memory_id: str, priority: int) -> None:
          1: Important (boost in ranking)
          2: Critical (always surface, never auto-age)
 
+    v5.1.0: Added partial ID support (#244).
     v5.0.0: Turso-only. Removed local cache update.
     """
+    resolved_id = _resolve_memory_id(memory_id)
     priority = max(-1, min(2, priority))
 
     _exec("""
         UPDATE memories
         SET priority = ?
         WHERE id = ?
-    """, [priority, memory_id])
+    """, [priority, resolved_id])
 
 
 # --- Retrieval observability and retention helpers (v3.2.0) ---
@@ -846,18 +912,21 @@ def prune_by_priority(max_priority: int = -1, dry_run: bool = True) -> dict:
 
 # Priority adjustment with biological memory consolidation pattern (v3.3.0)
 def strengthen(memory_id: str, boost: int = 1) -> dict:
-    """Strengthen a memory by incrementing its priority.
+    """Strengthen a memory by incrementing its priority. Supports partial IDs.
 
     Based on biological memory consolidation: memories that participate
     in active cognition should consolidate more strongly.
 
     Args:
-        memory_id: UUID of memory to strengthen
+        memory_id: Full UUID or unique prefix of a memory ID.
         boost: Priority increment (default 1, max result is 2)
 
     Returns:
         dict with memory_id, old_priority, new_priority, changed
+
+    v5.1.0: Added partial ID support (#244).
     """
+    memory_id = _resolve_memory_id(memory_id)
     # Get current state
     result = _exec(
         "SELECT priority, access_count FROM memories WHERE id = ? AND deleted_at IS NULL",
@@ -886,15 +955,18 @@ def strengthen(memory_id: str, boost: int = 1) -> dict:
 
 
 def weaken(memory_id: str, drop: int = 1) -> dict:
-    """Weaken a memory by decrementing its priority.
+    """Weaken a memory by decrementing its priority. Supports partial IDs.
 
     Args:
-        memory_id: UUID of memory to weaken
+        memory_id: Full UUID or unique prefix of a memory ID.
         drop: Priority decrement (default 1, min result is -1)
 
     Returns:
         dict with memory_id, old_priority, new_priority, changed
+
+    v5.1.0: Added partial ID support (#244).
     """
+    memory_id = _resolve_memory_id(memory_id)
     result = _exec(
         "SELECT priority FROM memories WHERE id = ? AND deleted_at IS NULL",
         [memory_id]
@@ -996,10 +1068,11 @@ def recall_batch(queries: list, *, n: int = 10, type: str = None,
         where = " AND ".join(conditions)
         params.append(n)
 
+        # v5.1.0: tag weight increased from 0.5 to 1.0 (#309)
         sql = f"""
             SELECT m.*,
-                   bm25(memory_fts, 0, 1.0, 0.5) AS bm25_score,
-                   bm25(memory_fts, 0, 1.0, 0.5)
+                   bm25(memory_fts, 0, 1.0, 1.0) AS bm25_score,
+                   bm25(memory_fts, 0, 1.0, 1.0)
                      * (1.0 + COALESCE(m.priority, 0) * 0.3)
                      * (1.0 / (1.0 + (julianday('now') - julianday(m.t)) * 0.01))
                    AS composite_score
@@ -1439,3 +1512,214 @@ def consolidate(*, tags: list = None, min_cluster: int = 3, dry_run: bool = True
         "demoted": demoted_count,
         "dry_run": dry_run
     }
+
+
+# --- Autonomous memory management (v5.1.0, #295) ---
+
+def curate(*, dry_run: bool = True, consolidation_threshold: int = 3,
+           stale_days: int = 90, low_priority_cap: int = -1,
+           max_actions: int = 20) -> dict:
+    """Autonomous memory curation: detect duplicates, stale memories, and consolidation opportunities.
+
+    Implements three curation strategies as flexible guidelines:
+    1. **Consolidation detection**: Groups of memories sharing tags that could be synthesized.
+    2. **Stale memory identification**: Old, unaccessed memories below priority threshold.
+    3. **Duplicate detection**: Memories with high textual overlap.
+
+    When dry_run=False, applies actions: consolidates clusters and demotes stale memories.
+    When dry_run=True (default), returns analysis without modifications.
+
+    Args:
+        dry_run: If True (default), analyze without applying changes.
+        consolidation_threshold: Min memories per tag to suggest consolidation (default 3).
+        stale_days: Days since last access to consider a memory stale (default 90).
+        low_priority_cap: Max priority level for stale pruning candidates (default -1).
+        max_actions: Maximum total actions to take per invocation (default 20).
+
+    Returns:
+        Dict with:
+            - consolidation: clusters found (same as consolidate(dry_run=True))
+            - stale: list of stale memory summaries with IDs
+            - actions_taken: number of actions applied (0 if dry_run)
+            - recommendations: human-readable suggestions
+
+    v5.1.0: Initial implementation (#295).
+    """
+    result = {
+        "consolidation": {"clusters": []},
+        "stale": [],
+        "actions_taken": 0,
+        "recommendations": []
+    }
+    actions_remaining = max_actions
+
+    # 1. Consolidation detection
+    try:
+        consol = consolidate(min_cluster=consolidation_threshold, dry_run=True)
+        result["consolidation"] = consol
+        if consol["clusters"]:
+            cluster_tags = [c["tag"] for c in consol["clusters"][:5]]
+            result["recommendations"].append(
+                f"Found {len(consol['clusters'])} consolidation candidates: "
+                f"{', '.join(cluster_tags)}. "
+                "Run consolidate(dry_run=False) to merge."
+            )
+    except Exception as e:
+        result["recommendations"].append(f"Consolidation scan failed: {e}")
+
+    # 2. Stale memory identification
+    try:
+        stale_cutoff = datetime.now(UTC)
+        from datetime import timedelta
+        stale_cutoff = (stale_cutoff - timedelta(days=stale_days)).isoformat().replace("+00:00", "Z")
+
+        stale_memories = _exec(
+            """SELECT id, summary, type, priority, last_accessed, access_count, t
+               FROM memories
+               WHERE deleted_at IS NULL
+                 AND priority <= ?
+                 AND (last_accessed IS NULL OR last_accessed < ?)
+                 AND t < ?
+               ORDER BY t ASC
+               LIMIT ?""",
+            [low_priority_cap, stale_cutoff, stale_cutoff, max_actions]
+        )
+
+        for m in stale_memories:
+            result["stale"].append({
+                "id": m["id"],
+                "summary_preview": (m.get("summary") or "")[:100],
+                "type": m.get("type"),
+                "priority": m.get("priority"),
+                "created": m.get("t"),
+                "access_count": m.get("access_count", 0)
+            })
+
+        if stale_memories:
+            result["recommendations"].append(
+                f"Found {len(stale_memories)} stale memories (>{stale_days} days, priority<={low_priority_cap}). "
+                "Review and forget() those no longer relevant."
+            )
+    except Exception as e:
+        result["recommendations"].append(f"Stale memory scan failed: {e}")
+
+    # 3. Apply actions if not dry_run
+    if not dry_run:
+        # Auto-consolidate clusters
+        if result["consolidation"]["clusters"] and actions_remaining > 0:
+            try:
+                applied = consolidate(
+                    min_cluster=consolidation_threshold,
+                    dry_run=False
+                )
+                result["actions_taken"] += applied.get("consolidated", 0)
+                actions_remaining -= applied.get("consolidated", 0)
+                result["consolidation"] = applied
+            except Exception as e:
+                result["recommendations"].append(f"Auto-consolidation failed: {e}")
+
+        # Auto-demote stale memories (don't delete — just weaken)
+        if result["stale"] and actions_remaining > 0:
+            demoted = 0
+            for m in result["stale"][:actions_remaining]:
+                try:
+                    current_priority = int(m.get("priority") or 0)
+                    if current_priority > -1:
+                        reprioritize(m["id"], -1)
+                        demoted += 1
+                except Exception:
+                    pass
+            if demoted:
+                result["actions_taken"] += demoted
+                result["recommendations"].append(f"Demoted {demoted} stale memories to background priority.")
+
+    if not result["recommendations"]:
+        result["recommendations"].append("Memory store is healthy — no curation needed.")
+
+    return result
+
+
+# --- Systematized decision trace storage (v5.1.0, #297) ---
+
+def decision_trace(choice: str, context: str, rationale: str, *,
+                   alternatives: list = None, tradeoffs: str = None,
+                   contraindications: str = None, tags: list = None,
+                   refs: list = None, conf: float = 0.9,
+                   priority: int = 1) -> str:
+    """Store a structured decision trace with standardized format.
+
+    Creates a decision memory with a structured body that captures not just
+    what was decided but why, what was rejected, and what to watch out for.
+    Decision traces are automatically tagged with "decision-trace" for retrieval.
+
+    Args:
+        choice: What was decided (the outcome).
+        context: What problem was being solved (the trigger).
+        rationale: Why this choice was made (the reasoning).
+        alternatives: Optional list of rejected alternatives.
+            Each item: dict with 'option' and 'rejected' keys.
+            Example: [{"option": "Redis", "rejected": "Over-engineered for our scale"}]
+        tradeoffs: Optional description of known tradeoffs accepted.
+        contraindications: Optional conditions where this decision should be revisited.
+        tags: Additional tags (auto-includes "decision-trace").
+        refs: Optional list of referenced memory IDs.
+        conf: Confidence in the decision (default 0.9).
+        priority: Priority level (default 1 = important).
+
+    Returns:
+        Memory ID (UUID).
+
+    Example:
+        >>> decision_trace(
+        ...     choice="Chose Turso FTS5 over local SQLite cache",
+        ...     context="Need to simplify architecture after cache sync bugs",
+        ...     rationale="Cache latency savings (~145ms) negligible vs tool overhead (~3-4s). "
+        ...               "Eliminating sync eliminates a whole class of bugs.",
+        ...     alternatives=[
+        ...         {"option": "Keep local cache", "rejected": "Ongoing sync bugs"},
+        ...         {"option": "Redis", "rejected": "External dependency, overkill"}
+        ...     ],
+        ...     tradeoffs="Slightly higher latency per query, network dependency",
+        ...     contraindications="If tool call overhead drops below 500ms, reconsider caching",
+        ...     tags=["architecture", "turso"]
+        ... )
+
+    v5.1.0: Initial implementation (#297).
+    """
+    # Build structured summary
+    parts = [
+        f"DECISION: {choice}",
+        f"CONTEXT: {context}",
+        f"RATIONALE: {rationale}",
+    ]
+
+    if tradeoffs:
+        parts.append(f"TRADEOFFS: {tradeoffs}")
+
+    if contraindications:
+        parts.append(f"CONTRAINDICATIONS: {contraindications}")
+
+    if alternatives:
+        alt_lines = []
+        for alt in alternatives:
+            opt = alt.get("option", "?")
+            rej = alt.get("rejected", "no reason given")
+            alt_lines.append(f"  - {opt}: rejected because {rej}")
+        parts.append("ALTERNATIVES CONSIDERED:\n" + "\n".join(alt_lines))
+
+    summary = "\n".join(parts)
+
+    # Build tags (always include "decision-trace")
+    all_tags = list(tags or [])
+    if "decision-trace" not in all_tags:
+        all_tags.insert(0, "decision-trace")
+
+    return remember(
+        summary,
+        "decision",
+        tags=all_tags,
+        conf=conf,
+        refs=refs,
+        priority=priority,
+        alternatives=alternatives
+    )

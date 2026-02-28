@@ -1,8 +1,8 @@
 ---
 name: remembering
-description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, retention management, type-safe results, proactive memory hints, GitHub access detection, and ops priority ordering.
+description: Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, retention management, type-safe results, proactive memory hints, GitHub access detection, autonomous curation, episodic scoring, and decision traces.
 metadata:
-  version: 5.0.0
+  version: 5.1.0
 ---
 
 # Remembering - Advanced Operations
@@ -190,12 +190,72 @@ ids = remember_batch([
 ```python
 from scripts import forget, supersede
 
-# Soft delete (sets deleted_at, excluded from queries)
-forget("memory-uuid")
+# Soft delete — supports both full UUIDs and partial ID prefixes (v5.1.0, #244)
+forget("memory-uuid")          # Full UUID
+forget("d5022772")             # Partial prefix (must be unique)
 
-# Version without losing history
+# Version without losing history (also supports partial IDs)
 supersede(original_id, "User now prefers Python 3.12", "decision", conf=0.9)
 ```
+
+Partial IDs resolve to the unique memory matching the prefix. If the prefix matches zero or multiple memories, a `ValueError` is raised. All ID-based functions (`forget`, `supersede`, `reprioritize`, `strengthen`, `weaken`) support partial IDs.
+
+### Decision Traces (v5.1.0)
+
+Store structured decision traces with standardized format for architectural documentation:
+
+```python
+from scripts import decision_trace
+
+id = decision_trace(
+    choice="Chose Turso FTS5 over local SQLite cache",
+    context="Need to simplify architecture after cache sync bugs",
+    rationale="Cache latency savings (~145ms) negligible vs tool overhead (~3-4s). "
+              "Eliminating sync eliminates a whole class of bugs.",
+    alternatives=[
+        {"option": "Keep local cache", "rejected": "Ongoing sync bugs"},
+        {"option": "Redis", "rejected": "External dependency, overkill"}
+    ],
+    tradeoffs="Slightly higher latency per query, network dependency",
+    contraindications="If tool call overhead drops below 500ms, reconsider caching",
+    tags=["architecture", "turso"]
+)
+```
+
+Decision traces are automatically tagged `"decision-trace"` and stored at `priority=1`. The structured body captures context, rationale, alternatives, tradeoffs, and contraindications — answering *why* not just *what*.
+
+### Autonomous Curation (v5.1.0)
+
+Analyze memory health and identify consolidation opportunities, stale memories, and duplicates:
+
+```python
+from scripts import curate
+
+# Preview curation recommendations (dry run)
+report = curate(dry_run=True)
+for rec in report["recommendations"]:
+    print(rec)
+
+# Auto-apply: consolidate clusters and demote stale memories
+report = curate(dry_run=False, stale_days=90, consolidation_threshold=3)
+print(f"Actions taken: {report['actions_taken']}")
+```
+
+### Episodic Relevance Scoring (v5.1.0)
+
+Boost frequently-accessed memories in search results using access-pattern weighting:
+
+```python
+from scripts import recall
+
+# Standard recall (BM25 × recency × priority)
+results = recall("architecture decisions")
+
+# Episodic recall (adds access-count boost)
+results = recall("architecture decisions", episodic=True)
+```
+
+Episodic mode adds `ln(1 + access_count) × 0.2` to the composite score, rewarding memories that have been validated as useful through repeated retrieval.
 
 ## Config Table
 
@@ -280,7 +340,7 @@ Write complete, searchable summaries that standalone without conversation contex
 
 - Backend: Turso SQLite HTTP API (all queries go directly to Turso)
 - Credential auto-detection (v3.8.0): Scans env vars, then `/mnt/project/turso.env`, `/mnt/project/muninn.env`, `~/.muninn/.env`
-- FTS5 search: Server-side FTS5 with Porter stemmer tokenizer, BM25 x recency x priority composite scoring
+- FTS5 search: Server-side FTS5 with Porter stemmer tokenizer, BM25 × recency × priority composite scoring (tags weighted equally with summary since v5.1.0)
 - Retry with exponential backoff for transient errors (503, 429, SSL)
 - Thread-safe for background writes
 - Repo defaults fallback: `scripts/defaults/` used when Turso is unavailable
@@ -379,3 +439,6 @@ See [references/advanced-operations.md](references/advanced-operations.md) for:
 - Decision alternatives (`get_alternatives`) and memory consolidation (`consolidate`)
 - Reference chain traversal (`get_chain`)
 - Batch APIs (`recall_batch`, `remember_batch`) for reducing HTTP round-trips
+- Autonomous curation (`curate`) for memory health management
+- Decision traces (`decision_trace`) for structured architectural documentation
+- Episodic relevance scoring (`episodic=True` in `recall`) for access-pattern boosting
