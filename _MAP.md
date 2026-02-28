@@ -1,5 +1,5 @@
 # claude-skills/
-*Files: 5 | Subdirectories: 44*
+*Files: 4 | Subdirectories: 45*
 
 ## Subdirectories
 
@@ -26,6 +26,7 @@
 - [exploring-data/](./exploring-data/_MAP.md)
 - [extracting-keywords/](./extracting-keywords/_MAP.md)
 - [fetching-blocked-urls/](./fetching-blocked-urls/_MAP.md)
+- [forecasting-reverso/](./forecasting-reverso/_MAP.md)
 - [generating-patches/](./generating-patches/_MAP.md)
 - [githubbing/](./githubbing/_MAP.md)
 - [hello-demo/](./hello-demo/_MAP.md)
@@ -72,17 +73,6 @@
 - Skill Development Workflow `h2` :153
 - PR Reviews and Code Testing `h2` :264
 - Remembering Skill and Handoff Process `h2` :405
-
-### PR_160_REVIEW_UPDATED.md
-- PR #160 Review: Improve codemap.py with symbol hierarchy `h1` :1
-- Updates Applied `h2` :3
-- Testing Results `h2` :12
-- Original PR Strengths `h2` :115
-- Recommended Fixes `h2` :132
-- Dependency Updates (Applied) `h2` :190
-- Overall Assessment `h2` :203
-- Testing Checklist `h2` :223
-- Sources `h2` :246
 
 ### README.md
 - claude-skills `h1` :1

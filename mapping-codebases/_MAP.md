@@ -9,7 +9,8 @@
 
 ### CHANGELOG.md
 - mapping-codebases - Changelog `h1` :1
-- [0.6.0] - 2026-02-03 `h2` :5
+- [0.7.0] - 2026-02-28 `h2` :5
+- [0.6.0] - 2026-02-03 `h2` :21
 
 ### README.md
 - mapping-codebases `h1` :1
@@ -21,6 +22,6 @@
 - Navigate Via Maps `h2` :27
 - Map Contents `h2` :45
 - Commands `h2` :74
-- Supported Languages `h2` :92
-- Limitations `h2` :96
+- Supported Languages `h2` :95
+- Limitations `h2` :99
 

@@ -12,6 +12,14 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from tree_sitter_language_pack import get_parser
 
+# Module-level verbose flag, set by main()
+VERBOSE = False
+
+def _debug(msg: str):
+    """Print debug message if verbose mode is enabled."""
+    if VERBOSE:
+        print(f"  DEBUG: {msg}", file=sys.stderr)
+
 # Language detection by extension
 EXT_TO_LANG = {
     '.py': 'python',
@@ -145,22 +153,45 @@ def extract_typescript(tree, source: bytes) -> FileInfo:
     """Extract exports and imports from TypeScript/JavaScript AST."""
     symbols = []
     imports = []
-    
-    def get_signature(node) -> str | None:
+
+    def _extract_ts_return_type(node) -> str | None:
+        """Extract return type from a function/method node."""
         for child in node.children:
-            if child.type in ('formal_parameters', 'type_parameters'):
-                 # We might want to combine type params and formal params
-                 return get_node_text(child, source)
+            if child.type == 'type_annotation':
+                # Standard return type (e.g., ": Promise<void>")
+                return get_node_text(child, source).lstrip(': ').strip()
+            elif child.type == 'type_predicate_annotation':
+                # Type predicate (e.g., ": data is ValidData")
+                return get_node_text(child, source).lstrip(': ').strip()
         return None
 
-    def process_method(node) -> Symbol:
-        name = ""
+    def get_func_signature(node) -> str | None:
+        """Extract full function signature: (params): ReturnType"""
+        params = None
         for child in node.children:
-            if child.type in ('property_identifier', 'method_definition'):
-                 name = get_node_text(child, source)
-                 break
-        line = node.start_point[0] + 1
-        return Symbol(name=name, kind='method', line=line)
+            if child.type == 'formal_parameters':
+                params = get_node_text(child, source)
+        if params:
+            return_type = _extract_ts_return_type(node)
+            sig = params
+            if return_type:
+                sig += f": {return_type}"
+            return sig
+        return None
+
+    def get_method_signature(node) -> str | None:
+        """Extract method signature from a method_definition node."""
+        params = None
+        for child in node.children:
+            if child.type == 'formal_parameters':
+                params = get_node_text(child, source)
+        if params:
+            return_type = _extract_ts_return_type(node)
+            sig = params
+            if return_type:
+                sig += f": {return_type}"
+            return sig
+        return None
 
     def process_class_body(node) -> list[Symbol]:
         members = []
@@ -168,7 +199,6 @@ def extract_typescript(tree, source: bytes) -> FileInfo:
             if child.type == 'class_body':
                 for subchild in child.children:
                     if subchild.type == 'method_definition':
-                        # extract name
                         name = ""
                         for part in subchild.children:
                             if part.type == 'property_identifier':
@@ -176,7 +206,8 @@ def extract_typescript(tree, source: bytes) -> FileInfo:
                                 break
                         if name:
                             line = subchild.start_point[0] + 1
-                            members.append(Symbol(name=name, kind='method', line=line))
+                            sig = get_method_signature(subchild)
+                            members.append(Symbol(name=name, kind='method', line=line, signature=sig))
         return members
 
     def visit(node):
@@ -186,9 +217,15 @@ def extract_typescript(tree, source: bytes) -> FileInfo:
                 if child.type == 'string':
                     text = get_node_text(child, source).strip('"\'')
                     imports.append(text)
-        
+
         # Export declarations
         elif node.type == 'export_statement':
+            has_default = any(
+                child.type == 'default' or
+                (child.type in ('identifier', 'reserved_identifier') and get_node_text(child, source) == 'default')
+                for child in node.children
+            )
+
             for child in node.children:
                 if child.type == 'function_declaration':
                     name = ""
@@ -198,7 +235,9 @@ def extract_typescript(tree, source: bytes) -> FileInfo:
                             break
                     if name:
                         line = child.start_point[0] + 1
-                        symbols.append(Symbol(name=name, kind='function', line=line))
+                        sig = get_func_signature(child)
+                        label = f"{name} (default)" if has_default else name
+                        symbols.append(Symbol(name=label, kind='function', signature=sig, line=line))
 
                 elif child.type == 'class_declaration':
                     name = ""
@@ -209,13 +248,42 @@ def extract_typescript(tree, source: bytes) -> FileInfo:
                     if name:
                         members = process_class_body(child)
                         line = child.start_point[0] + 1
-                        symbols.append(Symbol(name=name, kind='class', line=line, children=members))
+                        label = f"{name} (default)" if has_default else name
+                        symbols.append(Symbol(name=label, kind='class', line=line, children=members))
 
-        # TODO: Handle non-exported top-level items if desired, or `export default`
-        
+                elif child.type == 'identifier' and has_default:
+                    # export default <identifier>
+                    name = get_node_text(child, source)
+                    if name != 'default':
+                        line = node.start_point[0] + 1
+                        symbols.append(Symbol(name=f"{name} (default)", kind='variable', line=line))
+
+                elif child.type == 'interface_declaration':
+                    name = ""
+                    for subchild in child.children:
+                        if subchild.type == 'type_identifier':
+                            name = get_node_text(subchild, source)
+                            break
+                    if name:
+                        line = child.start_point[0] + 1
+                        symbols.append(Symbol(name=name, kind='interface', line=line))
+
+                elif child.type == 'lexical_declaration':
+                    # export const/let declarations (e.g., export const foo = ...)
+                    for subchild in child.children:
+                        if subchild.type == 'variable_declarator':
+                            vname = ""
+                            for part in subchild.children:
+                                if part.type == 'identifier':
+                                    vname = get_node_text(part, source)
+                                    break
+                            if vname:
+                                line = subchild.start_point[0] + 1
+                                symbols.append(Symbol(name=vname, kind='variable', line=line))
+
         for child in node.children:
             visit(child)
-    
+
     visit(tree.root_node)
     return FileInfo(name="", symbols=symbols, imports=imports)
 
@@ -223,24 +291,101 @@ def extract_typescript(tree, source: bytes) -> FileInfo:
 def extract_go(tree, source: bytes) -> FileInfo:
     symbols = []
     imports = []
+    # Collect receiver methods: {receiver_type: [Symbol, ...]}
+    receiver_methods: dict[str, list[Symbol]] = {}
+
+    def get_go_func_signature(node, skip_receiver: bool = False) -> str | None:
+        """Extract Go function signature: (params) return_type"""
+        params = None
+        result = None
+        seen_param_list = 0
+        for child in node.children:
+            if child.type == 'parameter_list':
+                seen_param_list += 1
+                if skip_receiver and seen_param_list == 1:
+                    continue  # Skip receiver parameter_list
+                params = get_node_text(child, source)
+            elif params is not None and child.type in (
+                'type_identifier', 'pointer_type', 'qualified_type',
+                'slice_type', 'map_type', 'interface_type',
+            ):
+                result = get_node_text(child, source)
+        if params:
+            sig = params
+            if result:
+                sig += f" {result}"
+            return sig
+        return None
 
     def visit(node):
         if node.type == 'import_spec':
             for child in node.children:
                 if child.type == 'interpreted_string_literal':
                     imports.append(get_node_text(child, source).strip('"'))
-        elif node.type in ('function_declaration', 'type_declaration'):
+
+        elif node.type == 'function_declaration':
             for child in node.children:
                 if child.type == 'identifier':
                     name = get_node_text(child, source)
                     if name[0].isupper():
                         line = node.start_point[0] + 1
-                        symbols.append(Symbol(name=name, kind='func' if node.type == 'function_declaration' else 'type', line=line))
+                        sig = get_go_func_signature(node)
+                        symbols.append(Symbol(name=name, kind='func', signature=sig, line=line))
                     break
+
+        elif node.type == 'type_declaration':
+            for child in node.children:
+                if child.type == 'type_spec':
+                    for subchild in child.children:
+                        if subchild.type == 'type_identifier':
+                            name = get_node_text(subchild, source)
+                            if name[0].isupper():
+                                line = node.start_point[0] + 1
+                                symbols.append(Symbol(name=name, kind='type', line=line))
+                            break
+
+        elif node.type == 'method_declaration':
+            # Extract receiver type and method name
+            receiver_type = None
+            method_name = None
+            for child in node.children:
+                if child.type == 'parameter_list':
+                    # First parameter_list is the receiver
+                    if receiver_type is None:
+                        recv_text = get_node_text(child, source)
+                        # Extract type from receiver, e.g., "(s *Server)" -> "Server"
+                        for part in child.children:
+                            if part.type == 'parameter_declaration':
+                                for subpart in part.children:
+                                    if subpart.type == 'pointer_type':
+                                        for inner in subpart.children:
+                                            if inner.type == 'type_identifier':
+                                                receiver_type = get_node_text(inner, source)
+                                    elif subpart.type == 'type_identifier':
+                                        receiver_type = get_node_text(subpart, source)
+                elif child.type == 'field_identifier':
+                    method_name = get_node_text(child, source)
+            if receiver_type and method_name and method_name[0].isupper():
+                line = node.start_point[0] + 1
+                sig = get_go_func_signature(node, skip_receiver=True)
+                method_sym = Symbol(name=method_name, kind='method', signature=sig, line=line)
+                receiver_methods.setdefault(receiver_type, []).append(method_sym)
+
         for child in node.children:
             visit(child)
 
     visit(tree.root_node)
+
+    # Attach receiver methods as children of their type symbols
+    for sym in symbols:
+        if sym.kind == 'type' and sym.name in receiver_methods:
+            sym.children = receiver_methods.pop(sym.name)
+
+    # Any remaining receiver methods for types not in symbols (unexported types, etc.)
+    for recv_type, methods in receiver_methods.items():
+        if recv_type[0].isupper():
+            symbols.append(Symbol(name=recv_type, kind='type', children=methods))
+
     return FileInfo(name="", symbols=symbols, imports=imports)
 
 
@@ -248,22 +393,38 @@ def extract_rust(tree, source: bytes) -> FileInfo:
     """Extract exports and imports from Rust AST."""
     symbols = []
     imports = []
-    
+    # Collect impl methods: {type_name: [Symbol, ...]}
+    impl_methods: dict[str, list[Symbol]] = {}
+
+    def get_rust_func_signature(node) -> str | None:
+        """Extract Rust function signature: (params) -> ReturnType"""
+        params = None
+        return_type = None
+        for child in node.children:
+            if child.type == 'parameters':
+                params = get_node_text(child, source)
+            elif child.type == 'type_identifier' and params is not None:
+                return_type = get_node_text(child, source)
+            elif child.type in ('generic_type', 'reference_type', 'scoped_type_identifier',
+                                'primitive_type', 'tuple_type'):
+                if params is not None:
+                    return_type = get_node_text(child, source)
+        if params:
+            sig = params
+            if return_type:
+                sig += f" -> {return_type}"
+            return sig
+        return None
+
     def visit(node):
         # Use statements
         if node.type == 'use_declaration':
             for child in node.children:
                 if child.type in ('scoped_identifier', 'identifier'):
                     imports.append(get_node_text(child, source))
-        
+
         # Public items
         elif node.type in ('function_item', 'struct_item', 'enum_item', 'trait_item'):
-             # Check for public visibility in parent attribute item if needed,
-             # but tree-sitter structure for rust can be: attribute_item -> visibility_modifier
-             # or direct if it's top level.
-             # Wait, the previous logic handled `attribute_item` which wrapped the declaration.
-             # But sometimes `pub fn` is directly a `function_item` with a `visibility_modifier` child.
-
              is_pub = False
              for child in node.children:
                  if child.type == 'visibility_modifier' and get_node_text(child, source) == 'pub':
@@ -278,12 +439,53 @@ def extract_rust(tree, source: bytes) -> FileInfo:
                  if name:
                     kind = node.type.replace('_item', '')
                     line = node.start_point[0] + 1
-                    symbols.append(Symbol(name=name, kind=kind, line=line))
+                    sig = get_rust_func_signature(node) if node.type == 'function_item' else None
+                    symbols.append(Symbol(name=name, kind=kind, line=line, signature=sig))
+
+        # Impl blocks - extract methods grouped by type
+        elif node.type == 'impl_item':
+            impl_type = None
+            for child in node.children:
+                if child.type == 'type_identifier':
+                    impl_type = get_node_text(child, source)
+                elif child.type == 'generic_type':
+                    # e.g., impl Foo<T>
+                    for subchild in child.children:
+                        if subchild.type == 'type_identifier':
+                            impl_type = get_node_text(subchild, source)
+                            break
+                elif child.type == 'declaration_list' and impl_type:
+                    for subchild in child.children:
+                        if subchild.type == 'function_item':
+                            is_pub = False
+                            fname = ""
+                            for part in subchild.children:
+                                if part.type == 'visibility_modifier' and get_node_text(part, source) == 'pub':
+                                    is_pub = True
+                                elif part.type == 'identifier':
+                                    fname = get_node_text(part, source)
+                            if is_pub and fname:
+                                line = subchild.start_point[0] + 1
+                                sig = get_rust_func_signature(subchild)
+                                method_sym = Symbol(name=fname, kind='method', signature=sig, line=line)
+                                impl_methods.setdefault(impl_type, []).append(method_sym)
+            # Don't recurse into impl_item children (we handled them above)
+            return
 
         for child in node.children:
             visit(child)
-    
+
     visit(tree.root_node)
+
+    # Attach impl methods as children of their struct/enum symbols
+    for sym in symbols:
+        if sym.kind in ('struct', 'enum', 'trait') and sym.name in impl_methods:
+            sym.children = impl_methods.pop(sym.name)
+
+    # Any remaining impl methods for types not in symbols
+    for type_name, methods in impl_methods.items():
+        symbols.append(Symbol(name=type_name, kind='type', children=methods))
+
     return FileInfo(name="", symbols=symbols, imports=imports)
 
 
@@ -291,8 +493,39 @@ def extract_ruby(tree, source: bytes) -> FileInfo:
     """Extract exports and imports from Ruby AST."""
     symbols = []
     imports = []
-    
-    def visit(node):
+
+    def extract_methods(node) -> list[Symbol]:
+        """Extract method definitions from a class/module body."""
+        methods = []
+        for child in node.children:
+            if child.type == 'body_statement':
+                for subchild in child.children:
+                    if subchild.type == 'method':
+                        name = ""
+                        sig = None
+                        for part in subchild.children:
+                            if part.type == 'identifier':
+                                name = get_node_text(part, source)
+                            elif part.type == 'method_parameters':
+                                sig = get_node_text(part, source)
+                        if name:
+                            line = subchild.start_point[0] + 1
+                            methods.append(Symbol(name=name, kind='method', signature=sig, line=line))
+                    elif subchild.type == 'singleton_method':
+                        # Class/module-level methods like `def self.format(data)`
+                        name = ""
+                        sig = None
+                        for part in subchild.children:
+                            if part.type == 'identifier':
+                                name = get_node_text(part, source)
+                            elif part.type == 'method_parameters':
+                                sig = get_node_text(part, source)
+                        if name:
+                            line = subchild.start_point[0] + 1
+                            methods.append(Symbol(name=f"self.{name}", kind='method', signature=sig, line=line))
+        return methods
+
+    def visit(node, depth=0):
         # Requires
         if node.type == 'call' and any(
             child.type == 'identifier' and get_node_text(child, source) == 'require'
@@ -304,19 +537,37 @@ def extract_ruby(tree, source: bytes) -> FileInfo:
                         if arg.type == 'string':
                             text = get_node_text(arg, source).strip('"\'')
                             imports.append(text)
-        
-        # Top-level definitions
-        elif node.type in ('method', 'class', 'module'):
+
+        elif node.type in ('class', 'module'):
+            name = ""
             for child in node.children:
-                if child.type in ('identifier', 'constant'):
+                if child.type in ('identifier', 'constant', 'scope_resolution'):
                     name = get_node_text(child, source)
-                    line = node.start_point[0] + 1
-                    symbols.append(Symbol(name=name, kind=node.type, line=line))
                     break
-        
+            if name:
+                line = node.start_point[0] + 1
+                methods = extract_methods(node)
+                symbols.append(Symbol(name=name, kind=node.type, line=line, children=methods))
+            # Don't recurse further into classes (methods already extracted)
+            return
+
+        elif node.type == 'method' and depth == 0:
+            # Top-level methods only (class methods are handled by extract_methods)
+            name = ""
+            sig = None
+            for child in node.children:
+                if child.type == 'identifier':
+                    name = get_node_text(child, source)
+                elif child.type == 'method_parameters':
+                    sig = get_node_text(child, source)
+            if name:
+                line = node.start_point[0] + 1
+                symbols.append(Symbol(name=name, kind='method', line=line, signature=sig))
+            return
+
         for child in node.children:
-            visit(child)
-    
+            visit(child, depth + 1)
+
     visit(tree.root_node)
     return FileInfo(name="", symbols=symbols, imports=imports)
 
@@ -519,16 +770,18 @@ def analyze_file(filepath: Path) -> FileInfo | None:
         parser = get_parser(lang)
         source = filepath.read_bytes()
         tree = parser.parse(source)
-        
+
         extractor = EXTRACTORS.get(lang)
         if not extractor:
             return None
-        
+
+        _debug(f"Processing {filepath}")
         info = extractor(tree, source)
         info.name = filepath.name
+        _debug(f"Found {len(info.symbols)} symbols")
         return info
     except Exception as e:
-        # print(f"Error parsing {filepath}: {e}", file=sys.stderr)
+        _debug(f"Error parsing {filepath}: {e}")
         return None
 
 
@@ -662,14 +915,17 @@ def generate_maps(root: Path, skip_dirs: set[str], dry_run: bool = False):
 
 
 def main():
+    global VERBOSE
     import argparse
     parser = argparse.ArgumentParser(description='Generate _MAP.md files for codebase navigation')
     parser.add_argument('path', nargs='?', default='.', help='Root directory to process')
     parser.add_argument('--dry-run', '-n', action='store_true', help='Print output without writing files')
     parser.add_argument('--clean', action='store_true', help='Remove all _MAP.md files')
     parser.add_argument('--skip', help='Comma-separated list of additional directories to skip (e.g., "locale,migrations,tests")')
+    parser.add_argument('--verbose', '-v', action='store_true', help='Enable debug output')
     args = parser.parse_args()
-    
+
+    VERBOSE = args.verbose
     root = Path(args.path).resolve()
     
     # Build skip set

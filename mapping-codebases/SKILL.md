@@ -2,7 +2,7 @@
 name: mapping-codebases
 description: Generate navigable code maps for unfamiliar codebases. Extracts exports/imports via AST (tree-sitter) to create _MAP.md files per directory showing classes, functions, methods with signatures and line numbers. Use when exploring repositories, understanding project structure, analyzing unfamiliar code, or before modifications. Triggers on "map this codebase", "explore repo", "understand structure", "what does this project contain", or when starting work on an unfamiliar repository.
 metadata:
-  version: 0.6.0
+  version: 0.7.0
 ---
 
 # Mapping Codebases
@@ -48,7 +48,7 @@ Each `_MAP.md` includes:
 - Directory statistics (file/subdirectory counts)
 - Subdirectory links for hierarchical navigation
 - Per-file: imports preview, symbol hierarchy with (C)lass/(m)ethod/(f)unction markers
-- Function signatures (Python full, TypeScript partial)
+- Function signatures (Python, TypeScript, Go, Rust, Ruby)
 - Line numbers (`:42` format) for every symbol
 - Markdown files: h1/h2 heading ToC
 - Other files section (JSON, YAML, configs)
@@ -85,6 +85,9 @@ Example:
 
 # Dry run
 /home/claude/.venv/bin/python /mnt/skills/user/mapping-codebases/scripts/codemap.py /path/to/repo -n
+
+# Verbose (debug output)
+/home/claude/.venv/bin/python /mnt/skills/user/mapping-codebases/scripts/codemap.py /path/to/repo -v
 ```
 
 Default skips: `.git`, `node_modules`, `__pycache__`, `.venv`, `venv`, `dist`, `build`, `.next`
@@ -96,6 +99,6 @@ Python, JavaScript, TypeScript, TSX, Go, Rust, Ruby, Java, HTML, Markdown.
 ## Limitations
 
 - Structural info only (symbols/imports), not semantic descriptions
-- Signatures: Python (full), TypeScript (partial), others (not extracted)
+- Signatures: Python (full), TypeScript/Go/Rust/Ruby (params + return types), Java (not extracted)
 - Markdown: h1/h2 headings only
 - Private symbols (`_prefix`) excluded from top-level exports
