@@ -6,6 +6,12 @@ All notable changes to the `invoking-gemini` skill are documented in this file. 
 
 ### Added
 
+- add image generation support + fix IMAGE_MODELS registry
+
+## [0.3.0] - 2026-03-01
+
+### Added
+
 - `generate_image()` function for native image generation via Gemini image models
 - `image` and `image-pro` model aliases for image generation
 - `nano-banana` (gemini-2.5-flash-image) to IMAGE_MODELS registry
