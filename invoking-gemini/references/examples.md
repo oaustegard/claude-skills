@@ -298,7 +298,7 @@ prompts = [
 
 translations = invoke_parallel(
     prompts=prompts,
-    model="gemini-2.0-flash-exp",
+    model="gemini-3-flash-preview",
     temperature=0.3,
     max_workers=10
 )

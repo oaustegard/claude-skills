@@ -1,117 +1,202 @@
 # Gemini Models Reference
 
-Detailed information about available Gemini models.
+Detailed information about available Gemini models (as of March 2026).
 
 ## Model Comparison
 
-### gemini-2.0-flash-exp
+### Gemini 3.x — Frontier (Preview)
 
-**Status:** Experimental (recommended)
+#### gemini-3-flash-preview
+
+**Status:** Preview (Default)
+**Alias:** `flash`
 
 **Strengths:**
-- Fast response times (~1-2s)
-- Native JSON Schema support
-- Property ordering guarantees
-- Cost-effective for batch processing
+- Frontier-class performance rivaling larger models at flash-tier cost
+- Upgraded visual and spatial reasoning
+- Agentic coding capabilities
+- Computer Use support (built-in)
 
 **Specifications:**
 - Context window: ~1M tokens input
-- Output limit: ~8K tokens
 - Multimodal: Yes (text, image, video, audio)
 
 **Best for:**
+- Default choice for most tasks
 - Structured data extraction
-- High-volume simple tasks
-- JSON output requirements
-- Budget-conscious projects
+- High-volume tasks needing strong reasoning
+- Agentic workflows
 
-**Pricing (approximate):**
-- Input: $0.15 / 1M tokens
-- Output: $0.60 / 1M tokens
+**Pricing:**
+- Input: $0.50 / 1M tokens
+- Output: $3.00 / 1M tokens
 
-### gemini-1.5-pro
+#### gemini-3.1-pro-preview
 
-**Status:** Production
+**Status:** Preview
+**Alias:** `pro`
 
 **Strengths:**
-- Superior reasoning capabilities
-- Larger context window (2M tokens)
-- Better for complex tasks
-- More nuanced understanding
+- Most capable Gemini model available
+- Advanced intelligence and complex problem-solving
+- Powerful agentic and vibe coding capabilities
+- Computer Use support (built-in)
 
 **Specifications:**
-- Context window: ~2M tokens input
-- Output limit: ~8K tokens
+- Context window: ~1M tokens input
+- Long context surcharge: 2x above 200K tokens
 - Multimodal: Yes (text, image, video, audio)
 
 **Best for:**
-- Complex analysis requiring reasoning
+- Complex analysis requiring deep reasoning
+- Tasks where quality matters more than cost
+- Advanced coding tasks
+
+**Pricing:**
+- Input: $2.00 / 1M tokens (≤200K), $4.00 (>200K)
+- Output: $12.00 / 1M tokens (≤200K), $24.00 (>200K)
+
+**Note:** Replaces the deprecated `gemini-3-pro-preview` (shutting down March 9, 2026).
+
+---
+
+### Gemini 2.5 — Stable Production
+
+#### gemini-2.5-flash
+
+**Status:** Stable
+**Alias:** `stable-flash`
+
+**Strengths:**
+- Best price-performance for reasoning tasks
+- Production-grade stability
+- Large context window
+
+**Specifications:**
+- Context window: ~1M tokens input
+- Multimodal: Yes (text, image, video, audio)
+
+**Best for:**
+- Production workloads needing stability
+- High-volume tasks with budget constraints
+- When preview models are too volatile
+
+**Pricing:**
+- Input: $0.30 / 1M tokens
+- Output: $2.50 / 1M tokens
+
+#### gemini-2.5-flash-lite
+
+**Status:** Stable
+**Alias:** `lite`
+
+**Strengths:**
+- Cheapest model in the lineup
+- Fast response times
+- Good quality for straightforward tasks
+
+**Specifications:**
+- Context window: ~1M tokens input
+- Multimodal: Yes (text, image, video, audio)
+
+**Best for:**
+- Ultra-budget batch processing
+- Simple classification and extraction
+- Maximum throughput at minimum cost
+
+**Pricing:**
+- Input: $0.10 / 1M tokens
+- Output: $0.40 / 1M tokens
+
+#### gemini-2.5-pro
+
+**Status:** Stable
+**Alias:** `stable-pro`
+
+**Strengths:**
+- Advanced reasoning with production stability
+- Deep reasoning and coding capabilities
+- Well-documented behavior
+
+**Specifications:**
+- Context window: ~1M tokens input
+- Long context surcharge: 2x above 200K tokens
+- Multimodal: Yes (text, image, video, audio)
+
+**Best for:**
+- Complex tasks requiring production stability
 - Long document processing
-- Tasks requiring deep understanding
 - Quality-critical applications
 
-**Pricing (approximate):**
-- Input: $1.25 / 1M tokens
-- Output: $5.00 / 1M tokens
+**Pricing:**
+- Input: $1.25 / 1M tokens (≤200K), $2.50 (>200K)
+- Output: $10.00 / 1M tokens (≤200K), $20.00 (>200K)
 
-### gemini-1.5-flash
+---
+
+### Image Generation Models
+
+#### gemini-3-pro-image
 
 **Status:** Production
 
-**Strengths:**
-- Balanced speed and quality
-- Good general-purpose model
-- Reliable for most tasks
+High-fidelity image generation with reasoning-enhanced composition:
+- Legible text rendering in images
+- Complex multi-turn editing workflows
+- Character consistency using up to 14 reference inputs
 
-**Specifications:**
-- Context window: ~1M tokens input
-- Output limit: ~8K tokens
-- Multimodal: Yes (text, image, video, audio)
+**Note:** Image models require different API parameters than text models.
 
-**Best for:**
-- General-purpose tasks
-- When 2.0-flash-exp feels too experimental
-- Production stability required
+#### nano-banana-2
 
-**Pricing (approximate):**
-- Input: $0.075 / 1M tokens
-- Output: $0.30 / 1M tokens
+**Status:** Preview (Feb 2026)
+
+Updated image generation built on Gemini 3.1 Flash Image platform:
+- Faster performance than previous generation
+- Sharper image-editing capabilities
+- Optimized for speed over maximum quality
+
+---
 
 ## Model Selection Guide
 
 ```
-Need structured JSON output? → gemini-2.0-flash-exp
-Processing >1M tokens? → gemini-1.5-pro
-Complex reasoning required? → gemini-1.5-pro
-Cost is primary concern? → gemini-1.5-flash
-Experimental OK, want latest? → gemini-2.0-flash-exp
-Production stability critical? → gemini-1.5-flash
+Default / general purpose?        → gemini-3-flash-preview (alias: flash)
+Need maximum reasoning quality?   → gemini-3.1-pro-preview (alias: pro)
+Production stability required?    → gemini-2.5-flash (alias: stable-flash)
+Ultra-budget batch processing?    → gemini-2.5-flash-lite (alias: lite)
+Complex + stable production?      → gemini-2.5-pro (alias: stable-pro)
+Image generation?                 → gemini-3-pro-image or nano-banana-2
 ```
 
 ## Multimodal Capabilities
 
-All models support:
+All text models support:
 - **Images:** JPEG, PNG, WebP, HEIC, HEIF
 - **Video:** MP4, MPEG, MOV, AVI, FLV, MPG, WebM, WMV, 3GPP
 - **Audio:** WAV, MP3, AIFF, AAC, OGG, FLAC
 
-**Input limits:**
-- Images: Up to 16 per request
-- Video: Up to 1 hour total
-- Audio: Up to 9.5 hours
+**Audio input pricing:**
+- Audio input is priced higher than text (e.g., $1.00/1M tokens for Flash models)
 
-## Context Windows
+## Deprecated / Retired Models
 
-**Understanding token counts:**
-- 1 token ≈ 4 characters
-- 1 token ≈ 0.75 words
-- 100 tokens ≈ 75 words
+| Model | Status | Migration Target |
+|---|---|---|
+| gemini-3-pro-preview | Deprecated (shutdown March 9, 2026) | gemini-3.1-pro-preview |
+| gemini-2.0-flash-exp | Retiring June 1, 2026 | gemini-3-flash-preview |
+| gemini-2.0-flash | Retiring June 1, 2026 | gemini-2.5-flash |
+| gemini-2.0-flash-lite | Retiring June 1, 2026 | gemini-2.5-flash-lite |
+| gemini-1.5-pro | Retired (404) | gemini-2.5-pro |
+| gemini-1.5-flash | Retired (404) | gemini-2.5-flash |
+| gemini-1.0-* | Retired (404) | — |
 
-**Examples:**
-- Short email: ~200 tokens
-- Blog post: ~800 tokens
-- Research paper: ~8,000 tokens
-- Full book: ~100,000 tokens
+## Cost Optimization Tips
+
+- **Batch API:** 50% discount on all paid models for async processing
+- **Context caching:** Up to 75-90% savings for repeated large prompts
+- **Long context:** Pro models charge 2x above 200K tokens — keep prompts concise
+- **Free tier:** All models include up to 1,000 daily requests on the free tier
 
 ## Rate Limits
 
@@ -121,66 +206,3 @@ Vary by API tier (default free tier):
 - **Requests per day:** 1,500
 
 Client automatically handles rate limiting with exponential backoff.
-
-## Performance Characteristics
-
-**Latency (typical):**
-- gemini-2.0-flash-exp: 1-2s
-- gemini-1.5-flash: 2-3s
-- gemini-1.5-pro: 3-5s
-
-**Throughput (parallel requests):**
-- Rate limit is shared across parallel requests
-- Optimal concurrency: 5-10 workers
-- Use `max_workers` parameter in `invoke_parallel()`
-
-## Versioning
-
-**Model naming:**
-- `-exp` suffix: Experimental, may change
-- `-latest` suffix: Auto-updates to latest version
-- Version numbers (e.g., `001`): Stable, frozen
-
-**Recommendation:** Use explicit model names for reproducibility.
-
-## Safety Settings
-
-Default safety settings are moderate. Adjust if needed:
-
-```python
-import google.generativeai as genai
-
-safety_settings = [
-    {
-        "category": "HARM_CATEGORY_HARASSMENT",
-        "threshold": "BLOCK_MEDIUM_AND_ABOVE"
-    },
-    # ... other categories
-]
-
-model = genai.GenerativeModel(
-    model_name="gemini-2.0-flash-exp",
-    safety_settings=safety_settings
-)
-```
-
-Categories:
-- HARM_CATEGORY_HARASSMENT
-- HARM_CATEGORY_HATE_SPEECH
-- HARM_CATEGORY_SEXUALLY_EXPLICIT
-- HARM_CATEGORY_DANGEROUS_CONTENT
-
-Thresholds:
-- BLOCK_NONE
-- BLOCK_LOW_AND_ABOVE
-- BLOCK_MEDIUM_AND_ABOVE
-- BLOCK_ONLY_HIGH
-
-## Experimental Features
-
-**gemini-2.0-flash-exp only:**
-- Native JSON Schema with property ordering
-- Enhanced multimodal understanding
-- Improved instruction following
-
-**Note:** Experimental features may change without notice.

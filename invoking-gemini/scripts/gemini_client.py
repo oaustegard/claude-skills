@@ -47,14 +47,33 @@ if not HAS_REQUESTS and not HAS_GENAI:
 # Model registry
 # ---------------------------------------------------------------------------
 
+# Text generation models
 MODELS = {
-    "gemini-2.0-flash-exp": "gemini-2.0-flash-exp",
-    "gemini-2.0-flash": "gemini-2.0-flash",
-    "gemini-1.5-pro": "gemini-1.5-pro",
-    "gemini-1.5-flash": "gemini-1.5-flash",
+    # Gemini 3.x — frontier (preview)
+    "gemini-3-flash-preview": "gemini-3-flash-preview",
+    "gemini-3.1-pro-preview": "gemini-3.1-pro-preview",
+    # Gemini 2.5 — stable production
+    "gemini-2.5-flash": "gemini-2.5-flash",
+    "gemini-2.5-flash-lite": "gemini-2.5-flash-lite",
+    "gemini-2.5-pro": "gemini-2.5-pro",
 }
 
-DEFAULT_MODEL = "gemini-2.0-flash-exp"
+# Image generation models (require responseMimeType adjustments)
+IMAGE_MODELS = {
+    "gemini-3-pro-image": "gemini-3-pro-image",
+    "nano-banana-2": "nano-banana-2",
+}
+
+# Convenience aliases
+MODEL_ALIASES = {
+    "flash": "gemini-3-flash-preview",
+    "pro": "gemini-3.1-pro-preview",
+    "lite": "gemini-2.5-flash-lite",
+    "stable-flash": "gemini-2.5-flash",
+    "stable-pro": "gemini-2.5-pro",
+}
+
+DEFAULT_MODEL = "gemini-3-flash-preview"
 
 # ---------------------------------------------------------------------------
 # Cloudflare AI Gateway constants
@@ -190,7 +209,7 @@ def _cf_request(
     POST a generateContent request via Cloudflare AI Gateway.
 
     Args:
-        model_id: Gemini model ID (e.g., 'gemini-2.0-flash-exp')
+        model_id: Gemini model ID (e.g., 'gemini-3-flash-preview')
         contents: Gemini REST API contents array
         generation_config: generationConfig dict (camelCase keys)
         cf_creds: dict with CF_ACCOUNT_ID, CF_GATEWAY_ID, CF_API_TOKEN
@@ -298,6 +317,32 @@ def _build_genai_content(prompt: str, image_path: Optional[str]):
 # Public API
 # ---------------------------------------------------------------------------
 
+def _resolve_model(model: str) -> str:
+    """Resolve a model name or alias to its canonical model ID.
+
+    Args:
+        model: Model name, alias, or direct ID
+
+    Returns:
+        Canonical model ID string
+
+    Raises:
+        ValueError: If model is not recognized
+    """
+    # Direct match in text models
+    if model in MODELS:
+        return MODELS[model]
+    # Alias lookup
+    if model in MODEL_ALIASES:
+        return MODEL_ALIASES[model]
+    # Image models
+    if model in IMAGE_MODELS:
+        return IMAGE_MODELS[model]
+
+    all_names = list(MODELS) + list(MODEL_ALIASES) + list(IMAGE_MODELS)
+    raise ValueError(f"Invalid model: {model}. Choose from {all_names}")
+
+
 def invoke_gemini(
     prompt: str,
     model: str = DEFAULT_MODEL,
@@ -315,7 +360,8 @@ def invoke_gemini(
 
     Args:
         prompt: The text prompt to send
-        model: Model name (default: gemini-2.0-flash-exp)
+        model: Model name or alias (default: gemini-3-flash-preview).
+            Aliases: flash, pro, lite, stable-flash, stable-pro
         temperature: Sampling temperature (0.0–1.0)
         max_output_tokens: Maximum tokens in response
         top_p: Nucleus sampling parameter
@@ -325,10 +371,7 @@ def invoke_gemini(
     Returns:
         Response text if successful, None if error
     """
-    if model not in MODELS:
-        raise ValueError(f"Invalid model: {model}. Choose from {list(MODELS.keys())}")
-
-    model_id = MODELS[model]
+    model_id = _resolve_model(model)
     cf_creds = get_cf_credentials()
 
     max_retries = 3
@@ -394,7 +437,8 @@ def invoke_with_structured_output(
     Args:
         prompt: The text prompt to send
         pydantic_model: Pydantic model class for response schema
-        model: Model name (default: gemini-2.0-flash-exp)
+        model: Model name or alias (default: gemini-3-flash-preview).
+            Aliases: flash, pro, lite, stable-flash, stable-pro
         temperature: Sampling temperature (0.0–1.0)
         image_path: Optional path to image file for multi-modal input
 
@@ -405,10 +449,7 @@ def invoke_with_structured_output(
         print("Error: pydantic not installed. Run: uv pip install pydantic")
         return None
 
-    if model not in MODELS:
-        raise ValueError(f"Invalid model: {model}. Choose from {list(MODELS.keys())}")
-
-    model_id = MODELS[model]
+    model_id = _resolve_model(model)
     cf_creds = get_cf_credentials()
 
     max_retries = 3
@@ -470,7 +511,8 @@ def invoke_parallel(
 
     Args:
         prompts: List of text prompts to process
-        model: Model name (default: gemini-2.0-flash-exp)
+        model: Model name or alias (default: gemini-3-flash-preview).
+            Aliases: flash, pro, lite, stable-flash, stable-pro
         temperature: Sampling temperature (0.0–1.0)
         max_workers: Maximum concurrent requests
 
@@ -501,9 +543,17 @@ def invoke_parallel(
     return results
 
 
-def get_available_models() -> list:
-    """Return list of registered Gemini model names."""
-    return list(MODELS.keys())
+def get_available_models() -> dict:
+    """Return dict of registered Gemini models grouped by category.
+
+    Returns:
+        dict with keys 'text', 'image', 'aliases'
+    """
+    return {
+        "text": list(MODELS.keys()),
+        "image": list(IMAGE_MODELS.keys()),
+        "aliases": dict(MODEL_ALIASES),
+    }
 
 
 def verify_setup() -> bool:
@@ -559,8 +609,14 @@ if __name__ == "__main__":
         sys.exit(1)
 
     print("\n2. Available models:")
-    for name in get_available_models():
-        print(f"   - {name}")
+    available = get_available_models()
+    for category, items in available.items():
+        if isinstance(items, dict):
+            print(f"   {category}:")
+            for alias, target in items.items():
+                print(f"     {alias} → {target}")
+        else:
+            print(f"   {category}: {', '.join(items)}")
 
     print("\n3. Testing basic invocation...")
     resp = invoke_gemini("What is 2+2? Answer in one word.", model=DEFAULT_MODEL)
