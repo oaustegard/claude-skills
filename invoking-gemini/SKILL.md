@@ -2,7 +2,7 @@
 name: invoking-gemini
 description: Invokes Google Gemini models for structured outputs, multi-modal tasks, and Google-specific features. Use when users request Gemini, structured JSON output, Google API integration, or cost-effective parallel processing.
 metadata:
-  version: 0.3.0
+  version: 0.3.1
 ---
 
 # Invoking Gemini

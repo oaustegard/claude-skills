@@ -28,13 +28,13 @@
     model: str = DEFAULT_MODEL,
     temperature: float = 0.7,
     image_path: Optional[str] = None,
-)` :581
+)` :583
 - **invoke_parallel** (f) `(
     prompts: list,
     model: str = DEFAULT_MODEL,
     temperature: float = 0.7,
     max_workers: int = 5,
-)` :657
-- **get_available_models** (f) `()` :700
-- **verify_setup** (f) `()` :713
+)` :659
+- **get_available_models** (f) `()` :702
+- **verify_setup** (f) `()` :715
 
