@@ -1,0 +1,69 @@
+name: Perch
+
+on:
+  # Schedule disabled during testing -- uncomment when stable
+  # schedule:
+  #   - cron: '0 12 * * *'     # sleep at 7am ET
+  #   - cron: '0 13 * * *'     # zeitgeist at 8am ET
+  workflow_dispatch:
+    inputs:
+      task:
+        description: Task to run
+        default: sleep
+        type: choice
+        options:
+          - sleep
+          - zeitgeist
+          - fly
+      model:
+        description: Model
+        default: claude-haiku-4-5-20251001
+        type: choice
+        options:
+          - claude-haiku-4-5-20251001
+          - claude-sonnet-4-5-20250929
+      verbose:
+        description: Verbose logging
+        default: true
+        type: boolean
+      max_turns:
+        description: Max tool-call turns (safety ceiling)
+        default: '50'
+
+jobs:
+  perch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install anthropic requests
+
+      - name: Run perch
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TURSO_TOKEN: ${{ secrets.TURSO_TOKEN }}
+          TURSO_URL: ${{ secrets.TURSO_URL }}
+          BSKY_HANDLE: ${{ secrets.BSKY_HANDLE }}
+          BSKY_APP_PASSWORD: ${{ secrets.BSKY_APP_PASSWORD }}
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python .perch/perch.py \
+            --task ${{ inputs.task }} \
+            --model "${{ inputs.model }}" \
+            --max-turns ${{ inputs.max_turns }} \
+            ${{ inputs.verbose && '--verbose' || '--quiet' }}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: perch-${{ inputs.task }}-${{ github.run_number }}
+          path: |
+            session.log
+            session.json
+          retention-days: 30
