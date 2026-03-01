@@ -1,6 +1,6 @@
 ---
 name: sorting-groceries
-description: "Sort grocery lists by aisle order using store aisle sign photos. Build aisle maps from uploaded images, match items to aisles, and output optimized shopping routes. Use for: grocery list sorting, aisle sign photos, shopping trip optimization, store layout mapping, grocery list organization."
+description: Sort grocery lists by aisle order using store aisle sign photos. Build aisle maps from uploaded images, match items to aisles, and output optimized shopping routes. Use when users upload aisle sign photos, request grocery list sorting, want shopping trip optimization, need store layout mapping, or mention grocery list organization.
 metadata:
   version: 0.1.0
 ---
