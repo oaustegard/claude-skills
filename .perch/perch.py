@@ -136,8 +136,19 @@ def run_perch(task: str, model: str, max_turns: int) -> dict:
 
     log(f"SYSTEM: task={task} model={model} max_turns={max_turns} tools={len(tools)}", always=True)
 
-    # Initialize Anthropic client
-    client = anthropic.Anthropic()
+    # Validate API key before constructing client
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
+        log("FATAL: ANTHROPIC_API_KEY is not set or empty. "
+            "Configure it as a repository secret.", always=True)
+        return build_session_record(
+            task=task, model=model, turns=0, tool_calls=[],
+            total_input_tokens=0, total_output_tokens=0,
+            errors=["ANTHROPIC_API_KEY not set"], summary="",
+            started_at=started_at,
+        )
+
+    client = anthropic.Anthropic(api_key=api_key)
 
     messages = [{"role": "user", "content": f"Begin {task} session."}]
     log(f"PROMPT: Begin {task} session.")
