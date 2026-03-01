@@ -37,6 +37,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check required secrets
+        env:
+          HAS_ANTHROPIC: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+          HAS_TURSO_TOKEN: ${{ secrets.TURSO_TOKEN != '' }}
+          HAS_TURSO_URL: ${{ secrets.TURSO_URL != '' }}
+        run: |
+          ok=true
+          if [ "$HAS_ANTHROPIC" != "true" ]; then
+            echo "::error::ANTHROPIC_API_KEY secret is not set"
+            ok=false
+          fi
+          if [ "$HAS_TURSO_TOKEN" != "true" ]; then
+            echo "::warning::TURSO_TOKEN secret is not set (memory tools will fail)"
+          fi
+          if [ "$HAS_TURSO_URL" != "true" ]; then
+            echo "::warning::TURSO_URL secret is not set (memory tools will fail)"
+          fi
+          if [ "$ok" != "true" ]; then
+            echo "::error::Required secrets missing. See Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -53,11 +75,17 @@ jobs:
           BSKY_APP_PASSWORD: ${{ secrets.BSKY_APP_PASSWORD }}
           PYTHONPATH: ${{ github.workspace }}
         run: |
+          VERBOSE_FLAG=""
+          if [ "${{ inputs.verbose }}" = "true" ]; then
+            VERBOSE_FLAG="--verbose"
+          else
+            VERBOSE_FLAG="--quiet"
+          fi
           python .perch/perch.py \
             --task ${{ inputs.task }} \
             --model "${{ inputs.model }}" \
             --max-turns ${{ inputs.max_turns }} \
-            ${{ inputs.verbose && '--verbose' || '--quiet' }}
+            $VERBOSE_FLAG
 
       - uses: actions/upload-artifact@v4
         if: always()
