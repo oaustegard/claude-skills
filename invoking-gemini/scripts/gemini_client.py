@@ -269,8 +269,8 @@ def _build_contents(prompt: str, image_path: Optional[str]) -> list:
         image_data = Path(image_path).read_bytes()
         mime_type = mimetypes.guess_type(image_path)[0] or "image/jpeg"
         parts.append({
-            "inline_data": {
-                "mime_type": mime_type,
+            "inlineData": {
+                "mimeType": mime_type,
                 "data": base64.b64encode(image_data).decode(),
             }
         })
@@ -517,7 +517,9 @@ def generate_image(
 
             parts = candidates[0].get("content", {}).get("parts", [])
             for part in parts:
-                if "inline_data" in part:
+                if "inlineData" in part:
+                    image_data = part["inlineData"].get("data")
+                elif "inline_data" in part:
                     image_data = part["inline_data"].get("data")
                 elif "text" in part:
                     caption = part["text"]
@@ -567,8 +569,8 @@ def _sdk_response_to_dict(response_obj) -> dict:
             elif hasattr(part, "inline_data") and part.inline_data:
                 data = part.inline_data
                 parts.append({
-                    "inline_data": {
-                        "mime_type": data.mime_type,
+                    "inlineData": {
+                        "mimeType": data.mime_type,
                         "data": base64.b64encode(data.data).decode()
                         if isinstance(data.data, bytes)
                         else data.data,
