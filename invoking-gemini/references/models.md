@@ -136,25 +136,39 @@ Detailed information about available Gemini models (as of March 2026).
 
 ### Image Generation Models
 
-#### gemini-3-pro-image
+#### nano-banana-2
 
-**Status:** Production
+**Status:** Preview
+**API Model ID:** `gemini-3.1-flash-image-preview`
+**Alias:** `image`
+
+Fast image generation/editing built on Gemini 3.1 Flash Image platform:
+- Faster performance than previous generation
+- Sharper image-editing capabilities
+- Optimized for speed over maximum quality
+- Default image model in `generate_image()`
+
+#### nano-banana-pro
+
+**Status:** Preview
+**API Model ID:** `gemini-3-pro-image-preview`
+**Alias:** `image-pro`
 
 High-fidelity image generation with reasoning-enhanced composition:
 - Legible text rendering in images
 - Complex multi-turn editing workflows
 - Character consistency using up to 14 reference inputs
 
-**Note:** Image models require different API parameters than text models.
+#### nano-banana
 
-#### nano-banana-2
+**Status:** Stable
+**API Model ID:** `gemini-2.5-flash-image`
 
-**Status:** Preview (Feb 2026)
+Image generation on the Gemini 2.5 Flash platform:
+- Production-grade stability
+- Good balance of quality and speed
 
-Updated image generation built on Gemini 3.1 Flash Image platform:
-- Faster performance than previous generation
-- Sharper image-editing capabilities
-- Optimized for speed over maximum quality
+**Note:** Image models require `responseModalities: ["IMAGE", "TEXT"]` — handled automatically by `generate_image()`.
 
 ---
 
@@ -166,7 +180,8 @@ Need maximum reasoning quality?   → gemini-3.1-pro-preview (alias: pro)
 Production stability required?    → gemini-2.5-flash (alias: stable-flash)
 Ultra-budget batch processing?    → gemini-2.5-flash-lite (alias: lite)
 Complex + stable production?      → gemini-2.5-pro (alias: stable-pro)
-Image generation?                 → gemini-3-pro-image or nano-banana-2
+Image generation (fast)?           → nano-banana-2 (alias: image)
+Image generation (high-fidelity)?  → nano-banana-pro (alias: image-pro)
 ```
 
 ## Multimodal Capabilities
