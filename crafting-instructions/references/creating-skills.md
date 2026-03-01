@@ -46,7 +46,7 @@ Requirements:
 ```yaml
 ---
 name: skill-name
-description: [Action verbs] [what]. Use for: [trigger patterns].
+description: [Action verbs] [what]. Use when [trigger patterns].
 ---
 ```
 
@@ -55,22 +55,22 @@ description: [Action verbs] [what]. Use for: [trigger patterns].
 **description:** (max 1024 chars)
 - **Lead with action verbs**: "Create", "Generate", "Analyze", "Extract" (imperative, not descriptive)
 - **State capabilities concisely**: What the skill does in active voice
-- **Explicit trigger section**: "Use for:" followed by comma-separated patterns
+- **Explicit trigger section**: "Use when" followed by trigger conditions
 - **Trigger specificity**: File types (.docx, .pptx), keywords (chart, visualize), task verbs (debug, optimize), user phrases
 - **No XML tags, no procedural steps**
 
 **Strong examples:**
-- "Create and edit PowerPoint presentations (.pptx) with layouts and formatting. Use for: slide creation, presentation requests, .pptx file mentions, pitch deck generation."
-- "Analyze and optimize SQL query performance. Use for: slow query debugging, EXPLAIN output analysis, optimization requests, database performance tuning."
-- "Generate interactive data visualizations using Vega-Lite. Use for: chart creation, plotting data, visualization requests, uploaded CSV/JSON with charting intent."
+- "Create and edit PowerPoint presentations (.pptx) with layouts and formatting. Use when users request slide creation, mention presentations, reference .pptx files, or need pitch deck generation."
+- "Analyze and optimize SQL query performance. Use when users report slow queries, share EXPLAIN output, request optimization, or need database performance tuning."
+- "Generate interactive data visualizations using Vega-Lite. Use when users request charts, want to plot data, mention visualizations, or upload CSV/JSON with charting intent."
 
 **Weak examples:**
 - "I can help create presentations" (first person, passive, no triggers)
 - "Presentation creator" (descriptive noun, no actions, no triggers)
-- "Creates PowerPoint presentations. Use when users mention slides" (descriptive "Creates", weak "Use when", incomplete triggers)
+- "Creates PowerPoint presentations. Use when users mention slides." (descriptive "Creates", vague trigger, incomplete conditions)
 - "Advanced presentation tool with animations and transitions" (implementation details, no actions or triggers)
 
-**Pattern:** `[Verb] [Verb] [Verb] [object/domain]. Use for: [trigger1], [trigger2], [trigger3].`
+**Pattern:** `[Verb] [Verb] [Verb] [object/domain]. Use when [trigger condition 1], [trigger condition 2], or [trigger condition 3].`
 
 The description determines skill activation—imperative verbs and explicit triggers are critical.
 
