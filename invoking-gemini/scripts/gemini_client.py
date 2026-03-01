@@ -58,10 +58,11 @@ MODELS = {
     "gemini-2.5-pro": "gemini-2.5-pro",
 }
 
-# Image generation models (require responseMimeType adjustments)
+# Image generation models — display name → actual API model ID
 IMAGE_MODELS = {
-    "gemini-3-pro-image": "gemini-3-pro-image",
-    "nano-banana-2": "nano-banana-2",
+    "nano-banana-2": "gemini-3.1-flash-image-preview",
+    "nano-banana-pro": "gemini-3-pro-image-preview",
+    "nano-banana": "gemini-2.5-flash-image",
 }
 
 # Convenience aliases
@@ -71,6 +72,8 @@ MODEL_ALIASES = {
     "lite": "gemini-2.5-flash-lite",
     "stable-flash": "gemini-2.5-flash",
     "stable-pro": "gemini-2.5-pro",
+    "image": "nano-banana-2",
+    "image-pro": "nano-banana-pro",
 }
 
 DEFAULT_MODEL = "gemini-3-flash-preview"
@@ -318,26 +321,28 @@ def _build_genai_content(prompt: str, image_path: Optional[str]):
 # ---------------------------------------------------------------------------
 
 def _resolve_model(model: str) -> str:
-    """Resolve a model name or alias to its canonical model ID.
+    """Resolve a model name or alias to its canonical API model ID.
+
+    Handles chained resolution: alias → display name → API model ID.
 
     Args:
         model: Model name, alias, or direct ID
 
     Returns:
-        Canonical model ID string
+        Canonical API model ID string
 
     Raises:
         ValueError: If model is not recognized
     """
+    # Resolve alias first (e.g., "image" → "nano-banana-2")
+    resolved = MODEL_ALIASES.get(model, model)
+
     # Direct match in text models
-    if model in MODELS:
-        return MODELS[model]
-    # Alias lookup
-    if model in MODEL_ALIASES:
-        return MODEL_ALIASES[model]
-    # Image models
-    if model in IMAGE_MODELS:
-        return IMAGE_MODELS[model]
+    if resolved in MODELS:
+        return MODELS[resolved]
+    # Image models (display name → API model ID)
+    if resolved in IMAGE_MODELS:
+        return IMAGE_MODELS[resolved]
 
     all_names = list(MODELS) + list(MODEL_ALIASES) + list(IMAGE_MODELS)
     raise ValueError(f"Invalid model: {model}. Choose from {all_names}")
@@ -422,6 +427,155 @@ def invoke_gemini(
                 return None
 
     return None
+
+
+def generate_image(
+    prompt: str,
+    output_path: Optional[str] = None,
+    model: str = "nano-banana-2",
+    temperature: float = 0.7,
+) -> Optional[dict]:
+    """
+    Generate an image using a Gemini image model.
+
+    Sends a prompt with responseModalities ["IMAGE", "TEXT"] and saves the
+    resulting image to disk.
+
+    Args:
+        prompt: Text prompt describing the desired image
+        output_path: Where to save the PNG. If None, auto-generates under
+            /mnt/user-data/outputs/ (or /tmp/ if that doesn't exist)
+        model: Image model name or alias (default: nano-banana-2).
+            Aliases: image, image-pro
+        temperature: Sampling temperature (0.0–1.0)
+
+    Returns:
+        dict with keys 'path' (str) and 'caption' (str|None) on success,
+        None on failure
+    """
+    import base64
+
+    # Resolve model — must land in IMAGE_MODELS
+    resolved = model
+    if model in MODEL_ALIASES:
+        resolved = MODEL_ALIASES[model]
+    if resolved not in IMAGE_MODELS:
+        raise ValueError(
+            f"Model '{model}' is not an image model. "
+            f"Use one of: {list(IMAGE_MODELS)} or aliases: image, image-pro"
+        )
+    model_id = IMAGE_MODELS[resolved]
+
+    # Determine output path
+    if output_path is None:
+        ts = int(time.time())
+        out_dir = Path("/mnt/user-data/outputs")
+        if not out_dir.exists():
+            out_dir = Path("/tmp")
+        output_path = str(out_dir / f"gemini_image_{ts}.png")
+
+    cf_creds = get_cf_credentials()
+
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            if cf_creds and HAS_REQUESTS:
+                # --- Cloudflare AI Gateway path ---
+                contents = [{"parts": [{"text": prompt}]}]
+                gen_cfg = {
+                    "temperature": temperature,
+                    "responseModalities": ["IMAGE", "TEXT"],
+                }
+                response = _cf_request(model_id, contents, gen_cfg, cf_creds)
+
+            elif HAS_GENAI:
+                # --- Direct SDK path ---
+                if not _initialize_direct_client():
+                    return None
+                model_instance = genai.GenerativeModel(
+                    model_name=model_id,
+                    generation_config={
+                        "temperature": temperature,
+                        "response_modalities": ["IMAGE", "TEXT"],
+                    },
+                )
+                response_obj = model_instance.generate_content(prompt)
+                # Convert SDK response to REST-like dict for unified extraction
+                response = _sdk_response_to_dict(response_obj)
+
+            else:
+                print("Error: no credentials configured and google-generativeai not installed")
+                return None
+
+            # Extract image and optional caption from response
+            image_data = None
+            caption = None
+            candidates = response.get("candidates", [])
+            if not candidates:
+                print("Error: no candidates in response")
+                return None
+
+            parts = candidates[0].get("content", {}).get("parts", [])
+            for part in parts:
+                if "inline_data" in part:
+                    image_data = part["inline_data"].get("data")
+                elif "text" in part:
+                    caption = part["text"]
+
+            if not image_data:
+                print("Error: no image data in response")
+                return None
+
+            # Decode and save
+            Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+            Path(output_path).write_bytes(base64.b64decode(image_data))
+            print(f"Image saved to {output_path}")
+            return {"path": output_path, "caption": caption}
+
+        except Exception as e:
+            if attempt < max_retries - 1:
+                wait_time = 2 ** attempt
+                print(f"Retry {attempt + 1}/{max_retries} after {wait_time}s: {e}")
+                time.sleep(wait_time)
+            else:
+                print(f"Error generating image: {e}")
+                return None
+
+    return None
+
+
+def _sdk_response_to_dict(response_obj) -> dict:
+    """Convert a google.generativeai SDK response to a REST-like dict.
+
+    This allows generate_image() to use the same extraction logic for both
+    the CF Gateway (REST) and direct SDK paths.
+
+    Args:
+        response_obj: GenerateContentResponse from the SDK
+
+    Returns:
+        dict matching the Gemini REST API response shape
+    """
+    import base64
+
+    candidates = []
+    for candidate in response_obj.candidates:
+        parts = []
+        for part in candidate.content.parts:
+            if hasattr(part, "text") and part.text:
+                parts.append({"text": part.text})
+            elif hasattr(part, "inline_data") and part.inline_data:
+                data = part.inline_data
+                parts.append({
+                    "inline_data": {
+                        "mime_type": data.mime_type,
+                        "data": base64.b64encode(data.data).decode()
+                        if isinstance(data.data, bytes)
+                        else data.data,
+                    }
+                })
+        candidates.append({"content": {"parts": parts}})
+    return {"candidates": candidates}
 
 
 def invoke_with_structured_output(

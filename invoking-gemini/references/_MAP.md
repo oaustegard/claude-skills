@@ -30,9 +30,9 @@
 ### models.md
 - Gemini Models Reference `h1` :1
 - Model Comparison `h2` :5
-- Model Selection Guide `h2` :161
-- Multimodal Capabilities `h2` :172
-- Deprecated / Retired Models `h2` :182
-- Cost Optimization Tips `h2` :194
-- Rate Limits `h2` :201
+- Model Selection Guide `h2` :175
+- Multimodal Capabilities `h2` :187
+- Deprecated / Retired Models `h2` :197
+- Cost Optimization Tips `h2` :209
+- Rate Limits `h2` :216
 

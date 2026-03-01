@@ -2,7 +2,7 @@
 name: invoking-gemini
 description: Invokes Google Gemini models for structured outputs, multi-modal tasks, and Google-specific features. Use when users request Gemini, structured JSON output, Google API integration, or cost-effective parallel processing.
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # Invoking Gemini
@@ -64,9 +64,16 @@ Delegate tasks to Google's Gemini models when they offer advantages over Claude.
 
 ### Image Generation Models
 
-**gemini-3-pro-image**: High-fidelity image generation with text rendering and multi-turn editing
+**nano-banana-2** (Default image model): Fast image generation/editing built on Gemini 3.1 Flash Image
+- API model: `gemini-3.1-flash-image-preview`
+- Alias: `image`
 
-**nano-banana-2**: Fast image generation/editing built on Gemini 3.1 Flash Image
+**nano-banana-pro**: High-fidelity image generation with text rendering and multi-turn editing
+- API model: `gemini-3-pro-image-preview`
+- Alias: `image-pro`
+
+**nano-banana**: Image generation on Gemini 2.5 Flash
+- API model: `gemini-2.5-flash-image`
 
 See [references/models.md](references/models.md) for full model details and pricing.
 
@@ -240,6 +247,56 @@ result = invoke_with_structured_output(
 ```
 
 See [references/advanced.md](references/advanced.md) for more patterns.
+
+## Image Generation
+
+Generate images using Gemini's native image models:
+
+```python
+from gemini_client import generate_image
+
+# Basic generation
+result = generate_image("A watercolor painting of a mountain lake at sunset")
+print(result["path"])     # /mnt/user-data/outputs/gemini_image_1740000000.png
+print(result["caption"])  # Optional text the model returns alongside the image
+```
+
+### Model Selection
+
+```python
+# Fast generation (default) — nano-banana-2 → gemini-3.1-flash-image-preview
+result = generate_image("A red bicycle", model="nano-banana-2")
+
+# High-fidelity — nano-banana-pro → gemini-3-pro-image-preview
+result = generate_image("A red bicycle", model="image-pro")
+```
+
+### Custom Output Path
+
+```python
+result = generate_image(
+    "A logo for a coffee shop called 'Bean There'",
+    output_path="/mnt/user-data/outputs/coffee_logo.png"
+)
+```
+
+### Effective Prompt Patterns
+
+- **Be specific about style:** "A watercolor painting of..." vs "A picture of..."
+- **Include composition details:** "centered, wide angle, high contrast"
+- **Specify text rendering:** "A poster with the text 'SALE' in bold red letters"
+- **Multi-turn editing:** Generate once, then refine with follow-up prompts
+
+### Return Value
+
+```python
+{
+    "path": "/mnt/user-data/outputs/gemini_image_1740000000.png",
+    "caption": "Optional descriptive text from the model"  # or None
+}
+```
+
+Returns `None` on failure (credentials missing, API error, no image in response).
 
 ## Comparison: Gemini vs Claude
 
