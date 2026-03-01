@@ -2,7 +2,7 @@
 name: invoking-gemini
 description: Invokes Google Gemini models for structured outputs, multi-modal tasks, and Google-specific features. Use when users request Gemini, structured JSON output, Google API integration, or cost-effective parallel processing.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Invoking Gemini
@@ -33,21 +33,42 @@ Delegate tasks to Google's Gemini models when they offer advantages over Claude.
 
 ## Available Models
 
-**gemini-2.0-flash-exp** (Recommended):
-- Fast, cost-effective
-- Native JSON Schema support
-- Good for structured outputs
+### Gemini 3.x — Frontier (Preview)
 
-**gemini-1.5-pro**:
-- More capable reasoning
-- Better for complex tasks
-- Higher cost
+**gemini-3-flash-preview** (Default / Recommended):
+- Frontier-class performance at flash-tier cost
+- Upgraded visual and spatial reasoning
+- Agentic coding capabilities
+- Alias: `flash`
 
-**gemini-1.5-flash**:
-- Balanced speed/quality
-- Good for most tasks
+**gemini-3.1-pro-preview**:
+- Most capable model available
+- Deep reasoning and complex problem solving
+- Alias: `pro`
 
-See [references/models.md](references/models.md) for full model details.
+### Gemini 2.5 — Stable Production
+
+**gemini-2.5-flash**:
+- Best price-performance for high-volume tasks
+- 1M token context window
+- Alias: `stable-flash`
+
+**gemini-2.5-flash-lite**:
+- Ultra-budget option ($0.10/$0.40 per 1M tokens)
+- Good for simple, high-throughput tasks
+- Alias: `lite`
+
+**gemini-2.5-pro**:
+- Advanced reasoning for complex tasks
+- Alias: `stable-pro`
+
+### Image Generation Models
+
+**gemini-3-pro-image**: High-fidelity image generation with text rendering and multi-turn editing
+
+**nano-banana-2**: Fast image generation/editing built on Gemini 3.1 Flash Image
+
+See [references/models.md](references/models.md) for full model details and pricing.
 
 ## Setup
 
@@ -99,7 +120,7 @@ from gemini_client import invoke_gemini
 # Simple prompt
 response = invoke_gemini(
     prompt="Explain quantum computing in 3 bullet points",
-    model="gemini-2.0-flash-exp"
+    model="gemini-3-flash-preview"
 )
 print(response)
 ```
@@ -149,7 +170,7 @@ prompts = [
 
 results = invoke_parallel(
     prompts=prompts,
-    model="gemini-2.0-flash-exp"
+    model="gemini-3-flash-preview"
 )
 
 for prompt, result in zip(prompts, results):
@@ -172,7 +193,7 @@ from gemini_client import invoke_gemini
 
 response = invoke_gemini(
     prompt="Your prompt here",
-    model="gemini-2.0-flash-exp"
+    model="gemini-3-flash-preview"
 )
 
 if response is None:
@@ -193,7 +214,7 @@ if response is None:
 ```python
 response = invoke_gemini(
     prompt="Write a haiku",
-    model="gemini-2.0-flash-exp",
+    model="gemini-3-flash-preview",
     temperature=0.9,
     max_output_tokens=100,
     top_p=0.95
@@ -269,8 +290,8 @@ for file in uploaded_files:
 - Subjective creative writing
 
 **Token limits:**
-- gemini-2.0-flash-exp: ~1M input tokens
-- gemini-1.5-pro: ~2M input tokens
+- gemini-3-flash-preview: ~1M input tokens
+- gemini-2.5-pro: ~1M input tokens (2x pricing above 200K)
 
 **Rate limits:**
 - Vary by API tier
@@ -314,18 +335,18 @@ uv pip install google-generativeai
 
 ## Cost Comparison
 
-Approximate pricing (as of 2024):
+Approximate pricing (as of early 2026):
 
-**Gemini 2.0 Flash:**
-- Input: $0.15 / 1M tokens
-- Output: $0.60 / 1M tokens
-
-**Claude Sonnet:**
-- Input: $3.00 / 1M tokens
-- Output: $15.00 / 1M tokens
+| Model | Input / 1M tokens | Output / 1M tokens |
+|---|---|---|
+| Gemini 3 Flash | $0.50 | $3.00 |
+| Gemini 3.1 Pro | $2.00 | $12.00 |
+| Gemini 2.5 Flash | $0.30 | $2.50 |
+| Gemini 2.5 Flash-Lite | $0.10 | $0.40 |
+| Gemini 2.5 Pro | $1.25 | $10.00 |
 
 For 1000 simple extraction tasks (100 tokens each):
-- Gemini Flash: ~$0.10
-- Claude Sonnet: ~$2.00
+- Gemini 2.5 Flash-Lite: ~$0.05
+- Gemini 3 Flash: ~$0.35
 
 **Strategy:** Use Claude for complex reasoning, Gemini for high-volume simple tasks.

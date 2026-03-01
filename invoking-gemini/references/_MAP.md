@@ -30,12 +30,9 @@
 ### models.md
 - Gemini Models Reference `h1` :1
 - Model Comparison `h2` :5
-- Model Selection Guide `h2` :80
-- Multimodal Capabilities `h2` :91
-- Context Windows `h2` :103
-- Rate Limits `h2` :116
-- Performance Characteristics `h2` :125
-- Versioning `h2` :137
-- Safety Settings `h2` :146
-- Experimental Features `h2` :179
+- Model Selection Guide `h2` :161
+- Multimodal Capabilities `h2` :172
+- Deprecated / Retired Models `h2` :182
+- Cost Optimization Tips `h2` :194
+- Rate Limits `h2` :201
 
