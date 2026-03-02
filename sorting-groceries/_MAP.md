@@ -1,7 +1,11 @@
 # sorting-groceries/
-*Files: 1*
+*Files: 2*
 
 ## Files
+
+### CHANGELOG.md
+- sorting-groceries - Changelog `h1` :1
+- [0.1.0] - 2026-03-01 `h2` :5
 
 ### SKILL.md
 - Sorting Groceries by Aisle `h1` :8

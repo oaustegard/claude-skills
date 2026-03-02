@@ -19,7 +19,7 @@
 - Content Moderation `h1` :1
 - Original (Opus-level) `h2` :6
 - Distilled Haiku Prompt `h2` :11
-- Why it works for Haiku `h2` :74
+- Why it works for Haiku `h2` :138
 
 ### creative-rewriting.md
 - Creative Rewriting / Tone Adaptation `h1` :1
@@ -31,19 +31,19 @@
 - Structured Data Extraction `h1` :1
 - Original (Opus-level) `h2` :6
 - Distilled Haiku Prompt `h2` :10
-- Why it works for Haiku `h2` :58
+- Why it works for Haiku `h2` :132
 
 ### document-qa.md
 - Document Question Answering (RAG) `h1` :1
 - Original (Opus-level) `h2` :6
 - Distilled Haiku Prompt `h2` :11
-- Why it works for Haiku `h2` :71
+- Why it works for Haiku `h2` :140
 
 ### email-summarization.md
 - Email Thread Summarization `h1` :1
 - Original (Opus-level) `h2` :6
 - Distilled Haiku Prompt `h2` :11
-- Why it works for Haiku `h2` :90
+- Why it works for Haiku `h2` :208
 
 ### meeting-notes.md
 - Meeting Notes Generation `h1` :1
@@ -73,5 +73,5 @@
 - Multi-Label Text Classification `h1` :1
 - Original (Opus-level) `h2` :6
 - Distilled Haiku Prompt `h2` :10
-- Why it works for Haiku `h2` :57
+- Why it works for Haiku `h2` :129
 
