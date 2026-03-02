@@ -9,7 +9,7 @@ description: >-
   a smaller model with high reliability.
 metadata:
   author: Oskar Austegard and Opus
-  version: 1.0.0
+  version: 1.1.0
 ---
 
 # Down-Skilling: Opus → Haiku Distillation
@@ -27,6 +27,30 @@ Your job: convert implicit reasoning, contextual judgment, and domain
 expertise into explicit procedures, concrete decision trees, and
 demonstrative examples. Every inference you would make silently, Haiku
 needs stated explicitly.
+
+## Economics: Why Examples Are Free
+
+Opus input costs ~6× Haiku input. A task that costs $1.00 on Opus costs
+~$0.17 on Haiku — but only if Haiku gets it right on the first try.
+One retry wipes the savings; two retries makes Haiku more expensive.
+
+**The math that matters:**
+- Input tokens are cheap (Haiku: $0.80/MTok input vs $4.00/MTok output)
+- Adding 2,000 tokens of examples costs ~$0.0016 per call
+- A single failed-then-retried call costs ~$0.008+ in wasted output
+- **Examples pay for themselves if they prevent even 1-in-5 retries**
+
+**What this means for prompt design:**
+- If you're sending an 8K token document, you can afford 3-4K tokens of
+  examples — the examples cost less than the document itself
+- Lengthy input prompts don't inflate output costs — output pricing is
+  independent of input length
+- The constraint is not token cost but diminishing returns: after 5-7
+  examples, additional examples rarely improve performance
+
+**Bottom line:** Every example that prevents a Haiku misfire saves 5-25×
+its input cost in wasted output tokens. Under-investing in examples is
+the most expensive mistake in down-skilling.
 
 ## Activation
 
@@ -50,8 +74,8 @@ When triggered, perform these steps:
 3. **Generate the distilled prompt** following the structure in
    [Prompt Architecture](#prompt-architecture)
 
-4. **Generate 3-5 diverse examples** following the principles in
-   [Example Design](#example-design)
+4. **Generate 4-7 diverse examples** following the principles in
+   [Example Design](#example-design) — this is the highest-leverage step
 
 5. **Deliver** the complete Haiku-ready prompt as a copyable artifact or
    file, including system prompt and user prompt components as appropriate
@@ -86,8 +110,9 @@ Haiku responds best to this specific sequencing:
 </process>
 
 <examples>
-[3-5 diverse examples showing input → output pairs]
-[See Example Design section]
+[4-7 diverse examples showing input → output pairs]
+[This section should be the LARGEST part of the prompt]
+[See Example Design section for distribution requirements]
 </examples>
 
 <context>
@@ -118,7 +143,9 @@ Apply these when generating any Haiku-targeted prompt:
 
 ### Context Management
 - Front-load critical instructions (Haiku attends strongly to position)
-- Keep total prompt under 2,000 tokens when possible (excluding examples)
+- Budget rule of thumb: instructions + rules ≤ 800 tokens, examples get
+  the rest. For a task processing an 8K document, 3-4K tokens of examples
+  is well within budget and pays for itself in reliability
 - Pass only the 1-3 most relevant context snippets, not full documents
 - Use explicit delimiters between context and instructions
 
@@ -139,39 +166,80 @@ Apply these when generating any Haiku-targeted prompt:
 
 ## Example Design
 
-Examples are the highest-leverage element for Haiku performance. Follow
-these principles:
+**Examples are the single highest-leverage investment in a Haiku prompt.**
+Rules tell Haiku what to do; examples show it what "done right" looks
+like. When rules and examples conflict, Haiku follows the examples.
+When rules are ambiguous, Haiku extrapolates from examples. This makes
+examples the primary steering mechanism — not a supplement to rules, but
+the dominant signal.
 
-### Diversity Requirements
-Each example set must cover:
-- **Typical case**: The most common input pattern
-- **Edge case**: Unusual but valid input (empty fields, very long text,
-  special characters, boundary conditions)
-- **Negative case**: Input that should be rejected or handled differently
-  (if applicable to the task)
+Given the economics (see [Economics](#economics-why-examples-are-free)),
+you should invest heavily here. A prompt with 800 tokens of rules and
+3,000 tokens of examples will outperform one with 2,000 tokens of rules
+and 500 tokens of examples almost every time.
+
+### Minimum Example Count: 4
+
+Generate **4-7 diverse examples** per distilled prompt. Fewer than 4 is
+under-investing. The marginal cost of each example is negligible compared
+to the reliability improvement. Use this distribution:
+
+| # | Role | Purpose |
+|---|------|---------|
+| 1 | **Typical case** | The most common, straightforward input. Establishes the baseline pattern. |
+| 2 | **Second typical variant** | A different but common input — varies length, domain, or structure from #1. Prevents Haiku from over-fitting to a single pattern. |
+| 3 | **Edge case** | Unusual but valid input: empty fields, very long text, special characters, boundary conditions, ambiguous phrasing. |
+| 4 | **Negative/rejection case** | Input that should be rejected, handled differently, or produce an empty/default output. Shows Haiku what NOT to do. |
+| 5+ | **Tricky/boundary cases** | Inputs near decision boundaries where Haiku is most likely to fail. The cases you'd use for a test suite. |
+
+**Why the second typical case matters:** With only one typical example,
+Haiku may latch onto incidental features of that example (its length,
+word choice, domain). A second typical case from a different angle shows
+Haiku which features are task-relevant and which are coincidental.
 
 ### Example Format
 ```xml
 <example>
 <input>
-[Realistic input data]
+[Realistic input data — use real-world length and complexity]
 </input>
 <output>
 [Exact format Haiku should produce — not a description, the actual output]
 </output>
 <reasoning>
-[Optional: 1-2 sentences explaining WHY this output is correct.
- Helps Haiku generalize the pattern.]
+[1-2 sentences: WHY this output is correct. Which rules applied.
+ What Haiku might have gotten wrong without this example.]
 </reasoning>
 </example>
 ```
 
+**The `<reasoning>` tag is not optional for complex tasks.** It acts as
+a chain-of-thought anchor, showing Haiku the reasoning pattern to follow.
+For classification and extraction tasks, reasoning should reference the
+specific rule numbers that drive the decision.
+
+### Example Sizing Guidance
+
+| Task processing... | Recommended example budget |
+|---------------------|---------------------------|
+| Short inputs (<500 tokens) | 1,500-2,500 tokens of examples (4-5 examples) |
+| Medium inputs (500-4K tokens) | 2,500-4,000 tokens of examples (4-6 examples) |
+| Long inputs (4K-8K tokens) | 3,000-5,000 tokens of examples (5-7 examples) |
+
+These budgets assume Haiku's 200K context window. The constraint is
+diminishing returns, not cost — after 7 examples the marginal benefit
+drops sharply unless the task has a very large classification space.
+
 ### Example Quality Criteria
-- Examples must be realistic, not toy data
-- Output format must be identical across all examples
+- Examples must be realistic, not toy data — match the complexity and
+  messiness of real inputs
+- Output format must be **identical** across all examples — Haiku treats
+  format inconsistency as a signal that format doesn't matter
 - Include the hardest case you expect Haiku to handle
-- Vary input characteristics: length, complexity, domain
+- Vary input characteristics: length, complexity, domain, tone
 - Never include an example that contradicts your rules
+- Order examples from simplest to most complex — this progressive
+  difficulty helps Haiku build up its understanding
 
 ## Delivery Format
 
@@ -252,8 +320,10 @@ the current task domain.
 Before delivering, verify the distilled prompt against these criteria:
 - [ ] Every Opus inference is made explicit
 - [ ] All constraints are numbered and cross-referenced
-- [ ] 3+ diverse examples with consistent output format
-- [ ] Total prompt fits within 4,000 tokens (excluding dynamic context)
+- [ ] 4+ diverse examples with consistent output format
+- [ ] Examples include: 2 typical, 1+ edge case, 1+ negative/rejection case
+- [ ] Example tokens ≥ 2× rule tokens (examples should be the bulk of the prompt)
 - [ ] No instruction assumes Haiku will "figure it out"
 - [ ] Decision points have explicit branches, not open-ended judgment
 - [ ] Output format is demonstrated, not just described
+- [ ] `<reasoning>` tags explain WHY each example output is correct

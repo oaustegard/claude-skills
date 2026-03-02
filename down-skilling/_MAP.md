@@ -15,11 +15,12 @@
 ### SKILL.md
 - Down-Skilling: Opus → Haiku Distillation `h1` :15
 - Core Principle `h2` :22
-- Activation `h2` :31
-- Prompt Architecture `h2` :59
-- Haiku Optimization Rules `h2` :99
-- Example Design `h2` :140
-- Delivery Format `h2` :176
-- Agentic Resource Selection `h2` :195
-- Self-Check `h2` :250
+- Economics: Why Examples Are Free `h2` :31
+- Activation `h2` :55
+- Prompt Architecture `h2` :83
+- Haiku Optimization Rules `h2` :124
+- Example Design `h2` :167
+- Delivery Format `h2` :244
+- Agentic Resource Selection `h2` :263
+- Self-Check `h2` :318
 
