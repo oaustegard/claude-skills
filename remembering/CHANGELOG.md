@@ -2,6 +2,16 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [5.4.0] - 2026-03-03
+
+### Added
+
+- restructure boot output for progressive disclosure
+
+### Other
+
+- Add Python script standards and commit hygiene to AGENTS.md
+
 ## [5.3.0] - 2026-02-28
 
 ### Added
