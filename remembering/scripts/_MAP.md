@@ -1,9 +1,10 @@
 # scripts/
-*Files: 11 | Subdirectories: 1*
+*Files: 11 | Subdirectories: 2*
 
 ## Subdirectories
 
 - [defaults/](./defaults/_MAP.md)
+- [migrations/](./migrations/_MAP.md)
 
 ## Files
 
@@ -13,31 +14,31 @@
 
 ### boot.py
 > Imports: `json, os, shutil, subprocess, datetime`...
-- **classify_ops_key** (f) `(key: str)` :133
-- **detect_github_access** (f) `()` :153
+- **classify_ops_key** (f) `(key: str)` :151
+- **detect_github_access** (f) `()` :171
 - **github_api** (f) `(endpoint: str, *, method: str = "GET", body: dict = None,
-               accept: str = "application/vnd.github+json")` :230
-- **group_ops_by_topic** (f) `(ops_entries: list)` :313
-- **profile** (f) `()` :364
-- **ops** (f) `(include_reference: bool = False)` :369
-- **boot** (f) `()` :435
-- **journal** (f) `(topics: list = None, user_stated: str = None, my_intent: str = None)` :645
-- **journal_recent** (f) `(n: int = 10)` :662
-- **journal_prune** (f) `(keep: int = 40)` :678
-- **therapy_scope** (f) `()` :692
-- **therapy_session_count** (f) `()` :707
-- **decisions_recent** (f) `(n: int = 10, conf: float = 0.7)` :716
+               accept: str = "application/vnd.github+json")` :248
+- **group_ops_by_topic** (f) `(ops_entries: list)` :331
+- **profile** (f) `()` :382
+- **ops** (f) `(include_reference: bool = False)` :387
+- **boot** (f) `()` :453
+- **journal** (f) `(topics: list = None, user_stated: str = None, my_intent: str = None)` :664
+- **journal_recent** (f) `(n: int = 10)` :681
+- **journal_prune** (f) `(keep: int = 40)` :697
+- **therapy_scope** (f) `()` :711
+- **therapy_session_count** (f) `()` :726
+- **decisions_recent** (f) `(n: int = 10, conf: float = 0.7)` :735
 - **therapy_reflect** (f) `(*, n_sample: int = 20, similarity_threshold: int = 3,
-                     dry_run: bool = True)` :729
-- **group_by_type** (f) `(memories: list)` :859
-- **group_by_tag** (f) `(memories: list)` :875
-- **muninn_export** (f) `()` :895
-- **session_save** (f) `(summary: str = None, context: dict = None)` :912
-- **session_resume** (f) `(session_id: str = None)` :962
-- **sessions** (f) `(n: int = 10, *, include_counts: bool = False)` :1034
-- **handoff_pending** (f) `()` :1099
-- **handoff_complete** (f) `(handoff_id: str, completion_notes: str, version: str = None)` :1114
-- **muninn_import** (f) `(data: dict, *, merge: bool = False)` :1146
+                     dry_run: bool = True)` :748
+- **group_by_type** (f) `(memories: list)` :878
+- **group_by_tag** (f) `(memories: list)` :894
+- **muninn_export** (f) `()` :914
+- **session_save** (f) `(summary: str = None, context: dict = None)` :931
+- **session_resume** (f) `(session_id: str = None)` :981
+- **sessions** (f) `(n: int = 10, *, include_counts: bool = False)` :1053
+- **handoff_pending** (f) `()` :1118
+- **handoff_complete** (f) `(handoff_id: str, completion_notes: str, version: str = None)` :1133
+- **muninn_import** (f) `(data: dict, *, merge: bool = False)` :1165
 
 ### bootstrap.py
 > Imports: `sys, os, scripts`

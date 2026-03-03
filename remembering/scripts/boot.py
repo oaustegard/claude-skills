@@ -36,37 +36,55 @@ from .utilities import install_utilities
 
 _DEFAULT_OPS_TOPICS = {
     'Core Boot & Behavior': [
-        'boot-behavior', 'boot-output-hygiene', 'dev-workflow'
+        'boot-behavior', 'boot-output-hygiene', 'dev-workflow',
+        'grounding-safeguards', 'token-discipline',
+        'training-knowledge-dated',
     ],
-    'Memory Operations': [
-        # v3.8.0 (#265): Consolidated recall-fields and recall-discipline into remembering-api
-        'remembering-api', 'memory-types', 'memory-backup',
-        'storage-rules', 'storage-initiative', 'think-then-store',
-        'recall-before-speculation', 'recall-fields', 'recall-discipline'
+    'Memory Discipline': [
+        'remembering-api', 'memory-types', 'storage-discipline',
+        'recall-discipline', 'recall-before-solutions', 'recall-fields',
+        'recall-triggers', 'priority-usage',
+        'knowledge-vs-experience-storage', 'interaction-memories',
+        'large-memory-preamble', 'resource-before-storage',
+        'remembering-no-init', 'decision-alternatives',
+    ],
+    'Analysis & Delivery': [
+        'analysis-workflow', 'file-first-analysis',
+        'task-deliver-workflow', 'insight-to-implementation',
+        'exp-command', 'repo-review-workflow',
     ],
     'Communication & Voice': [
-        'communication-patterns', 'question-style', 'language-precision',
-        'anti-psychogenic-behavior', 'voice'
-    ],
-    'Handoff Workflow': [
-        'handoff-pattern', 'handoff-discipline', 'self_improvement_handoffs'
-    ],
-    'Development & Technical': [
-        'skill-workflow', 'python-path-setup', 'heredoc-for-multiline',
-        'token-efficiency', 'token_conservation', 'error-handling',
-        'batch-processing-drift', 'cache-testing-lesson'
-    ],
-    'Environment & Infrastructure': [
-        # v3.8.0 (#265): Removed stale muninn-env-loading (now handled by auto-credential
-        # loading in turso.py #263). Consolidated python-remembering-setup into env-file-handling.
-        'env-file-handling', 'python-remembering-setup', 'austegard-com-hosting'
+        'communication-patterns', 'question-style',
+        'language-precision',
     ],
     'Commands & Shortcuts': [
-        'fly-command', 'rem-command'
+        'fly-command', 'rem-command', 'zeitgeist-command',
     ],
     'Therapy & Self-Improvement': [
-        'therapy'
-    ]
+        'therapy', 'therapy-experience-layer-audit',
+        'memory-consolidation', 'serendipity-usage',
+        'memory-backup',
+    ],
+    'External Platforms': [
+        'blog-post-platform', 'bsky-feed-shortcuts',
+        'bsky-api-endpoints', 'github-issues',
+        'url-retrieval-assistance',
+    ],
+    'Development & Technical': [
+        'error-handling', 'skill-workflow',
+        'dynamic-code-vs-handoff', 'skill-file-changes',
+        'batch-processing-drift', 'cache-testing-lesson',
+        'use-review-skill',
+    ],
+    'Environment & Infrastructure': [
+        'env-file-handling', 'python-remembering-setup',
+        'muninn-env-loading', 'muninn-utils-workflow',
+        'utility-code-storage', 'jq-install',
+        'austegard-com-hosting', 'python-path-setup',
+        'heredoc-for-multiline', 'container-limits',
+        'network-tools', 'github-container-access',
+        'github-pat-permissions', 'mapping-codebases-usage',
+    ],
 }
 
 
@@ -578,7 +596,8 @@ def _format_boot_output(profile_data: list, ops_by_topic: dict,
 
         # Output uncategorized ops last (already sorted by priority in group_ops_by_topic)
         if uncategorized:
-            output.append("\n## Other")
+            keys = [o['key'] for o in uncategorized]
+            output.append(f"\n## Other ({len(uncategorized)} uncategorized — add to ops-topics: {', '.join(keys)})")
             output.extend(_format_entry(o) for o in uncategorized)
 
         # Reference index: show what's available but not loaded
