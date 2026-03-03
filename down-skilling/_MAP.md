@@ -10,7 +10,8 @@
 
 ### CHANGELOG.md
 - down-skilling - Changelog `h1` :1
-- [1.0.0] - 2026-02-14 `h2` :5
+- [1.1.0] - 2026-03-02 `h2` :5
+- [1.0.0] - 2026-02-14 `h2` :11
 
 ### SKILL.md
 - Down-Skilling: Opus → Haiku Distillation `h1` :15

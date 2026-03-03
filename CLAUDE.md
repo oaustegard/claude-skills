@@ -120,6 +120,16 @@ WebFetch(
 
 **Why**: The `gh` CLI requires authentication which may not be configured. WebFetch can access public issue pages directly and extract the relevant information.
 
+### Tool Call Discipline
+
+When using the Agent tool, ALWAYS include the `subagent_type` parameter — it is required on every call, including resumes. The `resume` parameter supplements `subagent_type`; it does not replace it.
+
+When a background agent is still running and you need its results, WAIT for it to complete. Do not dismiss in-progress work with "I have enough context" — that is half-assing. The agent was launched for a reason; let it finish.
+
+### File Reading
+
+When a file is within the Read tool's default limit (2000 lines), read it in one call. Do not split into chunks preemptively. If the first read triggers a "too large" warning, then use offset/limit — not before.
+
 ## Code Maps
 
 This repository has navigable code maps generated via the mapping-codebases skill.

@@ -73,10 +73,10 @@
 - Claude Code on the Web Development `h2` :37
 - Test Before PR `h2` :70
 - Environment-Specific Tips `h2` :83
-- Code Maps `h2` :123
-- Skill Development Workflow `h2` :179
-- PR Reviews and Code Testing `h2` :290
-- Remembering Skill and Handoff Process `h2` :431
+- Code Maps `h2` :133
+- Skill Development Workflow `h2` :189
+- PR Reviews and Code Testing `h2` :300
+- Remembering Skill and Handoff Process `h2` :441
 
 ### README.md
 - claude-skills `h1` :1
