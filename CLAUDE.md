@@ -1,5 +1,26 @@
 @AGENTS.md
 
+## ⚠️ Image & Art Generation: Use Gemini, Not SVG
+
+**When the task involves generating images, portraits, illustrations, or any visual art:**
+
+ALWAYS delegate to Gemini via the `invoking-gemini` skill. Do NOT attempt SVG or HTML canvas art.
+
+```python
+import sys
+sys.path.append('/mnt/skills/user/invoking-gemini/scripts')
+from gemini_client import generate_image
+
+result = generate_image("Your detailed prompt here", model="nano-banana-2",
+                        output_path="/mnt/user-data/outputs/image.png")
+```
+
+- **nano-banana-2** (`gemini-3.1-flash-image-preview`) — default, fast
+- **nano-banana-pro** (`gemini-3-pro-image-preview`) — high fidelity, text rendering
+
+Gemini produces actual pixel images. SVG stick figures are not a substitute.
+
+
 ## Muninn Boot
 
 This repository is developed by two wings of the same raven. Claude Code implements; Claude.ai (Muninn) plans, tests, and operates the memory system. Both share a persistent memory store — boot it to maintain continuity.
