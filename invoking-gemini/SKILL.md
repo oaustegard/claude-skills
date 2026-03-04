@@ -2,7 +2,7 @@
 name: invoking-gemini
 description: Invokes Google Gemini models for structured outputs, multi-modal tasks, and Google-specific features. Use when users request Gemini, structured JSON output, Google API integration, or cost-effective parallel processing.
 metadata:
-  version: 0.3.1
+  version: 0.4.0
 ---
 
 # Invoking Gemini
@@ -17,7 +17,7 @@ Delegate tasks to Google's Gemini models when they offer advantages over Claude.
 - Strict schema adherence (enum values, required fields)
 
 **Cost optimization:**
-- Parallel batch processing (Gemini Flash is lightweight)
+- Parallel batch processing (Gemini 3 Flash is lightweight)
 - High-volume simple tasks
 - Budget-constrained operations
 
@@ -33,47 +33,46 @@ Delegate tasks to Google's Gemini models when they offer advantages over Claude.
 
 ## Available Models
 
-### Gemini 3.x — Frontier (Preview)
+All Gemini 3 models are currently in preview. Use only these — no Gemini 2.x.
+
+### Text / Reasoning Models
 
 **gemini-3-flash-preview** (Default / Recommended):
-- Frontier-class performance at flash-tier cost
-- Upgraded visual and spatial reasoning
-- Agentic coding capabilities
+- Gemini 3 Flash: Pro-level intelligence at Flash speed and pricing
+- 1M token context window, 64k output
+- Knowledge cutoff: Jan 2025
+- $0.50 input / $3.00 output per 1M tokens
 - Alias: `flash`
 
 **gemini-3.1-pro-preview**:
-- Most capable model available
-- Deep reasoning and complex problem solving
+- Gemini 3.1 Pro: Best for complex tasks requiring broad world knowledge and advanced reasoning across modalities
+- 1M token context window, 64k output
+- Knowledge cutoff: Jan 2025
+- $2.00 / $12.00 per 1M tokens (<200k tokens); $4.00 / $18.00 (>200k tokens)
 - Alias: `pro`
 
-### Gemini 2.5 — Stable Production
-
-**gemini-2.5-flash**:
-- Best price-performance for high-volume tasks
-- 1M token context window
-- Alias: `stable-flash`
-
-**gemini-2.5-flash-lite**:
-- Ultra-budget option ($0.10/$0.40 per 1M tokens)
-- Good for simple, high-throughput tasks
+**gemini-3.1-flash-lite-preview**:
+- Gemini 3.1 Flash-Lite: Workhorse model for cost-efficiency and high-volume tasks
+- 1M token context window, 64k output
+- Knowledge cutoff: Jan 2025
+- $0.25 (text, image, video), $0.50 (audio) input / $1.50 output per 1M tokens
 - Alias: `lite`
-
-**gemini-2.5-pro**:
-- Advanced reasoning for complex tasks
-- Alias: `stable-pro`
 
 ### Image Generation Models
 
-**nano-banana-2** (Default image model): Fast image generation/editing built on Gemini 3.1 Flash Image
+**nano-banana-2** (Default image model):
+- Gemini 3.1 Flash Image — high-volume, high-efficiency image generation
 - API model: `gemini-3.1-flash-image-preview`
+- 128k input context, 32k output
+- $0.25 per 1M text input tokens / $0.067 per image output
 - Alias: `image`
 
-**nano-banana-pro**: High-fidelity image generation with text rendering and multi-turn editing
+**nano-banana-pro**:
+- Gemini 3 Pro Image — highest quality image generation with text rendering and multi-turn editing
 - API model: `gemini-3-pro-image-preview`
+- 65k input context, 32k output
+- $2.00 per 1M text input tokens / $0.134 per image output
 - Alias: `image-pro`
-
-**nano-banana**: Image generation on Gemini 2.5 Flash
-- API model: `gemini-2.5-flash-image`
 
 See [references/models.md](references/models.md) for full model details and pricing.
 
@@ -319,7 +318,7 @@ Returns `None` on failure (credentials missing, API error, no image in response)
 
 ## Token Efficiency Pattern
 
-Gemini Flash is cost-effective for sub-tasks:
+Gemini 3 Flash is cost-effective for sub-tasks:
 
 ```python
 # Claude (you) plans the approach
@@ -347,8 +346,9 @@ for file in uploaded_files:
 - Subjective creative writing
 
 **Token limits:**
-- gemini-3-flash-preview: ~1M input tokens
-- gemini-2.5-pro: ~1M input tokens (2x pricing above 200K)
+- gemini-3-flash-preview: ~1M input, 64k output
+- gemini-3.1-pro-preview: ~1M input, 64k output (2x pricing above 200k)
+- gemini-3.1-flash-lite-preview: ~1M input, 64k output
 
 **Rate limits:**
 - Vary by API tier
@@ -392,18 +392,14 @@ uv pip install google-generativeai
 
 ## Cost Comparison
 
-Approximate pricing (as of early 2026):
+All Gemini 3 models (preview, Jan 2025 cutoff):
 
 | Model | Input / 1M tokens | Output / 1M tokens |
 |---|---|---|
-| Gemini 3 Flash | $0.50 | $3.00 |
-| Gemini 3.1 Pro | $2.00 | $12.00 |
-| Gemini 2.5 Flash | $0.30 | $2.50 |
-| Gemini 2.5 Flash-Lite | $0.10 | $0.40 |
-| Gemini 2.5 Pro | $1.25 | $10.00 |
+| Gemini 3 Flash (`gemini-3-flash-preview`) | $0.50 | $3.00 |
+| Gemini 3.1 Pro (`gemini-3.1-pro-preview`) | $2.00 (<200k) / $4.00 (>200k) | $12.00 / $18.00 |
+| Gemini 3.1 Flash-Lite (`gemini-3.1-flash-lite-preview`) | $0.25 text/image/video, $0.50 audio | $1.50 |
+| Nano Banana 2 / 3.1 Flash Image (`gemini-3.1-flash-image-preview`) | $0.25 text | $0.067 per image |
+| Nano Banana Pro / 3 Pro Image (`gemini-3-pro-image-preview`) | $2.00 text | $0.134 per image |
 
-For 1000 simple extraction tasks (100 tokens each):
-- Gemini 2.5 Flash-Lite: ~$0.05
-- Gemini 3 Flash: ~$0.35
-
-**Strategy:** Use Claude for complex reasoning, Gemini for high-volume simple tasks.
+**Strategy:** Use Flash-Lite for high-volume simple tasks, 3 Flash for balanced performance, 3.1 Pro for complex reasoning.
