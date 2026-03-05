@@ -164,6 +164,86 @@ For a production WebSocket-based Agent SDK server:
 
 **Rule of thumb**: Use this skill's API functions by default. Only delegate to Agent SDK when tools are essential.
 
+## Symphony Orchestration Patterns
+
+Advanced patterns inspired by Symphony for robust multi-agent orchestration.
+
+### Pattern: Continuation Turns with Task Tracking
+
+```python
+from claude_client import ConversationThread
+from task_state import TaskTracker
+
+tracker = TaskTracker()
+tracker.add("analysis", category="deep-dive")
+
+# First turn: full prompt
+agent = ConversationThread(
+    system="You are an expert code reviewer.",
+    max_turns=5,
+    continuation_prompt="Continue your analysis. Focus on the next category."
+)
+
+tracker.claim("analysis")
+tracker.start("analysis")
+
+response1 = agent.send("Analyze this codebase for security, performance, and maintainability issues:\n...")
+print(f"Turn {agent.turn_count}: {response1[:100]}...")
+
+# Continuation turns: lightweight guidance
+response2 = agent.send_continuation()  # Uses default continuation_prompt
+response3 = agent.send_continuation("Now focus specifically on SQL injection risks.")
+
+tracker.complete("analysis")
+print(f"Completed in {agent.turn_count} turns")
+```
+
+### Pattern: Managed Parallel with Reconciliation
+
+```python
+from orchestration import invoke_parallel_managed, ConcurrencyLimiter
+
+# Reconcile: skip tasks that are no longer relevant
+def reconcile(prompts, tracker):
+    active_issues = get_open_issues()  # Your logic
+    return [p for p in prompts if p.get("task_id") in active_issues]
+
+limiter = ConcurrencyLimiter(global_limit=5, category_limits={"critical": 2})
+
+results = invoke_parallel_managed(
+    prompts=[
+        {"prompt": "Fix auth bypass", "task_id": "issue-42", "category": "critical"},
+        {"prompt": "Optimize query", "task_id": "issue-43", "category": "perf"},
+        {"prompt": "Update docs", "task_id": "issue-44", "category": "docs"},
+    ],
+    reconcile=reconcile,
+    concurrency_limiter=limiter,
+    max_retries=2,
+    stall_timeout=120.0,
+)
+```
+
+### Pattern: Retry with Stall Detection
+
+```python
+from claude_client import StallDetector
+from orchestration import invoke_with_retry
+
+stalled = []
+detector = StallDetector(timeout=30.0, on_stall=lambda tid, s: stalled.append(tid))
+detector.start_monitoring()
+
+# Automatic retry with exponential backoff
+response = invoke_with_retry(
+    "Complex analysis requiring multiple attempts...",
+    max_retries=3,
+    base_delay_ms=2000,
+    max_delay_ms=15000,
+)
+
+detector.stop_monitoring()
+```
+
 ## Prompt Caching Workflows
 
 ### Pattern 1: Orchestrator with Parallel Sub-Agents
