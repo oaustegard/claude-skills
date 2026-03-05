@@ -368,21 +368,24 @@ def invoke_claude_streaming(
 
     client = anthropic.Anthropic(api_key=api_key)
 
-    # Format system and messages
-    formatted_system = _format_system_with_cache(system, cache_system)
+    # Format messages
     messages = _build_messages(prompt, cache_prompt)
+
+    # Build stream params, conditionally including system
+    stream_params = dict(
+        model=model,
+        max_tokens=max_tokens,
+        temperature=temperature,
+        messages=messages,
+        **kwargs
+    )
+    if system:
+        stream_params["system"] = _format_system_with_cache(system, cache_system)
 
     accumulated_text = ""
 
     try:
-        with client.messages.stream(
-            model=model,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            system=formatted_system,
-            messages=messages,
-            **kwargs
-        ) as stream:
+        with client.messages.stream(**stream_params) as stream:
             for text in stream.text_stream:
                 accumulated_text += text
                 if callback:
