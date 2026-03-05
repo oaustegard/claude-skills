@@ -6,6 +6,13 @@ All notable changes to the `orchestrating-agents` skill are documented in this f
 
 ### Added
 
+- implement Symphony orchestration patterns (#349)
+- Add orchestrating-skills skill (#319)
+
+## [0.3.0] - 2026-03-05
+
+### Added
+
 - **Continuation Turn Protocol** (Task 1): `ConversationThread` now supports `send_continuation()`, `turn_count` property, `max_turns` limit, and configurable `continuation_prompt`
 - **Stall Detection** (Task 2): New `StallDetector` class with activity timestamps, configurable timeout, heartbeat tracking, and background monitoring thread
 - **Task Lifecycle State Machine** (Task 3): New `task_state.py` module with `TaskTracker`, `TaskState` enum, formal state transitions (Unclaimed → Claimed → Running → Completed/Failed/Cancelled), retry queuing, and category-based filtering
