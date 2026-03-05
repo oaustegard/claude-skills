@@ -10,7 +10,8 @@
 
 ### CHANGELOG.md
 - orchestrating-agents - Changelog `h1` :1
-- [0.2.0] - 2026-02-28 `h2` :5
+- [0.3.0] - 2026-03-05 `h2` :5
+- [0.2.0] - 2026-02-28 `h2` :21
 
 ### README.md
 - orchestrating-agents `h1` :1
@@ -20,12 +21,12 @@
 - When to Use This Skill `h2` :12
 - Quick Start `h2` :27
 - Core Functions `h2` :189
-- Example Workflows `h2` :342
-- Setup `h2` :353
-- Error Handling `h2` :384
-- Prompt Caching `h2` :408
-- Performance Considerations `h2` :412
-- Best Practices `h2` :432
-- Token Efficiency `h2` :454
-- See Also `h2` :458
+- Example Workflows `h2` :437
+- Setup `h2` :448
+- Error Handling `h2` :479
+- Prompt Caching `h2` :503
+- Performance Considerations `h2` :507
+- Best Practices `h2` :527
+- Token Efficiency `h2` :549
+- See Also `h2` :553
 

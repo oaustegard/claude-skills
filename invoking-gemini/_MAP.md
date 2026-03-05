@@ -23,16 +23,16 @@
 - Invoking Gemini `h1` :8
 - When to Use Gemini `h2` :12
 - Available Models `h2` :34
-- Setup `h2` :80
-- Basic Usage `h2` :118
-- Structured Output `h2` :135
-- Parallel Invocation `h2` :165
-- Error Handling `h2` :194
-- Advanced Features `h2` :217
-- Image Generation `h2` :251
-- Comparison: Gemini vs Claude `h2` :301
-- Token Efficiency Pattern `h2` :320
-- Limitations `h2` :341
+- Setup `h2` :79
+- Basic Usage `h2` :117
+- Structured Output `h2` :134
+- Parallel Invocation `h2` :164
+- Error Handling `h2` :193
+- Advanced Features `h2` :216
+- Image Generation `h2` :250
+- Comparison: Gemini vs Claude `h2` :300
+- Token Efficiency Pattern `h2` :319
+- Limitations `h2` :340
 - Examples `h2` :357
 - Troubleshooting `h2` :365
 - Cost Comparison `h2` :393

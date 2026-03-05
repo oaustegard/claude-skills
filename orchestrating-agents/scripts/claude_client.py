@@ -7,6 +7,7 @@ and prompt caching support for optimized token usage.
 
 import json
 import os
+import time
 import threading
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -599,6 +600,90 @@ def invoke_parallel_streaming(
     return results
 
 
+class StallDetector:
+    """
+    Detects stalled operations by tracking activity timestamps.
+
+    Monitors the time since last activity and triggers timeout/retry
+    when an operation becomes unresponsive.
+
+    Args:
+        timeout: Seconds of inactivity before considering a task stalled (default: 60)
+        on_stall: Optional callback invoked when stall is detected.
+            Receives (task_id: str, idle_seconds: float).
+    """
+
+    def __init__(self, timeout: float = 60.0, on_stall: callable = None):
+        self._lock = threading.Lock()
+        self.timeout = timeout
+        self.on_stall = on_stall
+        self._timestamps: dict[str, float] = {}
+        self._stopped = threading.Event()
+        self._monitor_thread: threading.Thread | None = None
+
+    def register(self, task_id: str) -> None:
+        """Start tracking a task."""
+        with self._lock:
+            self._timestamps[task_id] = time.monotonic()
+
+    def heartbeat(self, task_id: str) -> None:
+        """Record activity for a task (resets its stall timer)."""
+        with self._lock:
+            if task_id in self._timestamps:
+                self._timestamps[task_id] = time.monotonic()
+
+    def unregister(self, task_id: str) -> None:
+        """Stop tracking a task."""
+        with self._lock:
+            self._timestamps.pop(task_id, None)
+
+    def check_stalled(self) -> list[tuple[str, float]]:
+        """
+        Check for stalled tasks.
+
+        Returns:
+            List of (task_id, idle_seconds) for tasks exceeding timeout.
+        """
+        now = time.monotonic()
+        stalled = []
+        with self._lock:
+            for task_id, last_active in self._timestamps.items():
+                idle = now - last_active
+                if idle >= self.timeout:
+                    stalled.append((task_id, idle))
+        return stalled
+
+    def start_monitoring(self, poll_interval: float = 5.0) -> None:
+        """
+        Start a background thread that periodically checks for stalls.
+
+        Args:
+            poll_interval: Seconds between checks (default: 5.0)
+        """
+        if self._monitor_thread and self._monitor_thread.is_alive():
+            return
+        self._stopped.clear()
+
+        def _monitor():
+            while not self._stopped.wait(poll_interval):
+                stalled = self.check_stalled()
+                if stalled and self.on_stall:
+                    for task_id, idle_secs in stalled:
+                        self.on_stall(task_id, idle_secs)
+
+        self._monitor_thread = threading.Thread(
+            target=_monitor, daemon=True, name="stall-detector"
+        )
+        self._monitor_thread.start()
+
+    def stop_monitoring(self) -> None:
+        """Stop the background monitoring thread."""
+        self._stopped.set()
+        if self._monitor_thread:
+            self._monitor_thread.join(timeout=2.0)
+            self._monitor_thread = None
+
+
 class InterruptToken:
     """Thread-safe interrupt flag for cancelling operations."""
     def __init__(self):
@@ -700,6 +785,9 @@ class ConversationThread:
     Automatically caches conversation history to reduce token costs in
     subsequent turns. Ideal for orchestrator -> sub-agent patterns where
     each sub-agent maintains its own conversation state.
+
+    Supports continuation turn semantics: the first turn receives the full
+    prompt, while subsequent turns receive lightweight continuation guidance.
     """
 
     def __init__(
@@ -708,7 +796,9 @@ class ConversationThread:
         model: str = "claude-sonnet-4-6",
         max_tokens: int = 4096,
         temperature: float = 1.0,
-        cache_system: bool = True
+        cache_system: bool = True,
+        max_turns: int | None = None,
+        continuation_prompt: str | None = None
     ):
         """
         Initialize a new conversation thread.
@@ -719,12 +809,19 @@ class ConversationThread:
             max_tokens: Maximum tokens per response
             temperature: Temperature setting
             cache_system: Cache the system prompt (default: True)
+            max_turns: Optional maximum number of turns before stopping (None = unlimited)
+            continuation_prompt: Default prompt for send_continuation() calls.
+                Defaults to "Continue from where you left off."
         """
         self.system = system
         self.model = model
         self.max_tokens = max_tokens
         self.temperature = temperature
         self.cache_system = cache_system
+        self.max_turns = max_turns
+        self.continuation_prompt = (
+            continuation_prompt or "Continue from where you left off."
+        )
         self.messages: list[dict] = []
 
     def send(self, user_message: Union[str, list[dict]], cache_history: bool = True) -> str:
@@ -742,6 +839,12 @@ class ConversationThread:
             When cache_history=True, the entire conversation history up to and
             including this user message will be cached for the next turn.
         """
+        # Enforce max_turns
+        if self.max_turns is not None and self.turn_count >= self.max_turns:
+            raise RuntimeError(
+                f"Maximum turns ({self.max_turns}) reached"
+            )
+
         # Format user message content
         content = _format_message_with_cache(user_message, cache_history)
         self.messages.append({"role": "user", "content": content})
@@ -769,6 +872,46 @@ class ConversationThread:
                         block.pop("cache_control", None)
 
         return response
+
+    @property
+    def turn_count(self) -> int:
+        """Number of completed user/assistant turn pairs."""
+        return len(self.messages) // 2
+
+    def send_continuation(
+        self,
+        guidance: str | None = None,
+        cache_history: bool = True
+    ) -> str:
+        """
+        Send a lightweight continuation turn.
+
+        Uses reduced guidance instead of a full prompt, following the
+        continuation turn protocol: first turn gets the full prompt,
+        subsequent turns get only continuation guidance.
+
+        Args:
+            guidance: Optional continuation guidance. Defaults to
+                self.continuation_prompt if not provided.
+            cache_history: Cache conversation history (default: True)
+
+        Returns:
+            str: Claude's response
+
+        Raises:
+            RuntimeError: If no previous turns exist (use send() first)
+            RuntimeError: If max_turns has been reached
+        """
+        if not self.messages:
+            raise RuntimeError(
+                "No previous turns. Use send() for the first turn."
+            )
+        if self.max_turns is not None and self.turn_count >= self.max_turns:
+            raise RuntimeError(
+                f"Maximum turns ({self.max_turns}) reached"
+            )
+        prompt = guidance or self.continuation_prompt
+        return self.send(prompt, cache_history=cache_history)
 
     def get_messages(self) -> list[dict]:
         """Get the current conversation history"""

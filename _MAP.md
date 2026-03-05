@@ -69,14 +69,15 @@
 - License `h2` :311
 
 ### CLAUDE.md
-- Muninn Boot `h2` :3
-- Claude Code on the Web Development `h2` :37
-- Test Before PR `h2` :70
-- Environment-Specific Tips `h2` :83
-- Code Maps `h2` :133
-- Skill Development Workflow `h2` :189
-- PR Reviews and Code Testing `h2` :300
-- Remembering Skill and Handoff Process `h2` :441
+- ⚠️ Image & Art Generation: Use Gemini, Not SVG `h2` :3
+- Muninn Boot `h2` :24
+- Claude Code on the Web Development `h2` :58
+- Test Before PR `h2` :91
+- Environment-Specific Tips `h2` :104
+- Code Maps `h2` :154
+- Skill Development Workflow `h2` :210
+- PR Reviews and Code Testing `h2` :321
+- Remembering Skill and Handoff Process `h2` :462
 
 ### README.md
 - claude-skills `h1` :1

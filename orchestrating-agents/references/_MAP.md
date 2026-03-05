@@ -21,5 +21,6 @@
 - Multi-Agent Coordination Workflows `h1` :1
 - Example Workflows `h2` :5
 - Advanced: Agent SDK Delegation Pattern `h2` :83
-- Prompt Caching Workflows `h2` :167
+- Symphony Orchestration Patterns `h2` :167
+- Prompt Caching Workflows `h2` :247
 
