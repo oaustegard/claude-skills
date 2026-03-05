@@ -1,5 +1,5 @@
 # claude-skills/
-*Files: 5 | Subdirectories: 48*
+*Files: 4 | Subdirectories: 47*
 
 ## Subdirectories
 
@@ -34,7 +34,6 @@
 - [installing-skills/](./installing-skills/_MAP.md)
 - [invoking-gemini/](./invoking-gemini/_MAP.md)
 - [invoking-github/](./invoking-github/_MAP.md)
-- [issues/](./issues/_MAP.md)
 - [iterating/](./iterating/_MAP.md)
 - [json-render-ui/](./json-render-ui/_MAP.md)
 - [making-waffles/](./making-waffles/_MAP.md)
@@ -79,15 +78,6 @@
 - Skill Development Workflow `h2` :210
 - PR Reviews and Code Testing `h2` :321
 - Remembering Skill and Handoff Process `h2` :462
-
-### ISSUES.md
-- Task 1: Implement Continuation Turn Protocols `h1` :1
-- Task 2: Add Stall Detection `h1` :10
-- Task 3: Formalize Task State Lifecycles `h1` :19
-- Task 4: Enhance Retry Logic `h1` :28
-- Task 5: Validate Dispatch Coordination `h1` :37
-- Task 6: Introduce Concurrency Limits by Types `h1` :46
-- Task 7: Update the Documentation `h1` :55
 
 ### README.md
 - claude-skills `h1` :1
