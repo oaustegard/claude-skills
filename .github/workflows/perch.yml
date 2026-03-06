@@ -2,7 +2,7 @@ name: Perch
 
 on:
   schedule:
-    - cron: '0 12 * * *'       # daily dispatch at 7am ET — decides task or runs homework
+    - cron: '0 9 * * *'       # daily dispatch at 5am ET (DST) / 6am ET (EST)
   workflow_dispatch:
     inputs:
       task:
