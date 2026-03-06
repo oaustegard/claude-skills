@@ -41,6 +41,7 @@ TURN_BUDGETS = {
 }
 
 ROUTABLE_TASKS = ("sleep", "zeitgeist", "fly")
+HOMEWORK_TASK = "homework"  # pseudo-task: execute inline during dispatch
 
 # -- Logging --
 
@@ -249,19 +250,20 @@ def _parse_dispatch_decision(summary: str) -> str | None:
     """Extract task choice from dispatch LLM output.
 
     Looks for JSON like {"task": "sleep"} or plain mentions of task names.
-    Returns task name or None if unparseable.
+    Returns task name (including "homework") or None if unparseable.
     """
+    valid_tasks = ROUTABLE_TASKS + (HOMEWORK_TASK,)
+
     # Try JSON extraction first
     json_match = re.search(r'\{[^}]*"task"\s*:\s*"(\w+)"[^}]*\}', summary)
     if json_match:
         task = json_match.group(1)
-        if task in ROUTABLE_TASKS:
+        if task in valid_tasks:
             return task
 
     # Fallback: look for task names in the text
     text_lower = summary.lower()
-    for task in ROUTABLE_TASKS:
-        # Match "I'll run sleep" / "choosing zeitgeist" / "task: fly" etc.
+    for task in valid_tasks:
         if re.search(rf'\b{task}\b', text_lower):
             return task
 
@@ -329,15 +331,25 @@ def run_perch(task: str, model: str, max_turns: int) -> dict:
 
 def _run_dispatch(client, model, boot_output, tools, decision_budget,
                   max_turns, started_at) -> dict:
-    """Two-phase dispatch: decide what to do, then do it."""
+    """Two-phase dispatch: decide what to do, then do it.
 
-    # Phase 1: Decision
+    If the decision phase chooses "homework", the homework is executed
+    inline during the decision loop (no phase 2 routing). The dispatch
+    prompt instructs the LLM to carry out homework using available tools
+    and then emit the decision JSON at the end.
+
+    For homework, we give the decision phase a larger turn budget so the
+    LLM has room to both decide and execute.
+    """
+
+    # Phase 1: Decision (with expanded budget for homework)
+    homework_budget = min(max_turns, TURN_BUDGETS.get("sleep", 25))  # generous
     dispatch_prompt = boot_output + "\n\n" + load_prompt("tasks/dispatch")
-    log(f"DISPATCH PHASE 1: deciding (budget={decision_budget})", always=True)
+    log(f"DISPATCH PHASE 1: deciding (budget={homework_budget})", always=True)
 
     decision_result = run_loop(
         client, model, dispatch_prompt, tools,
-        "Begin dispatch session.", decision_budget,
+        "Begin dispatch session.", homework_budget,
     )
 
     # Parse the decision
@@ -345,9 +357,33 @@ def _run_dispatch(client, model, boot_output, tools, decision_budget,
 
     if not chosen_task:
         log(f"DISPATCH: Could not parse task from: {decision_result['summary'][:200]}", always=True)
-        # Default to sleep if decision is unparseable
         chosen_task = "sleep"
         log(f"DISPATCH: Defaulting to {chosen_task}", always=True)
+
+    # Homework is executed inline during the decision loop — no phase 2
+    if chosen_task == HOMEWORK_TASK:
+        log(f"DISPATCH: homework executed inline ({decision_result['turns']} turns)", always=True)
+
+        record = build_session_record(
+            task="dispatch", model=model, turns=decision_result["turns"],
+            tool_calls=decision_result["tool_calls"],
+            total_input_tokens=decision_result["input_tokens"],
+            total_output_tokens=decision_result["output_tokens"],
+            errors=decision_result["errors"],
+            summary=decision_result["summary"][:500],
+            started_at=started_at,
+            routed_from="dispatch", routed_task="homework",
+        )
+
+        cost = record["estimated_cost_usd"]
+        log(f"DISPATCH COMPLETE: homework in {decision_result['turns']} turns, "
+            f"${cost:.4f}", always=True)
+
+        store_session_log("dispatch", model, decision_result["turns"],
+                          decision_result["tool_calls"], cost,
+                          decision_result["summary"][:300],
+                          decision_result["errors"], routed_task="homework")
+        return record
 
     log(f"DISPATCH PHASE 2: routing to {chosen_task}", always=True)
 
