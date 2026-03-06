@@ -177,7 +177,11 @@ MEMORY_TOOLS = [
         "description": (
             "Execute raw SQL against the Turso memory database. Use for analytical "
             "queries like counting memories by type, finding patterns, or custom "
-            "aggregations that recall() can't express."
+            "aggregations that recall() can't express. "
+            "Schema: memories(id TEXT, summary TEXT, type TEXT, tags TEXT, "
+            "confidence REAL, priority INTEGER, created_at TEXT, valid_from TEXT, "
+            "deleted_at TEXT, access_count INTEGER, last_accessed TEXT, refs TEXT). "
+            "Note: column is 'confidence' not 'conf'."
         ),
         "input_schema": {
             "type": "object",
