@@ -72,7 +72,7 @@ jobs:
           TURSO_URL: ${{ secrets.TURSO_URL }}
           BSKY_HANDLE: ${{ secrets.BSKY_HANDLE }}
           BSKY_APP_PASSWORD: ${{ secrets.BSKY_APP_PASSWORD }}
-          GH_TOKEN: ${{ secrets.GH_TOKEN || github.token }}
+          GH_TOKEN: ${{ github.token }}
           PYTHONPATH: ${{ github.workspace }}
         run: |
           # Default inputs for scheduled runs (cron doesn't pass inputs)
