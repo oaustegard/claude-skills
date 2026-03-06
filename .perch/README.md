@@ -17,15 +17,39 @@ GH Actions cron -> perch.py -> Anthropic Messages API (tool_use loop)
                                       +-- fetch_url -> web content (jina fallback)
 ```
 
-No Agent SDK. No MCP servers. Just a Python tool-use loop (~150 lines). The LLM drives the session.
+No Agent SDK. No MCP servers. Just a Python tool-use loop. The LLM drives the session.
+
+Boot uses `boot(mode="perch")` — a slim ~10K-char context (vs ~44K full boot) designed to stay within Haiku's 50K tokens/min rate limit.
 
 ## Tasks
 
 | Task | Purpose | Tools | Model |
 |------|---------|-------|-------|
+| **dispatch** | Decides what to run — checks homework, then routes | all tools | Haiku |
 | **sleep** | Memory maintenance: prune, consolidate, connect | 6 memory tools | Haiku |
 | **zeitgeist** | News awareness via curated Bluesky feeds | memory + 4 world tools | Haiku/Sonnet |
 | **fly** | Autonomous exploration and knowledge synthesis | memory + search/fetch | Sonnet |
+
+### Dispatch & Homework
+
+`dispatch` is the default scheduled task. It runs in two phases:
+
+1. **Decision phase**: Checks for pending homework (`perch-homework` + `pending` tags), then recent session history. If homework exists, executes it inline. Otherwise routes to sleep/zeitgeist/fly.
+2. **Execution phase**: Runs the chosen task with its own turn budget.
+
+**Homework** lets Muninn (the planning wing) queue work for perch to execute autonomously:
+
+```python
+# Queue homework from any Claude session:
+remember(
+    "Consolidate memories tagged 'architecture' — too many near-duplicates",
+    "preference",
+    tags=["perch-homework", "pending"],
+    priority=1,
+)
+```
+
+Perch will pick it up on the next scheduled run, execute it, and mark it complete via `supersede()`.
 
 ## Usage
 
@@ -42,7 +66,12 @@ PYTHONPATH=. python .perch/perch.py --task sleep --verbose
 
 ### Scheduled (production)
 
-Uncomment the `schedule:` section in `.github/workflows/perch.yml` once testing is stable.
+Runs daily at 7am ET (12:00 UTC) via cron. The scheduled task is always `dispatch`, which decides what to do (or picks up homework from Muninn).
+
+```yaml
+schedule:
+  - cron: '0 12 * * *'       # daily dispatch at 7am ET
+```
 
 ## File Structure
 
@@ -56,6 +85,7 @@ Uncomment the `schedule:` section in `.github/workflows/perch.yml` once testing 
 ├── prompts/
 │   ├── identity.md       # Minimal Muninn identity (~500 tokens)
 │   └── tasks/
+│       ├── dispatch.md   # Decision routing + homework check
 │       ├── sleep.md      # Memory synthesis instructions
 │       ├── zeitgeist.md  # News awareness instructions
 │       └── fly.md        # Autonomous exploration instructions

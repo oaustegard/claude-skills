@@ -1,10 +1,8 @@
 name: Perch
 
 on:
-  # Schedule disabled during testing -- uncomment when stable
-  # schedule:
-  #   - cron: '0 12 * * *'     # sleep at 7am ET
-  #   - cron: '0 13 * * *'     # zeitgeist at 8am ET
+  schedule:
+    - cron: '0 12 * * *'       # daily dispatch at 7am ET — decides task or runs homework
   workflow_dispatch:
     inputs:
       task:
