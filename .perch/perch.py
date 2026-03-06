@@ -291,8 +291,13 @@ def main():
 
         log(f"Session record written to session.json", always=True)
 
-        # Exit with error code if there were errors
-        if record["errors"]:
+        # Exit with error code only for structural failures (no API key, boot crash).
+        # Tool-level errors are normal operational noise — log them but don't fail.
+        structural_errors = [e for e in record["errors"]
+                             if "ANTHROPIC_API_KEY" in e
+                             or "Max turns reached" in e
+                             or "API error on turn 1:" in e]
+        if structural_errors:
             sys.exit(1)
     finally:
         if _log_file:
