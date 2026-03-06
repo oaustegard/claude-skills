@@ -9,9 +9,10 @@ on:
     inputs:
       task:
         description: Task to run
-        default: sleep
+        default: dispatch
         type: choice
         options:
+          - dispatch
           - sleep
           - zeitgeist
           - fly
