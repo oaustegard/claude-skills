@@ -1,7 +1,7 @@
 import os
 import sys
 
-UTIL_DIR = "/home/claude/muninn_utils"
+UTIL_DIR = os.environ.get("MUNINN_UTIL_DIR", os.path.join(os.path.expanduser("~"), "muninn_utils"))
 CODE_START = "<" + "<" + "<PYTHON>" + ">" + ">"
 CODE_END = "<" + "<" + "<END>" + ">" + ">"
 
