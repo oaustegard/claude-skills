@@ -19,19 +19,10 @@ from typing import Optional
 sys.path.insert(0, '/mnt/skills/user/orchestrating-agents/scripts')
 
 try:
-    import claude_client as cc
-    from claude_client import invoke_claude, invoke_parallel
+    from claude_client import invoke_claude, invoke_parallel, parse_json_response
 except ImportError as e:
     print(f"ERROR: orchestrating-agents skill not found at /mnt/skills/user/orchestrating-agents/\n{e}")
     sys.exit(1)
-
-# Apply key shim if needed (workaround until issue #311 is resolved)
-try:
-    sys.path.insert(0, '/home/claude')
-    from muninn_utils.orchestrating_agents_shim import patch_orchestrating_agents
-    patch_orchestrating_agents(cc)
-except ImportError:
-    pass  # Shim not available; assume ANTHROPIC_API_KEY is set in environment
 
 
 # ── Data model ────────────────────────────────────────────────────────────────
@@ -48,19 +39,6 @@ class Node:
     is_leaf: bool = False
     exclusions: str = ""
     evaluation: dict = field(default_factory=dict)
-
-
-# ── JSON parsing (workaround for issue #312) ──────────────────────────────────
-
-def _parse_json(raw: str) -> dict:
-    """Strip markdown fences and parse JSON. Workaround until orchestrating-agents
-    exposes parse_json_response() (issue #312)."""
-    raw = raw.strip()
-    if raw.startswith("```"):
-        raw = raw.split("\n", 1)[1]
-    if raw.endswith("```"):
-        raw = raw.rsplit("```", 1)[0]
-    return json.loads(raw.strip())
 
 
 # ── Prompts ───────────────────────────────────────────────────────────────────
@@ -171,7 +149,7 @@ def build_tree(problem: str, max_depth: int = 2) -> Node:
         next_frontier = []
         for node, raw in zip(to_split, raw_results):
             try:
-                data = _parse_json(raw)
+                data = parse_json_response(raw)
             except (json.JSONDecodeError, Exception) as e:
                 print(f"  ✗ Parse failed for '{node.label}': {e}", file=sys.stderr)
                 node.is_leaf = True
@@ -215,7 +193,7 @@ def evaluate_leaves(leaves: list, criteria: list[str]) -> None:
             max_tokens=4096,
             temperature=0.8,
         )
-        data = _parse_json(raw)
+        data = parse_json_response(raw)
         leaf_map = {l.id: l for l in leaves}
         for ev in data.get("evaluations", []):
             node = leaf_map.get(ev["id"])

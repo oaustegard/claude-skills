@@ -2,7 +2,7 @@
 name: tiling-tree
 description: Exhaustive problem space exploration using the MIT Synthetic Neurobiology "tiling tree" method. Partitions a problem into MECE (Mutually Exclusive, Collectively Exhaustive) subsets recursively via parallel subagents, then evaluates leaf ideas against specified criteria. Use when users say "tiling tree", "tile the solution space", "exhaustively explore approaches to", "what are all the ways to", or request a MECE breakdown of a problem. Requires orchestrating-agents skill.
 metadata:
-  version: 1.0.0
+  version: 1.0.1
   depends_on: orchestrating-agents
 ---
 
@@ -30,12 +30,8 @@ Requires `orchestrating-agents` skill to be installed. Load it first:
 ```python
 import sys
 sys.path.insert(0, '/mnt/skills/user/orchestrating-agents/scripts')
-sys.path.insert(0, '/home/claude')  # for muninn_utils shim if needed
 
-import claude_client as cc
-# Apply API key shim if credentials aren't in ANTHROPIC_API_KEY env var:
-# from muninn_utils.orchestrating_agents_shim import patch_orchestrating_agents
-# patch_orchestrating_agents(cc)
+from claude_client import invoke_claude, invoke_parallel, parse_json_response
 ```
 
 ## Running the Tiling Tree
@@ -76,10 +72,6 @@ Parallel splitting happens level-by-level (not node-by-node), so a depth-2 tree 
 A markdown file containing:
 1. Full tree diagram with split criteria and evaluation scores at leaves
 2. Ranked leaf table sorted by overall score
-
-## JSON Parsing Note
-
-Branch agents return JSON. Claude frequently wraps JSON in markdown fences despite instructions. The script handles this with `_parse_json()`. When issue #312 is resolved and `parse_json_response()` is added to `orchestrating-agents`, update the import accordingly.
 
 ## Interpreting Results
 

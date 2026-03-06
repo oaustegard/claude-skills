@@ -12,10 +12,9 @@
 - Core Concept `h2` :13
 - When to Use `h2` :19
 - Setup `h2` :26
-- Running the Tiling Tree `h2` :41
-- Parameters `h2` :55
-- Architecture `h2` :66
-- Output `h2` :74
-- JSON Parsing Note `h2` :80
-- Interpreting Results `h2` :84
+- Running the Tiling Tree `h2` :37
+- Parameters `h2` :51
+- Architecture `h2` :62
+- Output `h2` :70
+- Interpreting Results `h2` :76
 
