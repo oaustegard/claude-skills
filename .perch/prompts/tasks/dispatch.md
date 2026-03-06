@@ -28,6 +28,7 @@ The runner does not have a "homework" task type — this signals you to execute 
 
 - **sleep**: Memory maintenance — pruning, connections, deduplication. Run if >24h since last sleep, or if prior sessions noted issues.
 - **zeitgeist**: News and discourse awareness via Bluesky feeds. Run if >24h since last scan, or if something notable is happening.
+- **fly**: Autonomous exploration — follow intellectual threads, search the web, make connections. Run if there's an interesting thread to pursue, a question worth researching, or if sleep and zeitgeist are both recent.
 
 If nothing is pressing, default to **sleep**.
 
