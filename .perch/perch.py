@@ -87,6 +87,7 @@ def build_session_record(
     total_input_tokens: int, total_output_tokens: int,
     errors: list, summary: str, started_at: str,
     routed_from: str = None, routed_task: str = None,
+    web_search_requests: int = 0,
 ) -> dict:
     """Build the session.json record."""
     ended_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -96,6 +97,8 @@ def build_session_record(
         cost = (total_input_tokens * 0.80 + total_output_tokens * 4.0) / 1_000_000
     else:
         cost = (total_input_tokens * 3.0 + total_output_tokens * 15.0) / 1_000_000
+    # Web search: $10 per 1K searches
+    cost += web_search_requests * 0.01
 
     record = {
         "task": task,
@@ -106,6 +109,7 @@ def build_session_record(
         "tool_calls": tool_calls,
         "total_input_tokens": total_input_tokens,
         "total_output_tokens": total_output_tokens,
+        "web_search_requests": web_search_requests,
         "estimated_cost_usd": round(cost, 4),
         "errors": errors,
         "summary": summary,
@@ -162,6 +166,7 @@ def run_loop(client: anthropic.Anthropic, model: str, system_prompt: str,
 
     total_input_tokens = 0
     total_output_tokens = 0
+    web_search_requests = 0
     all_tool_calls = []
     errors = []
     final_summary = ""
@@ -187,6 +192,7 @@ def run_loop(client: anthropic.Anthropic, model: str, system_prompt: str,
         # Track token usage
         total_input_tokens += response.usage.input_tokens
         total_output_tokens += response.usage.output_tokens
+        web_search_requests += getattr(response.usage, "web_search_requests", 0) or 0
 
         # Process response content
         assistant_content = response.content
@@ -200,13 +206,27 @@ def run_loop(client: anthropic.Anthropic, model: str, system_prompt: str,
             elif block.type == "tool_use":
                 log(f"ASSISTANT: [tool_use] {block.name} {json.dumps(block.input)[:100]}")
                 tool_uses.append(block)
+            elif block.type == "server_tool_use":
+                # Server-side tool (e.g. web_search) — Anthropic executes these,
+                # we just log and let the response flow through.
+                log(f"ASSISTANT: [server_tool_use] {block.name} (id={block.id})")
+            elif block.type == "web_search_tool_result":
+                # Result from server-side web search — already in assistant_content,
+                # included in conversation history automatically.
+                log(f"ASSISTANT: [web_search_result] (id={block.tool_use_id})")
 
-        # If no tool calls, the session is done
-        if not tool_uses:
+        # If no local tool calls and stop_reason is end_turn, the session is done
+        if not tool_uses and response.stop_reason == "end_turn":
             log(f"LOOP END: {turn} turns, {len(all_tool_calls)} tool calls", always=True)
             break
 
-        # Execute tools and build results
+        # If no local tool calls but stop_reason is tool_use (server tool),
+        # continue the loop — the server tool results are already in the content
+        if not tool_uses:
+            log(f"LOOP CONTINUE: server tool processed, no local tools to execute")
+            continue
+
+        # Execute local tools and build results
         tool_results = []
         for tu in tool_uses:
             t0 = time.monotonic()
@@ -241,6 +261,7 @@ def run_loop(client: anthropic.Anthropic, model: str, system_prompt: str,
         "tool_calls": all_tool_calls,
         "input_tokens": total_input_tokens,
         "output_tokens": total_output_tokens,
+        "web_search_requests": web_search_requests,
         "errors": errors,
         "summary": final_summary,
     }
@@ -317,11 +338,13 @@ def run_perch(task: str, model: str, max_turns: int) -> dict:
         total_output_tokens=result["output_tokens"],
         errors=result["errors"], summary=result["summary"][:500],
         started_at=started_at,
+        web_search_requests=result["web_search_requests"],
     )
 
     cost = record["estimated_cost_usd"]
     log(f"SUMMARY: {result['turns']} turns, {len(result['tool_calls'])} tool calls, "
-        f"{result['input_tokens']}+{result['output_tokens']} tokens, ${cost:.4f}",
+        f"{result['input_tokens']}+{result['output_tokens']} tokens, "
+        f"{result['web_search_requests']} web searches, ${cost:.4f}",
         always=True)
 
     store_session_log(task, model, result["turns"], result["tool_calls"],
@@ -373,6 +396,7 @@ def _run_dispatch(client, model, boot_output, tools, decision_budget,
             summary=decision_result["summary"][:500],
             started_at=started_at,
             routed_from="dispatch", routed_task="homework",
+            web_search_requests=decision_result["web_search_requests"],
         )
 
         cost = record["estimated_cost_usd"]
@@ -404,6 +428,7 @@ def _run_dispatch(client, model, boot_output, tools, decision_budget,
     total_tool_calls = decision_result["tool_calls"] + task_result["tool_calls"]
     total_input = decision_result["input_tokens"] + task_result["input_tokens"]
     total_output = decision_result["output_tokens"] + task_result["output_tokens"]
+    total_web_searches = decision_result["web_search_requests"] + task_result["web_search_requests"]
     all_errors = decision_result["errors"] + task_result["errors"]
 
     record = build_session_record(
@@ -413,6 +438,7 @@ def _run_dispatch(client, model, boot_output, tools, decision_budget,
         errors=all_errors, summary=task_result["summary"][:500],
         started_at=started_at,
         routed_from="dispatch", routed_task=chosen_task,
+        web_search_requests=total_web_searches,
     )
 
     cost = record["estimated_cost_usd"]
