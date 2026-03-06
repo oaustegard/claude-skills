@@ -125,8 +125,8 @@ WORLD_TOOLS = [
 # -- Known feed URIs --
 
 KNOWN_FEEDS = {
-    "ai_list": "https://bsky.app/profile/austegard.com/lists/3lankcdrlip2f",
-    "paperskygest": "https://bsky.app/profile/paperskygest.bsky.social/feed/paperskygest",
+    "ai_list": "at://did:plc:r2whjvupgfw55mllpksnombn/app.bsky.graph.list/3lankcdrlip2f",
+    "paperskygest": "at://did:plc:uaadt6f5bbda6cycbmatcm3z/app.bsky.feed.generator/preprintdigest",
 }
 
 
