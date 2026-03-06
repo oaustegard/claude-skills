@@ -38,7 +38,7 @@
     max_workers: int = 5,
     shared_system: Union[str, list[dict], None] = None,
     cache_shared_system: bool = False
-)` :403
+)` :406
 - **invoke_parallel_streaming** (f) `(
     prompts: list[dict],
     callbacks: list[callable] = None,
@@ -47,20 +47,20 @@
     max_workers: int = 5,
     shared_system: Union[str, list[dict], None] = None,
     cache_shared_system: bool = False
-)` :532
-- **StallDetector** (C) :603
-  - **__init__** (m) `(self, timeout: float = 60.0, on_stall: callable = None)` :616
-  - **register** (m) `(self, task_id: str)` :624
-  - **heartbeat** (m) `(self, task_id: str)` :629
-  - **unregister** (m) `(self, task_id: str)` :635
-  - **check_stalled** (m) `(self)` :640
-  - **start_monitoring** (m) `(self, poll_interval: float = 5.0)` :656
-  - **stop_monitoring** (m) `(self)` :679
-- **InterruptToken** (C) :687
-  - **__init__** (m) `(self)` :689
-  - **interrupt** (m) `(self)` :692
-  - **is_interrupted** (m) `(self)` :696
-  - **reset** (m) `(self)` :700
+)` :535
+- **StallDetector** (C) :606
+  - **__init__** (m) `(self, timeout: float = 60.0, on_stall: callable = None)` :619
+  - **register** (m) `(self, task_id: str)` :627
+  - **heartbeat** (m) `(self, task_id: str)` :632
+  - **unregister** (m) `(self, task_id: str)` :638
+  - **check_stalled** (m) `(self)` :643
+  - **start_monitoring** (m) `(self, poll_interval: float = 5.0)` :659
+  - **stop_monitoring** (m) `(self)` :682
+- **InterruptToken** (C) :690
+  - **__init__** (m) `(self)` :692
+  - **interrupt** (m) `(self)` :695
+  - **is_interrupted** (m) `(self)` :699
+  - **reset** (m) `(self)` :703
 - **invoke_parallel_interruptible** (f) `(
     prompts: list[dict],
     interrupt_token: InterruptToken = None,
@@ -69,8 +69,8 @@
     max_workers: int = 5,
     shared_system: Union[str, list[dict], None] = None,
     cache_shared_system: bool = False
-)` :705
-- **ConversationThread** (C) :781
+)` :708
+- **ConversationThread** (C) :784
   - **__init__** (m) `(
         self,
         system: Union[str, list[dict], None] = None,
@@ -80,18 +80,18 @@
         cache_system: bool = True,
         max_turns: int | None = None,
         continuation_prompt: str | None = None
-    )` :793
-  - **send** (m) `(self, user_message: Union[str, list[dict]], cache_history: bool = True)` :827
+    )` :796
+  - **send** (m) `(self, user_message: Union[str, list[dict]], cache_history: bool = True)` :830
   - **send_continuation** (m) `(
         self,
         guidance: str | None = None,
         cache_history: bool = True
-    )` :881
-  - **get_messages** (m) `(self)` :916
-  - **clear** (m) `(self)` :920
-  - **__len__** (m) `(self)` :924
-- **get_available_models** (f) `()` :929
-- **parse_json_response** (f) `(raw: str)` :946
+    )` :884
+  - **get_messages** (m) `(self)` :919
+  - **clear** (m) `(self)` :923
+  - **__len__** (m) `(self)` :927
+- **get_available_models** (f) `()` :932
+- **parse_json_response** (f) `(raw: str)` :949
 - **invoke_claude_json** (f) `(
     prompt: Union[str, list[dict]],
     model: str = "claude-sonnet-4-6",
@@ -102,7 +102,7 @@
     cache_prompt: bool = False,
     messages: list[dict] | None = None,
     **kwargs
-)` :972
+)` :975
 
 ### orchestration.py
 > Imports: `time, threading, typing, concurrent.futures, claude_client`...

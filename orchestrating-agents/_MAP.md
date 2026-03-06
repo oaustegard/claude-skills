@@ -11,7 +11,8 @@
 ### CHANGELOG.md
 - orchestrating-agents - Changelog `h1` :1
 - [0.3.0] - 2026-03-05 `h2` :5
-- [0.2.0] - 2026-02-28 `h2` :21
+- [0.3.0] - 2026-03-05 `h2` :12
+- [0.2.0] - 2026-02-28 `h2` :28
 
 ### README.md
 - orchestrating-agents `h1` :1
