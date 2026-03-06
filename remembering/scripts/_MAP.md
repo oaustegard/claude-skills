@@ -21,24 +21,24 @@
 - **group_ops_by_topic** (f) `(ops_entries: list)` :331
 - **profile** (f) `()` :382
 - **ops** (f) `(include_reference: bool = False)` :387
-- **boot** (f) `()` :453
-- **journal** (f) `(topics: list = None, user_stated: str = None, my_intent: str = None)` :664
-- **journal_recent** (f) `(n: int = 10)` :681
-- **journal_prune** (f) `(keep: int = 40)` :697
-- **therapy_scope** (f) `()` :711
-- **therapy_session_count** (f) `()` :726
-- **decisions_recent** (f) `(n: int = 10, conf: float = 0.7)` :735
+- **boot** (f) `(mode: str = None)` :461
+- **journal** (f) `(topics: list = None, user_stated: str = None, my_intent: str = None)` :717
+- **journal_recent** (f) `(n: int = 10)` :734
+- **journal_prune** (f) `(keep: int = 40)` :750
+- **therapy_scope** (f) `()` :764
+- **therapy_session_count** (f) `()` :779
+- **decisions_recent** (f) `(n: int = 10, conf: float = 0.7)` :788
 - **therapy_reflect** (f) `(*, n_sample: int = 20, similarity_threshold: int = 3,
-                     dry_run: bool = True)` :748
-- **group_by_type** (f) `(memories: list)` :878
-- **group_by_tag** (f) `(memories: list)` :894
-- **muninn_export** (f) `()` :914
-- **session_save** (f) `(summary: str = None, context: dict = None)` :931
-- **session_resume** (f) `(session_id: str = None)` :981
-- **sessions** (f) `(n: int = 10, *, include_counts: bool = False)` :1053
-- **handoff_pending** (f) `()` :1118
-- **handoff_complete** (f) `(handoff_id: str, completion_notes: str, version: str = None)` :1133
-- **muninn_import** (f) `(data: dict, *, merge: bool = False)` :1165
+                     dry_run: bool = True)` :801
+- **group_by_type** (f) `(memories: list)` :931
+- **group_by_tag** (f) `(memories: list)` :947
+- **muninn_export** (f) `()` :967
+- **session_save** (f) `(summary: str = None, context: dict = None)` :984
+- **session_resume** (f) `(session_id: str = None)` :1034
+- **sessions** (f) `(n: int = 10, *, include_counts: bool = False)` :1106
+- **handoff_pending** (f) `()` :1171
+- **handoff_complete** (f) `(handoff_id: str, completion_notes: str, version: str = None)` :1186
+- **muninn_import** (f) `(data: dict, *, merge: bool = False)` :1218
 
 ### bootstrap.py
 > Imports: `sys, os, scripts`

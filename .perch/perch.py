@@ -275,8 +275,8 @@ def run_perch(task: str, model: str, max_turns: int) -> dict:
     # Build system prompt: boot() output (dynamic identity)
     try:
         from remembering.scripts.boot import boot
-        boot_output = boot()
-        log(f"boot() loaded ({len(boot_output)} chars)", always=True)
+        boot_output = boot(mode="perch")
+        log(f"boot(mode='perch') loaded ({len(boot_output)} chars)", always=True)
     except Exception as e:
         log(f"WARNING: boot() failed ({e}), falling back to static identity.md", always=True)
         boot_output = load_prompt("identity")

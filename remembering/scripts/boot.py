@@ -450,8 +450,21 @@ def _load_repo_defaults() -> tuple[list, list]:
     return profile_data, ops_data
 
 
-def boot() -> str:
+# -- Perch slim boot (#353) --
+# Ops keys included in mode="perch". Everything else is dropped to keep
+# boot output under ~10K chars for Haiku's 50K tokens/min rate limit.
+PERCH_OPS_KEYS = frozenset({
+    'remembering-api', 'memory-types', 'storage-discipline',
+})
+
+
+def boot(mode: str = None) -> str:
     """Boot sequence: load profile + ops from Turso.
+
+    Args:
+        mode: Optional boot mode. "perch" emits a slim ~10K-char output
+              suitable for API callers with tight token budgets (#353).
+              None (default) emits full boot output.
 
     Returns formatted string with complete profile and ops values.
 
@@ -464,6 +477,7 @@ def boot() -> str:
     Falls back to repo defaults if remote fetch fails after retries.
 
     v5.0.0: Removed local cache. All reads go to Turso directly.
+    v5.4.0: Added mode="perch" for slim API boot (#353).
     """
     # Refresh OPS_TOPICS from config (v3.6.0: dynamic loading)
     global OPS_TOPICS, _OPS_KEY_TO_TOPIC
@@ -492,6 +506,11 @@ def boot() -> str:
         else:
             return f"ERROR: Unable to load config (remote failed: {e}, no defaults available)"
 
+    if mode == "perch":
+        return _boot_perch(profile_data, ops_data)
+
+    # -- Full boot (default) --
+
     # Detect GitHub access methods
     github_access = detect_github_access()
 
@@ -512,6 +531,40 @@ def boot() -> str:
 
     # Format output with markdown headings
     return _format_boot_output(profile_data, ops_by_topic, uncategorized, reference_ops, installed_utils, github_access, pending_tasks)
+
+
+def _boot_perch(profile_data: list, ops_data: list) -> str:
+    """Slim boot for perch/API context (#353).
+
+    Emits ~10K chars by keeping only identity core + essential memory ops.
+    Drops: recall-triggers, utility listings, voice/tensions profile,
+    reference entries, GitHub detection, incomplete tasks.
+
+    Args:
+        profile_data: List of profile config entries
+        ops_data: List of all ops config entries
+
+    Returns:
+        Compact boot output string
+    """
+    output = []
+
+    # Profile section — include only 'identity' key (core identity)
+    if profile_data:
+        output.append("# PROFILE")
+        identity_keys = {'identity'}
+        for p in profile_data:
+            if p['key'] in identity_keys:
+                output.append(_format_entry(p))
+
+    # Ops section — only keys in PERCH_OPS_KEYS
+    perch_ops = [o for o in ops_data if o['key'] in PERCH_OPS_KEYS]
+    if perch_ops:
+        output.append("\n# OPS")
+        for o in perch_ops:
+            output.append(_format_entry(o))
+
+    return '\n'.join(output)
 
 
 def _load_incomplete_tasks() -> list:
