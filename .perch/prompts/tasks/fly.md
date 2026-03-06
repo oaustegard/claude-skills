@@ -63,8 +63,14 @@ bsky_search("desperate fourth attempt")      → empty
 
 ### Phase 4: Close
 
-Store a session log as `experience` with tags `["perch-time", "session-log", "fly"]` capturing:
-- What thread you explored and why
-- Key findings and connections made
-- Threads worth pursuing in future fly sessions
-- Self-assessment: was this exploration productive?
+1. **Post your findings** as a GitHub Discussion using `create_discussion`:
+   - Title: A clear, descriptive title for the exploration (not "Fly session 2026-03-06")
+   - Body: Your synthesis in markdown — what you explored, key findings, connections to existing knowledge, and threads worth pursuing next
+   - This is the primary deliverable. Oskar gets notified via GitHub.
+
+2. Store a session log as `experience` with tags `["perch-time", "session-log", "fly"]` capturing:
+   - What thread you explored and why
+   - Key findings and connections made
+   - Threads worth pursuing in future fly sessions
+   - Self-assessment: was this exploration productive?
+   - Link to the discussion URL returned by create_discussion

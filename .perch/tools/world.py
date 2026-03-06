@@ -97,6 +97,39 @@ WORLD_TOOLS = [
         },
     },
     {
+        "name": "create_discussion",
+        "description": (
+            "Create a GitHub Discussion in the claude-skills repo. Use the Flight Log "
+            "category for fly exploration findings. Title should be descriptive of the "
+            "topic explored. Body should be the synthesis in markdown."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "description": "Discussion title — descriptive of the exploration topic",
+                },
+                "body": {
+                    "type": "string",
+                    "description": (
+                        "Discussion body in markdown — the synthesis, key findings, "
+                        "connections made, and threads worth pursuing"
+                    ),
+                },
+                "category_id": {
+                    "type": "string",
+                    "description": (
+                        "Discussion category ID. Defaults to Flight Log "
+                        "(DIC_kwDOQEB8Es4C31s9)"
+                    ),
+                    "default": "DIC_kwDOQEB8Es4C31s9",
+                },
+            },
+            "required": ["title", "body"],
+        },
+    },
+    {
         "name": "fetch_url",
         "description": (
             "Fetch content from a URL and return as clean text. Uses Jina AI "
@@ -196,6 +229,55 @@ def execute_bsky_trending(input: dict) -> str:
     return f"{len(trends)} trending topics:\n\n" + "\n".join(lines)
 
 
+def _create_discussion(input: dict) -> str:
+    """Create a GitHub Discussion in the Flight Log category."""
+    import urllib.request
+
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if not token:
+        return "Error: No GitHub token available"
+
+    repo_id = "R_kgDOQEB8Eg"
+    category_id = input.get("category_id", "DIC_kwDOQEB8Es4C31s9")
+    title = input.get("title", "Untitled fly exploration")
+    body = input.get("body", "")
+
+    mutation = """mutation($input: CreateDiscussionInput!) {
+      createDiscussion(input: $input) {
+        discussion { id number url }
+      }
+    }"""
+
+    variables = {
+        "input": {
+            "repositoryId": repo_id,
+            "categoryId": category_id,
+            "title": title,
+            "body": body,
+        }
+    }
+
+    payload = json.dumps({"query": mutation, "variables": variables}).encode()
+    req = urllib.request.Request(
+        "https://api.github.com/graphql",
+        data=payload,
+        headers={
+            "Authorization": f"bearer {token}",
+            "Content-Type": "application/json",
+        },
+    )
+
+    try:
+        resp = urllib.request.urlopen(req)
+        data = json.loads(resp.read())
+        if "errors" in data:
+            return f"GraphQL errors: {data['errors']}"
+        disc = data["data"]["createDiscussion"]["discussion"]
+        return f"Discussion #{disc['number']} created: {disc['url']}"
+    except Exception as e:
+        return f"Failed to create discussion: {e}"
+
+
 def execute_fetch_url(input: dict) -> str:
     """Fetch URL content, with Jina fallback for blocked sites."""
     url = input["url"]
@@ -238,5 +320,6 @@ WORLD_EXECUTORS = {
     "bsky_feed": execute_bsky_feed,
     "bsky_search": execute_bsky_search,
     "bsky_trending": execute_bsky_trending,
+    "create_discussion": _create_discussion,
     "fetch_url": execute_fetch_url,
 }
