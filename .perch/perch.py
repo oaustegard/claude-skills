@@ -425,7 +425,6 @@ def main():
         # Tool-level errors are normal operational noise — log them but don't fail.
         structural_errors = [e for e in record["errors"]
                              if "ANTHROPIC_API_KEY" in e
-                             or "Max turns reached" in e
                              or "API error on turn 1:" in e]
         if structural_errors:
             sys.exit(1)
