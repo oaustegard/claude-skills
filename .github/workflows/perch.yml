@@ -74,22 +74,32 @@ jobs:
           BSKY_APP_PASSWORD: ${{ secrets.BSKY_APP_PASSWORD }}
           PYTHONPATH: ${{ github.workspace }}
         run: |
+          # Default inputs for scheduled runs (cron doesn't pass inputs)
+          TASK="${{ inputs.task }}"
+          MODEL="${{ inputs.model }}"
+          MAX_TURNS="${{ inputs.max_turns }}"
+          VERBOSE="${{ inputs.verbose }}"
+          TASK="${TASK:-dispatch}"
+          MODEL="${MODEL:-claude-haiku-4-5-20251001}"
+          MAX_TURNS="${MAX_TURNS:-50}"
+          VERBOSE="${VERBOSE:-true}"
+
           VERBOSE_FLAG=""
-          if [ "${{ inputs.verbose }}" = "true" ]; then
+          if [ "$VERBOSE" = "true" ]; then
             VERBOSE_FLAG="--verbose"
           else
             VERBOSE_FLAG="--quiet"
           fi
           python .perch/perch.py \
-            --task ${{ inputs.task }} \
-            --model "${{ inputs.model }}" \
-            --max-turns ${{ inputs.max_turns }} \
+            --task "$TASK" \
+            --model "$MODEL" \
+            --max-turns "$MAX_TURNS" \
             $VERBOSE_FLAG
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: perch-${{ inputs.task }}-${{ github.run_number }}
+          name: perch-${{ inputs.task || 'dispatch' }}-${{ github.run_number }}
           path: |
             session.log
             session.json
