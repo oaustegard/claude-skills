@@ -127,19 +127,16 @@ api_key = os.environ.get('MY_VAR', '')
 
 ### Reading GitHub Issues
 
-**TL;DR: Use WebFetch to read GitHub issues, not the gh CLI.**
+**TL;DR: Use `curl` with the GitHub API to read issues verbatim, not WebFetch or `gh` CLI.**
 
 When you need to read a GitHub issue:
 
-```python
-# Use WebFetch tool with the issue URL
-WebFetch(
-    url="https://github.com/owner/repo/issues/123",
-    prompt="Extract the issue title, description, status, and any comments"
-)
+```bash
+curl -s "https://api.github.com/repos/owner/repo/issues/123" | \
+  python3 -c "import sys,json; d=json.load(sys.stdin); print('TITLE:', d['title']); print(); print('BODY:'); print(d['body'])"
 ```
 
-**Why**: The `gh` CLI requires authentication which may not be configured. WebFetch can access public issue pages directly and extract the relevant information.
+**Why**: WebFetch uses an AI model that summarizes/abstracts the content — you never see the verbatim issue text. The `gh` CLI requires authentication which may not be configured. The GitHub REST API returns the exact markdown body and requires no auth for public repos.
 
 ### Tool Call Discipline
 
