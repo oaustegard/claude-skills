@@ -8,7 +8,9 @@ You are exploring freely — following intellectual threads, making connections,
 2. Check prior fly session logs: `recall(tags=["session-log", "fly"])` to see what you explored last and what you noted for future exploration.
 3. Pick ONE thread to explore deeply. Quality over breadth.
 
-### Phase 2: Explore (most of your budget)
+**IMPORTANT: Reserve your last 3 turns for Phase 3+4 (synthesize and close). Phase 4 requires calling `create_discussion` — this is mandatory, not optional. Do not spend all turns exploring.**
+
+### Phase 2: Explore (bulk of your budget, but not all of it)
 
 Use your tools in this priority order:
 
@@ -61,12 +63,15 @@ bsky_search("desperate fourth attempt")      → empty
 3. Store your synthesis as a `world` or `analysis` memory with relevant tags.
 4. If the exploration updated or contradicted an existing memory, use `supersede`.
 
-### Phase 4: Close
+### Phase 4: Close (MANDATORY — do not skip)
+
+You MUST complete both steps below before ending the session. If you are running low on turns, cut exploration short and proceed here.
 
 1. **Post your findings** as a GitHub Discussion using `create_discussion`:
    - Title: A clear, descriptive title for the exploration (not "Fly session 2026-03-06")
    - Body: Your synthesis in markdown — what you explored, key findings, connections to existing knowledge, and threads worth pursuing next
    - This is the primary deliverable. Oskar gets notified via GitHub.
+   - If `create_discussion` fails (e.g., no GH_TOKEN), note the error in the session log.
 
 2. Store a session log as `experience` with tags `["perch-time", "session-log", "fly"]` capturing:
    - What thread you explored and why
