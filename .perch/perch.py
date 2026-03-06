@@ -8,11 +8,13 @@ Usage:
     python .perch/perch.py --task sleep --model claude-haiku-4-5-20251001
     python .perch/perch.py --task zeitgeist --verbose
     python .perch/perch.py --task fly --model claude-sonnet-4-5-20250929
+    python .perch/perch.py --task dispatch  # decides, then routes
 """
 
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -26,6 +28,19 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from tools import get_tool_definitions, execute_tool
+
+# -- Per-task turn budgets --
+# These are defaults; --max-turns CLI arg overrides if lower.
+# Each turn is ~30s of LLM inference, so 20 turns ≈ 10 min.
+
+TURN_BUDGETS = {
+    "sleep": 25,
+    "zeitgeist": 15,
+    "fly": 15,
+    "dispatch": 5,  # decision phase only — routes to real task
+}
+
+ROUTABLE_TASKS = ("sleep", "zeitgeist", "fly")
 
 # -- Logging --
 
@@ -70,6 +85,7 @@ def build_session_record(
     task: str, model: str, turns: int, tool_calls: list,
     total_input_tokens: int, total_output_tokens: int,
     errors: list, summary: str, started_at: str,
+    routed_from: str = None, routed_task: str = None,
 ) -> dict:
     """Build the session.json record."""
     ended_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -80,7 +96,7 @@ def build_session_record(
     else:
         cost = (total_input_tokens * 3.0 + total_output_tokens * 15.0) / 1_000_000
 
-    return {
+    record = {
         "task": task,
         "model": model,
         "started_at": started_at,
@@ -93,12 +109,18 @@ def build_session_record(
         "errors": errors,
         "summary": summary,
     }
+    if routed_from:
+        record["routed_from"] = routed_from
+    if routed_task:
+        record["routed_task"] = routed_task
+    return record
 
 
 # -- Session log memory --
 
 def store_session_log(task: str, model: str, turns: int, tool_calls: list,
-                      cost: float, summary: str, errors: list) -> None:
+                      cost: float, summary: str, errors: list,
+                      routed_task: str = None) -> None:
     """Store a session log memory for cross-session continuity."""
     try:
         from remembering.scripts import remember as mem_remember
@@ -109,10 +131,11 @@ def store_session_log(task: str, model: str, turns: int, tool_calls: list,
             tool_summary[name] = tool_summary.get(name, 0) + 1
         tool_str = ", ".join(f"{k}={v}" for k, v in sorted(tool_summary.items()))
 
+        route_note = f"\nRouted to: {routed_task}" if routed_task else ""
         mem_remember(
             f"PERCH SESSION LOG -- {task} ({date_tag})\n"
             f"Model: {model} | Turns: {turns} | Cost: ${cost:.3f}\n"
-            f"Tool calls: {tool_str}\n"
+            f"Tool calls: {tool_str}{route_note}\n"
             f"Outcome: {summary}\n"
             f"Errors: {', '.join(errors) if errors else 'none'}",
             "experience",
@@ -126,40 +149,15 @@ def store_session_log(task: str, model: str, turns: int, tool_calls: list,
 
 # -- Core loop --
 
-def run_perch(task: str, model: str, max_turns: int) -> dict:
-    """Run a perch session with the tool-use loop."""
-    started_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+def run_loop(client: anthropic.Anthropic, model: str, system_prompt: str,
+             tools: list, initial_message: str, max_turns: int) -> dict:
+    """Run the tool-use loop. Returns aggregated stats.
 
-    # Build system prompt: boot() output (dynamic identity) + task instructions
-    try:
-        from remembering.scripts.boot import boot
-        boot_output = boot()
-        log(f"boot() loaded ({len(boot_output)} chars)", always=True)
-    except Exception as e:
-        log(f"WARNING: boot() failed ({e}), falling back to static identity.md", always=True)
-        boot_output = load_prompt("identity")
-
-    system_prompt = boot_output + "\n\n" + load_prompt(f"tasks/{task}")
-    tools = get_tool_definitions(task)
-
-    log(f"SYSTEM: task={task} model={model} max_turns={max_turns} tools={len(tools)}", always=True)
-
-    # Validate API key before constructing client
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-    if not api_key:
-        log("FATAL: ANTHROPIC_API_KEY is not set or empty. "
-            "Configure it as a repository secret.", always=True)
-        return build_session_record(
-            task=task, model=model, turns=0, tool_calls=[],
-            total_input_tokens=0, total_output_tokens=0,
-            errors=["ANTHROPIC_API_KEY not set"], summary="",
-            started_at=started_at,
-        )
-
-    client = anthropic.Anthropic(api_key=api_key)
-
-    messages = [{"role": "user", "content": f"Begin {task} session."}]
-    log(f"PROMPT: Begin {task} session.")
+    This is the inner loop, separated from session management so dispatch
+    can chain two loops (decide → execute) within one session.
+    """
+    messages = [{"role": "user", "content": initial_message}]
+    log(f"PROMPT: {initial_message[:80]}")
 
     total_input_tokens = 0
     total_output_tokens = 0
@@ -204,7 +202,7 @@ def run_perch(task: str, model: str, max_turns: int) -> dict:
 
         # If no tool calls, the session is done
         if not tool_uses:
-            log(f"SESSION END: {turn} turns, {len(all_tool_calls)} tool calls", always=True)
+            log(f"LOOP END: {turn} turns, {len(all_tool_calls)} tool calls", always=True)
             break
 
         # Execute tools and build results
@@ -216,7 +214,6 @@ def run_perch(task: str, model: str, max_turns: int) -> dict:
 
             log(f"TOOL_RESULT: {tu.name} -> {len(result_text)} chars ({elapsed_ms}ms)")
 
-            # Track for session record
             all_tool_calls.append({
                 "name": tu.name,
                 "input": tu.input,
@@ -224,7 +221,6 @@ def run_perch(task: str, model: str, max_turns: int) -> dict:
                 "elapsed_ms": elapsed_ms,
             })
 
-            # Check for tool errors
             if result_text.startswith(f"Tool {tu.name} failed:"):
                 errors.append(result_text)
 
@@ -239,24 +235,158 @@ def run_perch(task: str, model: str, max_turns: int) -> dict:
         log(f"MAX TURNS REACHED ({max_turns})", always=True)
         errors.append(f"Max turns reached ({max_turns})")
 
-    # Build session record
+    return {
+        "turns": turn,
+        "tool_calls": all_tool_calls,
+        "input_tokens": total_input_tokens,
+        "output_tokens": total_output_tokens,
+        "errors": errors,
+        "summary": final_summary,
+    }
+
+
+def _parse_dispatch_decision(summary: str) -> str | None:
+    """Extract task choice from dispatch LLM output.
+
+    Looks for JSON like {"task": "sleep"} or plain mentions of task names.
+    Returns task name or None if unparseable.
+    """
+    # Try JSON extraction first
+    json_match = re.search(r'\{[^}]*"task"\s*:\s*"(\w+)"[^}]*\}', summary)
+    if json_match:
+        task = json_match.group(1)
+        if task in ROUTABLE_TASKS:
+            return task
+
+    # Fallback: look for task names in the text
+    text_lower = summary.lower()
+    for task in ROUTABLE_TASKS:
+        # Match "I'll run sleep" / "choosing zeitgeist" / "task: fly" etc.
+        if re.search(rf'\b{task}\b', text_lower):
+            return task
+
+    return None
+
+
+def run_perch(task: str, model: str, max_turns: int) -> dict:
+    """Run a perch session. Dispatch routes to a concrete task."""
+    started_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+    # Build system prompt: boot() output (dynamic identity)
+    try:
+        from remembering.scripts.boot import boot
+        boot_output = boot()
+        log(f"boot() loaded ({len(boot_output)} chars)", always=True)
+    except Exception as e:
+        log(f"WARNING: boot() failed ({e}), falling back to static identity.md", always=True)
+        boot_output = load_prompt("identity")
+
+    # Validate API key
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    if not api_key:
+        log("FATAL: ANTHROPIC_API_KEY is not set or empty.", always=True)
+        return build_session_record(
+            task=task, model=model, turns=0, tool_calls=[],
+            total_input_tokens=0, total_output_tokens=0,
+            errors=["ANTHROPIC_API_KEY not set"], summary="",
+            started_at=started_at,
+        )
+
+    client = anthropic.Anthropic(api_key=api_key)
+    tools = get_tool_definitions(task)
+
+    # Effective turn budget: min of per-task default and CLI override
+    budget = min(max_turns, TURN_BUDGETS.get(task, max_turns))
+
+    if task == "dispatch":
+        return _run_dispatch(client, model, boot_output, tools, budget, max_turns, started_at)
+
+    # Direct task execution
+    system_prompt = boot_output + "\n\n" + load_prompt(f"tasks/{task}")
+    log(f"TASK: {task} model={model} budget={budget} tools={len(tools)}", always=True)
+
+    result = run_loop(client, model, system_prompt, tools,
+                      f"Begin {task} session.", budget)
+
     record = build_session_record(
-        task=task, model=model, turns=turn, tool_calls=all_tool_calls,
-        total_input_tokens=total_input_tokens,
-        total_output_tokens=total_output_tokens,
-        errors=errors, summary=final_summary[:500], started_at=started_at,
+        task=task, model=model, turns=result["turns"],
+        tool_calls=result["tool_calls"],
+        total_input_tokens=result["input_tokens"],
+        total_output_tokens=result["output_tokens"],
+        errors=result["errors"], summary=result["summary"][:500],
+        started_at=started_at,
     )
 
     cost = record["estimated_cost_usd"]
-    log(
-        f"SUMMARY: {turn} turns, {len(all_tool_calls)} tool calls, "
-        f"{total_input_tokens}+{total_output_tokens} tokens, ${cost:.4f}",
-        always=True,
+    log(f"SUMMARY: {result['turns']} turns, {len(result['tool_calls'])} tool calls, "
+        f"{result['input_tokens']}+{result['output_tokens']} tokens, ${cost:.4f}",
+        always=True)
+
+    store_session_log(task, model, result["turns"], result["tool_calls"],
+                      cost, result["summary"][:300], result["errors"])
+    return record
+
+
+def _run_dispatch(client, model, boot_output, tools, decision_budget,
+                  max_turns, started_at) -> dict:
+    """Two-phase dispatch: decide what to do, then do it."""
+
+    # Phase 1: Decision
+    dispatch_prompt = boot_output + "\n\n" + load_prompt("tasks/dispatch")
+    log(f"DISPATCH PHASE 1: deciding (budget={decision_budget})", always=True)
+
+    decision_result = run_loop(
+        client, model, dispatch_prompt, tools,
+        "Begin dispatch session.", decision_budget,
     )
 
-    # Store session log in memory
-    store_session_log(task, model, turn, all_tool_calls, cost, final_summary[:300], errors)
+    # Parse the decision
+    chosen_task = _parse_dispatch_decision(decision_result["summary"])
 
+    if not chosen_task:
+        log(f"DISPATCH: Could not parse task from: {decision_result['summary'][:200]}", always=True)
+        # Default to sleep if decision is unparseable
+        chosen_task = "sleep"
+        log(f"DISPATCH: Defaulting to {chosen_task}", always=True)
+
+    log(f"DISPATCH PHASE 2: routing to {chosen_task}", always=True)
+
+    # Phase 2: Execute chosen task with its own budget
+    task_budget = min(max_turns, TURN_BUDGETS.get(chosen_task, 20))
+    task_prompt = boot_output + "\n\n" + load_prompt(f"tasks/{chosen_task}")
+    task_tools = get_tool_definitions(chosen_task)
+
+    log(f"TASK: {chosen_task} budget={task_budget} tools={len(task_tools)}", always=True)
+
+    task_result = run_loop(
+        client, model, task_prompt, task_tools,
+        f"Begin {chosen_task} session.", task_budget,
+    )
+
+    # Merge stats from both phases
+    total_turns = decision_result["turns"] + task_result["turns"]
+    total_tool_calls = decision_result["tool_calls"] + task_result["tool_calls"]
+    total_input = decision_result["input_tokens"] + task_result["input_tokens"]
+    total_output = decision_result["output_tokens"] + task_result["output_tokens"]
+    all_errors = decision_result["errors"] + task_result["errors"]
+
+    record = build_session_record(
+        task="dispatch", model=model, turns=total_turns,
+        tool_calls=total_tool_calls,
+        total_input_tokens=total_input, total_output_tokens=total_output,
+        errors=all_errors, summary=task_result["summary"][:500],
+        started_at=started_at,
+        routed_from="dispatch", routed_task=chosen_task,
+    )
+
+    cost = record["estimated_cost_usd"]
+    log(f"DISPATCH COMPLETE: {chosen_task} in {total_turns} turns "
+        f"({decision_result['turns']}+{task_result['turns']}), "
+        f"${cost:.4f}", always=True)
+
+    store_session_log("dispatch", model, total_turns, total_tool_calls,
+                      cost, task_result["summary"][:300], all_errors,
+                      routed_task=chosen_task)
     return record
 
 
