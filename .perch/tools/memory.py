@@ -215,7 +215,7 @@ def execute_recall(input: dict) -> str:
         tags_str = ", ".join(m.tags) if m.tags else ""
         lines.append(
             f"[{m.id[:8]}] ({m.type}, p={m.priority}) {m.summary_preview}\n"
-            f"  tags: [{tags_str}]  created: {m.created_at}"
+            f"  tags: [{tags_str}]  from: {m.valid_from}"
         )
     return f"{len(results)} memories found:\n\n" + "\n\n".join(lines)
 

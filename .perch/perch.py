@@ -130,8 +130,16 @@ def run_perch(task: str, model: str, max_turns: int) -> dict:
     """Run a perch session with the tool-use loop."""
     started_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
-    # Load prompts
-    system_prompt = load_prompt("identity") + "\n\n" + load_prompt(f"tasks/{task}")
+    # Build system prompt: boot() output (dynamic identity) + task instructions
+    try:
+        from remembering.scripts.boot import boot
+        boot_output = boot()
+        log(f"boot() loaded ({len(boot_output)} chars)", always=True)
+    except Exception as e:
+        log(f"WARNING: boot() failed ({e}), falling back to static identity.md", always=True)
+        boot_output = load_prompt("identity")
+
+    system_prompt = boot_output + "\n\n" + load_prompt(f"tasks/{task}")
     tools = get_tool_definitions(task)
 
     log(f"SYSTEM: task={task} model={model} max_turns={max_turns} tools={len(tools)}", always=True)
@@ -256,7 +264,7 @@ def run_perch(task: str, model: str, max_turns: int) -> dict:
 
 def main():
     parser = argparse.ArgumentParser(description="Perch time: scheduled autonomous agency")
-    parser.add_argument("--task", required=True, choices=["sleep", "zeitgeist", "fly"],
+    parser.add_argument("--task", required=True, choices=["dispatch", "sleep", "zeitgeist", "fly"],
                         help="Task to run")
     parser.add_argument("--model", default="claude-haiku-4-5-20251001",
                         help="Anthropic model ID")

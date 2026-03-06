@@ -1,11 +1,15 @@
 # tiling-tree/
-*Files: 1 | Subdirectories: 1*
+*Files: 2 | Subdirectories: 1*
 
 ## Subdirectories
 
 - [scripts/](./scripts/_MAP.md)
 
 ## Files
+
+### CHANGELOG.md
+- tiling-tree - Changelog `h1` :1
+- [1.0.1] - 2026-03-06 `h2` :5
 
 ### SKILL.md
 - Tiling Tree `h1` :9
