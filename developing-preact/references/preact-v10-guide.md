@@ -4,14 +4,18 @@
 
 ### Standard Setup (Use for all standalone examples)
 
+Vendor dependencies first: `bash scripts/vendor.sh`
+
 ```html
 <script type="importmap">
   {
     "imports": {
-      "preact": "https://esm.sh/*preact@10.23.1",
-      "preact/": "https://esm.sh/*preact@10.23.1/",
-      "@preact/signals": "https://esm.sh/*@preact/signals@1.3.0",
-      "htm/preact": "https://esm.sh/*htm@3.1.1/preact"
+      "preact": "./vendor/preact.module.js",
+      "preact/hooks": "./vendor/hooks.module.js",
+      "@preact/signals-core": "./vendor/signals-core.mjs",
+      "@preact/signals": "./vendor/signals.mjs",
+      "htm": "./vendor/htm.module.js",
+      "htm/preact": "./vendor/htm.module.js"
     }
   }
 </script>
@@ -19,23 +23,26 @@
 
 ### With React Aliasing (for React ecosystem compatibility)
 
+For compat mode, vendor additional files from the preact package (`compat/dist/compat.module.js`) and add to the import map:
+
 ```html
 <script type="importmap">
   {
     "imports": {
-      "preact": "https://esm.sh/*preact@10.23.1",
-      "preact/": "https://esm.sh/*preact@10.23.1/",
-      "react": "https://esm.sh/*preact@10.23.1/compat",
-      "react/": "https://esm.sh/*preact@10.23.1/compat/",
-      "react-dom": "https://esm.sh/*preact@10.23.1/compat",
-      "@preact/signals": "https://esm.sh/*@preact/signals@1.3.0",
-      "htm/preact": "https://esm.sh/*htm@3.1.1/preact"
+      "preact": "./vendor/preact.module.js",
+      "preact/hooks": "./vendor/hooks.module.js",
+      "react": "./vendor/compat.module.js",
+      "react-dom": "./vendor/compat.module.js",
+      "@preact/signals-core": "./vendor/signals-core.mjs",
+      "@preact/signals": "./vendor/signals.mjs",
+      "htm": "./vendor/htm.module.js",
+      "htm/preact": "./vendor/htm.module.js"
     }
   }
 </script>
 ```
 
-**Critical Note**: Always use the `*` prefix in esm.sh URLs to mark all dependencies as external, preventing duplicate Preact instances.
+**Critical Note**: Use modular vendor files (not standalone bundles) so all packages share a single Preact instance via import map resolution. See SKILL.md for rationale.
 
 ## HTM Syntax (Default Preference)
 

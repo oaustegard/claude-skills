@@ -22,13 +22,13 @@
 ### preact-v10-guide.md
 - Preact v10 - Comprehensive Reference Guide `h1` :1
 - Import Map Configuration `h2` :3
-- HTM Syntax (Default Preference) `h2` :40
-- Key Differences from React `h2` :97
-- Signals API `h2` :171
-- Web Components Integration `h2` :259
-- Performance Patterns `h2` :295
-- Context API `h2` :322
-- Error Boundaries `h2` :344
-- Common Gotchas `h2` :370
-- Version Info `h2` :407
+- HTM Syntax (Default Preference) `h2` :47
+- Key Differences from React `h2` :104
+- Signals API `h2` :178
+- Web Components Integration `h2` :266
+- Performance Patterns `h2` :302
+- Context API `h2` :329
+- Error Boundaries `h2` :351
+- Common Gotchas `h2` :377
+- Version Info `h2` :414
 
