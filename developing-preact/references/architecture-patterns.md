@@ -19,10 +19,10 @@ Before adding any external package, verify:
 ## Zero-Build Architecture
 
 For prototypes, demos, and small applications, use:
-- ES modules via CDN (esm.sh)
+- ES modules vendored from npm registry (`scripts/vendor.sh`)
 - Import maps for dependency management
 - HTM for zero-transpilation JSX-like syntax
-- Inline or linked CSS (Tailwind via CDN)
+- Tailwind CSS via CLI (purged, minified to `vendor/tailwind.css`)
 
 ### When to Introduce Build Tools
 

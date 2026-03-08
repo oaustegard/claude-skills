@@ -4,22 +4,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Preact App</title>
-  
-  <!-- Tailwind CSS via CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- Import Map Configuration -->
+
+  <!-- Tailwind CSS — generated via: npx tailwindcss -o vendor/tailwind.css --content "*.html" --minify -->
+  <link rel="stylesheet" href="vendor/tailwind.css">
+
+  <!-- Import Map — vendor deps fetched via: bash scripts/vendor.sh -->
   <script type="importmap">
     {
       "imports": {
-        "preact": "https://esm.sh/*preact@10.23.1",
-        "preact/": "https://esm.sh/*preact@10.23.1/",
-        "@preact/signals": "https://esm.sh/*@preact/signals@1.3.0",
-        "htm/preact": "https://esm.sh/*htm@3.1.1/preact"
+        "preact": "./vendor/preact.module.js",
+        "preact/hooks": "./vendor/hooks.module.js",
+        "@preact/signals-core": "./vendor/signals-core.mjs",
+        "@preact/signals": "./vendor/signals.mjs",
+        "htm": "./vendor/htm.module.js",
+        "htm/preact": "./vendor/htm.module.js"
       }
     }
   </script>
-  
+
   <style>
     /* Custom styles if needed */
     body {
@@ -29,7 +31,7 @@
 </head>
 <body>
   <div id="app"></div>
-  
+
   <script type="module">
     import { render } from 'preact';
     import { useSignal } from '@preact/signals';
