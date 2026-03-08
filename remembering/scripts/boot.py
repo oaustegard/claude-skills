@@ -549,6 +549,9 @@ def _boot_perch(profile_data: list, ops_data: list) -> str:
     """
     output = []
 
+    # Time anchor (temporal grounding)
+    output.append(_time_anchor())
+
     # Profile section — include only 'identity' key (core identity)
     if profile_data:
         output.append("# PROFILE")
@@ -598,6 +601,48 @@ def _load_incomplete_tasks() -> list:
         return []
 
 
+def _time_anchor() -> str:
+    """Generate current time context for boot output.
+
+    Emits local time (from profile 'timezone' config), UTC, offset, and DST status.
+    Prevents timezone math errors when interpreting UTC memory timestamps.
+
+    v5.5.0: Added for temporal grounding (#time-anchor).
+    """
+    from zoneinfo import ZoneInfo
+
+    now_utc = datetime.now(UTC)
+
+    # Load timezone from profile config, fall back to UTC
+    tz_name = None
+    try:
+        from .config import config_get
+        tz_name = config_get('timezone')
+    except Exception:
+        pass
+
+    if not tz_name:
+        tz_name = 'UTC'
+
+    try:
+        tz = ZoneInfo(tz_name)
+    except Exception:
+        tz = UTC
+        tz_name = 'UTC'
+
+    now_local = now_utc.astimezone(tz)
+    offset = now_local.strftime('%z')  # e.g., '-0500'
+    offset_fmt = f"{offset[:3]}:{offset[3:]}"  # e.g., '-05:00'
+    tz_abbrev = now_local.strftime('%Z')  # e.g., 'EST' or 'EDT'
+    dst_active = bool(now_local.dst())
+
+    return (
+        f"⏰ {now_local.strftime('%Y-%m-%d %H:%M')} {tz_abbrev} "
+        f"(UTC{offset_fmt}) | "
+        f"DST: {'active' if dst_active else 'inactive'}"
+    )
+
+
 def _format_entry(entry: dict) -> str:
     """Format a single config entry with markdown heading.
 
@@ -631,6 +676,9 @@ def _format_boot_output(profile_data: list, ops_by_topic: dict,
         Formatted boot output string with markdown headings
     """
     output = []
+
+    # Time anchor (temporal grounding)
+    output.append(_time_anchor())
 
     # Profile section
     if profile_data:
