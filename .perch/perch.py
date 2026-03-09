@@ -5,10 +5,11 @@ Tool-use loop that gives Muninn scheduled compute windows for memory
 maintenance, news awareness, and autonomous exploration.
 
 Usage:
+    python .perch/perch.py --task all     # sleep + zeitgeist + fly (daily default)
     python .perch/perch.py --task sleep --model claude-haiku-4-5-20251001
     python .perch/perch.py --task zeitgeist --verbose
     python .perch/perch.py --task fly --model claude-sonnet-4-5-20250929
-    python .perch/perch.py --task dispatch  # decides, then routes
+    python .perch/perch.py --task dispatch  # decides, then routes (legacy)
 """
 
 import argparse
@@ -39,6 +40,14 @@ TURN_BUDGETS = {
     "fly": 15,
     "dispatch": 5,  # decision phase only — routes to real task
 }
+
+# Reduced budgets when running all three tasks sequentially
+ALL_BUDGETS = {
+    "sleep": 15,
+    "zeitgeist": 12,
+    "fly": 15,
+}
+ALL_SEQUENCE = ("sleep", "zeitgeist", "fly")
 
 ROUTABLE_TASKS = ("sleep", "zeitgeist", "fly")
 HOMEWORK_TASK = "homework"  # pseudo-task: execute inline during dispatch
@@ -316,6 +325,10 @@ def run_perch(task: str, model: str, max_turns: int) -> dict:
         )
 
     client = anthropic.Anthropic(api_key=api_key)
+
+    if task == "all":
+        return _run_all(client, model, boot_output, max_turns, started_at)
+
     tools = get_tool_definitions(task)
 
     # Effective turn budget: min of per-task default and CLI override
@@ -350,6 +363,86 @@ def run_perch(task: str, model: str, max_turns: int) -> dict:
     store_session_log(task, model, result["turns"], result["tool_calls"],
                       cost, result["summary"][:300], result["errors"])
     return record
+
+
+def _run_all(client, model, boot_output, max_turns, started_at) -> dict:
+    """Run all three tasks sequentially: sleep → zeitgeist → fly.
+
+    Each task gets its own LLM session (fresh message history) with a
+    reduced turn budget so the total fits within the workflow timeout.
+    """
+    total_turns = 0
+    total_tool_calls = []
+    total_input_tokens = 0
+    total_output_tokens = 0
+    total_web_searches = 0
+    all_errors = []
+    subtask_summaries = []
+
+    for subtask in ALL_SEQUENCE:
+        budget = min(max_turns, ALL_BUDGETS[subtask])
+        tools = get_tool_definitions(subtask)
+        system_prompt = boot_output + "\n\n" + load_prompt(f"tasks/{subtask}")
+
+        log(f"ALL [{subtask}]: starting (budget={budget}, tools={len(tools)})", always=True)
+
+        result = run_loop(
+            client, model, system_prompt, tools,
+            f"Begin {subtask} session.", budget,
+        )
+
+        # Store individual session log
+        sub_cost = _estimate_cost(
+            model, result["input_tokens"], result["output_tokens"],
+            result["web_search_requests"],
+        )
+        store_session_log(
+            subtask, model, result["turns"], result["tool_calls"],
+            sub_cost, result["summary"][:300], result["errors"],
+        )
+
+        log(f"ALL [{subtask}]: done — {result['turns']} turns, "
+            f"{len(result['tool_calls'])} tool calls, ${sub_cost:.4f}",
+            always=True)
+
+        # Accumulate
+        total_turns += result["turns"]
+        total_tool_calls.extend(result["tool_calls"])
+        total_input_tokens += result["input_tokens"]
+        total_output_tokens += result["output_tokens"]
+        total_web_searches += result["web_search_requests"]
+        all_errors.extend(result["errors"])
+        subtask_summaries.append(f"[{subtask}] {result['summary'][:150]}")
+
+    combined_summary = "\n".join(subtask_summaries)
+
+    record = build_session_record(
+        task="all", model=model, turns=total_turns,
+        tool_calls=total_tool_calls,
+        total_input_tokens=total_input_tokens,
+        total_output_tokens=total_output_tokens,
+        errors=all_errors, summary=combined_summary[:500],
+        started_at=started_at,
+        routed_task="sleep+zeitgeist+fly",
+        web_search_requests=total_web_searches,
+    )
+
+    cost = record["estimated_cost_usd"]
+    log(f"ALL COMPLETE: {total_turns} turns, {len(total_tool_calls)} tool calls, "
+        f"${cost:.4f}", always=True)
+
+    return record
+
+
+def _estimate_cost(model: str, input_tokens: int, output_tokens: int,
+                   web_searches: int = 0) -> float:
+    """Estimate USD cost for a single subtask."""
+    if "haiku" in model:
+        cost = (input_tokens * 0.80 + output_tokens * 4.0) / 1_000_000
+    else:
+        cost = (input_tokens * 3.0 + output_tokens * 15.0) / 1_000_000
+    cost += web_searches * 0.01
+    return round(cost, 4)
 
 
 def _run_dispatch(client, model, boot_output, tools, decision_budget,
@@ -456,8 +549,9 @@ def _run_dispatch(client, model, boot_output, tools, decision_budget,
 
 def main():
     parser = argparse.ArgumentParser(description="Perch time: scheduled autonomous agency")
-    parser.add_argument("--task", required=True, choices=["dispatch", "sleep", "zeitgeist", "fly"],
-                        help="Task to run")
+    parser.add_argument("--task", required=True,
+                        choices=["all", "dispatch", "sleep", "zeitgeist", "fly"],
+                        help="Task to run (all = sleep+zeitgeist+fly)")
     parser.add_argument("--model", default="claude-haiku-4-5-20251001",
                         help="Anthropic model ID")
     parser.add_argument("--max-turns", type=int, default=50,

@@ -151,7 +151,7 @@ def main():
     # Only run for fly sessions (direct or dispatched)
     task = record.get("task", "")
     routed_task = record.get("routed_task", "")
-    if task != "fly" and routed_task != "fly":
+    if task not in ("fly", "all") and "fly" not in routed_task:
         print(f"Task is '{task}' (routed: '{routed_task}'), not fly. Skipping.")
         sys.exit(0)
 

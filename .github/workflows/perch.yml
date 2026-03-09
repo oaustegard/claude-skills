@@ -7,9 +7,10 @@ on:
     inputs:
       task:
         description: Task to run
-        default: dispatch
+        default: all
         type: choice
         options:
+          - all
           - dispatch
           - sleep
           - zeitgeist
@@ -36,7 +37,7 @@ permissions:
 jobs:
   perch:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -84,7 +85,7 @@ jobs:
           MODEL="${{ inputs.model }}"
           MAX_TURNS="${{ inputs.max_turns }}"
           VERBOSE="${{ inputs.verbose }}"
-          TASK="${TASK:-dispatch}"
+          TASK="${TASK:-all}"
           MODEL="${MODEL:-claude-haiku-4-5-20251001}"
           MAX_TURNS="${MAX_TURNS:-50}"
           VERBOSE="${VERBOSE:-true}"
@@ -110,7 +111,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: perch-${{ inputs.task || 'dispatch' }}-${{ github.run_number }}
+          name: perch-${{ inputs.task || 'all' }}-${{ github.run_number }}
           path: |
             session.log
             session.json
