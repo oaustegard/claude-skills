@@ -1,5 +1,5 @@
 # developing-preact/
-*Files: 2 | Subdirectories: 2*
+*Files: 3 | Subdirectories: 2*
 
 ## Subdirectories
 
@@ -7,6 +7,10 @@
 - [scripts/](./scripts/_MAP.md)
 
 ## Files
+
+### CHANGELOG.md
+- developing-preact - Changelog `h1` :1
+- [1.2.0] - 2026-03-08 `h2` :5
 
 ### README.md
 - developing-preact `h1` :1

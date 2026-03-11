@@ -25,7 +25,11 @@ Gemini produces actual pixel images. SVG stick figures are not a substitute.
 
 This repository is developed by two wings of the same raven. Claude Code implements; Claude.ai (Muninn) plans, tests, and operates the memory system. Both share a persistent memory store — boot it to maintain continuity.
 
-Unless the message contains "skip boot", execute at session start:
+**Boot is automatic.** The SessionStart hook (`.claude/hooks/session-start.sh`) runs `boot()` at the beginning of every Claude Code on the web session. No manual invocation needed.
+
+Credentials auto-detect from environment or well-known paths (`/mnt/project/turso.env`, `/mnt/project/muninn.env`, `~/.muninn/.env`). If boot fails on missing credentials, the hook logs a warning to stderr and continues — not all sessions require memory access.
+
+For local Claude Code sessions (not on the web), boot can be invoked manually if needed:
 
 ```bash
 python3 << 'EOF'
@@ -35,8 +39,6 @@ from scripts import boot
 print(boot())
 EOF
 ```
-
-Credentials auto-detect from environment or well-known paths (`/mnt/project/turso.env`, `/mnt/project/muninn.env`, `~/.muninn/.env`). If boot fails on missing credentials, note it and continue — not all sessions require memory access.
 
 ### Decision Traces
 
