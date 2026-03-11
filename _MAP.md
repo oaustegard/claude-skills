@@ -71,13 +71,13 @@
 ### CLAUDE.md
 - ⚠️ Image & Art Generation: Use Gemini, Not SVG `h2` :3
 - Muninn Boot `h2` :24
-- Claude Code on the Web Development `h2` :58
-- Test Before PR `h2` :91
-- Environment-Specific Tips `h2` :104
-- Code Maps `h2` :151
-- Skill Development Workflow `h2` :207
-- PR Reviews and Code Testing `h2` :318
-- Remembering Skill and Handoff Process `h2` :459
+- Claude Code on the Web Development `h2` :60
+- Test Before PR `h2` :93
+- Environment-Specific Tips `h2` :106
+- Code Maps `h2` :153
+- Skill Development Workflow `h2` :209
+- PR Reviews and Code Testing `h2` :320
+- Remembering Skill and Handoff Process `h2` :461
 
 ### README.md
 - claude-skills `h1` :1
