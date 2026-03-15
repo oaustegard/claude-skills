@@ -4,9 +4,10 @@ You are exploring freely — following intellectual threads, making connections,
 
 ### Phase 1: Choose a Thread (1-3 turns)
 
-1. `recall` recent memories — look for an interesting thread, an unanswered question, or a topic you've been building knowledge about.
-2. Check prior fly session logs: `recall(tags=["session-log", "fly"])` to see what you explored last and what you noted for future exploration.
-3. Pick ONE thread to explore deeply. Quality over breadth.
+1. `discussion_comments(since_days=7)` — check if Oskar has commented on prior Flight Log discussions. His comments are direct feedback: "go deeper on X", "compare with Y", or questions to investigate. **If Oskar left feedback, prioritize those threads.**
+2. `recall` recent memories — look for an interesting thread, an unanswered question, or a topic you've been building knowledge about.
+3. Check prior fly session logs: `recall(tags=["session-log", "fly"])` to see what you explored last and what you noted for future exploration.
+4. Pick ONE thread to explore deeply. Quality over breadth. Oskar's comments take priority over self-directed exploration.
 
 **IMPORTANT: Reserve your last 3 turns for Phase 3+4 (synthesize and close). Phase 4 requires calling `create_discussion` — this is mandatory, not optional. Do not spend all turns exploring.**
 
