@@ -180,6 +180,8 @@ def run_loop(client: anthropic.Anthropic, model: str, system_prompt: str,
     errors = []
     final_summary = ""
     turn = 0
+    MAX_API_RETRIES = 3
+    retries = 0
 
     while turn < max_turns:
         turn += 1
@@ -193,10 +195,19 @@ def run_loop(client: anthropic.Anthropic, model: str, system_prompt: str,
                 messages=messages,
             )
         except anthropic.APIError as e:
+            if e.status_code == 429 and retries < MAX_API_RETRIES:
+                wait = min(15 * (2 ** retries), 60)
+                log(f"Rate limited on turn {turn}, waiting {wait}s (retry {retries+1}/{MAX_API_RETRIES})", always=True)
+                time.sleep(wait)
+                retries += 1
+                turn -= 1  # don't count this as a turn
+                continue
             error_msg = f"API error on turn {turn}: {e}"
             log(error_msg, always=True)
             errors.append(error_msg)
             break
+
+        retries = 0  # reset after successful API call
 
         # Track token usage
         total_input_tokens += response.usage.input_tokens
@@ -405,6 +416,11 @@ def _run_all(client, model, boot_output, max_turns, started_at) -> dict:
             f"{len(result['tool_calls'])} tool calls, ${sub_cost:.4f}",
             always=True)
 
+        # Cool down between subtasks to avoid rate limits
+        if subtask != ALL_SEQUENCE[-1]:
+            log(f"ALL [{subtask}]: cooling down 30s before next task", always=True)
+            time.sleep(30)
+
         # Accumulate
         total_turns += result["turns"]
         total_tool_calls.extend(result["tool_calls"])
@@ -581,7 +597,7 @@ def main():
         # Tool-level errors are normal operational noise — log them but don't fail.
         structural_errors = [e for e in record["errors"]
                              if "ANTHROPIC_API_KEY" in e
-                             or "API error on turn 1:" in e]
+                             or ("API error on turn 1:" in e and "429" not in e)]
         if structural_errors:
             sys.exit(1)
     finally:

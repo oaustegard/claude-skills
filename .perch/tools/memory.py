@@ -181,7 +181,8 @@ MEMORY_TOOLS = [
             "Schema: memories(id TEXT, summary TEXT, type TEXT, tags TEXT, "
             "confidence REAL, priority INTEGER, created_at TEXT, valid_from TEXT, "
             "deleted_at TEXT, access_count INTEGER, last_accessed TEXT, refs TEXT). "
-            "Note: column is 'confidence' not 'conf'."
+            "Note: column is 'confidence' not 'conf'. "
+            "Always qualify column names with table name in JOINs to avoid ambiguity."
         ),
         "input_schema": {
             "type": "object",
