@@ -6,9 +6,11 @@ You are deciding what task to run this session. The runner will execute your cho
 
 1. `recall(tags=["perch-homework", "pending"], tag_mode="all", n=5)` — check for queued homework from Muninn
 2. `recall(tags=["session-log", "perch-time"], n=5)` — check recent session history
-3. Note when each task last ran and what it found
-4. Check your boot context for incomplete tasks or pending items
-5. Decide what's most needed right now
+3. `discussion_comments(since_days=7)` — check if Oskar has commented on any Flight Log discussions
+4. Note when each task last ran and what it found
+5. If Oskar left comments, factor them into your decision — they may suggest a fly topic or indicate interest in a thread
+6. Check your boot context for incomplete tasks or pending items
+7. Decide what's most needed right now
 
 ### Homework override
 

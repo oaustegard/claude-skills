@@ -130,6 +130,30 @@ WORLD_TOOLS = [
         },
     },
     {
+        "name": "discussion_comments",
+        "description": (
+            "Check recent GitHub Discussion comments in the Flight Log category. "
+            "Returns Oskar's comments on fly exploration discussions — use during "
+            "dispatch or fly to incorporate feedback into thread selection."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "since_days": {
+                    "type": "integer",
+                    "description": "Look back this many days for comments (default 7).",
+                    "default": 7,
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max discussions to check (default 10).",
+                    "default": 10,
+                },
+            },
+            "required": [],
+        },
+    },
+    {
         "name": "fetch_url",
         "description": (
             "Fetch content from a URL and return as clean text. Uses Jina AI "
@@ -278,6 +302,106 @@ def _create_discussion(input: dict) -> str:
         return f"Failed to create discussion: {e}"
 
 
+def execute_discussion_comments(input: dict) -> str:
+    """Check recent comments on Flight Log discussions from Oskar."""
+    import urllib.request
+    from datetime import datetime, timedelta, timezone
+
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if not token:
+        return "Error: No GitHub token available"
+
+    since_days = input.get("since_days", 7)
+    limit = min(input.get("limit", 10), 20)
+
+    # Compute cutoff date
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=since_days)).isoformat()
+
+    # GraphQL query: recent Flight Log discussions with comments
+    query = """query($owner: String!, $repo: String!, $limit: Int!) {
+      repository(owner: $owner, name: $repo) {
+        discussions(
+          first: $limit,
+          categoryId: "DIC_kwDOQEB8Es4C31s9",
+          orderBy: {field: UPDATED_AT, direction: DESC}
+        ) {
+          nodes {
+            number
+            title
+            url
+            updatedAt
+            comments(first: 10) {
+              nodes {
+                author { login }
+                body
+                createdAt
+              }
+            }
+          }
+        }
+      }
+    }"""
+
+    variables = {"owner": "oaustegard", "repo": "claude-skills", "limit": limit}
+    payload = json.dumps({"query": query, "variables": variables}).encode()
+
+    req = urllib.request.Request(
+        "https://api.github.com/graphql",
+        data=payload,
+        headers={
+            "Authorization": f"bearer {token}",
+            "Content-Type": "application/json",
+        },
+    )
+
+    try:
+        resp = urllib.request.urlopen(req)
+        data = json.loads(resp.read())
+    except Exception as e:
+        return f"Failed to query discussions: {e}"
+
+    if "errors" in data:
+        return f"GraphQL errors: {data['errors']}"
+
+    discussions = data.get("data", {}).get("repository", {}).get("discussions", {}).get("nodes", [])
+    if not discussions:
+        return "No recent Flight Log discussions found."
+
+    # Filter to discussions with comments from Oskar (repo owner)
+    oskar_login = "oaustegard"
+    feedback = []
+
+    for disc in discussions:
+        comments = disc.get("comments", {}).get("nodes", [])
+        oskar_comments = [
+            c for c in comments
+            if c.get("author", {}).get("login") == oskar_login
+            and c.get("createdAt", "") >= cutoff
+        ]
+        if oskar_comments:
+            for c in oskar_comments:
+                feedback.append({
+                    "discussion_number": disc["number"],
+                    "discussion_title": disc["title"],
+                    "discussion_url": disc["url"],
+                    "comment": c["body"][:500],
+                    "commented_at": c["createdAt"],
+                })
+
+    if not feedback:
+        return f"No comments from Oskar on Flight Log discussions in the last {since_days} days."
+
+    lines = []
+    for f in feedback:
+        lines.append(
+            f"Discussion #{f['discussion_number']}: {f['discussion_title']}\n"
+            f"  URL: {f['discussion_url']}\n"
+            f"  Comment ({f['commented_at']}): {f['comment']}"
+        )
+
+    return f"{len(feedback)} comment(s) from Oskar:\n\n" + "\n\n".join(lines)
+
+
 def execute_fetch_url(input: dict) -> str:
     """Fetch URL content, with Jina fallback for blocked sites."""
     url = input["url"]
@@ -321,5 +445,6 @@ WORLD_EXECUTORS = {
     "bsky_search": execute_bsky_search,
     "bsky_trending": execute_bsky_trending,
     "create_discussion": _create_discussion,
+    "discussion_comments": execute_discussion_comments,
     "fetch_url": execute_fetch_url,
 }
