@@ -448,6 +448,315 @@ def _fts5_search(search: str, *, n: int = 10, type: str = None,
     return _exec(sql, params)
 
 
+def _build_cooccurrence(*, prune_threshold: int = 1, top_n: int = 50) -> dict:
+    """Build the tag co-occurrence index from all active memories.
+
+    Scans all non-deleted memories, enumerates tag pairs, computes
+    co-occurrence counts and PMI (pointwise mutual information).
+
+    Args:
+        prune_threshold: Minimum co-occurrence count to keep (default 1)
+        top_n: Max associations to keep per tag (default 50)
+
+    Returns:
+        Dict with 'pairs' (total pairs stored) and 'tags' (unique tags seen)
+    """
+    _init()
+
+    # Create table if needed
+    _exec("""
+        CREATE TABLE IF NOT EXISTS tag_cooccurrence (
+            tag1 TEXT NOT NULL,
+            tag2 TEXT NOT NULL,
+            count INTEGER NOT NULL,
+            pmi REAL,
+            PRIMARY KEY (tag1, tag2)
+        )
+    """)
+
+    # Fetch all active memories with tags
+    rows = _exec(
+        "SELECT id, tags FROM memories WHERE deleted_at IS NULL AND tags != '[]'",
+        parse_json=False
+    )
+
+    # Count tag frequencies and co-occurrences
+    import math
+    tag_freq = {}  # tag -> number of memories containing it
+    pair_freq = {}  # (tag1, tag2) -> co-occurrence count
+    total_memories = len(rows)
+
+    for row in rows:
+        tags_raw = row.get('tags', '[]')
+        try:
+            tags = json.loads(tags_raw) if isinstance(tags_raw, str) else tags_raw
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if not isinstance(tags, list) or len(tags) < 2:
+            # Single tags still count for frequency but produce no pairs
+            if isinstance(tags, list):
+                for t in tags:
+                    tag_freq[t] = tag_freq.get(t, 0) + 1
+            continue
+
+        for t in tags:
+            tag_freq[t] = tag_freq.get(t, 0) + 1
+
+        # Enumerate all ordered pairs (tag1 < tag2 lexicographically)
+        sorted_tags = sorted(set(tags))
+        for i in range(len(sorted_tags)):
+            for j in range(i + 1, len(sorted_tags)):
+                pair = (sorted_tags[i], sorted_tags[j])
+                pair_freq[pair] = pair_freq.get(pair, 0) + 1
+
+    if total_memories == 0:
+        return {'pairs': 0, 'tags': 0}
+
+    # Compute PMI and build insert batch
+    # PMI = log2(P(a,b) / (P(a) * P(b)))
+    # where P(a) = freq(a)/N, P(b) = freq(b)/N, P(a,b) = co-occur(a,b)/N
+    inserts = []
+    for (t1, t2), count in pair_freq.items():
+        if count < prune_threshold:
+            continue
+        p_ab = count / total_memories
+        p_a = tag_freq.get(t1, 1) / total_memories
+        p_b = tag_freq.get(t2, 1) / total_memories
+        denom = p_a * p_b
+        pmi = math.log2(p_ab / denom) if denom > 0 else 0.0
+        inserts.append((t1, t2, count, pmi))
+
+    # Prune to top_n per tag (by PMI)
+    if top_n:
+        from collections import defaultdict
+        tag_pairs = defaultdict(list)
+        for t1, t2, count, pmi in inserts:
+            tag_pairs[t1].append((t1, t2, count, pmi))
+            tag_pairs[t2].append((t1, t2, count, pmi))
+
+        keep = set()
+        for tag, pairs in tag_pairs.items():
+            pairs.sort(key=lambda x: x[3], reverse=True)  # sort by PMI desc
+            for p in pairs[:top_n]:
+                keep.add((p[0], p[1]))
+
+        inserts = [(t1, t2, c, p) for t1, t2, c, p in inserts if (t1, t2) in keep]
+
+    # Clear and rebuild
+    _exec("DELETE FROM tag_cooccurrence")
+
+    # Batch insert in chunks of 50
+    for i in range(0, len(inserts), 50):
+        chunk = inserts[i:i+50]
+        stmts = []
+        for t1, t2, count, pmi in chunk:
+            stmts.append((
+                "INSERT OR REPLACE INTO tag_cooccurrence (tag1, tag2, count, pmi) VALUES (?, ?, ?, ?)",
+                [t1, t2, count, pmi]
+            ))
+        if stmts:
+            _exec_batch(stmts)
+
+    # Create index for lookups
+    try:
+        _exec("CREATE INDEX IF NOT EXISTS idx_cooccurrence_tag1 ON tag_cooccurrence(tag1)")
+        _exec("CREATE INDEX IF NOT EXISTS idx_cooccurrence_tag2 ON tag_cooccurrence(tag2)")
+    except RuntimeError:
+        pass  # Indexes may already exist
+
+    return {'pairs': len(inserts), 'tags': len(tag_freq)}
+
+
+def _update_cooccurrence_add(tags: list) -> None:
+    """Incrementally update co-occurrence index when a memory is added.
+
+    For each new tag pair, increment the count. Recompute PMI for affected pairs.
+
+    Args:
+        tags: List of tags from the newly created memory
+    """
+    if not tags or len(tags) < 2:
+        return
+
+    _init()
+
+    # Check if table exists
+    try:
+        _exec("SELECT 1 FROM tag_cooccurrence LIMIT 1")
+    except RuntimeError:
+        return  # Table doesn't exist yet; skip incremental update
+
+    import math
+
+    # Get total memory count and tag frequencies for PMI
+    total_row = _exec("SELECT COUNT(*) as cnt FROM memories WHERE deleted_at IS NULL")
+    total_memories = int(total_row[0]['cnt']) if total_row else 1
+
+    sorted_tags = sorted(set(tags))
+    stmts = []
+
+    for i in range(len(sorted_tags)):
+        for j in range(i + 1, len(sorted_tags)):
+            t1, t2 = sorted_tags[i], sorted_tags[j]
+
+            # Upsert count
+            stmts.append((
+                """INSERT INTO tag_cooccurrence (tag1, tag2, count, pmi)
+                   VALUES (?, ?, 1, 0.0)
+                   ON CONFLICT(tag1, tag2) DO UPDATE SET count = count + 1""",
+                [t1, t2]
+            ))
+
+    if stmts:
+        _exec_batch(stmts)
+
+    # Recompute PMI for affected pairs
+    _recompute_pmi_for_tags(sorted_tags, total_memories)
+
+
+def _update_cooccurrence_remove(tags: list) -> None:
+    """Incrementally update co-occurrence index when a memory is forgotten.
+
+    Decrement counts for the forgotten memory's tag pairs.
+    Remove entries where count drops to 0.
+
+    Args:
+        tags: List of tags from the forgotten memory
+    """
+    if not tags or len(tags) < 2:
+        return
+
+    _init()
+
+    try:
+        _exec("SELECT 1 FROM tag_cooccurrence LIMIT 1")
+    except RuntimeError:
+        return  # Table doesn't exist yet
+
+    import math
+
+    total_row = _exec("SELECT COUNT(*) as cnt FROM memories WHERE deleted_at IS NULL")
+    total_memories = int(total_row[0]['cnt']) if total_row else 1
+
+    sorted_tags = sorted(set(tags))
+    stmts = []
+
+    for i in range(len(sorted_tags)):
+        for j in range(i + 1, len(sorted_tags)):
+            t1, t2 = sorted_tags[i], sorted_tags[j]
+            stmts.append((
+                "UPDATE tag_cooccurrence SET count = count - 1 WHERE tag1 = ? AND tag2 = ?",
+                [t1, t2]
+            ))
+
+    if stmts:
+        _exec_batch(stmts)
+
+    # Remove zero-count entries
+    _exec("DELETE FROM tag_cooccurrence WHERE count <= 0")
+
+    # Recompute PMI for remaining affected pairs
+    _recompute_pmi_for_tags(sorted_tags, total_memories)
+
+
+def _recompute_pmi_for_tags(tags: list, total_memories: int) -> None:
+    """Recompute PMI for all co-occurrence pairs involving the given tags.
+
+    Args:
+        tags: Tags whose pairs need PMI recomputation
+        total_memories: Total number of active memories in corpus
+    """
+    import math
+
+    if total_memories <= 0:
+        return
+
+    for tag in tags:
+        # Get all pairs involving this tag
+        pairs = _exec(
+            "SELECT tag1, tag2, count FROM tag_cooccurrence WHERE tag1 = ? OR tag2 = ?",
+            [tag, tag]
+        )
+
+        stmts = []
+        for pair in pairs:
+            t1, t2 = pair['tag1'], pair['tag2']
+            count = int(pair['count'])
+
+            # Get individual tag frequencies
+            f1_row = _exec(
+                "SELECT COUNT(*) as cnt FROM memories WHERE deleted_at IS NULL AND tags LIKE ?",
+                [f'%"{t1}"%']
+            )
+            f2_row = _exec(
+                "SELECT COUNT(*) as cnt FROM memories WHERE deleted_at IS NULL AND tags LIKE ?",
+                [f'%"{t2}"%']
+            )
+            f1 = int(f1_row[0]['cnt']) if f1_row else 1
+            f2 = int(f2_row[0]['cnt']) if f2_row else 1
+
+            p_ab = count / total_memories
+            p_a = f1 / total_memories
+            p_b = f2 / total_memories
+            denom = p_a * p_b
+            pmi = math.log2(p_ab / denom) if denom > 0 and p_ab > 0 else 0.0
+
+            stmts.append((
+                "UPDATE tag_cooccurrence SET pmi = ? WHERE tag1 = ? AND tag2 = ?",
+                [pmi, t1, t2]
+            ))
+
+        if stmts:
+            _exec_batch(stmts)
+
+
+def _cooccurrence_expand(tags: list, *, n: int = 10, min_pmi: float = 0.0) -> list:
+    """Find tags that co-occur with the given tags, ranked by PMI.
+
+    Args:
+        tags: Input tags to expand from
+        n: Max number of expanded tags to return per input tag
+        min_pmi: Minimum PMI threshold (default 0.0)
+
+    Returns:
+        List of dicts with 'tag', 'pmi', 'count' for co-occurring tags,
+        deduplicated and sorted by max PMI descending.
+    """
+    if not tags:
+        return []
+
+    _init()
+
+    try:
+        _exec("SELECT 1 FROM tag_cooccurrence LIMIT 1")
+    except RuntimeError:
+        return []  # Table doesn't exist
+
+    seen = {}  # tag -> best (pmi, count)
+    input_set = set(tags)
+
+    for tag in tags:
+        rows = _exec(
+            """SELECT tag1, tag2, count, pmi FROM tag_cooccurrence
+               WHERE (tag1 = ? OR tag2 = ?) AND pmi >= ?
+               ORDER BY pmi DESC LIMIT ?""",
+            [tag, tag, min_pmi, n]
+        )
+        for row in rows:
+            # The co-occurring tag is the other one in the pair
+            other = row['tag2'] if row['tag1'] == tag else row['tag1']
+            if other in input_set:
+                continue  # Skip tags we already have
+            pmi = float(row['pmi']) if row['pmi'] else 0.0
+            count = int(row['count']) if row['count'] else 0
+            if other not in seen or pmi > seen[other][0]:
+                seen[other] = (pmi, count)
+
+    result = [{'tag': t, 'pmi': p, 'count': c} for t, (p, c) in seen.items()]
+    result.sort(key=lambda x: x['pmi'], reverse=True)
+    return result
+
+
 def _exec(sql, args=None, parse_json: bool = True):
     """Execute SQL, return list of dicts.
 
