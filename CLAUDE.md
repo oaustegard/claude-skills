@@ -127,18 +127,30 @@ api_key = os.environ.get('MY_VAR', '')
 
 **Why**: Bash variable expansion can behave unpredictably in different contexts (subshells, heredocs, quotes, etc.). Python's environment variable access is consistent and reliable. If bash isn't working after 1-2 attempts, switch to Python immediately rather than trying multiple shell workarounds.
 
-### Reading GitHub Issues
+### GitHub API Access (Issues, PRs, etc.)
 
-**TL;DR: Use `curl` with the GitHub API to read issues verbatim, not WebFetch or `gh` CLI.**
+**TL;DR: Use `curl` with `$GH_TOKEN` for all GitHub API operations. The `gh` CLI is not installed.**
 
-When you need to read a GitHub issue:
+`GH_TOKEN` is available in the environment. Use it for reading issues, creating PRs, and any GitHub API call:
 
 ```bash
-curl -s "https://api.github.com/repos/owner/repo/issues/123" | \
+# Reading an issue
+curl -s -H "Authorization: token $GH_TOKEN" \
+  "https://api.github.com/repos/owner/repo/issues/123" | \
   python3 -c "import sys,json; d=json.load(sys.stdin); print('TITLE:', d['title']); print(); print('BODY:'); print(d['body'])"
+
+# Creating a PR
+curl -s -X POST -H "Authorization: token $GH_TOKEN" \
+  -H "Content-Type: application/json" \
+  "https://api.github.com/repos/owner/repo/pulls" \
+  -d '{"title":"...","head":"branch","base":"main","body":"..."}'
 ```
 
-**Why**: WebFetch uses an AI model that summarizes/abstracts the content — you never see the verbatim issue text. The `gh` CLI requires authentication which may not be configured. The GitHub REST API returns the exact markdown body and requires no auth for public repos.
+**Key points:**
+- `gh` CLI is NOT available — don't attempt it, don't fall back to unauthenticated calls
+- `GH_TOKEN` is in the environment — use it directly, no need to source extra files
+- For reading issues on public repos, auth is optional but always include it for consistency
+- For creating PRs, auth is required — this is a core workflow, not an edge case
 
 ### Tool Call Discipline
 
