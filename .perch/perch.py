@@ -187,17 +187,44 @@ def run_loop(client: anthropic.Anthropic, model: str, system_prompt: str,
         turn += 1
 
         try:
+            # Enable prompt caching: system prompt and tools are identical
+            # across turns. Cached read tokens don't count toward ITPM limits.
+            cached_system = [{
+                "type": "text",
+                "text": system_prompt,
+                "cache_control": {"type": "ephemeral"},
+            }]
+
+            # Mark last non-server tool with cache_control so the entire
+            # tool block is cached after the first turn.
+            cached_tools = tools
+            if tools:
+                cached_tools = [t.copy() for t in tools]
+                for t in reversed(cached_tools):
+                    if t.get("type") != "web_search_20250305":
+                        t["cache_control"] = {"type": "ephemeral"}
+                        break
+
             response = client.messages.create(
                 model=model,
                 max_tokens=4096,
-                system=system_prompt,
-                tools=tools,
+                system=cached_system,
+                tools=cached_tools,
                 messages=messages,
             )
         except anthropic.APIError as e:
             if e.status_code == 429 and retries < MAX_API_RETRIES:
-                wait = min(15 * (2 ** retries), 60)
-                log(f"Rate limited on turn {turn}, waiting {wait}s (retry {retries+1}/{MAX_API_RETRIES})", always=True)
+                # Prefer server-provided retry-after over fixed backoff
+                retry_after = None
+                if hasattr(e, "response") and e.response is not None:
+                    retry_after = e.response.headers.get("retry-after")
+                if retry_after:
+                    wait = min(float(retry_after), 120)
+                else:
+                    wait = min(15 * (2 ** retries), 60)
+                log(f"Rate limited on turn {turn}, waiting {wait:.0f}s "
+                    f"(retry {retries+1}/{MAX_API_RETRIES})",
+                    always=True)
                 time.sleep(wait)
                 retries += 1
                 turn -= 1  # don't count this as a turn
@@ -213,6 +240,12 @@ def run_loop(client: anthropic.Anthropic, model: str, system_prompt: str,
         total_input_tokens += response.usage.input_tokens
         total_output_tokens += response.usage.output_tokens
         web_search_requests += getattr(response.usage, "web_search_requests", 0) or 0
+
+        # Log cache performance
+        cache_read = getattr(response.usage, "cache_read_input_tokens", 0) or 0
+        cache_create = getattr(response.usage, "cache_creation_input_tokens", 0) or 0
+        if cache_read or cache_create:
+            log(f"CACHE: read={cache_read}, create={cache_create}, uncached={response.usage.input_tokens}")
 
         # Process response content
         assistant_content = response.content
@@ -376,6 +409,9 @@ def run_perch(task: str, model: str, max_turns: int) -> dict:
     return record
 
 
+WALL_CLOCK_LIMIT = 25 * 60  # leave 5 min buffer before 30-min GHA timeout
+
+
 def _run_all(client, model, boot_output, max_turns, started_at) -> dict:
     """Run all three tasks sequentially: sleep → zeitgeist → fly.
 
@@ -391,6 +427,14 @@ def _run_all(client, model, boot_output, max_turns, started_at) -> dict:
     subtask_summaries = []
 
     for subtask in ALL_SEQUENCE:
+        # Wall-clock guard: skip subtask if insufficient time remains
+        elapsed = time.monotonic() - _start_time
+        remaining = WALL_CLOCK_LIMIT - elapsed
+        if remaining < 120:  # need at least 2 min
+            log(f"ALL [{subtask}]: SKIPPED -- only {remaining:.0f}s remaining", always=True)
+            all_errors.append(f"{subtask} skipped: insufficient time ({remaining:.0f}s)")
+            continue
+
         budget = min(max_turns, ALL_BUDGETS[subtask])
         tools = get_tool_definitions(subtask)
         system_prompt = boot_output + "\n\n" + load_prompt(f"tasks/{subtask}")
