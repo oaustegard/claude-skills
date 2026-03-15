@@ -60,6 +60,19 @@ def create_tables():
         )
     """)
 
+    # v5.4.0: Tag co-occurrence index (#383)
+    _exec("""
+        CREATE TABLE IF NOT EXISTS tag_cooccurrence (
+            tag1 TEXT NOT NULL,
+            tag2 TEXT NOT NULL,
+            count INTEGER NOT NULL,
+            pmi REAL,
+            PRIMARY KEY (tag1, tag2)
+        )
+    """)
+    _exec("CREATE INDEX IF NOT EXISTS idx_cooccurrence_tag1 ON tag_cooccurrence(tag1)")
+    _exec("CREATE INDEX IF NOT EXISTS idx_cooccurrence_tag2 ON tag_cooccurrence(tag2)")
+
     print("Tables created/verified")
 
 def migrate_schema():
@@ -121,6 +134,23 @@ def migrate_schema():
         print("Added index on priority column")
     except:
         pass  # Index already exists
+
+    # v5.4.0: Tag co-occurrence table (#383)
+    try:
+        _exec("""
+            CREATE TABLE IF NOT EXISTS tag_cooccurrence (
+                tag1 TEXT NOT NULL,
+                tag2 TEXT NOT NULL,
+                count INTEGER NOT NULL,
+                pmi REAL,
+                PRIMARY KEY (tag1, tag2)
+            )
+        """)
+        _exec("CREATE INDEX IF NOT EXISTS idx_cooccurrence_tag1 ON tag_cooccurrence(tag1)")
+        _exec("CREATE INDEX IF NOT EXISTS idx_cooccurrence_tag2 ON tag_cooccurrence(tag2)")
+        print("Added tag_cooccurrence table")
+    except:
+        pass  # Table/indexes already exist
 
     print("Schema migration complete")
 

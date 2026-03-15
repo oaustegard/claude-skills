@@ -10,6 +10,7 @@ This module handles:
 
 Imports from: state, turso, config
 
+v5.4.0: Enhanced retrieval with tag co-occurrence expansion and boost-aware scoring (#383).
 v5.0.0: Removed local cache dependency. All queries go through Turso FTS5.
 """
 
@@ -22,7 +23,11 @@ from datetime import datetime, UTC
 
 from . import state
 from .state import TYPES, get_session_id
-from .turso import _exec, _exec_batch, _fts5_search, _retry_with_backoff
+from .turso import (
+    _exec, _exec_batch, _fts5_search, _retry_with_backoff,
+    _build_cooccurrence, _update_cooccurrence_add, _update_cooccurrence_remove,
+    _cooccurrence_expand
+)
 # Import config_get and config_set for recall-triggers management
 from .config import config_get, config_set
 from .result import wrap_results, MemoryResult, MemoryResultList
@@ -216,6 +221,15 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
             # Don't fail remember() if trigger update fails
             pass
 
+    # v5.4.0: Incremental co-occurrence update (#383)
+    if tags and len(tags) >= 2:
+        def _bg_cooccurrence():
+            try:
+                _update_cooccurrence_add(tags)
+            except Exception:
+                pass  # Best-effort; don't fail remember()
+        threading.Thread(target=_bg_cooccurrence, daemon=True).start()
+
     return mem_id
 
 
@@ -380,33 +394,115 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
             else:
                 raise
 
-        # Query expansion: if FTS5 returns few results, search by extracted tags
+        # v5.4.0: Multi-stage query expansion with co-occurrence and boost-aware scoring (#383)
+        #
+        # Boost weights for different match provenance:
+        BOOST_PRIMARY = 3.0     # original query terms
+        BOOST_STAGE1_TAG = 2.0  # tags from initial results
+        BOOST_COOCCUR = 1.5     # co-occurrence expanded terms
+        BOOST_HOP2 = 1.0        # second-hop discovered terms
+
         if expansion_threshold > 0 and len(results) < expansion_threshold:
-            expansion_tags = set()
+            seen_ids = {r['id'] for r in results}
+            # Track boost scores per memory id
+            boost_scores = {}
+            for r in results:
+                # Primary results get highest boost
+                score = abs(float(r.get('bm25_score', 0) or 0))
+                boost_scores[r['id']] = score * BOOST_PRIMARY
+
+            # Stage 2: Extract tags from Stage 1 results
+            stage1_tags = set()
             for r in results:
                 result_tags = r.get('tags', [])
                 if isinstance(result_tags, list):
-                    expansion_tags.update(result_tags)
+                    stage1_tags.update(result_tags)
 
-            if expansion_tags:
-                seen_ids = {r['id'] for r in results}
-                for tag in expansion_tags:
-                    try:
-                        tag_results = _fts5_search(
-                            tag, n=n - len(results), type=type, tags=tags,
-                            tag_mode=tag_mode, conf=conf, since=since, until=until
-                        )
-                    except RuntimeError:
-                        # FTS5 unavailable for expansion; skip
-                        break
-                    for tr in tag_results:
-                        if tr['id'] not in seen_ids:
-                            results.append(tr)
-                            seen_ids.add(tr['id'])
-                            if len(results) >= n:
-                                break
-                    if len(results) >= n:
-                        break
+            # Stage 2b: Co-occurrence expansion — find related tags via PMI
+            cooccur_tags = set()
+            if stage1_tags:
+                try:
+                    expanded = _cooccurrence_expand(list(stage1_tags), n=10, min_pmi=0.5)
+                    cooccur_tags = {e['tag'] for e in expanded}
+                except Exception:
+                    pass  # Co-occurrence table may not exist yet
+
+            # Even with 0 Stage 1 results, try expanding query words via co-occurrence
+            if not stage1_tags:
+                query_words = [w.strip().lower() for w in search.split() if w.strip()]
+                try:
+                    expanded = _cooccurrence_expand(query_words, n=10, min_pmi=0.0)
+                    cooccur_tags = {e['tag'] for e in expanded}
+                except Exception:
+                    pass
+
+            # Stage 3: Search by Stage 1 tags (with BOOST_STAGE1_TAG)
+            expansion_results = []
+            for tag in stage1_tags:
+                if len(results) + len(expansion_results) >= n * 2:
+                    break
+                try:
+                    tag_results = _fts5_search(
+                        tag, n=5, type=type, tags=tags,
+                        tag_mode=tag_mode, conf=conf, since=since, until=until
+                    )
+                except RuntimeError:
+                    break
+                for tr in tag_results:
+                    if tr['id'] not in seen_ids:
+                        score = abs(float(tr.get('bm25_score', 0) or 0))
+                        boost_scores[tr['id']] = boost_scores.get(tr['id'], 0) + score * BOOST_STAGE1_TAG
+                        expansion_results.append(tr)
+                        seen_ids.add(tr['id'])
+
+            # Stage 3b: Search by co-occurrence expanded tags (with BOOST_COOCCUR)
+            for tag in cooccur_tags:
+                if len(results) + len(expansion_results) >= n * 2:
+                    break
+                try:
+                    tag_results = _fts5_search(
+                        tag, n=5, type=type, tags=tags,
+                        tag_mode=tag_mode, conf=conf, since=since, until=until
+                    )
+                except RuntimeError:
+                    break
+                for tr in tag_results:
+                    if tr['id'] not in seen_ids:
+                        score = abs(float(tr.get('bm25_score', 0) or 0))
+                        boost_scores[tr['id']] = boost_scores.get(tr['id'], 0) + score * BOOST_COOCCUR
+                        expansion_results.append(tr)
+                        seen_ids.add(tr['id'])
+
+            # Stage 4: Second-hop — extract tags from expansion results, search again
+            hop2_tags = set()
+            for r in expansion_results:
+                result_tags = r.get('tags', [])
+                if isinstance(result_tags, list):
+                    hop2_tags.update(result_tags)
+            hop2_tags -= stage1_tags
+            hop2_tags -= cooccur_tags
+
+            for tag in hop2_tags:
+                if len(results) + len(expansion_results) >= n * 2:
+                    break
+                try:
+                    tag_results = _fts5_search(
+                        tag, n=3, type=type, tags=tags,
+                        tag_mode=tag_mode, conf=conf, since=since, until=until
+                    )
+                except RuntimeError:
+                    break
+                for tr in tag_results:
+                    if tr['id'] not in seen_ids:
+                        score = abs(float(tr.get('bm25_score', 0) or 0))
+                        boost_scores[tr['id']] = boost_scores.get(tr['id'], 0) + score * BOOST_HOP2
+                        expansion_results.append(tr)
+                        seen_ids.add(tr['id'])
+
+            # Merge: combine primary + expansion, sort by boost score, take top n
+            all_results = results + expansion_results
+            all_results.sort(key=lambda r: boost_scores.get(r['id'], 0), reverse=True)
+            results = all_results[:n]
     else:
         # No search term or strict mode: use direct Turso query
         results = _retry_with_backoff(
@@ -684,12 +780,37 @@ def forget(memory_id: str) -> bool:
     Raises:
         ValueError: If partial ID matches zero or multiple memories.
 
+    v5.4.0: Added incremental co-occurrence update on forget (#383).
     v5.1.0: Added partial ID support with prefix matching (#244).
     v5.0.0: Turso-only. Removed local cache invalidation.
     """
     resolved_id = _resolve_memory_id(memory_id)
+
+    # v5.4.0: Fetch tags before deletion for co-occurrence update (#383)
+    forgotten_tags = None
+    try:
+        rows = _exec("SELECT tags FROM memories WHERE id = ? AND deleted_at IS NULL", [resolved_id])
+        if rows:
+            raw_tags = rows[0].get('tags', [])
+            if isinstance(raw_tags, str):
+                forgotten_tags = json.loads(raw_tags)
+            elif isinstance(raw_tags, list):
+                forgotten_tags = raw_tags
+    except Exception:
+        pass  # Best-effort
+
     now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     _exec("UPDATE memories SET deleted_at = ? WHERE id = ?", [now, resolved_id])
+
+    # v5.4.0: Decrement co-occurrence counts (#383)
+    if forgotten_tags and len(forgotten_tags) >= 2:
+        def _bg_cooccurrence():
+            try:
+                _update_cooccurrence_remove(forgotten_tags)
+            except Exception:
+                pass
+        threading.Thread(target=_bg_cooccurrence, daemon=True).start()
+
     return True
 
 

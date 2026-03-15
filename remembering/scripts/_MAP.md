@@ -43,9 +43,9 @@
 ### bootstrap.py
 > Imports: `sys, os, scripts`
 - **create_tables** (f) `()` :17
-- **migrate_schema** (f) `()` :65
-- **seed_config** (f) `()` :127
-- **verify** (f) `()` :173
+- **migrate_schema** (f) `()` :78
+- **seed_config** (f) `()` :157
+- **verify** (f) `()` :203
 
 ### config.py
 > Imports: `datetime, .turso`
@@ -70,11 +70,11 @@
              sync: bool = True, session_id: str = None,
              alternatives: list = None,
              # Deprecated parameters (ignored in v2.0.0, kept for backward compat)
-             entities: list = None, importance: float = None, memory_class: str = None)` :106
+             entities: list = None, importance: float = None, memory_class: str = None)` :111
 - **remember_bg** (f) `(what: str, type: str, *, tags: list = None, conf: float = None,
                 entities: list = None, refs: list = None,
-                importance: float = None, memory_class: str = None, valid_from: str = None)` :222
-- **flush** (f) `(timeout: float = 5.0)` :239
+                importance: float = None, memory_class: str = None, valid_from: str = None)` :236
+- **flush** (f) `(timeout: float = 5.0)` :253
 - **recall** (f) `(search: str = None, *, n: int = 10, tags: list = None,
            type: str = None, conf: float = None, tag_mode: str = "any",
            strict: bool = False, session_id: str = None,
@@ -85,39 +85,39 @@
            tags_all: list = None, tags_any: list = None,
            episodic: bool = False,
            # Deprecated parameters (kept for backward compat)
-           use_cache: bool = True)` :271
+           use_cache: bool = True)` :285
 - **recall_since** (f) `(after: str, *, search: str = None, n: int = 50,
                  type: str = None, tags: list = None, tag_mode: str = "any",
-                 session_id: str = None, raw: bool = False)` :534
+                 session_id: str = None, raw: bool = False)` :630
 - **recall_between** (f) `(after: str, before: str, *, search: str = None,
                    n: int = 100, type: str = None, tags: list = None,
-                   tag_mode: str = "any", session_id: str = None, raw: bool = False)` :601
-- **forget** (f) `(memory_id: str)` :670
+                   tag_mode: str = "any", session_id: str = None, raw: bool = False)` :697
+- **forget** (f) `(memory_id: str)` :766
 - **supersede** (f) `(original_id: str, summary: str, type: str, *,
-              tags: list = None, conf: float = None)` :696
-- **reprioritize** (f) `(memory_id: str, priority: int)` :749
-- **memory_histogram** (f) `()` :773
-- **prune_by_age** (f) `(older_than_days: int, priority_floor: int = 0, dry_run: bool = True)` :829
-- **prune_by_priority** (f) `(max_priority: int = -1, dry_run: bool = True)` :875
-- **strengthen** (f) `(memory_id: str, boost: int = 1)` :914
-- **weaken** (f) `(memory_id: str, drop: int = 1)` :957
+              tags: list = None, conf: float = None)` :817
+- **reprioritize** (f) `(memory_id: str, priority: int)` :870
+- **memory_histogram** (f) `()` :894
+- **prune_by_age** (f) `(older_than_days: int, priority_floor: int = 0, dry_run: bool = True)` :950
+- **prune_by_priority** (f) `(max_priority: int = -1, dry_run: bool = True)` :996
+- **strengthen** (f) `(memory_id: str, boost: int = 1)` :1035
+- **weaken** (f) `(memory_id: str, drop: int = 1)` :1078
 - **recall_batch** (f) `(queries: list, *, n: int = 10, type: str = None,
                  tags: list = None, tag_mode: str = "any",
                  conf: float = None, session_id: str = None,
-                 raw: bool = False)` :994
-- **remember_batch** (f) `(items: list, *, sync: bool = True)` :1123
-- **get_alternatives** (f) `(memory_id: str)` :1265
-- **get_chain** (f) `(memory_id: str, depth: int = 3)` :1304
+                 raw: bool = False)` :1115
+- **remember_batch** (f) `(items: list, *, sync: bool = True)` :1244
+- **get_alternatives** (f) `(memory_id: str)` :1386
+- **get_chain** (f) `(memory_id: str, depth: int = 3)` :1425
 - **consolidate** (f) `(*, tags: list = None, min_cluster: int = 3, dry_run: bool = True,
-                session_id: str = None)` :1374
+                session_id: str = None)` :1495
 - **curate** (f) `(*, dry_run: bool = True, consolidation_threshold: int = 3,
            stale_days: int = 90, low_priority_cap: int = -1,
-           max_actions: int = 20)` :1519
+           max_actions: int = 20)` :1640
 - **decision_trace** (f) `(choice: str, context: str, rationale: str, *,
                    alternatives: list = None, tradeoffs: str = None,
                    contraindications: str = None, tags: list = None,
                    refs: list = None, conf: float = 0.9,
-                   priority: int = 1)` :1644
+                   priority: int = 1)` :1765
 
 ### result.py
 > Imports: `typing`

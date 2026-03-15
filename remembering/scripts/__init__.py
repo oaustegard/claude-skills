@@ -1,5 +1,6 @@
 """Remembering - Minimal persistent memory for Claude.
 
+v5.4.0: Enhanced retrieval with tag co-occurrence expansion and boost-aware scoring (#383).
 v5.3.0: Task discipline (#332) — type-specific checklists, verification reports,
         cross-session persistence, recall_gate context manager, boot surfacing.
 v5.1.0: Partial ID support (#244), autonomous curation (#295), episodic scoring (#296),
@@ -23,7 +24,9 @@ from .state import TYPES, get_session_id, set_session_id
 from .turso import (
     _init, _retry_with_backoff,
     _exec, _exec_batch, _parse_memory_row,
-    _fts5_search  # v4.5.0: Server-side FTS5 search (#298)
+    _fts5_search,  # v4.5.0: Server-side FTS5 search (#298)
+    _build_cooccurrence, _cooccurrence_expand,  # v5.4.0: Tag co-occurrence (#383)
+    _update_cooccurrence_add, _update_cooccurrence_remove,
 )
 
 # Import memory layer
@@ -109,6 +112,7 @@ __all__ = [
     # v3.4.0: Type-safe results and proactive hints
     "MemoryResult", "MemoryResultList", "VALID_FIELDS", "recall_hints",
     "_exec",  # v3.9.0: Raw SQL execution for utilities
+    "_build_cooccurrence", "_cooccurrence_expand",  # v5.4.0: Tag co-occurrence (#383)
     "r", "q", "j", "TYPES",  # aliases & constants
     # v5.2.0: Task discipline (#332)
     "task", "Task", "task_resume", "incomplete_tasks",
