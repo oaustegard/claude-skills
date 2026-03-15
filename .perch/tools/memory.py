@@ -273,15 +273,22 @@ def execute_consolidate(input: dict) -> str:
     return "\n".join(lines)
 
 
+MAX_SQL_CHARS = 10_000  # ~2.5K tokens — prevents context explosion
+
+
 def execute_sql_query(input: dict) -> str:
     """Execute raw SQL and return results."""
     rows = _exec(input["sql"], args=input.get("args"))
     if not rows:
         return "Query returned no results."
-    # Truncate large result sets
-    if len(rows) > 50:
-        return f"{len(rows)} rows returned (showing first 50):\n\n" + _format_rows(rows[:50])
-    return f"{len(rows)} row(s):\n\n" + _format_rows(rows)
+    truncated = len(rows) > 50
+    display_rows = rows[:50] if truncated else rows
+    result = _format_rows(display_rows)
+    if len(result) > MAX_SQL_CHARS:
+        result = result[:MAX_SQL_CHARS] + f"\n\n[... truncated at {MAX_SQL_CHARS} chars, {len(rows)} total rows]"
+        truncated = True
+    prefix = f"{len(rows)} rows (showing partial):" if truncated else f"{len(rows)} row(s):"
+    return f"{prefix}\n\n{result}"
 
 
 def _format_rows(rows: list) -> str:
