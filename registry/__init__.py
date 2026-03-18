@@ -1,1 +1,1 @@
-# Registry data layer for claude-skills
+# Plugin marketplace generator for claude-skills

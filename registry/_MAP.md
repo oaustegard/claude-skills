@@ -1,5 +1,5 @@
 # registry/
-*Files: 4*
+*Files: 3*
 
 ## Files
 
@@ -7,19 +7,12 @@
 - *No top-level symbols*
 
 ### generate.py
-> Imports: `json, subprocess, sys, datetime, pathlib`...
-- **discover_skill_dirs** (f) `(root: Path)` :33
-- **get_last_updated** (f) `(skill_dir: Path)` :48
-- **list_skill_files** (f) `(skill_dir: Path)` :62
-- **build_download_url** (f) `(name: str, version: Optional[str])` :76
-- **normalize_list** (f) `(value)` :83
-- **build_entry** (f) `(skill_dir: Path)` :94
-- **generate** (f) `(root: Path)` :125
-- **main** (f) `()` :149
-
-### llms_txt.py
-> Imports: `.schema`
-- **render_llms_txt** (f) `(registry: Registry)` :6
+> Imports: `json, sys, pathlib, scripts.frontmatter_utils, registry.schema`
+- **discover_skill_dirs** (f) `(root: Path)` :28
+- **normalize_list** (f) `(value)` :43
+- **build_entry** (f) `(skill_dir: Path)` :54
+- **generate** (f) `(root: Path)` :88
+- **main** (f) `()` :104
 
 ### schema.py
 > Imports: `dataclasses, typing`
