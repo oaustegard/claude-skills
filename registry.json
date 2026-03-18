@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "generated_at": "2026-03-18T00:31:15.083609+00:00",
+  "generated_at": "2026-03-18T00:34:12.504728+00:00",
   "repository": "oaustegard/claude-skills",
   "skill_count": 44,
   "skills": {
@@ -14,7 +14,7 @@
       "credentials": [],
       "domains": [],
       "directory": "accessing-github-repos",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-09T19:53:27Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/accessing-github-repos-v2.0.0/accessing-github-repos.zip",
       "files": [
         "SKILL.md"
@@ -30,7 +30,7 @@
       "credentials": [],
       "domains": [],
       "directory": "api-credentials",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-22T22:21:50Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/api-credentials-v0.0.3/api-credentials.zip",
       "files": [
         ".gitignore",
@@ -49,7 +49,7 @@
       "credentials": [],
       "domains": [],
       "directory": "asking-questions",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-09T19:53:27Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/asking-questions-v1.0.7/asking-questions.zip",
       "files": [
         "SKILL.md"
@@ -65,7 +65,7 @@
       "credentials": [],
       "domains": [],
       "directory": "browsing-bluesky",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-02-28T00:44:57Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/browsing-bluesky-v0.5.1/browsing-bluesky.zip",
       "files": [
         "SKILL.md",
@@ -85,7 +85,7 @@
       "credentials": [],
       "domains": [],
       "directory": "building-github-index",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-02-24T01:55:01Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/building-github-index-v2.0.0/building-github-index.zip",
       "files": [
         "SKILL.md",
@@ -103,7 +103,7 @@
       "credentials": [],
       "domains": [],
       "directory": "building-github-index-v2",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-02-05T21:14:01Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/building-github-index-v2.0.0/building-github-index.zip",
       "files": [
         "SKILL.md",
@@ -121,7 +121,7 @@
       "credentials": [],
       "domains": [],
       "directory": "categorizing-bsky-accounts",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-09T19:53:27Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/categorizing-bsky-accounts-v0.2.1/categorizing-bsky-accounts.zip",
       "files": [
         "SKILL.md",
@@ -138,7 +138,7 @@
       "credentials": [],
       "domains": [],
       "directory": "charting-vega-lite",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-09T19:53:27Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/charting-vega-lite-v0.1.0/charting-vega-lite.zip",
       "files": [
         "SKILL.md",
@@ -171,7 +171,7 @@
       "credentials": [],
       "domains": [],
       "directory": "check-tools",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-09T19:53:27Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/check-tools-v1.1.3/check-tools.zip",
       "files": [
         "SKILL.md",
@@ -190,7 +190,7 @@
       "credentials": [],
       "domains": [],
       "directory": "cloning-project",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-09T19:47:55Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/cloning-project-v1.0.0/cloning-project.zip",
       "files": [
         "SKILL.md"
@@ -206,7 +206,7 @@
       "credentials": [],
       "domains": [],
       "directory": "configuring",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-22T22:21:50Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/configuring-v2.0.0/configuring.zip",
       "files": [
         ".gitignore",
@@ -237,7 +237,7 @@
         "github.com"
       ],
       "directory": "controlling-spotify",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-09T19:53:27Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/controlling-spotify-v0.1.0/controlling-spotify.zip",
       "files": [
         "SKILL.md",
@@ -257,7 +257,7 @@
       "credentials": [],
       "domains": [],
       "directory": "convening-experts",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-09T19:53:27Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/convening-experts-v1.0.3/convening-experts.zip",
       "files": [
         "SKILL.md",
@@ -278,7 +278,7 @@
       "credentials": [],
       "domains": [],
       "directory": "crafting-instructions",
-      "last_updated": "2026-03-01T22:04:54+00:00",
+      "last_updated": "2026-03-01T22:04:54Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/crafting-instructions-v0.3.1/crafting-instructions.zip",
       "files": [
         "SKILL.md",
@@ -298,7 +298,7 @@
       "credentials": [],
       "domains": [],
       "directory": "creating-bookmarklets",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-09T19:53:27Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/creating-bookmarklets-v1.0.3/creating-bookmarklets.zip",
       "files": [
         "SKILL.md"
@@ -314,7 +314,7 @@
       "credentials": [],
       "domains": [],
       "directory": "creating-mcp-servers",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-09T19:53:27Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/creating-mcp-servers-v1.1.0/creating-mcp-servers.zip",
       "files": [
         "SKILL.md",
@@ -336,7 +336,7 @@
       "credentials": [],
       "domains": [],
       "directory": "creating-skill",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-09T19:53:27Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/creating-skill-v2.1.2/creating-skill.zip",
       "files": [
         "SKILL.md",
@@ -356,7 +356,7 @@
       "credentials": [],
       "domains": [],
       "directory": "developing-preact",
-      "last_updated": "2026-03-11T18:49:45+00:00",
+      "last_updated": "2026-03-11T18:49:45Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/developing-preact-v1.2.0/developing-preact.zip",
       "files": [
         "SKILL.md",
@@ -377,7 +377,7 @@
       "credentials": [],
       "domains": [],
       "directory": "down-skilling",
-      "last_updated": "2026-03-03T21:32:38+00:00",
+      "last_updated": "2026-03-03T21:32:38Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/down-skilling-v1.1.0/down-skilling.zip",
       "files": [
         "SKILL.md",
@@ -425,7 +425,7 @@
       "credentials": [],
       "domains": [],
       "directory": "exploring-codebases",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-02-13T22:20:29Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/exploring-codebases-v0.3.1/exploring-codebases.zip",
       "files": [
         "SKILL.md",
@@ -442,7 +442,7 @@
       "credentials": [],
       "domains": [],
       "directory": "exploring-data",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-09T19:53:27Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/exploring-data-v0.0.3/exploring-data.zip",
       "files": [
         "SKILL.md",
@@ -463,7 +463,7 @@
       "credentials": [],
       "domains": [],
       "directory": "extracting-keywords",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-09T19:53:27Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/extracting-keywords-v0.2.1/extracting-keywords.zip",
       "files": [
         "SKILL.md",
@@ -481,7 +481,7 @@
       "credentials": [],
       "domains": [],
       "directory": "fetching-blocked-urls",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-28T01:49:29Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/fetching-blocked-urls-v0.1.1/fetching-blocked-urls.zip",
       "files": [
         "SKILL.md"
@@ -497,7 +497,7 @@
       "credentials": [],
       "domains": [],
       "directory": "forecasting-reverso",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-02-28T00:12:54Z",
       "download_url": null,
       "files": [
         "SKILL.md",
@@ -516,7 +516,7 @@
       "credentials": [],
       "domains": [],
       "directory": "generating-patches",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-09T19:47:55Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/generating-patches-v0.1.0/generating-patches.zip",
       "files": [
         "SKILL.md"
@@ -534,7 +534,7 @@
       "credentials": [],
       "domains": [],
       "directory": "githubbing",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-02-28T01:27:44Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/githubbing-v1.1.2/githubbing.zip",
       "files": [
         "SKILL.md",
@@ -551,7 +551,7 @@
       "credentials": [],
       "domains": [],
       "directory": "hello-demo",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-09T19:47:55Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/hello-demo-v1.0.4/hello-demo.zip",
       "files": [
         "SKILL.md",
@@ -568,7 +568,7 @@
       "credentials": [],
       "domains": [],
       "directory": "inspecting-skills",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-02-24T16:07:56Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/inspecting-skills-v1.0.2/inspecting-skills.zip",
       "files": [
         "SKILL.md",
@@ -589,7 +589,7 @@
       "credentials": [],
       "domains": [],
       "directory": "installing-skills",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-02-24T16:07:56Z",
       "download_url": null,
       "files": [
         "SKILL.md",
@@ -606,7 +606,7 @@
       "credentials": [],
       "domains": [],
       "directory": "invoking-gemini",
-      "last_updated": "2026-03-05T12:48:31+00:00",
+      "last_updated": "2026-03-05T12:48:31Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/invoking-gemini-v0.4.0/invoking-gemini.zip",
       "files": [
         "SKILL.md",
@@ -626,7 +626,7 @@
       "credentials": [],
       "domains": [],
       "directory": "invoking-github",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-09T19:53:27Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/invoking-github-v0.0.3/invoking-github.zip",
       "files": [
         "SKILL.md",
@@ -648,7 +648,7 @@
       "credentials": [],
       "domains": [],
       "directory": "iterating",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-09T19:53:27Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/iterating-v1.1.0/iterating.zip",
       "files": [
         "SKILL.md",
@@ -669,7 +669,7 @@
       "credentials": [],
       "domains": [],
       "directory": "making-waffles",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-09T19:47:55Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/making-waffles-v0.1.0/making-waffles.zip",
       "files": [
         "SKILL.md"
@@ -685,7 +685,7 @@
       "credentials": [],
       "domains": [],
       "directory": "mapping-codebases",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-02-28T00:25:51Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/mapping-codebases-v0.7.0/mapping-codebases.zip",
       "files": [
         "SKILL.md",
@@ -702,7 +702,7 @@
       "credentials": [],
       "domains": [],
       "directory": "orchestrating-agents",
-      "last_updated": "2026-03-06T01:32:30+00:00",
+      "last_updated": "2026-03-06T01:32:30Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/orchestrating-agents-v0.3.0/orchestrating-agents.zip",
       "files": [
         "SKILL.md",
@@ -727,7 +727,7 @@
       "credentials": [],
       "domains": [],
       "directory": "orchestrating-skills",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-02-28T17:35:31Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/orchestrating-skills-v0.3.0/orchestrating-skills.zip",
       "files": [
         "SKILL.md",
@@ -749,7 +749,7 @@
       "credentials": [],
       "domains": [],
       "directory": "remembering",
-      "last_updated": "2026-03-15T04:05:06+00:00",
+      "last_updated": "2026-03-15T04:05:06Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/remembering-v5.4.0/remembering.zip",
       "files": [
         ".skillignore",
@@ -786,7 +786,7 @@
       "credentials": [],
       "domains": [],
       "directory": "reviewing-ai-papers",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-09T19:53:27Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/reviewing-ai-papers-v0.1.0/reviewing-ai-papers.zip",
       "files": [
         "SKILL.md"
@@ -802,7 +802,7 @@
       "credentials": [],
       "domains": [],
       "directory": "sampling-bluesky-zeitgeist",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-02-08T03:43:52Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/sampling-bluesky-zeitgeist-v0.1.0/sampling-bluesky-zeitgeist.zip",
       "files": [
         "SKILL.md",
@@ -821,7 +821,7 @@
       "credentials": [],
       "domains": [],
       "directory": "sorting-groceries",
-      "last_updated": "2026-03-02T00:26:46+00:00",
+      "last_updated": "2026-03-02T00:26:46Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/sorting-groceries-v0.1.0/sorting-groceries.zip",
       "files": [
         "SKILL.md"
@@ -839,7 +839,7 @@
       "credentials": [],
       "domains": [],
       "directory": "tiling-tree",
-      "last_updated": "2026-03-06T02:51:52+00:00",
+      "last_updated": "2026-03-06T02:51:52Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/tiling-tree-v1.0.1/tiling-tree.zip",
       "files": [
         "SKILL.md",
@@ -856,7 +856,7 @@
       "credentials": [],
       "domains": [],
       "directory": "updating-knowledge",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-09T19:53:27Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/updating-knowledge-v1.0.3/updating-knowledge.zip",
       "files": [
         "SKILL.md"
@@ -872,7 +872,7 @@
       "credentials": [],
       "domains": [],
       "directory": "using-webctl",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-16T18:57:03Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/using-webctl-v0.0.1/using-webctl.zip",
       "files": [
         "SKILL.md",
@@ -890,7 +890,7 @@
       "credentials": [],
       "domains": [],
       "directory": "versioning-skills",
-      "last_updated": "2026-02-28T23:18:11-05:00",
+      "last_updated": "2026-01-09T19:47:55Z",
       "download_url": "https://github.com/oaustegard/claude-skills/releases/download/versioning-skills-v1.1.0/versioning-skills.zip",
       "files": [
         "SKILL.md"

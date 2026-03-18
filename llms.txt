@@ -1,7 +1,7 @@
 # Claude Skills Registry
 > 44 skills for Claude Code and Claude.ai.
 > Repository: https://github.com/oaustegard/claude-skills
-> Generated: 2026-03-18T00:31:15.083609+00:00
+> Generated: 2026-03-18T00:34:12.504728+00:00
 
 ## Skills
 
