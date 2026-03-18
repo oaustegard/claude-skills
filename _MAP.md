@@ -1,5 +1,5 @@
 # claude-skills/
-*Files: 6 | Subdirectories: 48*
+*Files: 4 | Subdirectories: 48*
 
 ## Subdirectories
 
@@ -82,14 +82,13 @@
 
 ### README.md
 - claude-skills `h1` :1
-- Installing Skills `h2` :4
-- Contributing Skills `h2` :56
-- Releasing Skills `h2` :85
-- Resources `h2` :135
+- Installing as a Plugin Marketplace (Claude Code) `h2` :5
+- Installing Skills for Claude.ai (Web/Mobile) `h2` :25
+- Contributing Skills `h2` :59
+- Releasing Skills `h2` :80
+- Resources `h2` :92
 
 ## Other Files
 
 - boot.sh
-- llms.txt
-- registry.json
 
