@@ -75,10 +75,11 @@ def build_entry(skill_dir: Path) -> PluginEntry | None:
     return PluginEntry(
         name=name,
         description=description,
-        source="./",
+        source=f"./{skill_dir.name}",
         strict=False,
-        skills=[f"./{skill_dir.name}"],
+        skills=["./"],
         version=version,
+        homepage=f"https://github.com/{REPO}/tree/main/{skill_dir.name}",
         repository=f"https://github.com/{REPO}",
         license="MIT",
         keywords=keywords if keywords else [],

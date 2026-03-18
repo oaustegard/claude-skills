@@ -15,7 +15,9 @@ class PluginEntry:
     version: Optional[str] = None
     author: Optional[dict] = None
     repository: Optional[str] = None
+    homepage: Optional[str] = None
     license: Optional[str] = None
+    category: Optional[str] = None
     keywords: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -32,8 +34,12 @@ class PluginEntry:
             d["author"] = self.author
         if self.repository:
             d["repository"] = self.repository
+        if self.homepage:
+            d["homepage"] = self.homepage
         if self.license:
             d["license"] = self.license
+        if self.category:
+            d["category"] = self.category
         if self.keywords:
             d["keywords"] = self.keywords
         return d
@@ -42,20 +48,19 @@ class PluginEntry:
 @dataclass
 class Marketplace:
     """Top-level marketplace manifest."""
+    schema: str = "https://anthropic.com/claude-code/marketplace.schema.json"
     name: str = "oaustegard-claude-skills"
+    description: str = "Community skills for Claude Code and Claude.ai"
     owner: dict = field(default_factory=lambda: {
         "name": "Oskar Austegard",
-    })
-    metadata: dict = field(default_factory=lambda: {
-        "description": "Community skills for Claude Code and Claude.ai",
-        "version": "1.0.0",
     })
     plugins: list[PluginEntry] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
+            "$schema": self.schema,
             "name": self.name,
+            "description": self.description,
             "owner": self.owner,
-            "metadata": self.metadata,
             "plugins": [p.to_dict() for p in self.plugins],
         }

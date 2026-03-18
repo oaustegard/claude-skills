@@ -11,8 +11,8 @@
 - **discover_skill_dirs** (f) `(root: Path)` :28
 - **normalize_list** (f) `(value)` :43
 - **build_entry** (f) `(skill_dir: Path)` :54
-- **generate** (f) `(root: Path)` :88
-- **main** (f) `()` :104
+- **generate** (f) `(root: Path)` :89
+- **main** (f) `()` :105
 
 ### schema.py
 > Imports: `dataclasses, typing`
