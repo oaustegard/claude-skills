@@ -63,6 +63,9 @@ bsky_search("desperate fourth attempt")      → empty
 2. How does it relate to existing knowledge? Does it change any prior understanding?
 3. Store your synthesis as a `world` or `analysis` memory with relevant tags.
 4. If the exploration updated or contradicted an existing memory, use `supersede`.
+5. **Store a findings digest** as an `analysis` memory with tags `["perch", "fly-digest", "YYYY-MM-DD", ...topic-tags]`:
+   - 2-3 sentence summary of key findings and connections discovered
+   - Priority 0 (normal). This ensures recall("topic") finds your findings, not just session metadata.
 
 ### Phase 4: Close (MANDATORY — do not skip)
 
@@ -71,10 +74,17 @@ You MUST complete both steps below before ending the session. If you are running
 1. **Post your findings** as a GitHub Discussion using `create_discussion`:
    - Title: A clear, descriptive title for the exploration (not "Fly session 2026-03-06")
    - Body: Your synthesis in markdown — what you explored, key findings, connections to existing knowledge, and threads worth pursuing next
+   - **Formatting:** All references to papers, tools, frameworks, or external systems MUST use inline markdown links. Examples:
+     - Papers: `[Paper Title](https://arxiv.org/abs/XXXX.XXXXX)`
+     - Systems: `[Mem0](https://mem0.ai/)`
+     - Workshops: `[ICLR MemAgents](https://sites.google.com/view/memagents)`
+     - Never use bare arxiv IDs, bare URLs, or unlinked names. Every reference should be clickable.
    - This is the primary deliverable. Oskar gets notified via GitHub.
    - If `create_discussion` fails (e.g., no GH_TOKEN), note the error in the session log.
 
-2. Store a session log as `experience` with tags `["perch-time", "session-log", "fly"]` capturing:
+2. **Update the findings digest** with the Discussion URL: `supersede` the digest memory from Phase 3 to append the Discussion link.
+
+3. Store a session log as `experience` with tags `["perch-time", "session-log", "fly"]` capturing:
    - What thread you explored and why
    - Key findings and connections made
    - Threads worth pursuing in future fly sessions

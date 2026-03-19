@@ -1,5 +1,5 @@
 # claude-skills/
-*Files: 4 | Subdirectories: 48*
+*Files: 4 | Subdirectories: 49*
 
 ## Subdirectories
 
@@ -45,6 +45,7 @@
 - [reviewing-ai-papers/](./reviewing-ai-papers/_MAP.md)
 - [sampling-bluesky-zeitgeist/](./sampling-bluesky-zeitgeist/_MAP.md)
 - [scripts/](./scripts/_MAP.md)
+- [searching-codebases/](./searching-codebases/_MAP.md)
 - [sorting-groceries/](./sorting-groceries/_MAP.md)
 - [templates/](./templates/_MAP.md)
 - [tiling-tree/](./tiling-tree/_MAP.md)

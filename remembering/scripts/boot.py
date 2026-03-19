@@ -520,6 +520,9 @@ def boot(mode: str = None) -> str:
     # Surface incomplete cross-session tasks (#332)
     pending_tasks = _load_incomplete_tasks()
 
+    # Surface recent flight logs (#415)
+    recent_flights = _load_recent_flights()
+
     # Filter ops by boot_load flag (progressive disclosure)
     # Reference-only entries (boot_load=0) excluded from boot output but accessible via config_get()
     # Note: Turso returns boot_load as string ('0' or '1')
@@ -530,7 +533,7 @@ def boot(mode: str = None) -> str:
     ops_by_topic, uncategorized = group_ops_by_topic(core_ops)
 
     # Format output with markdown headings
-    return _format_boot_output(profile_data, ops_by_topic, uncategorized, reference_ops, installed_utils, github_access, pending_tasks)
+    return _format_boot_output(profile_data, ops_by_topic, uncategorized, reference_ops, installed_utils, github_access, pending_tasks, recent_flights)
 
 
 def _boot_perch(profile_data: list, ops_data: list) -> str:
@@ -601,6 +604,48 @@ def _load_incomplete_tasks() -> list:
         return []
 
 
+def _load_recent_flights(n: int = 5) -> list:
+    """Load recent Flight Log discussions from GitHub for boot display (#415).
+
+    Fetches the latest flight log discussions via GitHub GraphQL API.
+    Returns list of dicts with number, title, createdAt, closed status.
+    Safe to call — returns empty list on any error (missing token, network, etc.).
+    """
+    try:
+        import urllib.request
+        token = os.environ.get('GH_TOKEN') or os.environ.get('GITHUB_TOKEN')
+        if not token:
+            return []
+
+        query = '''query($limit: Int!) {
+  repository(owner: "oaustegard", name: "claude-skills") {
+    discussions(first: $limit, categoryId: "DIC_kwDOQEB8Es4C31s9",
+                orderBy: {field: CREATED_AT, direction: DESC}) {
+      nodes { number title createdAt closed }
+    }
+  }
+}'''
+        payload = json.dumps({
+            "query": query,
+            "variables": {"limit": n}
+        }).encode()
+
+        req = urllib.request.Request(
+            "https://api.github.com/graphql",
+            data=payload,
+            headers={
+                "Authorization": f"bearer {token}",
+                "Content-Type": "application/json",
+            },
+        )
+        resp = urllib.request.urlopen(req, timeout=10)
+        data = json.loads(resp.read())
+        nodes = data.get("data", {}).get("repository", {}).get("discussions", {}).get("nodes", [])
+        return nodes
+    except Exception:
+        return []
+
+
 def _time_anchor() -> str:
     """Generate current time context for boot output.
 
@@ -658,11 +703,13 @@ def _format_entry(entry: dict) -> str:
 def _format_boot_output(profile_data: list, ops_by_topic: dict,
                         uncategorized: list, reference_ops: list,
                         installed_utils: dict, github_access: dict = None,
-                        pending_tasks: list = None) -> str:
+                        pending_tasks: list = None,
+                        recent_flights: list = None) -> str:
     """Format boot output with organized sections.
 
     v3.6.0: Entries within each topic are pre-sorted by priority (descending)
     by group_ops_by_topic(), so critical entries appear first.
+    v5.6.0: Added recent_flights for flight log awareness (#415).
 
     Args:
         profile_data: List of profile config entries
@@ -671,6 +718,7 @@ def _format_boot_output(profile_data: list, ops_by_topic: dict,
         reference_ops: List of reference-only ops (boot_load=0)
         installed_utils: Dict of {name: {"path": path, "use_when": str|None}} from install_utilities()
         github_access: Dict from detect_github_access() with GitHub capabilities
+        recent_flights: List of recent flight log discussions from GitHub (#415)
 
     Returns:
         Formatted boot output string with markdown headings
@@ -758,6 +806,16 @@ def _format_boot_output(profile_data: list, ops_by_topic: dict,
             output.append(f"  ○ {t['name']}{type_tag} ({age_str})")
             output.append(f"    Pending: {', '.join(t['pending'])}")
             output.append(f"    Resume: t = task_resume('{t['name']}')")
+
+    # Recent flight logs section (#415: perch flight awareness)
+    if recent_flights:
+        output.append("\n# RECENT FLIGHTS")
+        for f in recent_flights:
+            status = "CLOSED" if f.get("closed") else "OPEN"
+            date = f.get("createdAt", "")[:10]
+            number = f.get("number", "?")
+            title = f.get("title", "Untitled")
+            output.append(f"- #{number} ({date}, {status}): {title}")
 
     return '\n'.join(output)
 

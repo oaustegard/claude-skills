@@ -22,23 +22,23 @@
 - **profile** (f) `()` :382
 - **ops** (f) `(include_reference: bool = False)` :387
 - **boot** (f) `(mode: str = None)` :461
-- **journal** (f) `(topics: list = None, user_stated: str = None, my_intent: str = None)` :765
-- **journal_recent** (f) `(n: int = 10)` :782
-- **journal_prune** (f) `(keep: int = 40)` :798
-- **therapy_scope** (f) `()` :812
-- **therapy_session_count** (f) `()` :827
-- **decisions_recent** (f) `(n: int = 10, conf: float = 0.7)` :836
+- **journal** (f) `(topics: list = None, user_stated: str = None, my_intent: str = None)` :823
+- **journal_recent** (f) `(n: int = 10)` :840
+- **journal_prune** (f) `(keep: int = 40)` :856
+- **therapy_scope** (f) `()` :870
+- **therapy_session_count** (f) `()` :885
+- **decisions_recent** (f) `(n: int = 10, conf: float = 0.7)` :894
 - **therapy_reflect** (f) `(*, n_sample: int = 20, similarity_threshold: int = 3,
-                     dry_run: bool = True)` :849
-- **group_by_type** (f) `(memories: list)` :979
-- **group_by_tag** (f) `(memories: list)` :995
-- **muninn_export** (f) `()` :1015
-- **session_save** (f) `(summary: str = None, context: dict = None)` :1032
-- **session_resume** (f) `(session_id: str = None)` :1082
-- **sessions** (f) `(n: int = 10, *, include_counts: bool = False)` :1154
-- **handoff_pending** (f) `()` :1219
-- **handoff_complete** (f) `(handoff_id: str, completion_notes: str, version: str = None)` :1234
-- **muninn_import** (f) `(data: dict, *, merge: bool = False)` :1266
+                     dry_run: bool = True)` :907
+- **group_by_type** (f) `(memories: list)` :1037
+- **group_by_tag** (f) `(memories: list)` :1053
+- **muninn_export** (f) `()` :1073
+- **session_save** (f) `(summary: str = None, context: dict = None)` :1090
+- **session_resume** (f) `(session_id: str = None)` :1140
+- **sessions** (f) `(n: int = 10, *, include_counts: bool = False)` :1212
+- **handoff_pending** (f) `()` :1277
+- **handoff_complete** (f) `(handoff_id: str, completion_notes: str, version: str = None)` :1292
+- **muninn_import** (f) `(data: dict, *, merge: bool = False)` :1324
 
 ### bootstrap.py
 > Imports: `sys, os, scripts`
