@@ -502,6 +502,18 @@
       "license": "MIT"
     },
     {
+      "name": "searching-codebases",
+      "description": "Semantic code search with full pipeline: download, map, index, search, extract in a single invocation. Finds implementations by concept when identifiers are unknown — \"retry logic\" finds TokenBucketRateLimiter. Use when exploring GitHub repos, searching by intent rather than exact name, evaluating unfamiliar codebases, or answering \"how does X work in this repo\". Triggers on \"search this repo\", \"find where X is implemented\", \"what handles Y\", \"evaluate this codebase\", \"explore this repo\", or any natural-language question about code in a repository.\n",
+      "source": "./searching-codebases",
+      "strict": false,
+      "skills": [
+        "./"
+      ],
+      "repository": "https://github.com/oaustegard/claude-skills",
+      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/searching-codebases",
+      "license": "MIT"
+    },
+    {
       "name": "sorting-groceries",
       "description": "Sort grocery lists by aisle order using store aisle sign photos. Build aisle maps from uploaded images, match items to aisles, and output optimized shopping routes. Use when users upload aisle sign photos, request grocery list sorting, want shopping trip optimization, need store layout mapping, or mention grocery list organization.",
       "source": "./sorting-groceries",
