@@ -2,6 +2,28 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [5.5.0] - 2026-03-18
+
+### Added
+
+- **TF-IDF Memory Similarity Index** (#404): New `memory_tfidf` utility module using sklearn's `TfidfVectorizer` for memory↔memory cosine similarity. Builds index over full corpus (~1096 memories) in ~1.5s, pairwise cosine in 18ms. Provides:
+  - `MemoryIndex.similar(id)` — find memories most similar to a given one
+  - `MemoryIndex.duplicates(threshold)` — pairs above similarity threshold
+  - `MemoryIndex.clusters(threshold)` — single-linkage similarity clusters
+  - `MemoryIndex.outliers()` — memories dissimilar to everything (isolation candidates)
+  - `MemoryIndex.cross_domain_rhymes(id)` — high similarity + low tag overlap for structural pattern matching
+- **Flowing DAG Runner as utility** (#404): `flowing` module (from `searching-codebases` skill) stored as utility-code memory. Enables batching multiple independent operations into a single tool call via `@task` decorator and `Flow` runner with ThreadPoolExecutor parallelism.
+- **Batched Therapy Phase 1** (#404): New `phase1()` function in therapy utility runs all four Phase 1 queries (`pending_tests`, `neglected_memories`, `test_debris`, `duplicate_candidates`) in parallel via flowing DAG. Reduces 4-5 tool calls to 1. Measured: 1596ms total.
+- **`searching-codebases` skill**: TF-IDF semantic code search with full pipeline (download → map → index → search → extract). Uses flowing for DAG orchestration. Pushed to repo (ad069a04).
+
+### Changed
+
+- **`duplicate_candidates()` upgraded**: Replaced 80-character summary prefix matching with TF-IDF cosine similarity. Catches rephrasings, reorderings, and near-duplicates that prefix matching missed. Operates on full corpus instead of last 100 memories.
+
+### Fixed
+
+- **Corrected stale architecture belief**: Retrieval is BM25 (FTS5) only — no semantic embeddings. OpenAI embedding endpoint was abandoned months ago due to flakiness. Stored priority-2 correction memory.
+
 ## [5.4.0] - 2026-03-03
 
 ### Added
@@ -972,9 +994,10 @@ remember_bg("note", "world")  # Calls remember(..., sync=False)
 This changelog tracks the evolution of the Muninn memory system from its initial release (v0.1.0) through the current version (v0.12.1). Key themes include:
 
 1. **Performance Optimization**: From initial implementation to local caching (v0.7.0), async warming (v0.7.1), and full content at boot (v0.8.0)
-2. **Search Capabilities**: From basic queries to FTS5 hybrid search (v0.9.0) with semantic fallback
+2. **Search Capabilities**: From basic queries to FTS5 hybrid search (v0.9.0) — embeddings abandoned due to API flakiness
 3. **Data Quality**: Bug fixes for caching (v0.9.1), embeddings (v0.10.1), and query ordering (v0.12.1)
 4. **Advanced Features**: Salience decay (v0.10.0), batch embeddings (v0.10.1), query instrumentation (v0.12.0), and strict mode queries (v0.12.1)
 5. **API Evolution**: From verbose boot sequences to compressed output (v0.11.0) and unified write API (v0.6.0)
+6. **Ecosystem Tools**: TF-IDF similarity index (v5.5.0), flowing DAG runner for batched operations, upgraded therapy utilities
 
 For detailed API reference and usage examples, see [SKILL.md](SKILL.md) and [CLAUDE.md](CLAUDE.md).
