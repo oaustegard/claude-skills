@@ -523,6 +523,9 @@ def boot(mode: str = None) -> str:
     # Surface recent flight logs (#415)
     recent_flights = _load_recent_flights()
 
+    # Surface due reminders (#425)
+    due_reminders = _load_due_reminders()
+
     # Filter ops by boot_load flag (progressive disclosure)
     # Reference-only entries (boot_load=0) excluded from boot output but accessible via config_get()
     # Note: Turso returns boot_load as string ('0' or '1')
@@ -533,7 +536,7 @@ def boot(mode: str = None) -> str:
     ops_by_topic, uncategorized = group_ops_by_topic(core_ops)
 
     # Format output with markdown headings
-    return _format_boot_output(profile_data, ops_by_topic, uncategorized, reference_ops, installed_utils, github_access, pending_tasks, recent_flights)
+    return _format_boot_output(profile_data, ops_by_topic, uncategorized, reference_ops, installed_utils, github_access, pending_tasks, recent_flights, due_reminders)
 
 
 def _boot_perch(profile_data: list, ops_data: list) -> str:
@@ -646,6 +649,32 @@ def _load_recent_flights(n: int = 5) -> list:
         return []
 
 
+def _load_due_reminders() -> list:
+    """Load reminders that are due for boot display (#425).
+
+    Queries active reminders and filters to those where valid_from <= now.
+    Does NOT mark reminders as delivered — that happens in-conversation
+    via muninn_utils.remind.deliver().
+
+    Returns list of dicts with 'summary', 'valid_from', 'id'.
+    Safe to call — returns empty list on any error.
+    """
+    try:
+        reminders = recall(tags=["reminder", "active"], n=50, tag_mode="all")
+        if not reminders:
+            return []
+
+        now_iso = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+        due = []
+        for r in reminders:
+            valid_from = r.get('valid_from', '')
+            if valid_from and valid_from <= now_iso:
+                due.append(r)
+        return due
+    except Exception:
+        return []
+
+
 def _time_anchor() -> str:
     """Generate current time context for boot output.
 
@@ -704,12 +733,14 @@ def _format_boot_output(profile_data: list, ops_by_topic: dict,
                         uncategorized: list, reference_ops: list,
                         installed_utils: dict, github_access: dict = None,
                         pending_tasks: list = None,
-                        recent_flights: list = None) -> str:
+                        recent_flights: list = None,
+                        due_reminders: list = None) -> str:
     """Format boot output with organized sections.
 
     v3.6.0: Entries within each topic are pre-sorted by priority (descending)
     by group_ops_by_topic(), so critical entries appear first.
     v5.6.0: Added recent_flights for flight log awareness (#415).
+    v5.7.0: Added due_reminders for reminder surfacing at boot (#425).
 
     Args:
         profile_data: List of profile config entries
@@ -719,6 +750,7 @@ def _format_boot_output(profile_data: list, ops_by_topic: dict,
         installed_utils: Dict of {name: {"path": path, "use_when": str|None}} from install_utilities()
         github_access: Dict from detect_github_access() with GitHub capabilities
         recent_flights: List of recent flight log discussions from GitHub (#415)
+        due_reminders: List of due reminder memories from _load_due_reminders() (#425)
 
     Returns:
         Formatted boot output string with markdown headings
@@ -816,6 +848,18 @@ def _format_boot_output(profile_data: list, ops_by_topic: dict,
             number = f.get("number", "?")
             title = f.get("title", "Untitled")
             output.append(f"- #{number} ({date}, {status}): {title}")
+
+    # Due reminders section (#425: reminder surfacing at boot)
+    if due_reminders:
+        output.append("\n🔔 REMINDERS:")
+        for r in due_reminders:
+            text = r.get('summary', '')
+            # Strip "REMINDER: " prefix for cleaner display
+            if text.upper().startswith('REMINDER: '):
+                text = text[len('REMINDER: '):]
+            due_time = r.get('valid_from', 'unknown')
+            short_id = r.get('id', '')[:8]
+            output.append(f"  - {text} (due: {due_time}, id: {short_id})")
 
     return '\n'.join(output)
 
