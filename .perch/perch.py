@@ -45,7 +45,7 @@ TURN_BUDGETS = {
 ALL_BUDGETS = {
     "sleep": 15,
     "zeitgeist": 12,
-    "fly": 15,
+    "fly": 12,
 }
 ALL_SEQUENCE = ("sleep", "zeitgeist", "fly")
 

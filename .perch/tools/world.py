@@ -9,6 +9,8 @@ import importlib
 import json
 import requests
 
+import anthropic
+
 # Ensure the repo root is on sys.path
 _repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if _repo_root not in sys.path:
@@ -40,8 +42,8 @@ WORLD_TOOLS = [
                 },
                 "limit": {
                     "type": "integer",
-                    "description": "Max posts to return (default 20, max 100).",
-                    "default": 20,
+                    "description": "Max posts to return (default 10, max 100).",
+                    "default": 10,
                 },
             },
             "required": ["feed"],
@@ -63,8 +65,8 @@ WORLD_TOOLS = [
                 },
                 "limit": {
                     "type": "integer",
-                    "description": "Max results (default 25, max 100).",
-                    "default": 25,
+                    "description": "Max results (default 15, max 100).",
+                    "default": 15,
                 },
                 "since": {
                     "type": "string",
@@ -157,8 +159,8 @@ WORLD_TOOLS = [
         "name": "fetch_url",
         "description": (
             "Fetch content from a URL and return as clean text. Uses Jina AI "
-            "reader as fallback for blocked sites. Use to follow links from "
-            "Bluesky posts to full articles."
+            "reader as fallback for blocked sites. Low-level tool — prefer "
+            "deep_read for articles (it analyzes in isolation and keeps context lean)."
         ),
         "input_schema": {
             "type": "object",
@@ -171,6 +173,34 @@ WORLD_TOOLS = [
                     "type": "integer",
                     "description": "Truncate response to this many characters (default 8000).",
                     "default": 8000,
+                },
+            },
+            "required": ["url"],
+        },
+    },
+    {
+        "name": "deep_read",
+        "description": (
+            "Read and analyze a URL in an isolated sub-agent. Fetches the full "
+            "page, analyzes it with Haiku in a separate context, stores the full "
+            "analysis in memory, and returns only a 2-3 sentence summary. Use "
+            "this instead of fetch_url for articles and papers — it keeps your "
+            "conversation context lean while capturing all the detail in memory."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "URL to fetch and analyze.",
+                },
+                "context": {
+                    "type": "string",
+                    "description": (
+                        "Why you're reading this — e.g., 'checking if this paper "
+                        "relates to selective consolidation in agent memory'. "
+                        "Helps the sub-agent focus its analysis."
+                    ),
                 },
             },
             "required": ["url"],
@@ -192,7 +222,7 @@ KNOWN_FEEDS = {
 def execute_bsky_feed(input: dict) -> str:
     """Read posts from a Bluesky feed or list."""
     feed = input["feed"]
-    limit = min(input.get("limit", 20), 100)
+    limit = min(input.get("limit", 10), 100)
 
     # Resolve known feed names
     feed_uri = KNOWN_FEEDS.get(feed, feed)
@@ -217,7 +247,7 @@ def execute_bsky_search(input: dict) -> str:
     """Search Bluesky posts."""
     posts = _bsky.search_posts(
         query=input["query"],
-        limit=min(input.get("limit", 25), 100),
+        limit=min(input.get("limit", 15), 100),
         since=input.get("since"),
         until=input.get("until"),
     )
@@ -265,6 +295,10 @@ def _create_discussion(input: dict) -> str:
     category_id = input.get("category_id", "DIC_kwDOQEB8Es4C31s9")
     title = input.get("title", "Untitled fly exploration")
     body = input.get("body", "")
+
+    # Ensure Oskar gets notified (github-actions[bot] doesn't trigger notifications)
+    if "cc @oaustegard" not in body.lower():
+        body = body.rstrip() + "\n\ncc @oaustegard"
 
     mutation = """mutation($input: CreateDiscussionInput!) {
       createDiscussion(input: $input) {
@@ -438,6 +472,121 @@ def _truncate(text: str, max_chars: int) -> str:
     return text[:max_chars] + f"\n\n[... truncated at {max_chars} chars]"
 
 
+# -- Deep read sub-agent --
+
+_DEEP_READ_SYSTEM = """\
+You are a document analysis agent. You read web pages and extract structured information.
+
+Given a fetched web page and optional context about why it's being read, produce a JSON response with:
+- "summary": 2-3 sentence summary of key claims and significance (what matters and why)
+- "full": Detailed analysis (500-1500 words). Cover: key claims, evidence quality, \
+connections to broader topics, notable quotes, and anything surprising or novel.
+- "tags": List of 3-7 lowercase topic tags for memory retrieval (e.g., ["agent-memory", "consolidation", "2026-research"])
+
+Respond with ONLY valid JSON, no markdown fencing."""
+
+
+def _fetch_full(url: str) -> str:
+    """Fetch full page content without truncation. Direct + Jina fallback."""
+    # Try direct fetch
+    try:
+        resp = requests.get(url, timeout=15, headers={
+            "User-Agent": "Mozilla/5.0 (compatible; Muninn/1.0)"
+        })
+        if resp.status_code == 200 and len(resp.text.strip()) > 100:
+            return resp.text.strip()
+    except requests.RequestException:
+        pass
+
+    # Fallback to Jina reader for full content
+    try:
+        jina_url = f"https://r.jina.ai/{url}"
+        resp = requests.get(jina_url, timeout=30, headers={
+            "Accept": "text/plain",
+        })
+        if resp.status_code == 200:
+            return resp.text.strip()
+    except requests.RequestException:
+        pass
+
+    return ""
+
+
+def _analyze_with_subagent(content: str, url: str, context: str) -> dict:
+    """Run isolated Haiku call to analyze page content. Returns dict with summary/full/tags."""
+    # Cap content to avoid blowing up the sub-agent context
+    max_content = 50_000
+    if len(content) > max_content:
+        content = content[:max_content] + "\n\n[... content truncated for analysis]"
+
+    user_msg = f"URL: {url}\n"
+    if context:
+        user_msg += f"Context: {context}\n"
+    user_msg += f"\n--- PAGE CONTENT ---\n{content}"
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+    client = anthropic.Anthropic(api_key=api_key)
+
+    response = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=2048,
+        system=_DEEP_READ_SYSTEM,
+        messages=[{"role": "user", "content": user_msg}],
+    )
+
+    raw = response.content[0].text
+
+    # Parse JSON response
+    try:
+        result = json.loads(raw)
+    except json.JSONDecodeError:
+        # Try extracting JSON from markdown fencing
+        import re
+        m = re.search(r'\{.*\}', raw, re.DOTALL)
+        if m:
+            try:
+                result = json.loads(m.group())
+            except json.JSONDecodeError:
+                result = {}
+        else:
+            result = {}
+
+    return {
+        "summary": result.get("summary", "Analysis failed — could not parse sub-agent response."),
+        "full": result.get("full", raw[:2000]),
+        "tags": result.get("tags", []),
+    }
+
+
+def execute_deep_read(input: dict) -> str:
+    """Fetch URL, analyze in isolated sub-agent, store to memory, return brief summary."""
+    url = input["url"]
+    context = input.get("context", "")
+
+    # 1. Fetch full content
+    content = _fetch_full(url)
+    if not content:
+        return f"Failed to fetch {url} (both direct and Jina fallback failed)."
+
+    # 2. Sub-agent analysis (isolated Haiku call)
+    analysis = _analyze_with_subagent(content, url, context)
+
+    # 3. Store full analysis in memory
+    try:
+        from remembering.scripts import remember as mem_remember
+        mem_id = mem_remember(
+            what=f"DEEP READ: {url}\n\n{analysis['full']}",
+            type="world",
+            tags=["deep-read", "perch"] + [t for t in analysis.get("tags", []) if isinstance(t, str)],
+        )
+    except Exception as e:
+        mem_id = f"store-failed-{e}"
+
+    # 4. Return only the brief summary
+    short_id = str(mem_id)[:8] if mem_id else "no-id"
+    return f"[{short_id}] {analysis['summary']}"
+
+
 # -- Executor dispatch --
 
 WORLD_EXECUTORS = {
@@ -447,4 +596,5 @@ WORLD_EXECUTORS = {
     "create_discussion": _create_discussion,
     "discussion_comments": execute_discussion_comments,
     "fetch_url": execute_fetch_url,
+    "deep_read": execute_deep_read,
 }

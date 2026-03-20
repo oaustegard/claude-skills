@@ -71,6 +71,9 @@ def build_discussion_body(record: dict) -> str:
             short = e[:200] + "..." if len(e) > 200 else e
             body += f"- `{short}`\n"
 
+    # Ensure Oskar gets notified (github-actions[bot] doesn't trigger notifications)
+    body += "\ncc @oaustegard\n"
+
     return body
 
 
