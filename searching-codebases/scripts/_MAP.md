@@ -9,7 +9,7 @@
 
 ### flowing.py
 > Imports: `sys, time, traceback, concurrent.futures, dataclasses`...
-- **StepState** (C) :36
+- **StepState** (C) :48
 - **task** (f) `(
     fn: Optional[Callable] = None,
     *,
@@ -19,12 +19,20 @@
     retry_max_backoff_ms: int = 30_000,
     timeout_s: Optional[float] = None,
     name: Optional[str] = None,
-)` :76
-- **Flow** (C) :193
-  - **__init__** (m) `(self, *terminals: TaskDef, max_workers: int = 5, fail_fast: bool = True)` :194
-  - **run** (m) `(self)` :202
-  - **value** (m) `(self, td: TaskDef)` :282
-  - **summary** (m) `(self)` :290
+    detached: bool = False,
+)` :89
+- **Flow** (C) :208
+  - **__init__** (m) `(self, *terminals: TaskDef, max_workers: int = 5, fail_fast: bool = True)` :209
+  - **_collect_tasks** (m) `(self)` :218
+  - **_build_layers** (m) `(self, tasks: set[TaskDef])` :232
+  - **_execute** (m) `(self, layers: list[list[TaskDef]], skip_succeeded: bool = False)` :260
+  - **_execute_detached** (m) `(self, detached_tasks: set[TaskDef])` :304
+  - **run** (m) `(self)` :347
+  - **resume** (m) `(self)` :377
+  - **override** (m) `(self, td: TaskDef, value: Any)` :411
+  - **value** (m) `(self, td: TaskDef)` :419
+  - **summary** (m) `(self)` :427
+  - **_all_task_defs** (m) `(self)` :441
 
 ### pipeline.py
 > Imports: `argparse, os, re, shutil, subprocess`...
