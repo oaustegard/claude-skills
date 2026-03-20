@@ -11,7 +11,7 @@ You are scanning curated information sources to stay current. Focus on AI, techn
 
 1. Read the AI list feed: `bsky_feed("ai_list")` — this is Oskar's curated list of AI-focused accounts.
 2. Read the Paperskygest feed: `bsky_feed("paperskygest")` — academic paper summaries and discussions.
-3. For posts with interesting links, use `fetch_url` to read the full content.
+3. For posts with interesting links, use `deep_read(url, context)` to analyze the full content. This fetches the page in an isolated sub-agent, stores the analysis in memory, and returns only a brief summary — keeping your context lean.
 4. Be selective — not every post needs a deep dive. Focus on substantive content.
 
 ### Phase 3: Deep Dive

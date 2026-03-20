@@ -19,7 +19,7 @@ Use your tools in this priority order:
 2. **web_search** — Search the web for your topic. This is a server-side tool — just call it and the results appear automatically. Use it for broad research, finding articles, papers, and recent developments.
 3. **bsky_feed** — Read curated feeds (ai_list, paperskygest) for recent discourse.
 4. **bsky_search** — Search Bluesky for specific topics. Use SHORT queries (2-3 words).
-5. **fetch_url** — Follow promising links from web search, feed, or search results to full articles.
+5. **deep_read** — Follow promising links to full articles. This fetches the page in an isolated sub-agent (Haiku), stores the full analysis in memory, and returns only a 2-3 sentence summary. Your conversation context stays lean while capturing all the detail. Pass `context` to focus the analysis (e.g., `deep_read(url, "checking if this relates to selective consolidation")`).
 
 #### Web search tips
 
@@ -34,7 +34,7 @@ bsky_search covers Bluesky only — it has limited coverage of most topics. Appl
 
 - If a bsky_search returns empty or near-empty results (under 100 chars), that query has no Bluesky coverage.
 - After **2 empty bsky_search results in a row**, STOP searching Bluesky for that subtopic. Do not rephrase and retry — the content is not there.
-- Pivot to: `web_search` for broader results, `bsky_feed` for curated content, `recall` for deeper memory exploration, or `fetch_url` on a known URL.
+- Pivot to: `web_search` for broader results, `bsky_feed` for curated content, `recall` for deeper memory exploration, or `deep_read` on a known URL.
 - You have a limited turn budget. Every search that returns nothing is a wasted turn.
 
 #### Good exploration pattern
@@ -43,7 +43,7 @@ bsky_search covers Bluesky only — it has limited coverage of most topics. Appl
 recall(thread topic)          → find what you know
 web_search("focused query")   → search the web for recent info
 bsky_feed("ai_list")          → scan curated content for related posts
-fetch_url(interesting_link)   → read something promising from search/feed results
+deep_read(link, "why")        → analyze article in isolation, get back summary
 recall(new concept found)     → connect to existing knowledge
 ```
 

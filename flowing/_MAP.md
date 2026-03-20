@@ -1,11 +1,15 @@
 # flowing/
-*Files: 1 | Subdirectories: 1*
+*Files: 2 | Subdirectories: 1*
 
 ## Subdirectories
 
 - [scripts/](./scripts/_MAP.md)
 
 ## Files
+
+### CHANGELOG.md
+- flowing - Changelog `h1` :1
+- [1.0.0] - 2026-03-20 `h2` :5
 
 ### SKILL.md
 - Flowing — DAG Workflow Runner `h1` :8
