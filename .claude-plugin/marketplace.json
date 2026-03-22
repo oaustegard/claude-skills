@@ -306,6 +306,19 @@
       "license": "MIT"
     },
     {
+      "name": "flowing",
+      "description": "Lightweight DAG workflow runner with checkpoint resume and detachable tasks. Use when orchestrating 3+ sequential or parallel tool calls into a single invocation, or when pipelines need resume-from-failure without re-running succeeded steps.",
+      "source": "./flowing",
+      "strict": false,
+      "skills": [
+        "./"
+      ],
+      "version": "1.0.0",
+      "repository": "https://github.com/oaustegard/claude-skills",
+      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/flowing",
+      "license": "MIT"
+    },
+    {
       "name": "forecasting-reverso",
       "description": "Zero-shot univariate time series forecasting using the Reverso foundation model (NumPy/Numba CPU-only inference). Activate when users provide time series data and request forecasts, predictions, or extrapolations. Supports Reverso Small (550K params). Triggers on \"forecast\", \"predict\", \"time series\", \"Reverso\", or when tabular data with a temporal dimension needs future-value estimation.",
       "source": "./forecasting-reverso",
@@ -447,6 +460,19 @@
       "version": "0.7.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills/tree/main/mapping-codebases",
+      "license": "MIT"
+    },
+    {
+      "name": "mapping-features",
+      "description": "Generate behavioral/feature documentation for web apps using code-first analysis. Reads source code and _MAP.md files to produce _FEATURES.md, with optional visual verification via browser automation. Companion to mapping-codebases. Use when documenting app behavior, creating feature inventories, generating behavioral ground truth for agents, or before modifying UI code. Triggers on \"map features\", \"document app behavior\", \"feature inventory\", \"what does this app do\".",
+      "source": "./mapping-features",
+      "strict": false,
+      "skills": [
+        "./"
+      ],
+      "version": "0.3.0",
+      "repository": "https://github.com/oaustegard/claude-skills",
+      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/mapping-features",
       "license": "MIT"
     },
     {
