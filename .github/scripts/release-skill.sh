@@ -357,13 +357,28 @@ Skills updated: $SKILL_LIST
     git commit -m "$COMMIT_MSG"
     echo "✓ Committed changelog updates"
 
-    # Push to main
+    # Push to main (with fetch-rebase-retry to handle concurrent pushes)
     echo "Pushing to main..."
-    git push origin HEAD:main
-    if [ $? -eq 0 ]; then
+    PUSH_SUCCESS=false
+    for attempt in 1 2 3; do
+      if git push origin HEAD:main 2>/dev/null; then
+        PUSH_SUCCESS=true
+        break
+      fi
+      echo "⚠️  Push attempt $attempt failed (ref conflict), rebasing on latest main..."
+      git fetch origin main
+      git rebase origin/main
+      if [ $? -ne 0 ]; then
+        echo "⚠️  Rebase failed — aborting"
+        git rebase --abort 2>/dev/null
+        break
+      fi
+    done
+
+    if [ "$PUSH_SUCCESS" = true ]; then
       echo "✓ Successfully pushed changelog updates to main"
     else
-      echo "⚠️  Failed to push changelog updates (releases were still successful)"
+      echo "⚠️  Failed to push changelog updates after 3 attempts (releases were still successful)"
       echo "   Changelog updates may need to be pushed manually"
     fi
   fi
