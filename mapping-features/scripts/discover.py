@@ -160,14 +160,28 @@ def discover_pages(app_url: str, max_pages: int = 20) -> list[PageInfo]:
             ))
             continue
 
+        # Check for redirect-as-gating: if final URL differs from intended
+        is_gated = False
+        gate_reason = ""
+        try:
+            current_url = run_webctl("evaluate", "window.location.href")
+            current_path = urlparse(current_url).path.rstrip("/") or "/"
+            intended_path = (parsed.path or "/").rstrip("/") or "/"
+            if current_path != intended_path:
+                is_gated = True
+                gate_reason = f"redirected to {current_url}"
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            pass
+
         # Capture accessibility snapshot
         try:
             snapshot = run_webctl("snapshot", "--interactive-only", "--limit", "50")
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
             snapshot = ""
 
-        # Check if gated
-        is_gated, gate_reason = detect_gated_page(snapshot)
+        # Check text-based gating heuristics (if not already gated by redirect)
+        if not is_gated:
+            is_gated, gate_reason = detect_gated_page(snapshot)
 
         page = PageInfo(
             url=url,

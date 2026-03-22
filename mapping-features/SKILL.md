@@ -2,7 +2,7 @@
 name: mapping-features
 description: Generate behavioral/feature documentation for brownfield web apps. Captures screenshots, accessibility trees, and behavioral invariants via browser automation, then synthesizes into _FEATURES.md. Companion to mapping-codebases. Use when documenting app behavior, creating feature inventories, generating behavioral ground truth for agents, or before modifying UI code. Triggers on "map features", "document app behavior", "feature inventory", "what does this app do".
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Mapping Features
@@ -44,12 +44,22 @@ python /mnt/skills/user/mapping-features/scripts/featuremap.py \
 | `--viewport` | `1280x720` | Screenshot viewport (WxH) |
 | `--skip-describe` | `false` | Capture only, skip Claude vision step |
 | `--incremental` | `false` | Only re-capture pages with changed screenshots |
+| `--routes` | none | Comma-separated routes or path to routes file |
 | `--screenshots-dir` | `<codebase>/screenshots` | Where to store PNGs |
 
 ## Execution Phases
 
 ### Phase 1: DISCOVER
 Reads `_MAP.md` + navigates app entry point via webctl. Crawls accessible routes by extracting nav links from accessibility snapshots. Builds a sitemap of reachable pages.
+
+For SPAs with JS-only navigation, use `--routes` to seed known paths:
+```bash
+python featuremap.py --app-url https://example.com --codebase . \
+  --routes /,/demo.html,/dashboard.html
+# Or from a file:
+python featuremap.py --app-url https://example.com --codebase . --routes routes.txt
+```
+Routes are merged with discover results (manual routes take priority).
 
 ### Phase 2: CAPTURE
 For each discovered page: takes a screenshot, captures the accessibility tree (interactive elements), and hashes the screenshot for staleness detection.
@@ -77,7 +87,7 @@ After manual capture, re-run with `--incremental` to describe the new pages.
 
 ## Staleness Detection
 
-Each run stores screenshot hashes in `_FEATURES_MANIFEST.json`. On re-run with `--incremental`, unchanged pages skip re-description. Changed pages are re-captured and re-described.
+Each run stores screenshot hashes and descriptions in `_FEATURES_MANIFEST.json`. On re-run with `--incremental`, unchanged pages reuse their stored descriptions (no API calls). Changed pages are re-captured and re-described.
 
 ## Output Format
 
@@ -124,5 +134,5 @@ App URL: https://example.com
 
 - Requires a running app instance (no static analysis of UI)
 - Claude API calls for vision cost tokens — use `--incremental` to minimize
-- Single-page apps with client-side routing may need manual route hints
+- Single-page apps with client-side routing may need `--routes` flag to seed known paths
 - Auth-gated pages require human intervention

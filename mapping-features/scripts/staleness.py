@@ -33,18 +33,36 @@ def load_manifest(codebase: Path) -> dict:
         return {}
 
 
-def save_manifest(codebase: Path, captures: list[PageCapture], app_url: str) -> Path:
-    """Save the features manifest with current screenshot hashes.
+def save_manifest(
+    codebase: Path,
+    captures: list[PageCapture],
+    app_url: str,
+    descriptions: list[dict] | None = None,
+) -> Path:
+    """Save the features manifest with current screenshot hashes and descriptions.
 
     Args:
         codebase: Path to codebase root.
         captures: List of PageCapture with current hashes.
         app_url: Base URL of the app.
+        descriptions: Optional list of description dicts to persist alongside hashes.
 
     Returns:
         Path to the written manifest file.
     """
     from datetime import datetime, timezone
+
+    # Build description lookup
+    desc_by_path: dict[str, str] = {}
+    if descriptions:
+        for d in descriptions:
+            text = d.get("description", "")
+            if text and not text.startswith("*(unchanged"):
+                desc_by_path[d["path"]] = text
+
+    # Preserve descriptions from old manifest for pages not re-described
+    old_manifest = load_manifest(codebase)
+    old_pages = old_manifest.get("pages", {})
 
     manifest: dict = {
         "app_url": app_url,
@@ -54,11 +72,17 @@ def save_manifest(codebase: Path, captures: list[PageCapture], app_url: str) -> 
 
     for c in captures:
         if c.screenshot_hash:
-            manifest["pages"][c.page.path] = {
+            entry: dict = {
                 "hash": c.screenshot_hash,
                 "screenshot": c.screenshot_path,
                 "url": c.page.url,
             }
+            # Store description: prefer fresh, fall back to old manifest
+            if c.page.path in desc_by_path:
+                entry["description"] = desc_by_path[c.page.path]
+            elif c.page.path in old_pages and "description" in old_pages[c.page.path]:
+                entry["description"] = old_pages[c.page.path]["description"]
+            manifest["pages"][c.page.path] = entry
         elif c.page.gated:
             manifest["pages"][c.page.path] = {
                 "hash": "",
