@@ -1,5 +1,5 @@
 # claude-skills/
-*Files: 4 | Subdirectories: 50*
+*Files: 1 | Subdirectories: 51*
 
 ## Subdirectories
 
@@ -39,6 +39,7 @@
 - [json-render-ui/](./json-render-ui/_MAP.md)
 - [making-waffles/](./making-waffles/_MAP.md)
 - [mapping-codebases/](./mapping-codebases/_MAP.md)
+- [mapping-features/](./mapping-features/_MAP.md)
 - [orchestrating-agents/](./orchestrating-agents/_MAP.md)
 - [orchestrating-skills/](./orchestrating-skills/_MAP.md)
 - [registry/](./registry/_MAP.md)
@@ -53,42 +54,6 @@
 - [updating-knowledge/](./updating-knowledge/_MAP.md)
 - [using-webctl/](./using-webctl/_MAP.md)
 - [versioning-skills/](./versioning-skills/_MAP.md)
-
-## Files
-
-### AGENTS.md
-- AGENTS.md `h1` :1
-- Repository Overview `h2` :5
-- Skills Availability in This Repository `h2` :11
-- Repository Structure `h2` :35
-- Working with Skills `h2` :56
-- Key Skills in This Repository `h2` :141
-- Important Implementation Patterns `h2` :159
-- Git Workflow `h2` :217
-- Common Tasks `h2` :236
-- Architecture Notes `h2` :265
-- Commit Hygiene `h2` :293
-- Anti-Patterns to Avoid `h2` :299
-- License `h2` :311
-
-### CLAUDE.md
-- ⚠️ Image & Art Generation: Use Gemini, Not SVG `h2` :3
-- Muninn Boot `h2` :24
-- Claude Code on the Web Development `h2` :60
-- Test Before PR `h2` :93
-- Environment-Specific Tips `h2` :106
-- Code Maps `h2` :165
-- Skill Development Workflow `h2` :221
-- PR Reviews and Code Testing `h2` :332
-- Remembering Skill and Handoff Process `h2` :473
-
-### README.md
-- claude-skills `h1` :1
-- Installing as a Plugin Marketplace (Claude Code) `h2` :5
-- Installing Skills for Claude.ai (Web/Mobile) `h2` :25
-- Contributing Skills `h2` :59
-- Releasing Skills `h2` :80
-- Resources `h2` :92
 
 ## Other Files
 
