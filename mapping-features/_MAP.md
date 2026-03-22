@@ -1,4 +1,4 @@
-# flowing/
+# mapping-features/
 *Subdirectories: 1*
 
 ## Subdirectories
