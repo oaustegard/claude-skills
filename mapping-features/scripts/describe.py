@@ -151,6 +151,22 @@ def _get_api_key() -> str:
     )
 
 
+def _get_api_url() -> str:
+    """Build the Anthropic API messages URL, routing through CF gateway if available.
+
+    Returns:
+        Full URL for the messages endpoint.
+    """
+    cf_account = os.environ.get("CF_ACCOUNT_ID", "").strip()
+    cf_gateway = os.environ.get("CF_GATEWAY_ID", "").strip()
+    if cf_account and cf_gateway:
+        return (
+            f"https://gateway.ai.cloudflare.com/v1/"
+            f"{cf_account}/{cf_gateway}/anthropic/v1/messages"
+        )
+    return "https://api.anthropic.com/v1/messages"
+
+
 def describe_page(
     capture: PageCapture,
     codebase: Path,
@@ -220,8 +236,10 @@ def describe_page(
         ],
     }).encode("utf-8")
 
+    api_url = _get_api_url()
+
     req = urllib.request.Request(
-        "https://api.anthropic.com/v1/messages",
+        api_url,
         data=payload,
         headers={
             "x-api-key": api_key,
