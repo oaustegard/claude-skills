@@ -523,8 +523,12 @@ def boot(mode: str = None) -> str:
     # Surface recent flight logs (#415)
     recent_flights = _load_recent_flights()
 
-    # Surface due reminders (#425)
-    due_reminders = _load_due_reminders()
+    # Surface due reminders (#445: use remind_due() from utility)
+    try:
+        from muninn_utils.remind import remind_due
+        due_reminders = remind_due(horizon_days=2)
+    except ImportError:
+        due_reminders = []
 
     # Filter ops by boot_load flag (progressive disclosure)
     # Reference-only entries (boot_load=0) excluded from boot output but accessible via config_get()
@@ -649,31 +653,6 @@ def _load_recent_flights(n: int = 5) -> list:
         return []
 
 
-def _load_due_reminders() -> list:
-    """Load reminders that are due for boot display (#425).
-
-    Queries active reminders and filters to those where valid_from <= now.
-    Does NOT mark reminders as delivered — that happens in-conversation
-    via muninn_utils.remind.deliver().
-
-    Returns list of dicts with 'summary', 'valid_from', 'id'.
-    Safe to call — returns empty list on any error.
-    """
-    try:
-        reminders = recall(tags=["reminder", "active"], n=50, tag_mode="all")
-        if not reminders:
-            return []
-
-        now_iso = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-        due = []
-        for r in reminders:
-            valid_from = r.get('valid_from', '')
-            if valid_from and valid_from <= now_iso:
-                due.append(r)
-        return due
-    except Exception:
-        return []
-
 
 def _time_anchor() -> str:
     """Generate current time context for boot output.
@@ -750,7 +729,7 @@ def _format_boot_output(profile_data: list, ops_by_topic: dict,
         installed_utils: Dict of {name: {"path": path, "use_when": str|None}} from install_utilities()
         github_access: Dict from detect_github_access() with GitHub capabilities
         recent_flights: List of recent flight log discussions from GitHub (#415)
-        due_reminders: List of due reminder memories from _load_due_reminders() (#425)
+        due_reminders: List of dicts from remind_due() with text/status/kind/recur_days (#445)
 
     Returns:
         Formatted boot output string with markdown headings
@@ -849,17 +828,14 @@ def _format_boot_output(profile_data: list, ops_by_topic: dict,
             title = f.get("title", "Untitled")
             output.append(f"- #{number} ({date}, {status}): {title}")
 
-    # Due reminders section (#425: reminder surfacing at boot)
+    # Due reminders section (#445: remind_due() from utility, replaces #425)
     if due_reminders:
         output.append("\n🔔 REMINDERS:")
         for r in due_reminders:
-            text = r.get('summary', '')
-            # Strip "REMINDER: " prefix for cleaner display
-            if text.upper().startswith('REMINDER: '):
-                text = text[len('REMINDER: '):]
-            due_time = r.get('valid_from', 'unknown')
+            status_icon = "⚠️" if r.get("status") == "overdue" else "📅"
+            recur = f" (every {r['recur_days']}d)" if r.get("recur_days") else ""
             short_id = r.get('id', '')[:8]
-            output.append(f"  - {text} (due: {due_time}, id: {short_id})")
+            output.append(f"  - {status_icon} [{r.get('status', '?')}] {r.get('text', '')}{recur} (id: {short_id})")
 
     return '\n'.join(output)
 
