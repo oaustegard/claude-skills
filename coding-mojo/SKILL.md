@@ -1,6 +1,8 @@
 ---
 name: coding-mojo
 description: Develop and run Mojo code in Claude.ai containers. Handles installation, compilation, and execution. Use when writing Mojo code, benchmarking Mojo vs Python, or when user mentions Mojo, Modular, or MAX. Routes to Modular's official skills (mojo-syntax, mojo-python-interop, mojo-gpu-fundamentals) for language-specific correction layers.
+metadata:
+  version: 0.1.0
 ---
 
 # Mojo Development in Claude.ai Containers
@@ -9,16 +11,15 @@ Mojo is a systems programming language from Modular that combines Python-like sy
 
 ## Installation
 
-Install once per session. Takes ~30s.
+Install once per session. Takes ~30s. Prefer `uv` for speed; fall back to `pip` only if `uv` is not available.
 
 ```bash
-pip install --break-system-packages modular 2>&1 | tail -5
+if command -v uv &>/dev/null; then
+  uv pip install --system modular 2>&1 | tail -5
+else
+  pip install --break-system-packages modular 2>&1 | tail -5
+fi
 mojo --version
-```
-
-Alternative with uv (if available):
-```bash
-uv pip install --system --break-system-packages modular
 ```
 
 Verify:
