@@ -137,6 +137,18 @@
       "license": "MIT"
     },
     {
+      "name": "coding-mojo",
+      "description": "Develop and run Mojo code in Claude.ai containers. Handles installation, compilation, and execution. Use when writing Mojo code, benchmarking Mojo vs Python, or when user mentions Mojo, Modular, or MAX. Routes to Modular's official skills (mojo-syntax, mojo-python-interop, mojo-gpu-fundamentals) for language-specific correction layers.",
+      "source": "./coding-mojo",
+      "strict": false,
+      "skills": [
+        "./"
+      ],
+      "repository": "https://github.com/oaustegard/claude-skills",
+      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/coding-mojo",
+      "license": "MIT"
+    },
+    {
       "name": "configuring",
       "description": "Universal environment variable loader for AI agent environments. Loads secrets and config from Claude.ai, Claude Code, OpenAI Codex, Jules, and standard .env files.",
       "source": "./configuring",
