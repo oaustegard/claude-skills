@@ -2,7 +2,7 @@
 name: coding-mojo
 description: Develop and run Mojo code in Claude.ai containers. Handles installation, compilation, and execution. Use when writing Mojo code, benchmarking Mojo vs Python, or when user mentions Mojo, Modular, or MAX. Routes to Modular's official skills (mojo-syntax, mojo-python-interop, mojo-gpu-fundamentals) for language-specific correction layers.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Mojo Development in Claude.ai Containers
@@ -11,45 +11,49 @@ Mojo is a systems programming language from Modular that combines Python-like sy
 
 ## Installation
 
-Install once per session. Takes ~30s. Prefer `uv` for speed; fall back to `pip` only if `uv` is not available.
+Install once per session (~20s via uv, ~500MB). Skip if already installed.
 
 ```bash
-if command -v uv &>/dev/null; then
-  uv pip install --system modular 2>&1 | tail -5
+if mojo --version 2>/dev/null; then
+  echo "Mojo already installed"
 else
-  pip install --break-system-packages modular 2>&1 | tail -5
+  uv pip install --system --break-system-packages modular 2>&1 | tail -5
+  mojo --version
 fi
-mojo --version
 ```
 
 Verify:
 ```bash
-mojo -e 'print("Mojo ready")'
+echo 'def main(): print("Mojo ready")' > /tmp/_verify.mojo && mojo /tmp/_verify.mojo
 ```
 
 ## Running Mojo Code
 
-**Inline execution** (quick tests):
+**Quick tests** (write to temp file):
 ```bash
-mojo -e 'print("hello")'
+cat > /tmp/test.mojo << 'EOF'
+def main():
+    print("hello")
+EOF
+mojo /tmp/test.mojo
 ```
 
-**File execution** (compile + run):
+**File execution** (JIT compile + run, ~1.4s overhead):
 ```bash
 cat > /home/claude/example.mojo << 'EOF'
 def main():
     print("Hello from Mojo")
 EOF
-mojo run /home/claude/example.mojo
+mojo /home/claude/example.mojo
 ```
 
-**Build binary** (for benchmarking):
+**Build binary** (for benchmarking — ~6s cold compile, but binary runs at native speed):
 ```bash
 mojo build /home/claude/example.mojo -o /home/claude/example
 /home/claude/example
 ```
 
-Use `mojo build` for benchmarks — `mojo run` includes compilation overhead.
+Use `mojo build` for benchmarks — `mojo` (JIT) includes ~1.4s compilation overhead per run. There is no `mojo -e` flag; always write to a file.
 
 ## Critical Syntax Corrections (v26.2)
 
@@ -62,9 +66,13 @@ Pretrained models generate outdated Mojo. These corrections are current as of Mo
 | `inout self` | `mut self` / `out self` | `mut` for mutation, `out` for `__init__` |
 | `@parameter for` | `comptime for` | Compile-time loops |
 | `List[Int](1, 2, 3)` | `[1, 2, 3]` | Collection literals |
-| `from math import sqrt` | `from std.math import sqrt` | `std.` prefix required for stdlib |
+| `from math import sqrt` | `from std.math import sqrt` | `std.` prefix required for **all** stdlib modules |
+| `from time import X` | `from std.time import X` | Includes `perf_counter_ns`, `sleep`, etc. |
 | `__str__` / `Stringable` | `write_to` / `Writable` | String conversion protocol |
 | `String(self.x)` for int→str | `String(self.x)` | This one is actually correct, but `str()` is not |
+| `list.append(item)` | `list.append(item^)` | Non-copyable types require `^` transfer operator |
+| `var x: Int = perf_counter_ns()` | `var x: UInt = perf_counter_ns()` | Time functions return `UInt`, not `Int` |
+| Implicit copy of `List[T]` | `.copy()` or `^` transfer | `List` is not implicitly copyable; use explicit copy or move |
 
 ## Companion Skills (Modular Official)
 
@@ -102,9 +110,15 @@ def fib(n):
     for _ in range(n):
         a, b = b, a + b
     return a
-start = time.perf_counter()
+# Warmup + timed runs
 fib(90)
-print(f'Python: {(time.perf_counter() - start)*1e6:.1f} µs')
+times = []
+for _ in range(100):
+    start = time.perf_counter()
+    fib(90)
+    times.append((time.perf_counter() - start) * 1e6)
+import statistics
+print(f'Python: median={statistics.median(times):.1f} µs, min={min(times):.1f} µs')
 "
 
 # Mojo version
@@ -121,13 +135,23 @@ def fib(n: Int) -> Int:
     return a
 
 def main():
-    var start = perf_counter_ns()
-    var result = fib(90)
-    var elapsed = perf_counter_ns() - start
-    print("Mojo:", elapsed, "ns (", result, ")")
+    # Warmup
+    _ = fib(90)
+    
+    # Timed runs
+    var total_ns: UInt = 0
+    var min_ns: UInt = 999999999
+    for _ in range(100):
+        var start = perf_counter_ns()
+        _ = fib(90)
+        var elapsed = perf_counter_ns() - start
+        total_ns += elapsed
+        if elapsed < min_ns:
+            min_ns = elapsed
+    print("Mojo: mean =", total_ns // 100, "ns, min =", min_ns, "ns")
 EOF
 mojo build /home/claude/fib.mojo -o /home/claude/fib
 /home/claude/fib
 ```
 
-Expected: Mojo is 50-100x faster than CPython on tight numeric loops. SIMD and parallelism widen the gap further but require mojo-syntax and mojo-gpu-fundamentals skills for correct usage.
+Expected: Mojo is ~50x faster than CPython on tight numeric loops. SIMD and parallelism widen the gap further but require mojo-syntax and mojo-gpu-fundamentals skills for correct usage.
