@@ -470,7 +470,7 @@
       "skills": [
         "./"
       ],
-      "version": "0.7.0",
+      "version": "0.7.1",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills/tree/main/mapping-codebases",
       "license": "MIT"
