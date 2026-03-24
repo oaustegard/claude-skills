@@ -8,12 +8,119 @@ Requires Python 3.10+ and tree-sitter-language-pack.
 
 import os
 import sys
+import subprocess
+import json
+import platform
 from pathlib import Path
 from dataclasses import dataclass, field
-from tree_sitter_language_pack import get_parser
 
 # Module-level verbose flag, set by main()
 VERBOSE = False
+_PARSERS_BOOTSTRAPPED = False
+
+
+def _bootstrap_parsers():
+    """Download tree-sitter parsers via curl if Python's SSL can't reach GitHub.
+
+    tree-sitter-language-pack downloads parser .so files at first use from GitHub
+    Releases. In proxied environments (e.g., Claude.ai containers), Python's SSL
+    may fail certificate verification while curl (using the system cert store)
+    succeeds. This function detects the failure and populates the cache via curl.
+    """
+    global _PARSERS_BOOTSTRAPPED
+    if _PARSERS_BOOTSTRAPPED:
+        return
+    _PARSERS_BOOTSTRAPPED = True
+
+    from tree_sitter_language_pack import cache_dir as _cache_dir
+    try:
+        from tree_sitter_language_pack import get_parser as _test_get
+        _test_get('python')
+        return  # Parsers already available
+    except Exception as e:
+        if 'Download error' not in str(e) and 'DownloadError' not in type(e).__name__:
+            raise  # Not a download issue — re-raise
+        _debug(f"Parser download failed in Python ({e}), attempting curl fallback...")
+
+    # Determine cache paths
+    try:
+        from tree_sitter_language_pack import __version__ as _tslp_version
+    except ImportError:
+        _tslp_version = "1.1.2"  # fallback
+
+    cache_base = _cache_dir()  # e.g., ~/.cache/tree-sitter-language-pack/v1.1.2/libs
+    cache_libs = Path(cache_base)
+    cache_root = cache_libs.parent  # .../v1.1.2/
+
+    release_base = f"https://github.com/kreuzberg-dev/tree-sitter-language-pack/releases/download/v{_tslp_version}"
+    manifest_url = f"{release_base}/parsers.json"
+    manifest_path = cache_root / "manifest.json"
+
+    # Step 1: Fetch manifest
+    if not manifest_path.exists():
+        cache_root.mkdir(parents=True, exist_ok=True)
+        _debug(f"Fetching manifest from {manifest_url}")
+        result = subprocess.run(
+            ["curl", "-sL", manifest_url, "-o", str(manifest_path)],
+            capture_output=True, timeout=30
+        )
+        if result.returncode != 0 or not manifest_path.exists():
+            print(f"WARNING: Could not fetch tree-sitter parser manifest via curl", file=sys.stderr)
+            return
+
+    # Step 2: Determine platform and download parsers
+    with open(manifest_path) as f:
+        manifest = json.load(f)
+
+    arch = platform.machine()
+    plat_key = f"linux-{arch}"
+    if plat_key not in manifest.get("platforms", {}):
+        print(f"WARNING: No tree-sitter parsers for platform {plat_key}", file=sys.stderr)
+        return
+
+    info = manifest["platforms"][plat_key]
+    tarball_url = info["url"]
+    tarball_path = cache_root / f"parsers-{plat_key}.tar.zst"
+
+    if not any(cache_libs.glob("*.so")):
+        _debug(f"Downloading parsers from {tarball_url}")
+        cache_libs.mkdir(parents=True, exist_ok=True)
+
+        result = subprocess.run(
+            ["curl", "-sL", tarball_url, "-o", str(tarball_path)],
+            capture_output=True, timeout=120
+        )
+        if result.returncode != 0:
+            print(f"WARNING: Could not download tree-sitter parsers via curl", file=sys.stderr)
+            return
+
+        # Extract — try zstd directly, which is commonly available
+        result = subprocess.run(
+            ["tar", "--use-compress-program=unzstd", "-xf", str(tarball_path), "-C", str(cache_libs)],
+            capture_output=True, timeout=60
+        )
+        if result.returncode != 0:
+            # Fallback: decompress then extract
+            tar_path = tarball_path.with_suffix('')
+            subprocess.run(["zstd", "-d", str(tarball_path), "-o", str(tar_path)],
+                           capture_output=True, timeout=60)
+            subprocess.run(["tar", "xf", str(tar_path), "-C", str(cache_libs)],
+                           capture_output=True, timeout=60)
+
+        so_count = len(list(cache_libs.glob("*.so")))
+        if so_count > 0:
+            _debug(f"Cached {so_count} parser libraries in {cache_libs}")
+        else:
+            print(f"WARNING: Parser extraction produced no .so files", file=sys.stderr)
+    else:
+        _debug(f"Parsers already cached ({len(list(cache_libs.glob('*.so')))} .so files)")
+
+
+def _get_parser(lang: str):
+    """Get a tree-sitter parser, bootstrapping the cache if needed."""
+    _bootstrap_parsers()
+    from tree_sitter_language_pack import get_parser
+    return get_parser(lang)
 
 def _debug(msg: str):
     """Print debug message if verbose mode is enabled."""
@@ -767,7 +874,7 @@ def analyze_file(filepath: Path) -> FileInfo | None:
         return None
     
     try:
-        parser = get_parser(lang)
+        parser = _get_parser(lang)
         source = filepath.read_bytes()
         tree = parser.parse(source)
 
@@ -892,15 +999,26 @@ def generate_map_for_directory(dirpath: Path, skip_dirs: set[str]) -> str | None
 def generate_maps(root: Path, skip_dirs: set[str], dry_run: bool = False):
     """Walk directory tree and generate _MAP.md files."""
     count = 0
+    total_parseable = 0
+    total_parsed = 0
     
     for dirpath, dirnames, filenames in os.walk(root):
         # Filter out skip dirs in-place
         dirnames[:] = [d for d in dirnames if d not in skip_dirs and not d.startswith('.')]
         
         path = Path(dirpath)
+
+        # Count parseable files in this directory for diagnostics
+        for f in filenames:
+            if get_language(Path(f)) is not None:
+                total_parseable += 1
+
         content = generate_map_for_directory(path, skip_dirs)
         
         if content:
+            # Count how many files actually got symbols (not just "Other Files")
+            total_parsed += content.count('### ')  # each parsed file gets an h3
+
             map_path = path / '_MAP.md'
             if dry_run:
                 print(f"Would write: {map_path}")
@@ -911,6 +1029,14 @@ def generate_maps(root: Path, skip_dirs: set[str], dry_run: bool = False):
                 print(f"Wrote: {map_path}")
             count += 1
     
+    # Warn if parseable files exist but none were successfully parsed
+    if total_parseable > 0 and total_parsed == 0:
+        print(f"\nWARNING: Found {total_parseable} parseable files but none were successfully parsed.", file=sys.stderr)
+        print(f"  This usually means tree-sitter parsers could not be downloaded.", file=sys.stderr)
+        print(f"  Try: curl the parsers manually or check network/SSL configuration.", file=sys.stderr)
+    elif total_parseable > 0 and total_parsed < total_parseable:
+        _debug(f"Parsed {total_parsed}/{total_parseable} parseable files")
+
     return count
 
 
