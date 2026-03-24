@@ -1,11 +1,11 @@
 ---
-name: mapping-features
+name: mapping-webapp
 description: Generate behavioral/feature documentation for web apps using code-first analysis. Reads source code and _MAP.md files to produce _FEATURES.md, with optional visual verification via browser automation. Companion to mapping-codebases. Use when documenting app behavior, creating feature inventories, generating behavioral ground truth for agents, or before modifying UI code. Triggers on "map features", "document app behavior", "feature inventory", "what does this app do".
 metadata:
   version: 0.3.0
 ---
 
-# Mapping Features
+# Mapping Webapp
 
 Generate `_FEATURES.md` files documenting what a web app *does* — screens, flows, states, behavioral invariants. Companion to `mapping-codebases` which documents code *structure*.
 
@@ -21,15 +21,15 @@ Generate `_FEATURES.md` files documenting what a web app *does* — screens, flo
 
 ```bash
 # Code-only analysis (no browser needed):
-python /mnt/skills/user/mapping-features/scripts/featuremap.py \
+python /mnt/skills/user/mapping-webapp/scripts/featuremap.py \
   --app-url https://example.com --codebase /path/to/repo --code-only
 
 # Full pipeline (code analysis + selective visual verification):
-python /mnt/skills/user/mapping-features/scripts/featuremap.py \
+python /mnt/skills/user/mapping-webapp/scripts/featuremap.py \
   --app-url https://example.com --codebase /path/to/repo
 
 # Incremental update:
-python /mnt/skills/user/mapping-features/scripts/featuremap.py \
+python /mnt/skills/user/mapping-webapp/scripts/featuremap.py \
   --app-url https://example.com --codebase . --incremental
 ```
 
@@ -146,7 +146,7 @@ App URL: https://example.com
 `_FEATURES.md` is the behavioral source of truth. Combined with `_MAP.md` (structural):
 
 1. `mapping-codebases` → `_MAP.md` (structural)
-2. `mapping-features` → `_FEATURES.md` (behavioral)
+2. `mapping-webapp` → `_FEATURES.md` (behavioral)
 3. Merge both into CLAUDE.md architecture/concepts sections
 
 ## Limitations

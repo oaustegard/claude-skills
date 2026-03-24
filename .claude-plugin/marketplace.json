@@ -476,16 +476,16 @@
       "license": "MIT"
     },
     {
-      "name": "mapping-features",
+      "name": "mapping-webapp",
       "description": "Generate behavioral/feature documentation for web apps using code-first analysis. Reads source code and _MAP.md files to produce _FEATURES.md, with optional visual verification via browser automation. Companion to mapping-codebases. Use when documenting app behavior, creating feature inventories, generating behavioral ground truth for agents, or before modifying UI code. Triggers on \"map features\", \"document app behavior\", \"feature inventory\", \"what does this app do\".",
-      "source": "./mapping-features",
+      "source": "./mapping-webapp",
       "strict": false,
       "skills": [
         "./"
       ],
       "version": "0.3.0",
       "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/mapping-features",
+      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/mapping-webapp",
       "license": "MIT"
     },
     {

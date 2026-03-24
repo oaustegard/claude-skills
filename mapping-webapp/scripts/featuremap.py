@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-mapping-features main entry point.
+mapping-webapp main entry point.
 
 Orchestrates the code-first feature mapping pipeline:
   Phase 1: DISCOVER — find pages from code structure
