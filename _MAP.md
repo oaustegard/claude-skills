@@ -40,7 +40,7 @@
 - [json-render-ui/](./json-render-ui/_MAP.md)
 - [making-waffles/](./making-waffles/_MAP.md)
 - [mapping-codebases/](./mapping-codebases/_MAP.md)
-- [mapping-features/](./mapping-features/_MAP.md)
+- [mapping-webapp/](./mapping-webapp/_MAP.md)
 - [orchestrating-agents/](./orchestrating-agents/_MAP.md)
 - [orchestrating-skills/](./orchestrating-skills/_MAP.md)
 - [registry/](./registry/_MAP.md)

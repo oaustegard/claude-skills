@@ -1,4 +1,4 @@
-# mapping-features/
+# mapping-webapp/
 *Subdirectories: 1*
 
 ## Subdirectories

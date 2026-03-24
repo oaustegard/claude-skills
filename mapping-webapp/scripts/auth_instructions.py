@@ -68,9 +68,9 @@ def generate_auth_instructions(
     lines.extend([
         "### After Manual Capture",
         "",
-        "Re-run mapping-features with `--incremental` to describe the newly captured pages:",
+        "Re-run mapping-webapp with `--incremental` to describe the newly captured pages:",
         "```bash",
-        "python /mnt/skills/user/mapping-features/scripts/featuremap.py \\",
+        "python /mnt/skills/user/mapping-webapp/scripts/featuremap.py \\",
         "  --app-url <APP_URL> --codebase <CODEBASE> --incremental",
         "```",
     ])
