@@ -20,12 +20,12 @@ _PARSERS_BOOTSTRAPPED = False
 
 
 def _bootstrap_parsers():
-    """Download tree-sitter parsers via curl if Python's SSL can't reach GitHub.
+    """Ensure tree-sitter parsers are available in the cache.
 
-    tree-sitter-language-pack downloads parser .so files at first use from GitHub
-    Releases. In proxied environments (e.g., Claude.ai containers), Python's SSL
-    may fail certificate verification while curl (using the system cert store)
-    succeeds. This function detects the failure and populates the cache via curl.
+    Resolution order:
+    1. Already cached (normal tree-sitter-language-pack path) — no action
+    2. Bundled in this skill's parsers/ directory — copy to cache
+    3. Download via curl (system cert store bypasses proxy SSL issues)
     """
     global _PARSERS_BOOTSTRAPPED
     if _PARSERS_BOOTSTRAPPED:
@@ -40,23 +40,45 @@ def _bootstrap_parsers():
     except Exception as e:
         if 'Download error' not in str(e) and 'DownloadError' not in type(e).__name__:
             raise  # Not a download issue — re-raise
-        _debug(f"Parser download failed in Python ({e}), attempting curl fallback...")
+        _debug(f"Parser download failed in Python ({e}), checking bundled parsers...")
 
-    # Determine cache paths
+    cache_libs = Path(_cache_dir())  # e.g., ~/.cache/tree-sitter-language-pack/v1.1.2/libs
+    cache_libs.mkdir(parents=True, exist_ok=True)
+
+    # Strategy 1: Copy bundled parsers from skill directory
+    bundled_dir = Path(__file__).parent.parent / "parsers"
+    if bundled_dir.is_dir():
+        bundled_sos = list(bundled_dir.glob("*.so"))
+        if bundled_sos:
+            import shutil
+            copied = 0
+            for so_file in bundled_sos:
+                dest = cache_libs / so_file.name
+                if not dest.exists():
+                    shutil.copy2(so_file, dest)
+                    copied += 1
+            _debug(f"Copied {copied} bundled parsers from {bundled_dir} to {cache_libs}")
+            # Verify it works now
+            try:
+                from tree_sitter_language_pack import get_parser as _verify
+                _verify('python')
+                return  # Bundled parsers worked
+            except Exception:
+                _debug("Bundled parsers copied but still failing — trying curl download")
+
+    # Strategy 2: Download all parsers via curl (system cert store)
+    _debug("No bundled parsers available, attempting curl download...")
     try:
         from tree_sitter_language_pack import __version__ as _tslp_version
     except ImportError:
-        _tslp_version = "1.1.2"  # fallback
+        _tslp_version = "1.1.2"
 
-    cache_base = _cache_dir()  # e.g., ~/.cache/tree-sitter-language-pack/v1.1.2/libs
-    cache_libs = Path(cache_base)
-    cache_root = cache_libs.parent  # .../v1.1.2/
-
+    cache_root = cache_libs.parent
     release_base = f"https://github.com/kreuzberg-dev/tree-sitter-language-pack/releases/download/v{_tslp_version}"
     manifest_url = f"{release_base}/parsers.json"
     manifest_path = cache_root / "manifest.json"
 
-    # Step 1: Fetch manifest
+    # Fetch manifest
     if not manifest_path.exists():
         cache_root.mkdir(parents=True, exist_ok=True)
         _debug(f"Fetching manifest from {manifest_url}")
@@ -64,11 +86,11 @@ def _bootstrap_parsers():
             ["curl", "-sL", manifest_url, "-o", str(manifest_path)],
             capture_output=True, timeout=30
         )
-        if result.returncode != 0 or not manifest_path.exists():
+        if result.returncode != 0 or not manifest_path.exists() or manifest_path.stat().st_size == 0:
             print(f"WARNING: Could not fetch tree-sitter parser manifest via curl", file=sys.stderr)
             return
 
-    # Step 2: Determine platform and download parsers
+    # Determine platform and download
     with open(manifest_path) as f:
         manifest = json.load(f)
 
@@ -84,8 +106,6 @@ def _bootstrap_parsers():
 
     if not any(cache_libs.glob("*.so")):
         _debug(f"Downloading parsers from {tarball_url}")
-        cache_libs.mkdir(parents=True, exist_ok=True)
-
         result = subprocess.run(
             ["curl", "-sL", tarball_url, "-o", str(tarball_path)],
             capture_output=True, timeout=120
@@ -100,7 +120,7 @@ def _bootstrap_parsers():
             capture_output=True, timeout=60
         )
         if result.returncode != 0:
-            # Fallback: decompress then extract
+            # Fallback: decompress then extract separately
             tar_path = tarball_path.with_suffix('')
             subprocess.run(["zstd", "-d", str(tarball_path), "-o", str(tar_path)],
                            capture_output=True, timeout=60)
@@ -112,8 +132,6 @@ def _bootstrap_parsers():
             _debug(f"Cached {so_count} parser libraries in {cache_libs}")
         else:
             print(f"WARNING: Parser extraction produced no .so files", file=sys.stderr)
-    else:
-        _debug(f"Parsers already cached ({len(list(cache_libs.glob('*.so')))} .so files)")
 
 
 def _get_parser(lang: str):
