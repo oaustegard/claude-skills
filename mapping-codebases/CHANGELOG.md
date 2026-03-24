@@ -2,6 +2,28 @@
 
 All notable changes to the `mapping-codebases` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.7.1] - 2026-03-24
+
+### Added
+
+- use bundled parsers first, curl as fallback
+- bundle markdown parser
+- bundle html parser
+- bundle java parser
+- bundle ruby parser
+- bundle rust parser
+- bundle go parser
+- bundle tsx parser
+- bundle typescript parser
+- bundle javascript parser
+- bundle python parser
+- add mapping-features skill for behavioral web app documentation (#432)
+
+### Fixed
+
+- curl fallback for tree-sitter parser download
+- document actual sample_firehose() return format and add missing bsky utility exports
+
 ## [0.7.0] - 2026-02-28
 
 ### Added
