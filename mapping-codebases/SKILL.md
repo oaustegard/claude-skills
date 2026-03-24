@@ -16,6 +16,8 @@ uv venv /home/claude/.venv
 uv pip install tree-sitter-language-pack --python /home/claude/.venv/bin/python
 ```
 
+**Bundled parsers**: The skill includes pre-built parsers for all 10 supported languages (Python, JavaScript, TypeScript, TSX, Go, Rust, Ruby, Java, HTML, Markdown) in `parsers/`. These are used automatically when the tree-sitter-language-pack runtime download fails (e.g., in proxied environments). No network access needed for supported languages.
+
 ## Generate Maps
 
 ```bash
