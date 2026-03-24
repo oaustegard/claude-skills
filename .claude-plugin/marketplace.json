@@ -386,6 +386,18 @@
       "license": "MIT"
     },
     {
+      "name": "image-to-svg",
+      "description": "Convert raster images (photos, paintings, illustrations) into SVG vector reproductions. Use when the user uploads an image and asks to reproduce, vectorize, trace, or convert it to SVG. Also use when asked to decompose an image into shapes, create an SVG version of a picture, or faithfully reproduce artwork as vector graphics. Do NOT use for creating original SVG illustrations from text descriptions — only for converting existing raster images.",
+      "source": "./image-to-svg",
+      "strict": false,
+      "skills": [
+        "./"
+      ],
+      "repository": "https://github.com/oaustegard/claude-skills",
+      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/image-to-svg",
+      "license": "MIT"
+    },
+    {
       "name": "inspecting-skills",
       "description": "Discovers and indexes Python code in skills, enabling cross-skill imports. Use when importing functions from other skills or analyzing skill codebases.",
       "source": "./inspecting-skills",
