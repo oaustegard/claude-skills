@@ -322,6 +322,29 @@ def _convert_timestamp_to_local(data: dict, field: str) -> None:
         pass  # Leave original value on parse failure
 
 
+def normalize_to_utc(ts: str) -> str:
+    """Convert any ISO timestamp to UTC for database queries.
+
+    Recall output now includes timezone offsets (e.g. -04:00). If those values
+    are fed back as since/until/after/before parameters, they must be normalized
+    to UTC to match the database's storage format.
+
+    Returns the original string unchanged if parsing fails or input is already UTC.
+    """
+    if not ts or not isinstance(ts, str):
+        return ts
+    try:
+        normalized = ts.replace('Z', '+00:00') if ts.endswith('Z') else ts
+        dt = datetime.fromisoformat(normalized)
+        if dt.tzinfo is None:
+            return ts  # Naive timestamps are already assumed UTC by the DB
+        utc_dt = dt.astimezone(timezone.utc)
+        # Return in the same format the DB uses: YYYY-MM-DDTHH:MM:SSZ
+        return utc_dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+    except (ValueError, TypeError):
+        return ts
+
+
 def wrap_results(results: List[dict]) -> MemoryResultList:
     """Wrap a list of memory dicts in MemoryResult objects.
 

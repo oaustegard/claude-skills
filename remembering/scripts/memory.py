@@ -30,7 +30,7 @@ from .turso import (
 )
 # Import config_get and config_set for recall-triggers management
 from .config import config_get, config_set
-from .result import wrap_results, MemoryResult, MemoryResultList
+from .result import wrap_results, normalize_to_utc, MemoryResult, MemoryResultList
 
 # v3.2.0: Register automatic flush on exit to prevent data loss from background writes
 @atexit.register
@@ -366,6 +366,12 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
     if fetch_all:
         search = None
 
+    # v5.5.0: Normalize time inputs to UTC for DB comparison (#461)
+    if since is not None:
+        since = normalize_to_utc(since)
+    if until is not None:
+        until = normalize_to_utc(until)
+
     # Track timing
     start_time = time.time()
 
@@ -647,7 +653,11 @@ def recall_since(after: str, *, search: str = None, n: int = 50,
 
     v3.2.0: Converted to parameterized queries for SQL injection protection.
     v3.4.0: Returns MemoryResult objects that validate field access.
+    v5.5.0: Input timestamps normalized to UTC (#461).
     """
+    # v5.5.0: Normalize input to UTC for DB comparison (#461)
+    after = normalize_to_utc(after)
+
     conditions = [
         "deleted_at IS NULL",
         "t > ?",
@@ -715,7 +725,12 @@ def recall_between(after: str, before: str, *, search: str = None,
 
     v3.2.0: Converted to parameterized queries for SQL injection protection.
     v3.4.0: Returns MemoryResult objects that validate field access.
+    v5.5.0: Input timestamps normalized to UTC (#461).
     """
+    # v5.5.0: Normalize inputs to UTC for DB comparison (#461)
+    after = normalize_to_utc(after)
+    before = normalize_to_utc(before)
+
     conditions = [
         "deleted_at IS NULL",
         "t > ?",
