@@ -5,7 +5,9 @@ v3.4.0: Added to provide immediate validation on field access.
 Replaces plain dicts returned by recall() to catch field name errors at access time.
 """
 
+from datetime import datetime, timezone
 from typing import Any, Iterator, List, Optional, Set
+from zoneinfo import ZoneInfo
 
 
 # Valid fields that can be accessed on memory results
@@ -288,7 +290,59 @@ def _normalize_memory(data: dict) -> dict:
                 pass
         data['alternatives'] = alternatives if alternatives else None
 
+    # v5.5.0: Convert valid_from from UTC to user's local timezone (#461)
+    _convert_timestamp_to_local(data, 'valid_from')
+
     return data
+
+
+# Timezone for display conversion — single-user system, hardcoded per issue #461
+_LOCAL_TZ = ZoneInfo('America/New_York')
+
+
+def _convert_timestamp_to_local(data: dict, field: str) -> None:
+    """Convert a UTC ISO timestamp field to local timezone in-place.
+
+    Handles both 'Z' suffix and '+00:00' offset formats.
+    Produces ISO 8601 with offset, e.g. '2026-03-24T20:19:09-04:00'.
+    """
+    raw = data.get(field)
+    if not raw or not isinstance(raw, str):
+        return
+    try:
+        # Parse — fromisoformat handles 'Z' suffix in Python 3.11+
+        # For broader compat, normalize 'Z' to '+00:00'
+        ts = raw.replace('Z', '+00:00') if raw.endswith('Z') else raw
+        dt = datetime.fromisoformat(ts)
+        # If naive (no tzinfo), assume UTC
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        data[field] = dt.astimezone(_LOCAL_TZ).isoformat()
+    except (ValueError, TypeError):
+        pass  # Leave original value on parse failure
+
+
+def normalize_to_utc(ts: str) -> str:
+    """Convert any ISO timestamp to UTC for database queries.
+
+    Recall output now includes timezone offsets (e.g. -04:00). If those values
+    are fed back as since/until/after/before parameters, they must be normalized
+    to UTC to match the database's storage format.
+
+    Returns the original string unchanged if parsing fails or input is already UTC.
+    """
+    if not ts or not isinstance(ts, str):
+        return ts
+    try:
+        normalized = ts.replace('Z', '+00:00') if ts.endswith('Z') else ts
+        dt = datetime.fromisoformat(normalized)
+        if dt.tzinfo is None:
+            return ts  # Naive timestamps are already assumed UTC by the DB
+        utc_dt = dt.astimezone(timezone.utc)
+        # Return in the same format the DB uses: YYYY-MM-DDTHH:MM:SSZ
+        return utc_dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+    except (ValueError, TypeError):
+        return ts
 
 
 def wrap_results(results: List[dict]) -> MemoryResultList:
