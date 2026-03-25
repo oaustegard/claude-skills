@@ -4,6 +4,12 @@ All notable changes to the `llm-as-computer` skill are documented in this file. 
 
 ## [1.0.1] - 2026-03-25
 
+### Other
+
+- llm-as-computer: raise step limits, add --max-steps and --quiet CLI flags (#465)
+
+## [1.0.1] - 2026-03-25
+
 ### Changed
 
 - executor.mojo: raise default max_steps from 50K to 5M
