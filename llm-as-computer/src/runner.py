@@ -104,17 +104,18 @@ def setup():
 
 # ─── Execution ────────────────────────────────────────────────────
 
-def _run_mojo(prog, max_steps=50000, repeat=0):
+def _run_mojo(prog, max_steps=5000000, repeat=0):
     """Execute via Mojo binary. Returns (output_lines, elapsed_ns)."""
     token_str = _instrs_to_tokens(prog)
     
     if repeat > 0:
-        cmd = [MOJO_BIN, "--repeat", str(repeat)] + token_str.split()
+        cmd = [MOJO_BIN, "--repeat", str(repeat), "--max-steps", str(max_steps)] + token_str.split()
     else:
-        cmd = [MOJO_BIN] + token_str.split()
+        cmd = [MOJO_BIN, "--max-steps", str(max_steps)] + token_str.split()
     
+    timeout = max(30, max_steps // 100000)  # scale timeout with step count
     t0 = time.perf_counter_ns()
-    r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
     elapsed = time.perf_counter_ns() - t0
     
     if r.returncode != 0:
@@ -123,7 +124,7 @@ def _run_mojo(prog, max_steps=50000, repeat=0):
     return r.stdout.strip().split("\n"), elapsed
 
 
-def _run_python(prog, max_steps=50000):
+def _run_python(prog, max_steps=5000000):
     """Pure Python fallback executor (no deps beyond stdlib)."""
     # Minimal stack machine - same semantics as Mojo executor
     from isa_lite import MASK32
@@ -185,7 +186,7 @@ def _run_python(prog, max_steps=50000):
     return lines, stack.get(sp, 0) if sp > 0 else 0
 
 
-def execute(prog, max_steps=50000, verbose=True, benchmark_repeat=0):
+def execute(prog, max_steps=5000000, verbose=True, benchmark_repeat=0):
     """Execute a program. Returns (result, trace_lines, backend, timing_info).
     
     Args:
