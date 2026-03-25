@@ -1,5 +1,5 @@
 # claude-skills/
-*Files: 1 | Subdirectories: 52*
+*Files: 1 | Subdirectories: 54*
 
 ## Subdirectories
 
@@ -32,12 +32,14 @@
 - [generating-patches/](./generating-patches/_MAP.md)
 - [githubbing/](./githubbing/_MAP.md)
 - [hello-demo/](./hello-demo/_MAP.md)
+- [image-to-svg/](./image-to-svg/_MAP.md)
 - [inspecting-skills/](./inspecting-skills/_MAP.md)
 - [installing-skills/](./installing-skills/_MAP.md)
 - [invoking-gemini/](./invoking-gemini/_MAP.md)
 - [invoking-github/](./invoking-github/_MAP.md)
 - [iterating/](./iterating/_MAP.md)
 - [json-render-ui/](./json-render-ui/_MAP.md)
+- [llm-as-computer/](./llm-as-computer/_MAP.md)
 - [making-waffles/](./making-waffles/_MAP.md)
 - [mapping-codebases/](./mapping-codebases/_MAP.md)
 - [mapping-webapp/](./mapping-webapp/_MAP.md)
