@@ -469,7 +469,7 @@
       "skills": [
         "./"
       ],
-      "version": "1.0.0",
+      "version": "1.0.1",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills/tree/main/llm-as-computer",
       "license": "MIT"
