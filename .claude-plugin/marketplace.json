@@ -567,12 +567,13 @@
     },
     {
       "name": "searching-codebases",
-      "description": "Semantic code search with full pipeline: download, map, index, search, extract in a single invocation. Finds implementations by concept when identifiers are unknown — \"retry logic\" finds TokenBucketRateLimiter. Use when exploring GitHub repos, searching by intent rather than exact name, evaluating unfamiliar codebases, or answering \"how does X work in this repo\". Triggers on \"search this repo\", \"find where X is implemented\", \"what handles Y\", \"evaluate this codebase\", \"explore this repo\", or any natural-language question about code in a repository.\n",
+      "description": "Find code by regex pattern or natural language concept in any codebase. Auto-routes between n-gram indexed regex search (2-20x faster than ripgrep) and TF-IDF semantic search. Expands results to full functions via AST maps. Accepts GitHub URLs, local directories, uploaded files/archives, or project knowledge. Use when asked to find implementations, search for patterns, explore unfamiliar repos, or answer \"where is X\" / \"how does Y work\" about code. Triggers on \"search this repo\", \"find where X is\", \"grep for\", \"what handles Y\", regex patterns, or natural-language questions about code.\n",
       "source": "./searching-codebases",
       "strict": false,
       "skills": [
         "./"
       ],
+      "version": "1.0.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills/tree/main/searching-codebases",
       "license": "MIT"
