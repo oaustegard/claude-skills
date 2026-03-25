@@ -5,7 +5,9 @@ v3.4.0: Added to provide immediate validation on field access.
 Replaces plain dicts returned by recall() to catch field name errors at access time.
 """
 
+from datetime import datetime, timezone
 from typing import Any, Iterator, List, Optional, Set
+from zoneinfo import ZoneInfo
 
 
 # Valid fields that can be accessed on memory results
@@ -288,7 +290,36 @@ def _normalize_memory(data: dict) -> dict:
                 pass
         data['alternatives'] = alternatives if alternatives else None
 
+    # v5.5.0: Convert valid_from from UTC to user's local timezone (#461)
+    _convert_timestamp_to_local(data, 'valid_from')
+
     return data
+
+
+# Timezone for display conversion — single-user system, hardcoded per issue #461
+_LOCAL_TZ = ZoneInfo('America/New_York')
+
+
+def _convert_timestamp_to_local(data: dict, field: str) -> None:
+    """Convert a UTC ISO timestamp field to local timezone in-place.
+
+    Handles both 'Z' suffix and '+00:00' offset formats.
+    Produces ISO 8601 with offset, e.g. '2026-03-24T20:19:09-04:00'.
+    """
+    raw = data.get(field)
+    if not raw or not isinstance(raw, str):
+        return
+    try:
+        # Parse — fromisoformat handles 'Z' suffix in Python 3.11+
+        # For broader compat, normalize 'Z' to '+00:00'
+        ts = raw.replace('Z', '+00:00') if raw.endswith('Z') else raw
+        dt = datetime.fromisoformat(ts)
+        # If naive (no tzinfo), assume UTC
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        data[field] = dt.astimezone(_LOCAL_TZ).isoformat()
+    except (ValueError, TypeError):
+        pass  # Leave original value on parse failure
 
 
 def wrap_results(results: List[dict]) -> MemoryResultList:
