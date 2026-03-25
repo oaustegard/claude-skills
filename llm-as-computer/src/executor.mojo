@@ -400,7 +400,7 @@ fn sign_extend_16(val: Int) -> Int:
 
 # ─── Main executor ───────────────────────────────────────────────
 
-def execute(prog_ops: List[Int], prog_args: List[Int], verbose: Bool = True) raises -> Int:
+def execute(prog_ops: List[Int], prog_args: List[Int], verbose: Bool = True, max_steps: Int = 5_000_000) raises -> Int:
     """Execute program; optionally print trace; return final top-of-stack.
 
     verbose=True  → emit one "op arg sp top" line per step (normal mode)
@@ -419,8 +419,6 @@ def execute(prog_ops: List[Int], prog_args: List[Int], verbose: Bool = True) rai
     var sp = 0
 
     var prog_len = len(prog_ops)
-    var max_steps = 50000
-
     for _step in range(max_steps):
         if ip >= prog_len:
             break
@@ -825,10 +823,18 @@ def main() raises:
 
     # Check for --repeat N flag (timing mode)
     var repeat = 0
+    var max_steps = 5_000_000
+    var quiet = False
     var arg_start = 1
     if len(args) > 2 and args[1] == "--repeat":
         repeat = atol(args[2])
         arg_start = 3
+    if len(args) > arg_start + 1 and args[arg_start] == "--max-steps":
+        max_steps = atol(args[arg_start + 1])
+        arg_start += 2
+    if len(args) > arg_start and args[arg_start] == "--quiet":
+        quiet = True
+        arg_start += 1
 
     # Build program string from remaining args or stdin
     var prog_str: String
@@ -865,12 +871,12 @@ def main() raises:
         var samples = List[Int]()
         for _ in range(repeat):
             var t0 = Int(perf_counter_ns())
-            var _ = execute(prog_ops, prog_args, verbose=False)
+            var _ = execute(prog_ops, prog_args, verbose=False, max_steps=max_steps)
             samples.append(Int(perf_counter_ns()) - t0)
         sort_list(samples)
         var median = samples[repeat // 2]
         print("TIMING_NS:", median)
     else:
         # ── Normal mode: print trace + result ──
-        var result = execute(prog_ops, prog_args, verbose=True)
+        var result = execute(prog_ops, prog_args, verbose=not quiet, max_steps=max_steps)
         print("RESULT:", result)
