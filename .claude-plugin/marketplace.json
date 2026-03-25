@@ -144,7 +144,7 @@
       "skills": [
         "./"
       ],
-      "version": "0.2.0",
+      "version": "0.2.1",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills/tree/main/coding-mojo",
       "license": "MIT"
@@ -459,6 +459,19 @@
       "version": "1.1.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills/tree/main/iterating",
+      "license": "MIT"
+    },
+    {
+      "name": "llm-as-computer",
+      "description": "Execute programs on a compiled transformer stack machine where every instruction fetch and memory read is a parabolic attention head. Demonstrates that transformer attention + FF layers can implement a working computer. Use when user mentions \"llm-as-computer\", \"lac\", \"stack machine\", \"compiled transformer\", \"percepta\", \"parabolic attention\", \"execute program\", or asks to run/trace programs on the transformer executor.",
+      "source": "./llm-as-computer",
+      "strict": false,
+      "skills": [
+        "./"
+      ],
+      "version": "1.0.0",
+      "repository": "https://github.com/oaustegard/claude-skills",
+      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/llm-as-computer",
       "license": "MIT"
     },
     {
