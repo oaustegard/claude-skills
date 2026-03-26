@@ -212,12 +212,9 @@ def extract_contours(quantize, detect_background, edge_map):
 
         mask = (label_img == cid).astype(np.uint8) * 255
 
-        # Dilate non-dark regions, respecting dark territory
-        if not is_dark:
-            dilated = cv2.dilate(mask, k_dilate, iterations=1)
-            growth = dilated & ~mask
-            growth_into_dark = growth & dark_territory
-            mask = dilated & ~growth_into_dark
+        # Unconditional dilation closes tears between adjacent clusters.
+        # Z-order (painter's algorithm) handles overlaps correctly.
+        mask = cv2.dilate(mask, k_dilate, iterations=2)
 
         # Morphological cleanup
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, k_morph, iterations=2)
