@@ -31,11 +31,15 @@ MODES = {
 _cfg = {}
 
 
-def configure(source_path, mode="painting", svg_width=1000):
-    """Set pipeline config. Called internally by image_to_svg()."""
+def configure(source_path, mode="painting", svg_width=1000, **overrides):
+    """Set pipeline config. Called internally by image_to_svg().
+
+    Any key in MODES presets can be overridden: K, dark_lum,
+    compactness_min, edge_density_min, isolation_filter, min_area.
+    """
     if mode not in MODES:
         raise ValueError(f"Unknown mode '{mode}'. Choose from: {list(MODES.keys())}")
-    _cfg.update({"source_path": str(source_path), "svg_width": svg_width, **MODES[mode]})
+    _cfg.update({"source_path": str(source_path), "svg_width": svg_width, **MODES[mode], **overrides})
 
 
 # --- Pipeline steps ---
@@ -251,18 +255,20 @@ def assemble_svg(extract_contours, detect_background):
 
 # --- Public API ---
 
-def image_to_svg(source_path, mode="painting", svg_width=1000):
+def image_to_svg(source_path, mode="painting", svg_width=1000, **overrides):
     """Convert a raster image to SVG.
 
     Args:
         source_path: Path to source image (jpg, png, etc.)
         mode: One of "graphic", "illustration", "painting", "photo"
         svg_width: SVG viewBox width (height computed from aspect ratio)
+        **overrides: Override any mode preset (K, dark_lum, compactness_min,
+                     edge_density_min, isolation_filter, min_area)
 
     Returns:
         (svg_string, flow) — the SVG content and the Flow object for inspection
     """
-    configure(source_path, mode=mode, svg_width=svg_width)
+    configure(source_path, mode=mode, svg_width=svg_width, **overrides)
     flow = Flow(assemble_svg)
     flow.run()
     result = flow.value(assemble_svg)
