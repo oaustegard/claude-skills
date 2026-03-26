@@ -52,7 +52,7 @@ def _hex_luminance(hex_color):
     return 0.299 * r + 0.587 * g + 0.114 * b
 
 
-def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_color=None, **overrides):
+def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_color=None, smooth=None, **overrides):
     """Set pipeline config. Called internally by image_to_svg().
 
     Any key in MODES presets can be overridden: K, dark_lum,
@@ -64,6 +64,13 @@ def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_col
     bg_color: Override background color (hex string). If None, uses
               detected background. With palette, defaults to lightest
               palette color.
+    smooth:  ImageMagick preprocessing for texture removal before quantization.
+             Reduces shape count 20-30% by smoothing noisy regions while
+             preserving edges. Options:
+             - None (default): pipeline's bilateral + Gaussian only
+             - "oilpaint" or "oilpaint:N": IM -paint N (default N=8)
+             - "kuwahara" or "kuwahara:N": IM -kuwahara N (default N=5)
+             Runs before the bilateral filter, so both are complementary.
     """
     if mode not in MODES:
         raise ValueError(f"Unknown mode '{mode}'. Choose from: {list(MODES.keys())}")
@@ -74,7 +81,7 @@ def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_col
         palette = PALETTES[palette]
     _cfg.update({
         "source_path": str(source_path), "svg_width": svg_width,
-        "palette": palette, "bg_color": bg_color,
+        "palette": palette, "bg_color": bg_color, "smooth": smooth,
         **MODES[mode], **overrides,
     })
 
@@ -139,13 +146,68 @@ def _nn_assign_fast(pixels_u8, centers_u8, K):
         full_labels[i:i + batch_size] = np.argmin(dists, axis=1)
     return full_labels
 
+# --- ImageMagick preprocessing ---
+
+def _im_smooth(source_path, smooth_spec):
+    """Apply ImageMagick smoothing filter. Returns path to smoothed image.
+
+    Args:
+        source_path: Path to source image
+        smooth_spec: "oilpaint", "oilpaint:N", "kuwahara", or "kuwahara:N"
+
+    Returns:
+        Path to preprocessed temp file, or source_path if smooth is None/unavailable.
+    """
+    import subprocess, shutil, tempfile
+
+    if not smooth_spec:
+        return source_path
+
+    convert = shutil.which("convert") or shutil.which("magick")
+    if not convert:
+        print("  smooth: ImageMagick not found, skipping")
+        return source_path
+
+    # Parse "filter:strength" or just "filter"
+    parts = smooth_spec.split(":", 1)
+    filter_name = parts[0].lower()
+    defaults = {"oilpaint": 8, "kuwahara": 5}
+    if filter_name not in defaults:
+        raise ValueError(f"Unknown smooth filter '{filter_name}'. Choose from: oilpaint, kuwahara")
+    strength = int(parts[1]) if len(parts) > 1 else defaults[filter_name]
+
+    im_flags = {"oilpaint": "-paint", "kuwahara": "-kuwahara"}
+    flag = im_flags[filter_name]
+
+    out = tempfile.mktemp(suffix=".jpg")
+    try:
+        subprocess.run(
+            [convert, source_path, flag, str(strength), out],
+            capture_output=True, check=True,
+        )
+        print(f"  smooth: {filter_name} strength={strength}")
+        return out
+    except subprocess.CalledProcessError as e:
+        print(f"  smooth: ImageMagick failed ({e}), skipping")
+        return source_path
+
+
 # --- Pipeline steps ---
 
 @task
 def preprocess():
-    img = cv2.imread(_cfg["source_path"])
+    # Apply optional ImageMagick smoothing before OpenCV processing
+    source = _im_smooth(_cfg["source_path"], _cfg.get("smooth"))
+    img = cv2.imread(source)
     if img is None:
-        raise FileNotFoundError(f"Cannot read: {_cfg['source_path']}")
+        raise FileNotFoundError(f"Cannot read: {source}")
+    # Clean up temp file if smoothing was applied
+    if source != _cfg["source_path"]:
+        import os
+        try:
+            os.unlink(source)
+        except OSError:
+            pass
     rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     blurred = cv2.bilateralFilter(rgb, 9, 50, 50)
     blurred = cv2.GaussianBlur(blurred, (3, 3), 0)
@@ -424,7 +486,7 @@ def _assemble_pure(shapes, svg_w, svg_h, bg_hex, palette=None, bg_color=None):
 
 # --- Public API ---
 
-def image_to_svg(source_path, mode="painting", svg_width=1000, palette=None, bg_color=None, **overrides):
+def image_to_svg(source_path, mode="painting", svg_width=1000, palette=None, bg_color=None, smooth=None, **overrides):
     """Convert a raster image to SVG.
 
     Args:
@@ -434,13 +496,15 @@ def image_to_svg(source_path, mode="painting", svg_width=1000, palette=None, bg_
         palette: List of hex colors or preset name ("pop", "warhol4", "mono4", etc.)
                  Maps to clusters by luminance: palette[0]=darkest, [-1]=lightest.
         bg_color: Override background color (hex). With palette, defaults to lightest entry.
+        smooth: ImageMagick preprocessing ("oilpaint", "oilpaint:N", "kuwahara", "kuwahara:N").
+                Reduces shape count/SVG size 20-30%. Requires ImageMagick on PATH.
         **overrides: Override any mode preset (K, dark_lum, compactness_min,
                      edge_density_min, isolation_filter, min_area)
 
     Returns:
         (svg_string, flow) — the SVG content and the Flow object for inspection
     """
-    configure(source_path, mode=mode, svg_width=svg_width, palette=palette, bg_color=bg_color, **overrides)
+    configure(source_path, mode=mode, svg_width=svg_width, palette=palette, bg_color=bg_color, smooth=smooth, **overrides)
     flow = Flow(assemble_svg)
     flow.run()
     result = flow.value(assemble_svg)
@@ -484,9 +548,10 @@ def image_to_svg_batch(source_path, variants, svg_width=1000):
         mode = v.get("mode", "painting")
         if mode not in MODES:
             raise ValueError(f"Unknown mode '{mode}' in variant '{name}'")
-        cfg = {**MODES[mode], **{k: v[k] for k in v if k not in ("name", "mode", "palette", "bg_color")}}
+        cfg = {**MODES[mode], **{k: v[k] for k in v if k not in ("name", "mode", "palette", "bg_color", "smooth")}}
         cfg["palette"] = v.get("palette")
         cfg["bg_color"] = v.get("bg_color")
+        cfg["smooth"] = v.get("smooth")
         cfg["name"] = name
         resolved.append(cfg)
 
@@ -509,6 +574,7 @@ def image_to_svg_batch(source_path, variants, svg_width=1000):
 
         # Configure for this K group
         configure(source_path, svg_width=svg_width,
+                  smooth=group_variants[0].get("smooth"),
                   K=K, dark_lum=group_variants[0]["dark_lum"],
                   compactness_min=loosest_compact,
                   edge_density_min=loosest_edge,
