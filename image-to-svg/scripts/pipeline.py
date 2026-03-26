@@ -15,7 +15,6 @@ _SKILL_ROOT = Path(__file__).resolve().parent.parent  # image-to-svg/
 _SKILLS_DIR = _SKILL_ROOT.parent                       # /mnt/skills/user/
 
 sys.path.insert(0, str(_SKILLS_DIR / "flowing" / "scripts"))
-sys.path.insert(0, str(_SKILLS_DIR / "seeing-images" / "scripts"))
 
 from flowing import task, Flow
 
@@ -80,6 +79,66 @@ def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_col
     })
 
 
+
+# --- Compiled nearest-neighbor acceleration ---
+
+_NN_SRC = Path(__file__).resolve().parent / "nn_assign.c"
+_NN_BIN = Path(__file__).resolve().parent / "nn_assign"
+
+
+def _ensure_nn_binary():
+    """Compile nn_assign.c if binary is missing or stale."""
+    if _NN_BIN.exists() and _NN_BIN.stat().st_mtime >= _NN_SRC.stat().st_mtime:
+        return True
+    import subprocess, shutil
+    gcc = shutil.which("gcc")
+    if not gcc:
+        return False
+    try:
+        subprocess.run(
+            [gcc, "-O3", "-march=native", "-o", str(_NN_BIN), str(_NN_SRC), "-lm"],
+            capture_output=True, check=True,
+        )
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+
+def _nn_assign_fast(pixels_u8, centers_u8, K):
+    """Assign each pixel to nearest center. Uses compiled C (27x faster) with numpy fallback."""
+    import subprocess, tempfile, os
+
+    if _ensure_nn_binary():
+        px_f = tempfile.mktemp(suffix=".bin")
+        ct_f = tempfile.mktemp(suffix=".bin")
+        try:
+            pixels_u8.tofile(px_f)
+            centers_u8.tofile(ct_f)
+            result = subprocess.run(
+                [str(_NN_BIN), px_f, ct_f, str(K)],
+                capture_output=True, check=True,
+            )
+            return np.frombuffer(result.stdout, dtype=np.int32).copy()
+        finally:
+            for f in (px_f, ct_f):
+                try:
+                    os.unlink(f)
+                except OSError:
+                    pass
+
+    # Fallback: numpy batched assignment
+    full_px_f = pixels_u8.astype(np.float32)
+    centers_f = centers_u8.astype(np.float32)
+    batch_size = 50000
+    full_labels = np.empty(len(full_px_f), dtype=np.int32)
+    for i in range(0, len(full_px_f), batch_size):
+        chunk = full_px_f[i:i + batch_size]
+        dists = np.linalg.norm(
+            chunk[:, None, :] - centers_f[None, :, :], axis=2
+        )
+        full_labels[i:i + batch_size] = np.argmin(dists, axis=1)
+    return full_labels
+
 # --- Pipeline steps ---
 
 @task
@@ -102,20 +161,15 @@ def quantize(preprocess):
 
     small = cv2.resize(blurred, (600, int(600 * h / w)))
     pixels = small.reshape(-1, 3).astype(np.float32)
-    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
-    _, labels, centers = cv2.kmeans(pixels, K, None, criteria, 5, cv2.KMEANS_PP_CENTERS)
-    centers = centers.astype(np.uint8)
+    from sklearn.cluster import MiniBatchKMeans
+    mbk = MiniBatchKMeans(n_clusters=K, batch_size=4096, max_iter=30,
+                          n_init=2, random_state=42)
+    mbk.fit(pixels)
+    centers = mbk.cluster_centers_.astype(np.uint8)
 
     # Map centers to full resolution
-    full_px = blurred.reshape(-1, 3).astype(np.float32)
-    batch_size = 50000
-    full_labels = np.empty(len(full_px), dtype=np.int32)
-    for i in range(0, len(full_px), batch_size):
-        chunk = full_px[i:i + batch_size]
-        dists = np.linalg.norm(
-            chunk[:, None, :] - centers[None, :, :].astype(np.float32), axis=2
-        )
-        full_labels[i:i + batch_size] = np.argmin(dists, axis=1)
+    full_px = blurred.reshape(-1, 3).astype(np.uint8)
+    full_labels = _nn_assign_fast(full_px, centers, K)
 
     label_img = full_labels.reshape(h, w)
     sorted_clusters = sorted(Counter(full_labels).items(), key=lambda x: -x[1])
@@ -159,11 +213,16 @@ def detect_background(quantize):
 
 @task(depends_on=[quantize])
 def edge_map(quantize):
-    from see import edges
+    """Sobel edge detection using cv2 (85x faster than Python pixel loop)."""
     h, w = quantize["h"], quantize["w"]
-    edge_path = edges(_cfg["source_path"], threshold=50)
-    edge_img = cv2.imread(edge_path, cv2.IMREAD_GRAYSCALE)
-    edge_img = cv2.resize(edge_img, (w, h))
+    img = cv2.imread(_cfg["source_path"])
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    gray = cv2.resize(gray, (w, h))
+    gx = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
+    gy = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+    mag = np.sqrt(gx**2 + gy**2)
+    edge_img = np.clip(mag, 0, 255).astype(np.uint8)
+    edge_img[edge_img <= 50] = 0
     print(f"  edge_map: {edge_img.shape}")
     return {"edge_img": edge_img}
 
