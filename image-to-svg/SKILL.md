@@ -15,7 +15,7 @@ Convert raster images into faithful SVG reproductions using data-driven color qu
 ## Quick Start
 
 ```bash
-pip install opencv-python-headless scikit-image scipy --break-system-packages -q
+pip install opencv-python-headless scikit-image scipy scikit-learn --break-system-packages -q
 apt-get install -y librsvg2-bin -qq
 ```
 
@@ -85,7 +85,7 @@ Steps:
 1. **preprocess** — Bilateral + Gaussian blur (edge-preserving texture removal)
 2. **quantize** — K-means color quantization at chosen K
 3. **detect_background** — Identifies background clusters by edge contact (parallel with edge_map)
-4. **edge_map** — Structural edges via [seeing-images](/mnt/skills/user/seeing-images/SKILL.md) (parallel with detect_background)
+4. **edge_map** — Sobel edge detection via `cv2.Sobel` (parallel with detect_background)
 5. **extract_contours** — Per-cluster contour extraction with dark territory awareness and woodcut prevention (d=1 dilation; stroke handles gaps)
 6. **assemble_svg** — Z-ordered painter's algorithm assembly with stroke=fill gap coverage
 
@@ -201,10 +201,11 @@ Every `<path>` element gets `stroke="{fill}" stroke-width="4" stroke-linejoin="r
 ## Dependencies
 
 ```bash
-pip install opencv-python-headless scikit-image scipy --break-system-packages
+pip install opencv-python-headless scikit-image scipy scikit-learn --break-system-packages
 apt-get install -y librsvg2-bin  # for rsvg-convert
 ```
 
+**Compiled acceleration**: `nn_assign.c` is auto-compiled on first use if `gcc` is available (27x faster label assignment). Falls back to numpy if unavailable.
+
 **Cross-skill dependencies** (resolved automatically by pipeline.py):
 - [flowing](/mnt/skills/user/flowing/SKILL.md) — DAG workflow runner
-- [seeing-images](/mnt/skills/user/seeing-images/SKILL.md) — `edges()` function for structural edge detection
