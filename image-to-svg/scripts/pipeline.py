@@ -150,7 +150,7 @@ def detect_background(quantize):
     for cid, cnt in sorted_clusters:
         if cid in bg_clusters:
             bg_color += centers[cid].astype(np.float64) * cnt
-    bg_color = (bg_color / bg_total).astype(np.uint8) if bg_total > 0 else np.array([255, 255, 255], dtype=np.uint8)
+    bg_color = (bg_color / bg_total).astype(np.uint8) if bg_total > 0 else np.array([0, 0, 0], dtype=np.uint8)
     bg_hex = f"#{bg_color[0]:02x}{bg_color[1]:02x}{bg_color[2]:02x}"
 
     print(f"  detect_background: {len(bg_clusters)} clusters, {bg_hex}")
@@ -212,9 +212,9 @@ def extract_contours(quantize, detect_background, edge_map):
 
         mask = (label_img == cid).astype(np.uint8) * 255
 
-        # Dilate all shapes uniformly to close inter-cluster gaps.
-        # Painter's algorithm (z-order by area) handles overlaps.
-        mask = cv2.dilate(mask, k_dilate, iterations=2)
+        # Light dilation for morphological cleanup only.
+        # Gap coverage is handled by stroke=fill in assemble_svg.
+        mask = cv2.dilate(mask, k_dilate, iterations=1)
 
         # Morphological cleanup
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, k_morph, iterations=2)
@@ -311,7 +311,7 @@ def assemble_svg(extract_contours, detect_background):
         f'  <rect width="{SVG_W}" height="{SVG_H}" fill="{bg_hex}"/>',
     ]
     for s in shapes:
-        lines.append(f'  <path d="{s["path"]}" fill="{s["color"]}"/>')
+        lines.append(f'  <path d="{s["path"]}" fill="{s["color"]}" stroke="{s["color"]}" stroke-width="4" stroke-linejoin="round"/>')
     lines.append("</svg>")
 
     svg_content = "\n".join(lines)
