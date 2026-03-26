@@ -157,7 +157,7 @@ svg_render = cv2.imread('rendered_svg.png')
 5. **Never boost saturation globally.** Do targeted per-color adjustments based on measured ΔE.
 6. **Never aggressively merge near-background colors.** Only merge colors <10 RGB distance from background AND heavily touching edges.
 7. **Don't use bezier smoothing unless requested.** Simple L polygons produce smaller SVGs.
-8. **Don't use a dilation kernel larger than 3×3.** 5×5 causes blotchy artifacts.
+8. **Don't use a dilation kernel larger than 3×3.** Use `iterations=2` on a 3×3 kernel instead of a larger kernel — same coverage, better shape preservation.
 
 ## Known Limitations
 
