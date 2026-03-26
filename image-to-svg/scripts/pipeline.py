@@ -27,19 +27,57 @@ MODES = {
     "photo":        {"K": 64, "dark_lum": 55, "compactness_min": 0.08, "edge_density_min": 0.15, "isolation_filter": True,  "min_area": 40},
 }
 
+# --- Palette presets (ordered darkest → lightest) ---
+PALETTES = {
+    "bw":       ["#000000", "#ffffff"],
+    "mono3":    ["#000000", "#999999", "#ffffff"],
+    "mono4":    ["#000000", "#555555", "#aaaaaa", "#ffffff"],
+    "pop":      ["#141414", "#ff1493", "#ffd700", "#00bfff"],
+    "pop2":     ["#1e1e1e", "#dc143c", "#32cd32", "#ffa500"],
+    "neon":     ["#0d0d0d", "#ff00ff", "#00ff00", "#ffff00", "#00ffff"],
+    "warhol4":  ["#1a1a1a", "#e4007c", "#f5a623", "#50e3c2"],
+    "warhol6":  ["#0a0a0a", "#dc143c", "#ff69b4", "#ffd700", "#32cd32", "#00bfff"],
+    "warhol8":  ["#0a0a0a", "#dc143c", "#ff69b4", "#ffd700", "#32cd32", "#00bfff", "#ff8c00", "#f5f5f5"],
+    "sunset":   ["#1a0a2e", "#e74c3c", "#f39c12", "#f5e6cc"],
+    "ocean":    ["#0c2340", "#1e6091", "#48c9b0", "#e8f4f8"],
+}
+
 # --- Pipeline config (module-level, set by configure()) ---
 _cfg = {}
 
 
-def configure(source_path, mode="painting", svg_width=1000, **overrides):
+def _hex_luminance(hex_color):
+    """Compute luminance from a hex color string."""
+    h = hex_color.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return 0.299 * r + 0.587 * g + 0.114 * b
+
+
+def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_color=None, **overrides):
     """Set pipeline config. Called internally by image_to_svg().
 
     Any key in MODES presets can be overridden: K, dark_lum,
     compactness_min, edge_density_min, isolation_filter, min_area.
+
+    palette: List of hex color strings or a preset name from PALETTES.
+             Colors are mapped to shape clusters sorted by luminance
+             (palette[0] = darkest cluster, palette[-1] = lightest).
+    bg_color: Override background color (hex string). If None, uses
+              detected background. With palette, defaults to lightest
+              palette color.
     """
     if mode not in MODES:
         raise ValueError(f"Unknown mode '{mode}'. Choose from: {list(MODES.keys())}")
-    _cfg.update({"source_path": str(source_path), "svg_width": svg_width, **MODES[mode], **overrides})
+    # Resolve palette preset name to list
+    if isinstance(palette, str):
+        if palette not in PALETTES:
+            raise ValueError(f"Unknown palette '{palette}'. Choose from: {list(PALETTES.keys())}")
+        palette = PALETTES[palette]
+    _cfg.update({
+        "source_path": str(source_path), "svg_width": svg_width,
+        "palette": palette, "bg_color": bg_color,
+        **MODES[mode], **overrides,
+    })
 
 
 # --- Pipeline steps ---
@@ -240,6 +278,37 @@ def assemble_svg(extract_contours, detect_background):
     SVG_H = extract_contours["svg_h"]
     bg_hex = detect_background["bg_hex"]
 
+    palette = _cfg.get("palette")
+    bg_override = _cfg.get("bg_color")
+
+    # --- Palette remapping ---
+    if palette:
+        # Collect unique shape colors, sort by luminance
+        unique_colors = sorted(set(s["color"] for s in shapes), key=_hex_luminance)
+        n_colors = len(unique_colors)
+        n_palette = len(palette)
+
+        # Build mapping: divide unique colors into n_palette bands by luminance rank
+        color_map = {}
+        for i, color in enumerate(unique_colors):
+            # Map color index to palette index proportionally
+            palette_idx = min(int(i * n_palette / n_colors), n_palette - 1)
+            color_map[color] = palette[palette_idx]
+
+        # Remap shapes
+        for s in shapes:
+            s["color"] = color_map[s["color"]]
+
+        # Background: explicit override > lightest palette entry > detected
+        if bg_override:
+            bg_hex = bg_override
+        else:
+            bg_hex = palette[-1]  # lightest palette color for bg
+
+        print(f"  palette: {n_colors} colors → {n_palette} palette entries")
+    elif bg_override:
+        bg_hex = bg_override
+
     lines = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {SVG_W} {SVG_H}">',
         f'  <rect width="{SVG_W}" height="{SVG_H}" fill="{bg_hex}"/>',
@@ -255,20 +324,23 @@ def assemble_svg(extract_contours, detect_background):
 
 # --- Public API ---
 
-def image_to_svg(source_path, mode="painting", svg_width=1000, **overrides):
+def image_to_svg(source_path, mode="painting", svg_width=1000, palette=None, bg_color=None, **overrides):
     """Convert a raster image to SVG.
 
     Args:
         source_path: Path to source image (jpg, png, etc.)
         mode: One of "graphic", "illustration", "painting", "photo"
         svg_width: SVG viewBox width (height computed from aspect ratio)
+        palette: List of hex colors or preset name ("pop", "warhol4", "mono4", etc.)
+                 Maps to clusters by luminance: palette[0]=darkest, [-1]=lightest.
+        bg_color: Override background color (hex). With palette, defaults to lightest entry.
         **overrides: Override any mode preset (K, dark_lum, compactness_min,
                      edge_density_min, isolation_filter, min_area)
 
     Returns:
         (svg_string, flow) — the SVG content and the Flow object for inspection
     """
-    configure(source_path, mode=mode, svg_width=svg_width, **overrides)
+    configure(source_path, mode=mode, svg_width=svg_width, palette=palette, bg_color=bg_color, **overrides)
     flow = Flow(assemble_svg)
     flow.run()
     result = flow.value(assemble_svg)
