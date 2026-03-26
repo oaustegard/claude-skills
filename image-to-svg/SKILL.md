@@ -47,6 +47,31 @@ Default is `"painting"`. When uncertain, start there.
 
 **Tradeoffs**: K=64 produces ~2300 shapes (~1.2MB SVG) vs K=28's ~1000 shapes (~550KB). Processing time roughly doubles with K. The quality gain in tonal gradation is substantial for photos but wasted on graphic art.
 
+All mode defaults (K, dark_lum, compactness_min, etc.) can be overridden via `**kwargs`:
+```python
+svg, flow = image_to_svg("source.jpg", mode="graphic", K=12, min_area=20)
+```
+
+## Palette Remapping (Warhol Effects)
+
+Separate structure from color: K-means finds regions, palette remapping assigns bold colors. This produces screen-print / pop art effects.
+
+```python
+# Named preset
+svg, flow = image_to_svg("photo.jpg", mode="graphic", K=4, palette="pop")
+
+# Custom hex list (darkest → lightest mapping order)
+svg, flow = image_to_svg("photo.jpg", mode="graphic", K=8,
+    palette=["#000", "#dc143c", "#ff69b4", "#ffd700", "#32cd32", "#00bfff", "#ff8c00", "#f5f5f5"])
+
+# Override background separately
+svg, flow = image_to_svg("photo.jpg", mode="graphic", K=4, palette="ocean", bg_color="#000000")
+```
+
+**Built-in presets**: `bw`, `mono3`, `mono4`, `pop`, `pop2`, `neon`, `warhol4`, `warhol6`, `warhol8`, `sunset`, `ocean`
+
+**How it works**: Unique shape colors are sorted by luminance. Palette entries are mapped proportionally — `palette[0]` replaces the darkest cluster, `palette[-1]` replaces the lightest. Background defaults to the lightest palette entry unless `bg_color` is set. Palette length doesn't need to match K exactly; colors are binned proportionally.
+
 ## Pipeline Architecture
 
 Uses the [flowing](/mnt/skills/user/flowing/SKILL.md) DAG runner. Steps with independent inputs run in parallel:
