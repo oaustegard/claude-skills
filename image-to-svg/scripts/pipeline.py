@@ -319,6 +319,50 @@ def assemble_svg(extract_contours, detect_background):
     return {"svg": svg_content, "shape_count": len(shapes)}
 
 
+# --- Assembly (pure function, no global state) ---
+
+def _assemble_pure(shapes, svg_w, svg_h, bg_hex, palette=None, bg_color=None):
+    """Assemble SVG from shapes. Does NOT mutate input shapes.
+
+    Args:
+        shapes: List of {"path": str, "color": hex, "area": float}
+        svg_w, svg_h: ViewBox dimensions
+        bg_hex: Detected background color
+        palette: Optional list of hex colors (darkest→lightest) or preset name
+        bg_color: Optional background color override
+
+    Returns:
+        SVG string
+    """
+    if isinstance(palette, str):
+        if palette not in PALETTES:
+            raise ValueError(f"Unknown palette '{palette}'. Choose from: {list(PALETTES.keys())}")
+        palette = PALETTES[palette]
+
+    # Work on copies to avoid mutating shared shapes
+    if palette:
+        unique_colors = sorted(set(s["color"] for s in shapes), key=_hex_luminance)
+        n_colors, n_palette = len(unique_colors), len(palette)
+        color_map = {}
+        for i, color in enumerate(unique_colors):
+            palette_idx = min(int(i * n_palette / n_colors), n_palette - 1)
+            color_map[color] = palette[palette_idx]
+
+        bg_hex = bg_color if bg_color else palette[-1]
+    elif bg_color:
+        bg_hex = bg_color
+
+    lines = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {svg_w} {svg_h}">',
+        f'  <rect width="{svg_w}" height="{svg_h}" fill="{bg_hex}"/>',
+    ]
+    for s in shapes:
+        c = color_map[s["color"]] if palette and s["color"] in color_map else s["color"]
+        lines.append(f'  <path d="{s["path"]}" fill="{c}" stroke="{c}" stroke-width="4" stroke-linejoin="round"/>')
+    lines.append("</svg>")
+    return "\n".join(lines)
+
+
 # --- Public API ---
 
 def image_to_svg(source_path, mode="painting", svg_width=1000, palette=None, bg_color=None, **overrides):
@@ -342,3 +386,99 @@ def image_to_svg(source_path, mode="painting", svg_width=1000, palette=None, bg_
     flow.run()
     result = flow.value(assemble_svg)
     return result["svg"], flow
+
+
+def image_to_svg_batch(source_path, variants, svg_width=1000):
+    """Convert one image to multiple SVG variants, sharing computation.
+
+    Runs preprocess, quantize, edge_map, detect_background, and extract_contours
+    ONCE per unique K value. Only assembly (palette remapping) fans out per variant.
+
+    Args:
+        source_path: Path to source image
+        variants: List of dicts, each with:
+            - name (str): Key for results dict
+            - mode (str): "graphic", "illustration", "painting", "photo"
+            - palette (optional): Hex list or preset name
+            - bg_color (optional): Background override
+            - K, dark_lum, etc. (optional): Override mode defaults
+        svg_width: SVG viewBox width (shared across all variants)
+
+    Returns:
+        Dict of {name: svg_string}
+
+    Example:
+        results = image_to_svg_batch("photo.jpg", [
+            {"name": "natural",  "mode": "poster"},
+            {"name": "warhol",   "mode": "graphic", "K": 12, "palette": "warhol4"},
+            {"name": "neon",     "mode": "graphic", "K": 12, "palette": "neon"},
+            {"name": "sunset",   "mode": "graphic", "K": 12, "palette": "sunset"},
+        ])
+    """
+    import time
+    t0 = time.time()
+
+    # Resolve each variant's effective config
+    resolved = []
+    for v in variants:
+        name = v["name"]
+        mode = v.get("mode", "painting")
+        if mode not in MODES:
+            raise ValueError(f"Unknown mode '{mode}' in variant '{name}'")
+        cfg = {**MODES[mode], **{k: v[k] for k in v if k not in ("name", "mode", "palette", "bg_color")}}
+        cfg["palette"] = v.get("palette")
+        cfg["bg_color"] = v.get("bg_color")
+        cfg["name"] = name
+        resolved.append(cfg)
+
+    # Group by K (and dark-shape gating params that affect contour extraction)
+    from collections import defaultdict
+    groups = defaultdict(list)
+    for cfg in resolved:
+        groups[cfg["K"]].append(cfg)
+
+    results = {}
+
+    for K, group_variants in groups.items():
+        tg = time.time()
+        # Use loosest dark-shape gating for shared extraction
+        # (most permissive = smallest thresholds = keeps all plausible shapes)
+        loosest_compact = min(v["compactness_min"] for v in group_variants)
+        loosest_edge = min(v["edge_density_min"] for v in group_variants)
+        use_isolation = any(v.get("isolation_filter", True) for v in group_variants)
+        min_area = min(v["min_area"] for v in group_variants)
+
+        # Configure for this K group
+        configure(source_path, svg_width=svg_width,
+                  K=K, dark_lum=group_variants[0]["dark_lum"],
+                  compactness_min=loosest_compact,
+                  edge_density_min=loosest_edge,
+                  isolation_filter=use_isolation,
+                  min_area=min_area)
+
+        # Run full pipeline through extract_contours (once per K)
+        flow = Flow(assemble_svg)
+        flow.run()
+
+        # Extract shared intermediate results
+        contour_result = flow.value(extract_contours)
+        bg_result = flow.value(detect_background)
+        shapes = contour_result["shapes"]
+        svg_w = contour_result["svg_w"]
+        svg_h = contour_result["svg_h"]
+        bg_hex = bg_result["bg_hex"]
+
+        print(f"  batch K={K}: pipeline {time.time()-tg:.1f}s, {len(shapes)} shapes, {len(group_variants)} variants")
+
+        # Fan out: assemble each variant (fast — just string ops)
+        for cfg in group_variants:
+            palette = cfg["palette"]
+            if isinstance(palette, str):
+                palette = PALETTES.get(palette, palette)
+            svg = _assemble_pure(shapes, svg_w, svg_h, bg_hex,
+                                 palette=palette, bg_color=cfg["bg_color"])
+            results[cfg["name"]] = svg
+            print(f"    {cfg['name']}: {len(svg)//1024}KB")
+
+    print(f"  batch total: {time.time()-t0:.1f}s, {len(results)} variants")
+    return results
