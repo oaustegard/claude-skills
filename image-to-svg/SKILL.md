@@ -1,6 +1,6 @@
 ---
 name: image-to-svg
-version: 1.4.0
+version: 1.6.0
 description: Convert raster images (photos, paintings, illustrations) into SVG vector reproductions. Use when the user uploads an image and asks to reproduce, vectorize, trace, or convert it to SVG. Also use when asked to decompose an image into shapes, create an SVG version of a picture, or faithfully reproduce artwork as vector graphics. Do NOT use for creating original SVG illustrations from text descriptions — only for converting existing raster images.
 ---
  
@@ -86,8 +86,8 @@ Steps:
 2. **quantize** — K-means color quantization at chosen K
 3. **detect_background** — Identifies background clusters by edge contact (parallel with edge_map)
 4. **edge_map** — Structural edges via [seeing-images](/mnt/skills/user/seeing-images/SKILL.md) (parallel with detect_background)
-5. **extract_contours** — Per-cluster contour extraction with dark territory awareness and woodcut prevention
-6. **assemble_svg** — Z-ordered painter's algorithm assembly
+5. **extract_contours** — Per-cluster contour extraction with dark territory awareness and woodcut prevention (d=1 dilation; stroke handles gaps)
+6. **assemble_svg** — Z-ordered painter's algorithm assembly with stroke=fill gap coverage
 
 ### Resume on failure
 
@@ -148,6 +148,16 @@ When adding shapes not captured by quantization, **derive coordinates from the S
 svg_render = cv2.imread('rendered_svg.png')
 ```
 
+## Gap Coverage: stroke=fill
+
+Every `<path>` element gets `stroke="{fill}" stroke-width="4" stroke-linejoin="round"`. This bleeds each shape outward by 2px with its own fill color, covering inter-cluster gaps with the locally correct color.
+
+**Why stroke beats dilation for gaps**: Dilation operates on binary masks *before* contour simplification — it blurs detail. Stroke operates on final polygons *after* `approxPolyDP` — it catches all gaps including those introduced by simplification. Pure vector, no file size penalty beyond attribute bytes (~12%).
+
+**Background fallback**: When `detect_background` finds no clusters, the bg rect uses `#000000` (black) instead of white. Black reads as shadow; white reads as absence.
+
+**Dilation** is reduced to `iterations=1` — just enough for morphological noise cleanup. Gap coverage is fully handled by stroke.
+
 ## Anti-Patterns
 
 1. **Never hand-draw shapes** from visual interpretation. Use CV extraction.
@@ -157,7 +167,7 @@ svg_render = cv2.imread('rendered_svg.png')
 5. **Never boost saturation globally.** Do targeted per-color adjustments based on measured ΔE.
 6. **Never aggressively merge near-background colors.** Only merge colors <10 RGB distance from background AND heavily touching edges.
 7. **Don't use bezier smoothing unless requested.** Simple L polygons produce smaller SVGs.
-8. **Don't use a dilation kernel larger than 3×3.** Use `iterations=2` on a 3×3 kernel instead of a larger kernel — same coverage, better shape preservation.
+8. **Don't use a dilation kernel larger than 3×3.** Use `iterations=1` on a 3×3 kernel — stroke=fill handles gap coverage in vector space, so dilation only needs to close noise holes.
 
 ## Known Limitations
 
