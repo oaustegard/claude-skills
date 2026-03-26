@@ -540,6 +540,32 @@
       "license": "MIT"
     },
     {
+      "name": "processing-images",
+      "description": "Image processing toolkit awareness. Use when: user uploads images for manipulation, requests format conversion, batch processing, compositing, resizing, optimization, analysis, effects, metadata inspection, montages, animated GIFs, color correction, or any image-related task. Also use when working with screenshots, photos, diagrams, icons, or visual assets. Triggers on 'resize', 'crop', 'convert', 'compress', 'optimize', 'thumbnail', 'watermark', 'montage', 'collage', 'gif', 'sprite sheet', 'color space', 'metadata', 'EXIF', 'compare images', 'diff', 'overlay', 'composite', 'batch process', 'image analysis', 'histogram', 'blur', 'sharpen', 'rotate', 'flip', 'border', 'shadow', 'round corners', 'favicon', 'icon set'.",
+      "source": "./processing-images",
+      "strict": false,
+      "skills": [
+        "./"
+      ],
+      "version": "0.1.0",
+      "repository": "https://github.com/oaustegard/claude-skills",
+      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/processing-images",
+      "license": "MIT"
+    },
+    {
+      "name": "processing-video",
+      "description": "Audio and video processing with ffmpeg. Use when: user asks to convert, trim, merge, compress, or transcode video or audio files; extract audio from video; create GIFs or animated WebP from video; add subtitles or watermarks to video; change video resolution, framerate, or codec; normalize audio loudness; extract frames from video; concatenate clips; create thumbnails from video; strip or add audio tracks; convert between audio formats (MP3, AAC, FLAC, Opus, WAV); adjust volume; apply video filters; stabilize shaky video; generate waveform or spectrum visualizations; probe media file metadata. Triggers on 'ffmpeg', 'video', 'audio', 'transcode', 'MP4', 'MKV', 'WebM', 'MP3', 'AAC', 'FLAC', 'Opus', 'WAV', 'GIF from video', 'extract audio', 'add subtitles', 'video to gif', 'compress video', 'trim video', 'merge videos', 'normalize audio', 'framerate', 'resolution', 'bitrate', 'codec', 'ffprobe', 'waveform', 'spectrogram'.",
+      "source": "./processing-video",
+      "strict": false,
+      "skills": [
+        "./"
+      ],
+      "version": "0.1.0",
+      "repository": "https://github.com/oaustegard/claude-skills",
+      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/processing-video",
+      "license": "MIT"
+    },
+    {
       "name": "remembering",
       "description": "Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, retention management, type-safe results, proactive memory hints, GitHub access detection, autonomous curation, episodic scoring, and decision traces.",
       "source": "./remembering",
