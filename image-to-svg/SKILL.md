@@ -98,6 +98,29 @@ flow.override(extract_contours, corrected_shapes)
 flow.resume()  # quantize, detect_background, edge_map stay cached
 ```
 
+
+## Batch API
+
+Generate multiple variants from one image, sharing computation across runs with the same K:
+
+```python
+from pipeline import image_to_svg_batch
+
+results = image_to_svg_batch("photo.jpg", [
+    {"name": "photo",   "mode": "photo"},
+    {"name": "warhol",  "mode": "graphic", "K": 12, "palette": "warhol4"},
+    {"name": "neon",    "mode": "graphic", "K": 12, "palette": "neon"},
+    {"name": "sunset",  "mode": "graphic", "K": 12, "palette": "sunset"},
+    {"name": "bw",      "mode": "graphic", "K": 16, "palette": "bw"},
+], svg_width=1400)
+
+for name, svg in results.items():
+    with open(f"{name}.svg", "w") as f:
+        f.write(svg)
+```
+
+Variants sharing the same K run the pipeline (preprocess → quantize → edge_map → extract_contours) **once**, then fan out at assembly for palette remapping. This guarantees structural identity across palette variants (same shapes, same paths) and saves ~20-60s per shared K group.
+
 ## Verification Protocol
 
 **After EVERY run, render and visually compare side-by-side.** This is non-negotiable.
