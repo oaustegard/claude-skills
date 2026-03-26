@@ -1,6 +1,6 @@
 ---
 name: image-to-svg
-version: 1.5.0
+version: 1.4.0
 description: Convert raster images (photos, paintings, illustrations) into SVG vector reproductions. Use when the user uploads an image and asks to reproduce, vectorize, trace, or convert it to SVG. Also use when asked to decompose an image into shapes, create an SVG version of a picture, or faithfully reproduce artwork as vector graphics. Do NOT use for creating original SVG illustrations from text descriptions — only for converting existing raster images.
 ---
  
@@ -86,7 +86,7 @@ Steps:
 2. **quantize** — K-means color quantization at chosen K
 3. **detect_background** — Identifies background clusters by edge contact (parallel with edge_map)
 4. **edge_map** — Structural edges via [seeing-images](/mnt/skills/user/seeing-images/SKILL.md) (parallel with detect_background)
-5. **extract_contours** — Per-cluster contour extraction with unconditional dilation (tear prevention) and woodcut gating
+5. **extract_contours** — Per-cluster contour extraction with dark territory awareness and woodcut prevention
 6. **assemble_svg** — Z-ordered painter's algorithm assembly
 
 ### Resume on failure
@@ -157,8 +157,7 @@ svg_render = cv2.imread('rendered_svg.png')
 5. **Never boost saturation globally.** Do targeted per-color adjustments based on measured ΔE.
 6. **Never aggressively merge near-background colors.** Only merge colors <10 RGB distance from background AND heavily touching edges.
 7. **Don't use bezier smoothing unless requested.** Simple L polygons produce smaller SVGs.
-8. **Don't use a dilation kernel larger than 3×3.** 5×5 causes blotchy artifacts.
-9. **Don't use territory-aware dilation** (dilating light shapes but blocking growth into dark territory). This creates asymmetric gaps — white tears between adjacent dark clusters. Unconditional dilation + Z-order is simpler and tear-free.
+8. **Don't use a dilation kernel larger than 3×3.** Use `iterations=2` on a 3×3 kernel instead of a larger kernel — same coverage, better shape preservation.
 
 ## Known Limitations
 
