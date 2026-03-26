@@ -72,6 +72,42 @@ svg, flow = image_to_svg("photo.jpg", mode="graphic", K=4, palette="ocean", bg_c
 
 **How it works**: Unique shape colors are sorted by luminance. Palette entries are mapped proportionally — `palette[0]` replaces the darkest cluster, `palette[-1]` replaces the lightest. Background defaults to the lightest palette entry unless `bg_color` is set. Palette length doesn't need to match K exactly; colors are binned proportionally.
 
+## ImageMagick Preprocessing (smooth)
+
+Reduce shape count and SVG file size by 20-45% using ImageMagick edge-preserving filters before quantization. Requires ImageMagick on PATH (pre-installed on Claude.ai containers).
+
+```python
+# Oilpaint: bold, painterly smoothing (default strength=8)
+svg, flow = image_to_svg("photo.jpg", mode="photo", smooth="oilpaint")
+
+# Stronger smoothing = fewer shapes, more stylized
+svg, flow = image_to_svg("photo.jpg", mode="illustration", K=32, smooth="oilpaint:12")
+
+# Kuwahara: subtler, preserves more structure (default strength=5)
+svg, flow = image_to_svg("photo.jpg", mode="painting", smooth="kuwahara:7")
+
+# Works with batch API too
+results = image_to_svg_batch("photo.jpg", [
+    {"name": "raw",      "mode": "photo"},
+    {"name": "smooth",   "mode": "photo", "smooth": "oilpaint"},
+    {"name": "stylized", "mode": "illustration", "K": 32, "smooth": "oilpaint:12", "palette": "pop"},
+])
+```
+
+**Available filters**: `oilpaint` (ImageMagick `-paint`), `kuwahara` (ImageMagick `-kuwahara`). Append `:N` for custom strength.
+
+**How it works**: The IM filter runs before the pipeline's bilateral+Gaussian blur. Both are edge-preserving smoothers at different scales — IM handles coarse texture, bilateral handles fine detail. The result is cleaner K-means regions with fewer fragmented shapes.
+
+**Measured impact** (1206×1597 photo, K=32):
+
+| smooth | Shapes | SVG size | Reduction |
+|--------|--------|----------|-----------|
+| none | 3381 | 1868KB | — |
+| oilpaint (8) | 2385 | 1329KB | -29% |
+| oilpaint:12 | 1842 | 1065KB | -43% |
+| kuwahara (5) | 2719 | 1453KB | -22% |
+| kuwahara:7 | 2000 | 1152KB | -38% |
+
 ## Pipeline Architecture
 
 Uses the [flowing](/mnt/skills/user/flowing/SKILL.md) DAG runner. Steps with independent inputs run in parallel:
