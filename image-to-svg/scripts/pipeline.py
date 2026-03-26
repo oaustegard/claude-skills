@@ -187,7 +187,7 @@ def extract_contours(quantize, detect_background, edge_map):
     SVG_H = int(SVG_W * h / w)
     scale_x, scale_y = SVG_W / w, SVG_H / h
 
-    # Dark territory mask
+    # Dark territory mask (used for dark shape gating below)
     dark_territory = np.zeros((h, w), dtype=np.uint8)
     for cid, cnt in sorted_clusters:
         if cid in bg_clusters:
@@ -212,8 +212,8 @@ def extract_contours(quantize, detect_background, edge_map):
 
         mask = (label_img == cid).astype(np.uint8) * 255
 
-        # Unconditional dilation closes tears between adjacent clusters.
-        # Z-order (painter's algorithm) handles overlaps correctly.
+        # Dilate all shapes uniformly to close inter-cluster gaps.
+        # Painter's algorithm (z-order by area) handles overlaps.
         mask = cv2.dilate(mask, k_dilate, iterations=2)
 
         # Morphological cleanup
