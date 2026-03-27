@@ -1,94 +1,96 @@
 ---
 name: svg-portrait-mode
-description: "Portrait Mode" for SVGs — sharp detailed subjects, simplified backgrounds. Uses MediaPipe for automatic person/face segmentation, or manual region definition. Claude interprets user intent and generates the config.
+description: "Portrait Mode" for SVGs — sharp detailed subjects, simplified backgrounds. Uses MediaPipe segmentation + image-to-svg pipeline for layered processing. Like phone portrait mode, but vectorized.
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # SVG Portrait Mode
 
-Selective detail vectorization using ML segmentation. The SVG equivalent of phone portrait mode.
+Layered vectorization with selective detail. Uses MediaPipe for segmentation
+and the image-to-svg pipeline for per-layer processing.
 
-## Quick Start (Automatic)
+## Quick Start
 
 ```python
-from portrait_mode import portrait_mode_auto
+from portrait_mode import portrait_mode
 
-# One line - MediaPipe handles segmentation
-svg, stats = portrait_mode_auto("photo.jpg")
-
-# With custom treatments
-svg, stats = portrait_mode_auto("photo.jpg",
-    subject_treatment="detailed",
-    face_treatment="textured", 
-    background_treatment="flat")
+svg, stats = portrait_mode("photo.jpg")
+# stats: {'background': 639, 'body': 1753, 'face': 6777, 'total': 9169}
 ```
+
+## How It Works
+
+1. **MediaPipe Segmentation** → person/face/background masks
+2. **Per-layer processing** using image-to-svg pipeline:
+   - Background: K=16 + oilpaint (flat, simplified)
+   - Body: K=48 + kuwahara (medium detail)
+   - Face: K=96, no smoothing (maximum fidelity)
+3. **SVG Compositing** → layers stacked back-to-front
 
 ## Requirements
 
 MediaPipe models in `/home/claude/`:
-- `selfie_segmenter.tflite` (person/background)
-- `blaze_face_short_range.tflite` (face detection)
+- `selfie_segmenter.tflite`
+- `blaze_face_short_range.tflite`
 
-## Treatments
+Cross-skill dependency:
+- `image-to-svg` pipeline at `/mnt/skills/user/image-to-svg/`
 
-| Treatment | K | Use For |
-|-----------|---|---------|
-| `solid` | 1 | Flat sky |
-| `flat` | 2 | Simple backgrounds |
-| `simplified` | 5 | Midground |
-| `detailed` | 24 | Subject body |
-| `textured` | 32 | Face, focal point |
-| `outline` | 1 | Stark edges |
-
-## Manual Config (Advanced)
+## Custom Settings
 
 ```python
-from portrait_mode import compose_from_json, get_mediapipe_masks
-
-# Get masks
-masks = get_mediapipe_masks("photo.jpg")
-# Returns: {'person': 'path', 'background': 'path', 'face': 'path'}
-
-# Custom config
-config = {
-    "regions": [
-        {"name": "bg", "method": "mask_file", "params": {"path": masks['background']},
-         "treatment": "flat", "z_order": 0},
-        {"name": "person", "method": "mask_file", "params": {"path": masks['person']},
-         "treatment": "detailed", "z_order": 5},
-    ]
-}
-
-svg, stats = compose_from_json("photo.jpg", config)
+svg, stats = portrait_mode("photo.jpg",
+    face_K=128,           # More face detail
+    face_smooth=None,     # No smoothing on face
+    body_K=64,            # More body detail
+    body_smooth="kuwahara:2",
+    background_K=8,       # Flatter background
+    background_smooth="oilpaint:16",
+    svg_width=1200
+)
 ```
 
-## Region Methods
+## Layer Settings
 
-| Method | Use Case |
-|--------|----------|
-| `mask_file` | MediaPipe output, external masks |
-| `position` | Spatial: `{"y": [0, 0.3]}` |
-| `bbox` | Bounding box (shows edges - avoid) |
-| `color` | HSV matching |
-| `saturation` | Gray detection |
-| `remainder` | Everything unclaimed |
+| Layer | Default K | Default Smooth | Purpose |
+|-------|-----------|----------------|---------|
+| Background | 16 | oilpaint:12 | Flat, atmospheric |
+| Body | 48 | kuwahara:3 | Medium detail |
+| Face | 96 | None | Maximum fidelity |
 
-## Forced Palettes
+## Architecture
 
-```python
-"palettes": {
-    "grass": [[85, 130, 60], [110, 155, 80]]
-}
+```
+image.jpg
+    ↓
+MediaPipe Segmentation
+    ↓
+┌─────────────────────────────────────┐
+│  Background    Body       Face      │
+│  K=16         K=48       K=96       │
+│  oilpaint     kuwahara   none       │
+└─────────────────────────────────────┘
+    ↓            ↓          ↓
+image-to-svg  image-to-svg  image-to-svg
+    ↓            ↓          ↓
+layer_bg.svg  layer_body.svg  layer_face.svg
+    ↓            ↓          ↓
+└─────────── Composite ───────────────┘
+                 ↓
+          portrait.svg
 ```
 
 ## Changelog
 
+### 0.3.0
+- Complete rewrite using image-to-svg pipeline
+- ImageMagick preprocessing (oilpaint, kuwahara) per layer
+- Proper contour extraction with stroke=fill gap coverage
+- Fixed: faces no longer become featureless blobs
+
 ### 0.2.0
-- Added MediaPipe integration
-- `portrait_mode_auto()` for one-line usage
-- `get_mediapipe_masks()` helper
+- Added MediaPipe integration (broken implementation)
 
 ### 0.1.0
-- Initial release
-- Manual region definition
+- Initial release (manual K-means, unusable)
