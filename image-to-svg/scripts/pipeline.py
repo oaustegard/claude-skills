@@ -52,7 +52,7 @@ def _hex_luminance(hex_color):
     return 0.299 * r + 0.587 * g + 0.114 * b
 
 
-def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_color=None, smooth=None, **overrides):
+def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_color=None, smooth=None, bg_clusters=None, **overrides):
     """Set pipeline config. Called internally by image_to_svg().
 
     Any key in MODES presets can be overridden: K, dark_lum,
@@ -71,6 +71,10 @@ def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_col
              - "oilpaint" or "oilpaint:N": IM -paint N (default N=8)
              - "kuwahara" or "kuwahara:N": IM -kuwahara N (default N=5)
              Runs before the bilateral filter, so both are complementary.
+    bg_clusters: Override background detection.
+             - None (default): auto-detect via edge-contact heuristic
+             - 0: disable background detection (no background rect fill)
+             - list of ints: force specific cluster indices as background
     """
     if mode not in MODES:
         raise ValueError(f"Unknown mode '{mode}'. Choose from: {list(MODES.keys())}")
@@ -82,6 +86,7 @@ def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_col
     _cfg.update({
         "source_path": str(source_path), "svg_width": svg_width,
         "palette": palette, "bg_color": bg_color, "smooth": smooth,
+        "bg_clusters_override": bg_clusters,
         **MODES[mode], **overrides,
     })
 
@@ -251,6 +256,28 @@ def detect_background(quantize):
     sorted_clusters = quantize["sorted_clusters"]
     h, w = quantize["h"], quantize["w"]
 
+    override = _cfg.get("bg_clusters_override")
+
+    # bg_clusters=0 → skip detection entirely
+    if override == 0:
+        print("  detect_background: disabled (bg_clusters=0)")
+        return {"bg_clusters": set(), "bg_hex": "#000000"}
+
+    # bg_clusters=[list] → force specific cluster IDs
+    if isinstance(override, (list, tuple)):
+        bg_clusters = set(override)
+        # Compute weighted average color for forced clusters
+        bg_total = sum(cnt for cid, cnt in sorted_clusters if cid in bg_clusters)
+        bg_color = np.zeros(3, dtype=np.float64)
+        for cid, cnt in sorted_clusters:
+            if cid in bg_clusters:
+                bg_color += centers[cid].astype(np.float64) * cnt
+        bg_color = (bg_color / bg_total).astype(np.uint8) if bg_total > 0 else np.array([0, 0, 0], dtype=np.uint8)
+        bg_hex = f"#{bg_color[0]:02x}{bg_color[1]:02x}{bg_color[2]:02x}"
+        print(f"  detect_background: forced {len(bg_clusters)} clusters, {bg_hex}")
+        return {"bg_clusters": bg_clusters, "bg_hex": bg_hex}
+
+    # Default: auto-detect via edge-contact heuristic
     bg_clusters = set()
     for cid, cnt in sorted_clusters:
         pct = cnt / len(full_labels) * 100
@@ -486,7 +513,7 @@ def _assemble_pure(shapes, svg_w, svg_h, bg_hex, palette=None, bg_color=None):
 
 # --- Public API ---
 
-def image_to_svg(source_path, mode="painting", svg_width=1000, palette=None, bg_color=None, smooth=None, **overrides):
+def image_to_svg(source_path, mode="painting", svg_width=1000, palette=None, bg_color=None, smooth=None, bg_clusters=None, **overrides):
     """Convert a raster image to SVG.
 
     Args:
@@ -498,13 +525,15 @@ def image_to_svg(source_path, mode="painting", svg_width=1000, palette=None, bg_
         bg_color: Override background color (hex). With palette, defaults to lightest entry.
         smooth: ImageMagick preprocessing ("oilpaint", "oilpaint:N", "kuwahara", "kuwahara:N").
                 Reduces shape count/SVG size 20-30%. Requires ImageMagick on PATH.
+        bg_clusters: Override background detection.
+                     None=auto-detect, 0=disable, [list]=force cluster indices.
         **overrides: Override any mode preset (K, dark_lum, compactness_min,
                      edge_density_min, isolation_filter, min_area)
 
     Returns:
         (svg_string, flow) — the SVG content and the Flow object for inspection
     """
-    configure(source_path, mode=mode, svg_width=svg_width, palette=palette, bg_color=bg_color, smooth=smooth, **overrides)
+    configure(source_path, mode=mode, svg_width=svg_width, palette=palette, bg_color=bg_color, smooth=smooth, bg_clusters=bg_clusters, **overrides)
     flow = Flow(assemble_svg)
     flow.run()
     result = flow.value(assemble_svg)
@@ -524,6 +553,7 @@ def image_to_svg_batch(source_path, variants, svg_width=1000):
             - mode (str): "graphic", "illustration", "painting", "photo"
             - palette (optional): Hex list or preset name
             - bg_color (optional): Background override
+            - bg_clusters (optional): Override bg detection (None/0/[list])
             - K, dark_lum, etc. (optional): Override mode defaults
         svg_width: SVG viewBox width (shared across all variants)
 
@@ -548,9 +578,10 @@ def image_to_svg_batch(source_path, variants, svg_width=1000):
         mode = v.get("mode", "painting")
         if mode not in MODES:
             raise ValueError(f"Unknown mode '{mode}' in variant '{name}'")
-        cfg = {**MODES[mode], **{k: v[k] for k in v if k not in ("name", "mode", "palette", "bg_color", "smooth")}}
+        cfg = {**MODES[mode], **{k: v[k] for k in v if k not in ("name", "mode", "palette", "bg_color", "bg_clusters", "smooth")}}
         cfg["palette"] = v.get("palette")
         cfg["bg_color"] = v.get("bg_color")
+        cfg["bg_clusters"] = v.get("bg_clusters")
         cfg["smooth"] = v.get("smooth")
         cfg["name"] = name
         resolved.append(cfg)
@@ -572,9 +603,13 @@ def image_to_svg_batch(source_path, variants, svg_width=1000):
         use_isolation = any(v.get("isolation_filter", True) for v in group_variants)
         min_area = min(v["min_area"] for v in group_variants)
 
+        # Resolve bg_clusters for this K group: use first non-None override, else None (auto)
+        group_bg_clusters = next((v.get("bg_clusters") for v in group_variants if v.get("bg_clusters") is not None), None)
+
         # Configure for this K group
         configure(source_path, svg_width=svg_width,
                   smooth=group_variants[0].get("smooth"),
+                  bg_clusters=group_bg_clusters,
                   K=K, dark_lum=group_variants[0]["dark_lum"],
                   compactness_min=loosest_compact,
                   edge_density_min=loosest_edge,

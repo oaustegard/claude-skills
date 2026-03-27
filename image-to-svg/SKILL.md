@@ -1,6 +1,6 @@
 ---
 name: image-to-svg
-version: 1.6.0
+version: 1.7.0
 description: Convert raster images (photos, paintings, illustrations) into SVG vector reproductions. Use when the user uploads an image and asks to reproduce, vectorize, trace, or convert it to SVG. Also use when asked to decompose an image into shapes, create an SVG version of a picture, or faithfully reproduce artwork as vector graphics. Do NOT use for creating original SVG illustrations from text descriptions — only for converting existing raster images.
 ---
  
@@ -71,6 +71,46 @@ svg, flow = image_to_svg("photo.jpg", mode="graphic", K=4, palette="ocean", bg_c
 **Built-in presets**: `bw`, `mono3`, `mono4`, `pop`, `pop2`, `neon`, `warhol4`, `warhol6`, `warhol8`, `sunset`, `ocean`
 
 **How it works**: Unique shape colors are sorted by luminance. Palette entries are mapped proportionally — `palette[0]` replaces the darkest cluster, `palette[-1]` replaces the lightest. Background defaults to the lightest palette entry unless `bg_color` is set. Palette length doesn't need to match K exactly; colors are binned proportionally.
+
+**Portraits**: Use K=16-24 even with bold palettes. Facial features (glasses, beard, brow) need tonal range that low K eliminates. A good rule of thumb: palette length ≈ K/3 for clean luminance binning. At K=8 with a 4-color palette, a face becomes an undifferentiated blob.
+
+**Contrast preprocessing warning**: External contrast boosting (contrast-stretch, sigmoidal-contrast) can confuse background detection. The pipeline's edge-contact heuristic assumes untouched luminance distributions — aggressive tone-mapping pushes subject tones into background-adjacent bins, causing misclassification (e.g., dark jacket regions classified as background and mapped to the lightest palette color). If you see subject regions tearing to the background color, try without preprocessing first. The pipeline's own bilateral blur + optional kuwahara/oilpaint handles tonal separation.
+
+### Background Detection Override (`bg_clusters`)
+
+Control which clusters are treated as background:
+
+```python
+# Auto-detect (default) — edge-contact heuristic
+svg, flow = image_to_svg("photo.jpg", mode="illustration", K=20, palette="warhol6")
+
+# Disable — no clusters removed, no background rect color override
+svg, flow = image_to_svg("photo.jpg", mode="illustration", K=20, palette="warhol6", bg_clusters=0)
+
+# Force specific cluster indices (from quantize step's sorted_clusters output)
+svg, flow = image_to_svg("photo.jpg", mode="illustration", K=20, palette="warhol6", bg_clusters=[2, 5])
+```
+
+Use `bg_clusters=0` when palette remapping already controls all colors explicitly and background detection is getting in the way. Use `bg_clusters=[list]` when you know which clusters are background but the heuristic misidentifies them.
+
+### Portrait Pop-Art Recipe (Warhol Style)
+
+```python
+# Key: enough K for facial features, palette length ~K/3, modest smoothing
+# Do NOT apply contrast preprocessing — it breaks background detection.
+results = image_to_svg_batch("portrait.jpg", [
+    {"name": "hot",   "mode": "illustration", "K": 20, "smooth": "kuwahara:6",
+     "palette": ["#000", "#D4145A", "#FF6B9D", "#FF85C0", "#FFD700", "#FFEF82", "#FFF8DC"]},
+    {"name": "cool",  "mode": "illustration", "K": 20, "smooth": "kuwahara:6",
+     "palette": ["#0D0035", "#4A00E0", "#7B68EE", "#00D4FF", "#7FFFD4", "#B0FFE0", "#E0FFFF"]},
+    {"name": "earth", "mode": "illustration", "K": 20, "smooth": "kuwahara:6",
+     "palette": ["#1a0a00", "#8B4513", "#CD853F", "#DEB887", "#F5DEB3", "#FAEBD7", "#FFF8DC"]},
+    {"name": "neon",  "mode": "illustration", "K": 20, "smooth": "kuwahara:6",
+     "palette": ["#0d0d0d", "#ff00ff", "#00ff00", "#ffff00", "#00ffff", "#ff69b4", "#f5f5f5"]},
+], svg_width=700)
+```
+
+Why this works: K=20 preserves enough tonal clusters for facial structure (glasses, beard, brow ridge). 7-color palettes give ~K/3 luminance bins — enough variation to separate features without muddying. `kuwahara:6` smooths texture without dissolving edges (`:12` erases glasses). Raw source → pipeline smoothing only; no external contrast manipulation.
 
 ## ImageMagick Preprocessing (smooth)
 
@@ -156,6 +196,8 @@ for name, svg in results.items():
 ```
 
 Variants sharing the same K run the pipeline (preprocess → quantize → edge_map → extract_contours) **once**, then fan out at assembly for palette remapping. This guarantees structural identity across palette variants (same shapes, same paths) and saves ~20-60s per shared K group.
+
+**Verification still applies in batch mode.** The turnkey feel of batch processing makes it easy to skip the side-by-side comparison — don't. Render at least one variant per K group and verify before delivering. Background detection failures and palette mapping issues are invisible without rendering.
 
 ## Verification Protocol
 

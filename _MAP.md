@@ -1,5 +1,5 @@
 # claude-skills/
-*Files: 1 | Subdirectories: 54*
+*Files: 1 | Subdirectories: 57*
 
 ## Subdirectories
 
@@ -45,12 +45,15 @@
 - [mapping-webapp/](./mapping-webapp/_MAP.md)
 - [orchestrating-agents/](./orchestrating-agents/_MAP.md)
 - [orchestrating-skills/](./orchestrating-skills/_MAP.md)
+- [processing-images/](./processing-images/_MAP.md)
+- [processing-video/](./processing-video/_MAP.md)
 - [registry/](./registry/_MAP.md)
 - [remembering/](./remembering/_MAP.md)
 - [reviewing-ai-papers/](./reviewing-ai-papers/_MAP.md)
 - [sampling-bluesky-zeitgeist/](./sampling-bluesky-zeitgeist/_MAP.md)
 - [scripts/](./scripts/_MAP.md)
 - [searching-codebases/](./searching-codebases/_MAP.md)
+- [seeing-images/](./seeing-images/_MAP.md)
 - [sorting-groceries/](./sorting-groceries/_MAP.md)
 - [templates/](./templates/_MAP.md)
 - [tiling-tree/](./tiling-tree/_MAP.md)
