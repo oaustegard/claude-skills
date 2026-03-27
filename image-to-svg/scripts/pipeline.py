@@ -3,6 +3,9 @@
 Usage:
     from pipeline import image_to_svg
     svg, flow = image_to_svg("photo.jpg", mode="painting")
+
+    # Compositional pipeline for line art / graphic inputs:
+    svg, flow = image_to_svg("kandinsky.jpg", mode="graphic", pipeline="compositional")
 """
 import cv2
 import numpy as np
@@ -52,7 +55,7 @@ def _hex_luminance(hex_color):
     return 0.299 * r + 0.587 * g + 0.114 * b
 
 
-def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_color=None, smooth=None, bg_clusters=None, **overrides):
+def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_color=None, smooth=None, bg_clusters=None, pipeline="auto", **overrides):
     """Set pipeline config. Called internally by image_to_svg().
 
     Any key in MODES presets can be overridden: K, dark_lum,
@@ -75,9 +78,15 @@ def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_col
              - None (default): auto-detect via edge-contact heuristic
              - 0: disable background detection (no background rect fill)
              - list of ints: force specific cluster indices as background
+    pipeline: Pipeline selection for handling line art.
+             - "auto" (default): classify input and choose automatically
+             - "fill": force fill-only pipeline (current behavior)
+             - "compositional": force two-pass line+fill pipeline
     """
     if mode not in MODES:
         raise ValueError(f"Unknown mode '{mode}'. Choose from: {list(MODES.keys())}")
+    if pipeline not in ("auto", "fill", "compositional"):
+        raise ValueError(f"Unknown pipeline '{pipeline}'. Choose from: auto, fill, compositional")
     # Resolve palette preset name to list
     if isinstance(palette, str):
         if palette not in PALETTES:
@@ -86,7 +95,7 @@ def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_col
     _cfg.update({
         "source_path": str(source_path), "svg_width": svg_width,
         "palette": palette, "bg_color": bg_color, "smooth": smooth,
-        "bg_clusters_override": bg_clusters,
+        "bg_clusters_override": bg_clusters, "pipeline": pipeline,
         **MODES[mode], **overrides,
     })
 
@@ -511,9 +520,136 @@ def _assemble_pure(shapes, svg_w, svg_h, bg_hex, palette=None, bg_color=None):
     return "\n".join(lines)
 
 
+# --- Compositional assembly (fills + strokes) ---
+
+def _assemble_compositional(shapes, stroke_lines, svg_w, svg_h, bg_hex,
+                            palette=None, bg_color=None):
+    """Assemble layered SVG with fill shapes behind line strokes.
+
+    Args:
+        shapes: List of {"path": str, "color": hex, "area": float}
+        stroke_lines: List of {"x1", "y1", "x2", "y2", "color", "stroke_width"}
+        svg_w, svg_h: ViewBox dimensions
+        bg_hex: Detected background color
+        palette: Optional palette for fill remapping
+        bg_color: Optional background color override
+
+    Returns:
+        SVG string with <g id="fills"> and <g id="strokes"> layers
+    """
+    from lines import lines_to_svg_elements
+
+    if isinstance(palette, str):
+        if palette not in PALETTES:
+            raise ValueError(f"Unknown palette '{palette}'. Choose from: {list(PALETTES.keys())}")
+        palette = PALETTES[palette]
+
+    # Palette remapping for fills (same logic as _assemble_pure)
+    color_map = {}
+    if palette:
+        unique_colors = sorted(set(s["color"] for s in shapes), key=_hex_luminance)
+        n_colors, n_palette = len(unique_colors), len(palette)
+        for i, color in enumerate(unique_colors):
+            palette_idx = min(int(i * n_palette / n_colors), n_palette - 1)
+            color_map[color] = palette[palette_idx]
+        bg_hex = bg_color if bg_color else palette[-1]
+    elif bg_color:
+        bg_hex = bg_color
+
+    out = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {svg_w} {svg_h}">',
+        f'  <rect width="{svg_w}" height="{svg_h}" fill="{bg_hex}"/>',
+        '  <g id="fills">',
+    ]
+    for s in shapes:
+        c = color_map.get(s["color"], s["color"]) if palette else s["color"]
+        out.append(f'    <path d="{s["path"]}" fill="{c}" stroke="{c}" stroke-width="4" stroke-linejoin="round"/>')
+    out.append('  </g>')
+
+    if stroke_lines:
+        out.append('  <g id="strokes">')
+        out.extend(lines_to_svg_elements(stroke_lines))
+        out.append('  </g>')
+
+    out.append('</svg>')
+    return "\n".join(out)
+
+
+def _run_compositional(source_path, mode, svg_width, palette, bg_color,
+                       smooth, bg_clusters, **overrides):
+    """Run the two-pass compositional pipeline.
+
+    Pass 1: Extract lines from the original image -> SVG <line> strokes
+    Pass 2: Suppress lines, run fill pipeline on cleaned image -> SVG <path> fills
+    Compose both layers into a single SVG.
+
+    Returns:
+        (svg_string, flow, classification) tuple
+    """
+    import tempfile, os
+    from lines import classify_input, extract_lines, suppress_line_regions
+
+    # Load original image
+    img = cv2.imread(str(source_path))
+    if img is None:
+        raise FileNotFoundError(f"Cannot read: {source_path}")
+    rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    h, w = rgb.shape[:2]
+
+    svg_h = int(svg_width * h / w)
+    scale_x = svg_width / w
+    scale_y = svg_h / h
+
+    # Pass 1: Line extraction
+    print("  compositional pass 1: line extraction")
+    stroke_lines, thin_mask = extract_lines(
+        rgb, scale_x=scale_x, scale_y=scale_y,
+        min_line_length=max(20, int(min(h, w) * 0.02)),
+    )
+
+    # Pass 2: Suppress lines, run fill pipeline on cleaned image
+    print("  compositional pass 2: fill extraction on line-suppressed image")
+    suppressed = suppress_line_regions(rgb, thin_mask)
+
+    tmp = tempfile.mktemp(suffix=".png")
+    try:
+        cv2.imwrite(tmp, cv2.cvtColor(suppressed, cv2.COLOR_RGB2BGR))
+
+        # Run fill pipeline on the suppressed image
+        configure(tmp, mode=mode, svg_width=svg_width, palette=palette,
+                  bg_color=bg_color, smooth=smooth, bg_clusters=bg_clusters,
+                  pipeline="fill", **overrides)
+        flow = Flow(assemble_svg)
+        flow.run()
+    finally:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+
+    # Compose: extract fill shapes and combine with line strokes
+    contour_result = flow.value(extract_contours)
+    bg_result = flow.value(detect_background)
+
+    svg = _assemble_compositional(
+        contour_result["shapes"], stroke_lines,
+        contour_result["svg_w"], contour_result["svg_h"],
+        bg_result["bg_hex"],
+        palette=palette, bg_color=bg_color,
+    )
+
+    n_fills = len(contour_result["shapes"])
+    n_strokes = len(stroke_lines)
+    print(f"  compositional: {n_fills} fills + {n_strokes} strokes")
+
+    return svg, flow
+
+
 # --- Public API ---
 
-def image_to_svg(source_path, mode="painting", svg_width=1000, palette=None, bg_color=None, smooth=None, bg_clusters=None, **overrides):
+def image_to_svg(source_path, mode="painting", svg_width=1000, palette=None,
+                 bg_color=None, smooth=None, bg_clusters=None, pipeline="auto",
+                 **overrides):
     """Convert a raster image to SVG.
 
     Args:
@@ -527,13 +663,41 @@ def image_to_svg(source_path, mode="painting", svg_width=1000, palette=None, bg_
                 Reduces shape count/SVG size 20-30%. Requires ImageMagick on PATH.
         bg_clusters: Override background detection.
                      None=auto-detect, 0=disable, [list]=force cluster indices.
+        pipeline: Pipeline selection.
+                  "auto" — classify input, use compositional for graphic art (default)
+                  "fill" — fill-only pipeline (previous default behavior)
+                  "compositional" — two-pass line+fill pipeline for line art
         **overrides: Override any mode preset (K, dark_lum, compactness_min,
                      edge_density_min, isolation_filter, min_area)
 
     Returns:
         (svg_string, flow) — the SVG content and the Flow object for inspection
     """
-    configure(source_path, mode=mode, svg_width=svg_width, palette=palette, bg_color=bg_color, smooth=smooth, bg_clusters=bg_clusters, **overrides)
+    # Determine effective pipeline
+    effective_pipeline = pipeline
+    if pipeline == "auto":
+        from lines import classify_input as _classify
+        img = cv2.imread(str(source_path))
+        if img is None:
+            raise FileNotFoundError(f"Cannot read: {source_path}")
+        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        classification = _classify(rgb)
+        effective_pipeline = "compositional" if classification["is_graphic"] else "fill"
+        print(f"  classify: {'graphic' if classification['is_graphic'] else 'photographic'} "
+              f"(edge={classification['edge_density']}, bimodal={classification['bimodality']}, "
+              f"lines={classification['n_lines']})")
+
+    if effective_pipeline == "compositional":
+        svg, flow = _run_compositional(
+            source_path, mode=mode, svg_width=svg_width, palette=palette,
+            bg_color=bg_color, smooth=smooth, bg_clusters=bg_clusters, **overrides,
+        )
+        return svg, flow
+
+    # Standard fill-only pipeline
+    configure(source_path, mode=mode, svg_width=svg_width, palette=palette,
+              bg_color=bg_color, smooth=smooth, bg_clusters=bg_clusters,
+              pipeline="fill", **overrides)
     flow = Flow(assemble_svg)
     flow.run()
     result = flow.value(assemble_svg)
