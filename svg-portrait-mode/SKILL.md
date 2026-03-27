@@ -1,46 +1,62 @@
 ---
 name: svg-portrait-mode
-description: "Portrait Mode" for SVGs — sharp detailed subjects, simplified backgrounds. Claude interprets user intent ("focus on the dog, blur the background") and generates depth-aware vectorization. Like phone portrait mode, but the blur is low-K quantization.
+description: "Portrait Mode" for SVGs — sharp detailed subjects, simplified backgrounds. Uses MediaPipe for automatic person/face segmentation, or manual region definition. Claude interprets user intent and generates the config.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # SVG Portrait Mode
 
-Selective detail vectorization: detailed subjects, simplified backgrounds. The SVG equivalent of phone portrait mode.
+Selective detail vectorization using ML segmentation. The SVG equivalent of phone portrait mode.
 
-## Concept
-
-| Portrait Mode (Photos) | Portrait Mode (SVGs) |
-|------------------------|----------------------|
-| Gaussian blur | Low-K quantization |
-| Sharp subject | High-K + fine contours |
-| Depth map | Treatment map |
-| Bokeh | Flat color fields |
-
-## Treatments (Depth Levels)
-
-| Treatment | K | Effect | Use For |
-|-----------|---|--------|---------|
-| `solid` | 1 | Single color | Distant sky |
-| `flat` | 2 | 2-tone | Simple backgrounds |
-| `simplified` | 5 | Chunky shapes | Midground |
-| `detailed` | 24 | Preserved texture | Subject |
-| `textured` | 32 | High fidelity | Focal point |
-| `outline` | 1 | Strokes only | Stark edges |
-
-## Quick Start
+## Quick Start (Automatic)
 
 ```python
-from portrait_mode import compose_from_json
+from portrait_mode import portrait_mode_auto
 
+# One line - MediaPipe handles segmentation
+svg, stats = portrait_mode_auto("photo.jpg")
+
+# With custom treatments
+svg, stats = portrait_mode_auto("photo.jpg",
+    subject_treatment="detailed",
+    face_treatment="textured", 
+    background_treatment="flat")
+```
+
+## Requirements
+
+MediaPipe models in `/home/claude/`:
+- `selfie_segmenter.tflite` (person/background)
+- `blaze_face_short_range.tflite` (face detection)
+
+## Treatments
+
+| Treatment | K | Use For |
+|-----------|---|---------|
+| `solid` | 1 | Flat sky |
+| `flat` | 2 | Simple backgrounds |
+| `simplified` | 5 | Midground |
+| `detailed` | 24 | Subject body |
+| `textured` | 32 | Face, focal point |
+| `outline` | 1 | Stark edges |
+
+## Manual Config (Advanced)
+
+```python
+from portrait_mode import compose_from_json, get_mediapipe_masks
+
+# Get masks
+masks = get_mediapipe_masks("photo.jpg")
+# Returns: {'person': 'path', 'background': 'path', 'face': 'path'}
+
+# Custom config
 config = {
     "regions": [
-        {"name": "subject", "method": "bbox", 
-         "params": {"x1": 0.2, "y1": 0.4, "x2": 0.8, "y2": 0.95}, 
-         "treatment": "detailed", "z_order": 10},
-        {"name": "background", "method": "remainder", 
-         "treatment": "flat", "z_order": 0}
+        {"name": "bg", "method": "mask_file", "params": {"path": masks['background']},
+         "treatment": "flat", "z_order": 0},
+        {"name": "person", "method": "mask_file", "params": {"path": masks['person']},
+         "treatment": "detailed", "z_order": 5},
     ]
 }
 
@@ -49,39 +65,30 @@ svg, stats = compose_from_json("photo.jpg", config)
 
 ## Region Methods
 
-| Method | Params | Example |
-|--------|--------|---------|
-| `position` | `{"y": [start, end]}` | Top 30%: `{"y": [0, 0.3]}` |
-| `bbox` | `{"x1", "y1", "x2", "y2"}` | Normalized 0-1 coordinates |
-| `color` | `{"hsv_ranges": [...]}` | HSV color matching |
-| `saturation` | `{"min", "max"}` | Gray detection: `{"max": 30}` |
-| `luminance` | `{"min", "max"}` | Brightness selection |
-| `mask_file` | `{"path": "..."}` | External mask image |
-| `remainder` | `{}` | Everything unclaimed |
-
-## Workflow
-
-1. User uploads image
-2. User describes intent: "focus on X, simplify Y, outline Z"
-3. Claude sees image → identifies regions → maps to treatments
-4. Claude generates JSON config
-5. `compose_from_json()` executes → SVG
+| Method | Use Case |
+|--------|----------|
+| `mask_file` | MediaPipe output, external masks |
+| `position` | Spatial: `{"y": [0, 0.3]}` |
+| `bbox` | Bounding box (shows edges - avoid) |
+| `color` | HSV matching |
+| `saturation` | Gray detection |
+| `remainder` | Everything unclaimed |
 
 ## Forced Palettes
 
-Override natural colors (e.g., make gray grass green):
-
 ```python
 "palettes": {
-    "grass": [[85, 130, 60], [110, 155, 80]],
-    "sky": [[135, 180, 220]]
+    "grass": [[85, 130, 60], [110, 155, 80]]
 }
 ```
 
-## Style Presets
+## Changelog
 
-- **Classic Portrait**: subject detailed, background flat
-- **Stage Light**: subject detailed, background solid black  
-- **High Key**: subject detailed, background solid white
-- **Contour**: all regions outline mode
-- **Collage**: foreground textured, midground simplified, background flat
+### 0.2.0
+- Added MediaPipe integration
+- `portrait_mode_auto()` for one-line usage
+- `get_mediapipe_masks()` helper
+
+### 0.1.0
+- Initial release
+- Manual region definition

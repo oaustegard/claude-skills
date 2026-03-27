@@ -351,3 +351,132 @@ if __name__ == "__main__":
     print(f"Stats: {stats}")
     print(f"Total: {sum(stats.values())} paths")
     print(f"Size: {len(svg)/1024:.1f}KB")
+
+
+# === MEDIAPIPE INTEGRATION ===
+
+def get_mediapipe_masks(image_path: str, output_dir: str = "/tmp") -> Dict[str, str]:
+    """
+    Run MediaPipe segmentation and return paths to generated mask files.
+    
+    Returns dict with keys: 'person', 'background', 'face' (if detected)
+    """
+    import mediapipe as mp
+    from mediapipe.tasks.python import vision
+    import os
+    
+    img = cv2.imread(image_path)
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    h, w = img.shape[:2]
+    mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=img_rgb)
+    
+    masks = {}
+    
+    # Selfie segmentation for person/background
+    try:
+        selfie_seg = vision.ImageSegmenter.create_from_options(
+            vision.ImageSegmenterOptions(
+                base_options=mp.tasks.BaseOptions(model_asset_path='/home/claude/selfie_segmenter.tflite'),
+                output_category_mask=True))
+        result = selfie_seg.segment(mp_img)
+        selfie_mask = result.category_mask.numpy_view().squeeze()
+        selfie_seg.close()
+        
+        # Determine which value is person (usually 255, but check)
+        if np.sum(selfie_mask == 255) < selfie_mask.size * 0.5:
+            person_mask = (selfie_mask == 255).astype(np.uint8) * 255
+        else:
+            person_mask = (selfie_mask == 0).astype(np.uint8) * 255
+        
+        person_path = os.path.join(output_dir, "mask_person.png")
+        bg_path = os.path.join(output_dir, "mask_background.png")
+        
+        Image.fromarray(person_mask).save(person_path)
+        Image.fromarray(255 - person_mask).save(bg_path)
+        
+        masks['person'] = person_path
+        masks['background'] = bg_path
+    except Exception as e:
+        print(f"Selfie segmentation failed: {e}")
+    
+    # Face detection
+    try:
+        face_detector = vision.FaceDetector.create_from_options(
+            vision.FaceDetectorOptions(
+                base_options=mp.tasks.BaseOptions(model_asset_path='/home/claude/blaze_face_short_range.tflite'),
+                min_detection_confidence=0.3))
+        result = face_detector.detect(mp_img)
+        face_detector.close()
+        
+        if result.detections:
+            face_mask = np.zeros((h, w), dtype=np.uint8)
+            for det in result.detections:
+                bbox = det.bounding_box
+                pad = int(bbox.width * 0.2)
+                x1 = max(0, bbox.origin_x - pad)
+                y1 = max(0, bbox.origin_y - pad)
+                x2 = min(w, bbox.origin_x + bbox.width + pad)
+                y2 = min(h, bbox.origin_y + bbox.height + pad)
+                face_mask[y1:y2, x1:x2] = 255
+            
+            face_path = os.path.join(output_dir, "mask_face.png")
+            Image.fromarray(face_mask).save(face_path)
+            masks['face'] = face_path
+    except Exception as e:
+        print(f"Face detection failed: {e}")
+    
+    return masks
+
+
+def portrait_mode_auto(image_path: str, 
+                       subject_treatment: str = "detailed",
+                       face_treatment: str = "textured", 
+                       background_treatment: str = "flat") -> Tuple[str, Dict]:
+    """
+    Automatic portrait mode using MediaPipe segmentation.
+    
+    Args:
+        image_path: Path to image
+        subject_treatment: Treatment for person body
+        face_treatment: Treatment for face (if detected)
+        background_treatment: Treatment for background
+        
+    Returns:
+        (svg_string, stats_dict)
+    """
+    masks = get_mediapipe_masks(image_path)
+    
+    regions = []
+    
+    # Background first (z=0)
+    if 'background' in masks:
+        regions.append({
+            "name": "background",
+            "method": "mask_file",
+            "params": {"path": masks['background']},
+            "treatment": background_treatment,
+            "z_order": 0
+        })
+    
+    # Person body (z=5)
+    if 'person' in masks:
+        regions.append({
+            "name": "person",
+            "method": "mask_file", 
+            "params": {"path": masks['person']},
+            "treatment": subject_treatment,
+            "z_order": 5
+        })
+    
+    # Face highest detail (z=10)
+    if 'face' in masks:
+        regions.append({
+            "name": "face",
+            "method": "mask_file",
+            "params": {"path": masks['face']},
+            "treatment": face_treatment,
+            "z_order": 10
+        })
+    
+    config = {"regions": regions}
+    return compose_from_json(image_path, config)
