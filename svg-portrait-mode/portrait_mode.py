@@ -25,23 +25,23 @@ _UNSET = object()
 # Background is intentionally crushed: low K + heavy oilpaint + small image = big blobs
 LAYER_DEFAULTS = {
     "photo": {
-        "face_K": 96,  "face_smooth": None,          "face_mode": "photo",
-        "body_K": 48,  "body_smooth": "kuwahara:3",   "body_mode": "painting",
+        "face_K": 128, "face_smooth": None,          "face_mode": "photo",
+        "body_K": 64,  "body_smooth": "kuwahara:3",   "body_mode": "painting",
         "bg_K":   6,   "bg_smooth":   "oilpaint:24",  "bg_mode":   "graphic",  "bg_scale": 0.20,
     },
     "painting": {
-        "face_K": 80,  "face_smooth": None,          "face_mode": "painting",
-        "body_K": 48,  "body_smooth": "oilpaint:8",   "body_mode": "painting",
+        "face_K": 128, "face_smooth": None,          "face_mode": "photo",
+        "body_K": 64,  "body_smooth": "kuwahara:3",   "body_mode": "painting",
         "bg_K":   6,   "bg_smooth":   "oilpaint:28",  "bg_mode":   "graphic",  "bg_scale": 0.18,
     },
     "illustration": {
-        "face_K": 64,  "face_smooth": None,          "face_mode": "illustration",
-        "body_K": 32,  "body_smooth": "oilpaint:6",   "body_mode": "illustration",
+        "face_K": 128, "face_smooth": None,          "face_mode": "photo",
+        "body_K": 48,  "body_smooth": "kuwahara:3",   "body_mode": "painting",
         "bg_K":   6,   "bg_smooth":   "oilpaint:20",  "bg_mode":   "graphic",  "bg_scale": 0.22,
     },
     "graphic": {
-        "face_K": 48,  "face_smooth": None,          "face_mode": "graphic",
-        "body_K": 24,  "body_smooth": None,           "body_mode": "graphic",
+        "face_K": 64,  "face_smooth": None,          "face_mode": "graphic",
+        "body_K": 32,  "body_smooth": None,           "body_mode": "graphic",
         "bg_K":   8,   "bg_smooth":   None,           "bg_mode":   "graphic",  "bg_scale": 0.25,
     },
 }
@@ -301,7 +301,9 @@ def portrait_mode(image_path, image_type=None,
     try:
         body_svg, _ = image_to_svg(body_tmp, mode=body_mode, K=body_K,
                                    smooth=body_smooth, svg_width=svg_width,
-                                   pipeline="fill")
+                                   pipeline="fill", bg_clusters=0,
+                                   compactness_min=0.05, edge_density_min=0.12,
+                                   min_area=25)
         layers['body'] = body_svg
         stats['body'] = len(re.findall(r'<path', body_svg))
     finally:
@@ -314,7 +316,9 @@ def portrait_mode(image_path, image_type=None,
         try:
             face_svg, _ = image_to_svg(face_tmp, mode=face_mode, K=face_K,
                                        smooth=face_smooth, svg_width=svg_width,
-                                       pipeline="fill")
+                                       pipeline="fill", bg_clusters=0,
+                                       compactness_min=0.04, edge_density_min=0.10,
+                                       isolation_filter=False, min_area=20)
             layers['face'] = face_svg
             stats['face'] = len(re.findall(r'<path', face_svg))
         finally:
