@@ -98,6 +98,19 @@
       "license": "MIT"
     },
     {
+      "name": "charting",
+      "description": "Select the right Python charting library (seaborn, matplotlib, graphviz) and produce publication-quality static visualizations. Use when creating charts, plots, graphs, diagrams, heatmaps, visualizations from data, or when choosing between matplotlib/seaborn/graphviz. Also triggers for network diagrams, flowcharts, dependency trees, state machines, and entity-relationship diagrams. For interactive browser-rendered charts or uploaded data exploration, defer to charting-vega-lite instead.",
+      "source": "./charting",
+      "strict": false,
+      "skills": [
+        "./"
+      ],
+      "version": "0.1.0",
+      "repository": "https://github.com/oaustegard/claude-skills",
+      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/charting",
+      "license": "MIT"
+    },
+    {
       "name": "charting-vega-lite",
       "description": "Create interactive data visualizations using Vega-Lite declarative JSON grammar. Supports 20+ chart types (bar, line, scatter, histogram, boxplot, grouped/stacked variations, etc.) via templates and programmatic builders. Use when users upload data for charting, request specific chart types, or mention visualizations. Produces portable JSON specs with inline data islands that work in Claude artifacts and can be adapted for production.",
       "source": "./charting-vega-lite",
