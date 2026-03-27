@@ -387,7 +387,7 @@
     },
     {
       "name": "image-to-svg",
-      "description": "Convert raster images (photos, paintings, illustrations) into SVG vector reproductions. Use when the user uploads an image and asks to reproduce, vectorize, trace, or convert it to SVG. Also use when asked to decompose an image into shapes, create an SVG version of a picture, or faithfully reproduce artwork as vector graphics. Do NOT use for creating original SVG illustrations from text descriptions — only for converting existing raster images.",
+      "description": "Convert raster images (photos, paintings, illustrations, line art) into SVG vector reproductions. Use when the user uploads an image and asks to reproduce, vectorize, trace, or convert it to SVG. Also use when asked to decompose an image into shapes, create an SVG version of a picture, or faithfully reproduce artwork as vector graphics. Handles graphic/line-art inputs (Kandinsky, architectural drawings, ink work) via a compositional pipeline that extracts lines as SVG strokes. Do NOT use for creating original SVG illustrations from text descriptions — only for converting existing raster images.",
       "source": "./image-to-svg",
       "strict": false,
       "skills": [
