@@ -3,6 +3,9 @@
 Usage:
     from pipeline import image_to_svg
     svg, flow = image_to_svg("photo.jpg", mode="painting")
+
+    # Compositional pipeline for line art / graphic inputs:
+    svg, flow = image_to_svg("kandinsky.jpg", mode="graphic", pipeline="compositional")
 """
 import cv2
 import numpy as np
@@ -52,7 +55,7 @@ def _hex_luminance(hex_color):
     return 0.299 * r + 0.587 * g + 0.114 * b
 
 
-def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_color=None, smooth=None, bg_clusters=None, **overrides):
+def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_color=None, smooth=None, bg_clusters=None, pipeline="auto", **overrides):
     """Set pipeline config. Called internally by image_to_svg().
 
     Any key in MODES presets can be overridden: K, dark_lum,
@@ -75,9 +78,15 @@ def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_col
              - None (default): auto-detect via edge-contact heuristic
              - 0: disable background detection (no background rect fill)
              - list of ints: force specific cluster indices as background
+    pipeline: Pipeline selection for handling line art.
+             - "auto" (default): classify input and choose automatically
+             - "fill": force fill-only pipeline (current behavior)
+             - "compositional": force two-pass line+fill pipeline
     """
     if mode not in MODES:
         raise ValueError(f"Unknown mode '{mode}'. Choose from: {list(MODES.keys())}")
+    if pipeline not in ("auto", "fill", "compositional"):
+        raise ValueError(f"Unknown pipeline '{pipeline}'. Choose from: auto, fill, compositional")
     # Resolve palette preset name to list
     if isinstance(palette, str):
         if palette not in PALETTES:
@@ -86,7 +95,7 @@ def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_col
     _cfg.update({
         "source_path": str(source_path), "svg_width": svg_width,
         "palette": palette, "bg_color": bg_color, "smooth": smooth,
-        "bg_clusters_override": bg_clusters,
+        "bg_clusters_override": bg_clusters, "pipeline": pipeline,
         **MODES[mode], **overrides,
     })
 
