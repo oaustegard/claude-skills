@@ -1,9 +1,8 @@
 """
-SVG Portrait Mode v0.5.0 — Foveated vectorization.
+SVG Portrait Mode v0.6.0 — Selective simplification.
 
-Four-zone selective detail: Focus Target → Focus Edge → Periphery → Background.
-Combines Claude vision annotations, MediaPipe segmentation/landmarks,
-and optional saliency for zone assignment.
+One pipeline pass at high K → zone-aware contour simplification → optional
+per-zone style transforms. No clipPaths, no multi-pipeline compositing.
 
 Usage:
     from portrait_mode import portrait_mode
@@ -16,73 +15,59 @@ Usage:
             {'bbox': (210, 415, 300, 505), 'label': 'hands'},
         ])
 
-    # Backward-compatible (MP-only, like v0.3.0):
+    # With style transforms (muted background):
+    svg, stats = portrait_mode("photo.jpg",
+        focus_targets=[{'bbox': (215, 125, 295, 195), 'label': 'face'}],
+        style_transforms={'background': 'desaturate:0.7', 'periphery': 'desaturate:0.3'})
+
+    # No annotations (MP fallback):
     svg, stats = portrait_mode("photo.jpg")
 """
 
 import sys
 import cv2
 import numpy as np
-from PIL import Image
-import tempfile
 import os
-import re
-import subprocess
+import time
 
+# Pipeline imports
 sys.path.insert(0, '/mnt/skills/user/image-to-svg/scripts')
 
-# Zone constants (back-to-front compositing order)
+# Zone constants
 ZONE_BG = 0
 ZONE_PERIPHERY = 1
 ZONE_EDGE = 2
 ZONE_TARGET = 3
 
-ZONE_NAMES = {ZONE_BG: 'background', ZONE_PERIPHERY: 'periphery',
-              ZONE_EDGE: 'edge', ZONE_TARGET: 'target'}
+ZONE_NAMES = {
+    ZONE_BG: 'background',
+    ZONE_PERIPHERY: 'periphery',
+    ZONE_EDGE: 'edge',
+    ZONE_TARGET: 'target',
+}
+
+# Per-zone simplification defaults
+# epsilon_mult: multiplier on base epsilon (0.002 * perimeter)
+# min_area: minimum contour area in pixels²
+ZONE_SIMPLIFICATION = {
+    ZONE_TARGET:     {'epsilon_mult': 0.5,  'min_area': 15},
+    ZONE_EDGE:       {'epsilon_mult': 1.0,  'min_area': 40},
+    ZONE_PERIPHERY:  {'epsilon_mult': 2.5,  'min_area': 100},
+    ZONE_BG:         {'epsilon_mult': 5.0,  'min_area': 200},
+}
 
 # MediaPipe face mesh landmark indices
 _FACE_OVAL = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288,
               397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136,
               172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109]
-_LEFT_EYE = [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246]
-_RIGHT_EYE = [362, 382, 381, 380, 374, 373, 390, 249, 263, 466, 388, 387, 386, 385, 384, 398]
-_MOUTH = [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 409, 270, 269, 267, 0, 37, 39, 40, 185]
-
-# IM transforms for multi-pass segmentation
-_MP_TRANSFORMS = [
-    None,  # original
-    ['-auto-level'],
-    ['-equalize'],
-    ['-contrast-stretch', '2%'],
-    ['-brightness-contrast', '10x0'],
-    ['-brightness-contrast', '-10x0'],
-    ['-brightness-contrast', '0x15'],
-    ['-brightness-contrast', '0x-15'],
-    ['-modulate', '100,130,100'],
-    ['-modulate', '100,70,100'],
-    ['-colorspace', 'Gray', '-colorspace', 'sRGB'],
-    ['-channel', 'R', '-separate', '-colorspace', 'sRGB'],
-    ['-channel', 'G', '-separate', '-colorspace', 'sRGB'],
-    ['-channel', 'B', '-separate', '-colorspace', 'sRGB'],
-    ['-gamma', '1.3'],
-    ['-gamma', '0.7'],
-    ['-unsharp', '0x2+1+0'],
-    ['-blur', '0x1'],
-    ['-colorspace', 'LAB', '-channel', 'R', '-separate', '-colorspace', 'sRGB'],
-    ['-brightness-contrast', '20x10'],
-    ['-brightness-contrast', '-20x-10'],
-    ['-modulate', '100,100,110'],
-]
 
 
-# ─── MediaPipe detection ───
+# ─── MediaPipe helpers (optional) ───
 
 def _ensure_models():
     """Download MP models if not present."""
     import urllib.request
     models = {
-        'selfie_segmenter.tflite':
-            'https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/selfie_segmenter.tflite',
         'blaze_face_short_range.tflite':
             'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/latest/blaze_face_short_range.tflite',
         'face_landmarker.task':
@@ -95,126 +80,16 @@ def _ensure_models():
             urllib.request.urlretrieve(url, path)
 
 
-def get_mp_masks(image_path, multi_pass=True):
-    """MediaPipe segmentation, optionally multi-pass for soft boundaries.
-
-    Returns:
-        dict with:
-          'person': uint8 mask (0 or 255)
-          'background': uint8 mask (0 or 255)
-          'agreement': float32 0-1 (multi-pass agreement, only if multi_pass=True)
-          'face_bbox': (x1, y1, x2, y2) or None
-    """
-    import mediapipe as mp
-    from mediapipe.tasks.python import vision
-
-    _ensure_models()
-
-    img = cv2.imread(image_path)
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    h, w = img.shape[:2]
-
-    def _segment_once(img_array):
-        mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=img_array)
-        seg = vision.ImageSegmenter.create_from_options(
-            vision.ImageSegmenterOptions(
-                base_options=mp.tasks.BaseOptions(
-                    model_asset_path='/home/claude/selfie_segmenter.tflite'),
-                output_category_mask=True))
-        result = seg.segment(mp_img)
-        mask = result.category_mask.numpy_view().squeeze().copy()
-        seg.close()
-        return mask
-
-    if multi_pass:
-        # Run segmentation with multiple IM transforms for soft boundaries
-        agreement = np.zeros((h, w), dtype=np.float32)
-        n_valid = 0
-
-        for i, transform in enumerate(_MP_TRANSFORMS):
-            try:
-                if transform is None:
-                    transformed = img_rgb
-                else:
-                    tmp_in = tempfile.mktemp(suffix='.png')
-                    tmp_out = tempfile.mktemp(suffix='.png')
-                    cv2.imwrite(tmp_in, img)
-                    cmd = ['convert', tmp_in] + transform + [tmp_out]
-                    subprocess.run(cmd, check=True, capture_output=True, timeout=5)
-                    t_img = cv2.imread(tmp_out)
-                    transformed = cv2.cvtColor(t_img, cv2.COLOR_BGR2RGB)
-                    os.unlink(tmp_in)
-                    os.unlink(tmp_out)
-
-                mask = _segment_once(transformed)
-                # Resize if needed
-                if mask.shape[:2] != (h, w):
-                    mask = cv2.resize(mask, (w, h), interpolation=cv2.INTER_NEAREST)
-
-                # Determine person value (minority = person)
-                is_person = (mask == 255) if np.sum(mask == 255) < mask.size * 0.5 else (mask == 0)
-                agreement += is_person.astype(np.float32)
-                n_valid += 1
-            except Exception:
-                continue
-
-        if n_valid > 0:
-            agreement /= n_valid
-        else:
-            agreement[:] = 0.5
-
-        person = (agreement >= 0.5).astype(np.uint8) * 255
-    else:
-        mask = _segment_once(img_rgb)
-        if mask.shape[:2] != (h, w):
-            mask = cv2.resize(mask, (w, h), interpolation=cv2.INTER_NEAREST)
-        if np.sum(mask == 255) < mask.size * 0.5:
-            person = (mask == 255).astype(np.uint8) * 255
-        else:
-            person = (mask == 0).astype(np.uint8) * 255
-        agreement = (person / 255.0).astype(np.float32)
-
-    masks = {
-        'person': person,
-        'background': 255 - person,
-        'agreement': agreement,
-        'face_bbox': None,
-    }
-
-    # Face detection
-    try:
-        mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=img_rgb)
-        det = vision.FaceDetector.create_from_options(
-            vision.FaceDetectorOptions(
-                base_options=mp.tasks.BaseOptions(
-                    model_asset_path='/home/claude/blaze_face_short_range.tflite'),
-                min_detection_confidence=0.3))
-        result = det.detect(mp_img)
-        det.close()
-
-        if result.detections:
-            d = result.detections[0]  # primary face
-            bbox = d.bounding_box
-            pad = int(bbox.width * 0.2)
-            x1 = max(0, bbox.origin_x - pad)
-            y1 = max(0, bbox.origin_y - pad)
-            x2 = min(w, bbox.origin_x + bbox.width + pad)
-            y2 = min(h, bbox.origin_y + bbox.height + int(bbox.height * 0.15))
-            masks['face_bbox'] = (x1, y1, x2, y2)
-    except Exception as e:
-        print(f"    Face detection failed: {e}")
-
-    return masks
-
-
-def get_mp_landmarks(image_path):
+def _get_face_landmarks(image_path):
     """Get face mesh landmarks (478 points) if available.
 
-    Returns:
-        list of (x, y) in pixel coords, or None if detection fails.
+    Returns list of (x, y) in pixel coords, or None.
     """
-    import mediapipe as mp
-    from mediapipe.tasks.python import vision
+    try:
+        import mediapipe as mp
+        from mediapipe.tasks.python import vision
+    except ImportError:
+        return None
 
     _ensure_models()
 
@@ -241,6 +116,48 @@ def get_mp_landmarks(image_path):
     return None
 
 
+def _get_face_bbox(image_path):
+    """Get face bounding box from MediaPipe face detector.
+
+    Returns (x1, y1, x2, y2) or None.
+    """
+    try:
+        import mediapipe as mp
+        from mediapipe.tasks.python import vision
+    except ImportError:
+        return None
+
+    _ensure_models()
+
+    img = cv2.imread(image_path)
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    h, w = img.shape[:2]
+    mp_img = mp.Image(image_format=mp.ImageFormat.SRGB, data=img_rgb)
+
+    try:
+        det = vision.FaceDetector.create_from_options(
+            vision.FaceDetectorOptions(
+                base_options=mp.tasks.BaseOptions(
+                    model_asset_path='/home/claude/blaze_face_short_range.tflite'),
+                min_detection_confidence=0.3))
+        result = det.detect(mp_img)
+        det.close()
+
+        if result.detections:
+            d = result.detections[0]
+            bbox = d.bounding_box
+            pad = int(bbox.width * 0.2)
+            x1 = max(0, bbox.origin_x - pad)
+            y1 = max(0, bbox.origin_y - pad)
+            x2 = min(w, bbox.origin_x + bbox.width + pad)
+            y2 = min(h, bbox.origin_y + bbox.height + int(bbox.height * 0.15))
+            return (x1, y1, x2, y2)
+    except Exception as e:
+        print(f"    Face detection failed: {e}")
+
+    return None
+
+
 def _landmarks_to_mask(landmarks, indices, h, w, dilate=0):
     """Convert landmark indices to a filled polygon mask."""
     pts = np.array([landmarks[i] for i in indices], dtype=np.int32)
@@ -254,539 +171,528 @@ def _landmarks_to_mask(landmarks, indices, h, w, dilate=0):
 
 # ─── Zone map construction ───
 
-def _refine_bbox_mask(img_bgr, rough_bbox, person_mask, label="", image_type="auto"):
-    """Refine rough bounding box to actual object boundary using thresholding.
+def build_zone_map(h, w, focus_targets=None, focus_edges=None,
+                   landmarks=None, face_bbox=None):
+    """Build pixel-level zone map from agent annotations and optional MP data.
 
-    For grayscale/BW images: uses luminance bands.
-    For color images: uses LAB color space thresholding.
-    Constrained by person_mask.
-    """
-    h, w = img_bgr.shape[:2]
-    x1, y1, x2, y2 = rough_bbox
+    Without agent annotations, falls back to MP face detection.
+    Without either, everything is background (no foveation).
 
-    # Pad the bbox by 20%
-    bw, bh = x2 - x1, y2 - y1
-    pad_x, pad_y = int(bw * 0.2), int(bh * 0.2)
-    x1p = max(0, x1 - pad_x)
-    y1p = max(0, y1 - pad_y)
-    x2p = min(w, x2 + pad_x)
-    y2p = min(h, y2 + pad_y)
-
-    # Crop region
-    crop = img_bgr[y1p:y2p, x1p:x2p]
-    crop_person = person_mask[y1p:y2p, x1p:x2p]
-
-    # Detect if grayscale
-    if image_type == "auto":
-        hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
-        mean_sat = np.mean(hsv[:, :, 1])
-        is_gray = mean_sat < 25
-    else:
-        is_gray = image_type in ("bw", "grayscale")
-
-    if is_gray:
-        gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
-        # Use Otsu to find natural threshold in the region
-        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        # Pick the value that overlaps more with the rough bbox center
-        ch, cw = crop.shape[:2]
-        center_mask = np.zeros((ch, cw), dtype=np.uint8)
-        margin_x, margin_y = max(1, cw // 4), max(1, ch // 4)
-        center_mask[margin_y:ch - margin_y, margin_x:cw - margin_x] = 255
-        white_in_center = np.sum((thresh == 255) & (center_mask == 255))
-        black_in_center = np.sum((thresh == 0) & (center_mask == 255))
-        if white_in_center > black_in_center:
-            region_mask = thresh
-        else:
-            region_mask = 255 - thresh
-    else:
-        # LAB: use A and B channels for skin/non-skin separation
-        lab = cv2.cvtColor(crop, cv2.COLOR_BGR2LAB)
-        l_ch, a_ch, b_ch = cv2.split(lab)
-        # Adaptive threshold on L channel within region
-        _, region_mask = cv2.threshold(l_ch, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        # Same center-overlap test
-        ch, cw = crop.shape[:2]
-        center_mask = np.zeros((ch, cw), dtype=np.uint8)
-        margin_x, margin_y = max(1, cw // 4), max(1, ch // 4)
-        center_mask[margin_y:ch - margin_y, margin_x:cw - margin_x] = 255
-        white_in_center = np.sum((region_mask == 255) & (center_mask == 255))
-        black_in_center = np.sum((region_mask == 0) & (center_mask == 255))
-        if black_in_center > white_in_center:
-            region_mask = 255 - region_mask
-
-    # Constrain by person mask
-    region_mask = region_mask & crop_person
-
-    # Morphological cleanup
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-    region_mask = cv2.morphologyEx(region_mask, cv2.MORPH_OPEN, kernel)
-    region_mask = cv2.morphologyEx(region_mask, cv2.MORPH_CLOSE, kernel)
-
-    # Keep largest connected component
-    n_labels, labels, label_stats, _ = cv2.connectedComponentsWithStats(region_mask, connectivity=8)
-    if n_labels > 1:
-        # Skip background label 0
-        largest = 1 + np.argmax(label_stats[1:, cv2.CC_STAT_AREA])
-        region_mask = ((labels == largest) * 255).astype(np.uint8)
-
-    # Place back into full-size mask
-    full_mask = np.zeros((h, w), dtype=np.uint8)
-    full_mask[y1p:y2p, x1p:x2p] = region_mask
-
-    return full_mask
-
-
-def compute_saliency(image_path):
-    """Cheap edge-based saliency map (0-1 float32).
-
-    Uses IM edge detection + color saliency, combined.
-    """
-    img = cv2.imread(image_path)
-    h, w = img.shape[:2]
-
-    # Edge saliency
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    edges = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3) ** 2 + \
-            cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3) ** 2
-    edges = np.sqrt(edges)
-    edges = (edges / (edges.max() + 1e-8)).astype(np.float32)
-
-    # Color saliency (difference from mean)
-    blur = cv2.GaussianBlur(img, (31, 31), 15)
-    diff = cv2.absdiff(img, blur)
-    color_sal = cv2.cvtColor(diff, cv2.COLOR_BGR2GRAY).astype(np.float32)
-    color_sal = color_sal / (color_sal.max() + 1e-8)
-
-    # Combined
-    saliency = np.clip(edges * 0.5 + color_sal * 0.5, 0, 1)
-    # Smooth
-    saliency = cv2.GaussianBlur(saliency, (15, 15), 5)
-    saliency = saliency / (saliency.max() + 1e-8)
-
-    return saliency
-
-
-def build_zone_map(image_path, focus_targets, focus_edges, masks, landmarks,
-                   use_saliency=False, image_type="auto"):
-    """Build pixel-level zone map from all detection sources.
+    Args:
+        h, w: Image dimensions
+        focus_targets: Agent-provided [{'bbox': (x1,y1,x2,y2), 'label': str}]
+        focus_edges: Agent-provided [{'bbox': (x1,y1,x2,y2), 'label': str}]
+        landmarks: MP face mesh landmarks [(x,y), ...]
+        face_bbox: MP face detector bbox (x1,y1,x2,y2)
 
     Returns:
-        zone_map: uint8 array with ZONE_BG/PERIPHERY/EDGE/TARGET values
-        zone_masks: dict mapping zone name → binary uint8 mask
+        zone_map: uint8 array with ZONE_* values per pixel
     """
-    img = cv2.imread(image_path)
-    h, w = img.shape[:2]
-
-    # Start: everything is background
     zone_map = np.full((h, w), ZONE_BG, dtype=np.uint8)
 
-    # Person region → periphery
-    person = masks['person']
-    if person.shape[:2] != (h, w):
-        person = cv2.resize(person, (w, h), interpolation=cv2.INTER_NEAREST)
-    zone_map[person > 128] = ZONE_PERIPHERY
-
-    # Focus edges (from agent annotations)
-    edge_masks = {}
+    # Focus edges: agent-identified compositionally important areas
     if focus_edges:
         for fe in focus_edges:
-            bbox = fe['bbox']
-            label = fe.get('label', 'edge')
-            refined = _refine_bbox_mask(img, bbox, person, label=label,
-                                        image_type=image_type)
-            edge_masks[label] = refined
-            zone_map[refined > 128] = ZONE_EDGE
+            x1, y1, x2, y2 = fe['bbox']
+            # Pad 15%
+            bw, bh = x2 - x1, y2 - y1
+            px, py = int(bw * 0.15), int(bh * 0.15)
+            x1p, y1p = max(0, x1 - px), max(0, y1 - py)
+            x2p, y2p = min(w, x2 + px), min(h, y2 + py)
+            zone_map[y1p:y2p, x1p:x2p] = np.maximum(
+                zone_map[y1p:y2p, x1p:x2p], ZONE_EDGE)
 
-    # Focus targets (from agent annotations or MP landmarks)
-    target_masks = {}
+    # Focus targets: where the eye goes first
     if focus_targets:
         for ft in focus_targets:
-            bbox = ft['bbox']
             label = ft.get('label', 'target')
             if label == 'face' and landmarks is not None:
-                # Use landmark-derived face oval instead of bbox thresholding
-                face_mask = _landmarks_to_mask(landmarks, _FACE_OVAL, h, w, dilate=8)
-                target_masks[label] = face_mask
+                face_mask = _landmarks_to_mask(landmarks, _FACE_OVAL, h, w, dilate=12)
+                zone_map[face_mask > 128] = ZONE_TARGET
             else:
-                refined = _refine_bbox_mask(img, bbox, person, label=label,
-                                            image_type=image_type)
-                target_masks[label] = refined
-            zone_map[target_masks[label] > 128] = ZONE_TARGET
-    elif masks.get('face_bbox') is not None:
-        # Backward compat: no annotations, use MP face bbox
+                x1, y1, x2, y2 = ft['bbox']
+                bw, bh = x2 - x1, y2 - y1
+                px, py = int(bw * 0.10), int(bh * 0.10)
+                x1p, y1p = max(0, x1 - px), max(0, y1 - py)
+                x2p, y2p = min(w, x2 + px), min(h, y2 + py)
+                zone_map[y1p:y2p, x1p:x2p] = ZONE_TARGET
+    elif face_bbox is not None:
+        # Backward compat: no annotations, use MP face detection
         if landmarks is not None:
-            face_mask = _landmarks_to_mask(landmarks, _FACE_OVAL, h, w, dilate=8)
+            face_mask = _landmarks_to_mask(landmarks, _FACE_OVAL, h, w, dilate=12)
+            zone_map[face_mask > 128] = ZONE_TARGET
         else:
-            x1, y1, x2, y2 = masks['face_bbox']
-            face_mask = np.zeros((h, w), dtype=np.uint8)
-            face_mask[y1:y2, x1:x2] = 255
-            face_mask = face_mask & person
-        target_masks['face'] = face_mask
-        zone_map[face_mask > 128] = ZONE_TARGET
+            x1, y1, x2, y2 = face_bbox
+            zone_map[y1:y2, x1:x2] = ZONE_TARGET
 
-    # Saliency promotion: periphery → edge where saliency is high
-    if use_saliency:
-        saliency = compute_saliency(image_path)
-        promote = (zone_map == ZONE_PERIPHERY) & (saliency > 0.5) & (person > 128)
-        zone_map[promote] = ZONE_EDGE
-
-    # Build per-zone binary masks
-    zone_masks = {}
-    for zone_val, zone_name in ZONE_NAMES.items():
-        zone_masks[zone_name] = (zone_map == zone_val).astype(np.uint8) * 255
+    # Periphery: anything "between" target/edge and background.
+    # Strategy: dilate the target+edge union to create a periphery buffer.
+    fg_mask = (zone_map >= ZONE_EDGE).astype(np.uint8)
+    if fg_mask.any():
+        # Periphery = dilated foreground minus foreground itself
+        peri_size = max(h, w) // 8  # ~12% of image dimension
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,
+                                           (peri_size, peri_size))
+        dilated = cv2.dilate(fg_mask, kernel)
+        periphery = (dilated > 0) & (zone_map == ZONE_BG)
+        zone_map[periphery] = ZONE_PERIPHERY
 
     # Report
     total = h * w
-    for zone_name, zmask in zone_masks.items():
-        pct = 100 * np.sum(zmask > 128) / total
-        print(f"    {zone_name}: {pct:.1f}%")
+    for zv, zn in ZONE_NAMES.items():
+        pct = 100 * np.sum(zone_map == zv) / total
+        if pct > 0:
+            print(f"    {zn}: {pct:.1f}%")
 
-    return zone_map, zone_masks
+    return zone_map
 
 
-# ─── SVG compositing ───
+# ─── Zone-aware contour extraction ───
 
-def _mask_to_clippath_points(mask, svg_width, img_w, img_h):
-    """Convert binary mask to SVG polygon point strings for clipPath.
+def _assign_zone(contour, zone_map, h, w):
+    """Assign a contour to the highest zone covering >30% of its area.
 
-    Returns list of polygon point strings (one per contour).
+    Falls back to centroid zone if no zone covers >30%.
     """
-    # Scale factor
-    scale = svg_width / img_w
-    svg_height = int(img_h * scale)
+    # Fast path: check centroid first
+    M = cv2.moments(contour)
+    if M["m00"] > 0:
+        cx = int(M["m10"] / M["m00"])
+        cy = int(M["m01"] / M["m00"])
+        cx = min(max(cx, 0), w - 1)
+        cy = min(max(cy, 0), h - 1)
+        centroid_zone = zone_map[cy, cx]
+    else:
+        centroid_zone = ZONE_BG
 
-    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    polygons = []
-    for cnt in contours:
-        if cv2.contourArea(cnt) < 50:  # skip tiny contours
-            continue
-        # Simplify
-        epsilon = 0.002 * cv2.arcLength(cnt, True)
-        approx = cv2.approxPolyDP(cnt, epsilon, True)
-        if len(approx) < 3:
-            continue
-        # Scale to SVG coords
-        pts = approx.squeeze()
-        if pts.ndim == 1:
-            continue
-        scaled = pts.astype(np.float64)
-        scaled[:, 0] *= scale
-        scaled[:, 1] *= scale
-        point_str = ' '.join(f'{x:.1f},{y:.1f}' for x, y in scaled)
-        polygons.append(point_str)
+    # For small contours, centroid is sufficient
+    area = cv2.contourArea(contour)
+    if area < 500:
+        return centroid_zone
 
-    return polygons
+    # For larger contours, check zone coverage to prevent
+    # focal shapes from being simplified
+    contour_mask = np.zeros((h, w), dtype=np.uint8)
+    cv2.drawContours(contour_mask, [contour], -1, 255, -1)
+    total_px = contour_mask.sum() // 255
+
+    if total_px == 0:
+        return centroid_zone
+
+    best_zone = centroid_zone
+    for zone_val in [ZONE_TARGET, ZONE_EDGE, ZONE_PERIPHERY]:
+        zone_pixels = np.sum((contour_mask > 0) & (zone_map == zone_val))
+        if zone_pixels / total_px > 0.30:
+            best_zone = max(best_zone, zone_val)
+            break  # highest zone found
+
+    return best_zone
 
 
-def _extract_region_opaque(image_path, mask, expand=0):
-    """Extract masked region as opaque crop (fills masked-out area with dominant color).
+def zone_extract_contours(label_img, centers, sorted_clusters, h, w,
+                          bg_clusters, edge_img, zone_map, svg_width,
+                          dark_lum=55, base_epsilon=0.002):
+    """Extract contours with zone-aware simplification.
 
-    This concentrates K-means clusters on the actual content pixels.
-    Returns (temp_file_path, bbox_of_crop_in_original).
+    Like pipeline.extract_contours but applies different epsilon and min_area
+    per zone. Returns shapes tagged with their zone.
+
+    Args:
+        label_img, centers, sorted_clusters, h, w: From quantize step
+        bg_clusters: Set of background cluster IDs
+        edge_img: Sobel edge map
+        zone_map: Per-pixel zone assignment (h x w, values ZONE_*)
+        svg_width: Target SVG width
+        dark_lum: Dark shape luminance threshold
+        base_epsilon: Base epsilon factor (multiplied by zone epsilon_mult)
+
+    Returns:
+        dict with 'shapes' (list of {path, color, area, zone}),
+        'svg_w', 'svg_h', 'zone_counts'
     """
-    img = cv2.imread(image_path)
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    h, w = img_rgb.shape[:2]
+    SVG_W = svg_width
+    SVG_H = int(SVG_W * h / w)
+    scale_x, scale_y = SVG_W / w, SVG_H / h
 
-    if mask.shape[:2] != (h, w):
-        mask = cv2.resize(mask, (w, h), interpolation=cv2.INTER_NEAREST)
+    # Dark territory mask (for dark shape gating)
+    dark_territory = np.zeros((h, w), dtype=np.uint8)
+    for cid, cnt in sorted_clusters:
+        if cid in bg_clusters:
+            continue
+        c = centers[cid]
+        lum = 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]
+        if lum < dark_lum:
+            dark_territory[label_img == cid] = 255
 
-    if expand > 0:
-        kernel = np.ones((expand, expand), np.uint8)
-        mask = cv2.dilate(mask, kernel)
+    k_morph = np.ones((3, 3), np.uint8)
+    k_dilate = np.ones((3, 3), np.uint8)
+    shapes = []
+    zone_counts = {zn: 0 for zn in ZONE_NAMES.values()}
 
-    # Find bounding box of mask
-    ys, xs = np.where(mask > 128)
-    if len(ys) == 0:
-        # Empty mask — return full image
-        tmp = tempfile.mktemp(suffix=".png")
-        Image.fromarray(img_rgb).save(tmp)
-        return tmp, (0, 0, w, h)
+    for cid, cnt in sorted_clusters:
+        if cid in bg_clusters:
+            continue
 
-    x1, y1 = xs.min(), ys.min()
-    x2, y2 = xs.max() + 1, ys.max() + 1
+        c = centers[cid]
+        lum = 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2]
+        is_dark = lum < dark_lum
+        color_hex = f"#{c[0]:02x}{c[1]:02x}{c[2]:02x}"
 
-    # Pad
-    pad = max(5, int(0.02 * max(x2 - x1, y2 - y1)))
-    x1 = max(0, x1 - pad)
-    y1 = max(0, y1 - pad)
-    x2 = min(w, x2 + pad)
-    y2 = min(h, y2 + pad)
+        mask = (label_img == cid).astype(np.uint8) * 255
+        mask = cv2.dilate(mask, k_dilate, iterations=1)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, k_morph, iterations=2)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, k_morph, iterations=1)
 
-    crop = img_rgb[y1:y2, x1:x2].copy()
-    crop_mask = mask[y1:y2, x1:x2]
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL,
+                                        cv2.CHAIN_APPROX_SIMPLE)
 
-    # Fill non-mask pixels with mean of mask pixels (so K-means doesn't waste on bg)
-    fg_pixels = crop[crop_mask > 128]
-    if len(fg_pixels) > 0:
-        mean_color = fg_pixels.mean(axis=0).astype(np.uint8)
-        crop[crop_mask <= 128] = mean_color
+        for contour in contours:
+            area = cv2.contourArea(contour)
 
-    tmp = tempfile.mktemp(suffix=".png")
-    Image.fromarray(crop).save(tmp)
-    return tmp, (x1, y1, x2, y2)
+            # Assign zone BEFORE filtering — zone determines thresholds
+            zone = _assign_zone(contour, zone_map, h, w)
+            zone_cfg = ZONE_SIMPLIFICATION[zone]
+
+            if area < zone_cfg['min_area']:
+                continue
+
+            peri = cv2.arcLength(contour, True)
+            compactness = (4 * 3.14159 * area / (peri * peri)) if peri > 0 else 1
+
+            # Dark shape gating (same as pipeline, but with zone-adjusted thresholds)
+            # Target/edge zones use looser gating to preserve detail
+            if is_dark:
+                compact_min = 0.04 if zone >= ZONE_EDGE else 0.08
+                edge_dens_min = 0.10 if zone >= ZONE_EDGE else 0.15
+
+                contour_mask = np.zeros((h, w), dtype=np.uint8)
+                cv2.drawContours(contour_mask, [contour], -1, 255, -1)
+                edge_overlap = cv2.bitwise_and(edge_img, contour_mask)
+                edge_density = edge_overlap.sum() / max(contour_mask.sum(), 1)
+
+                if not (compactness > compact_min or edge_density > edge_dens_min
+                        or area > (h * w * 0.01)):
+                    continue
+
+                # Isolation filter for background/periphery only
+                if zone <= ZONE_PERIPHERY and area < 500:
+                    border = cv2.dilate(contour_mask, np.ones((11, 11), np.uint8), 1) & ~contour_mask
+                    border_dark = cv2.bitwise_and(dark_territory, border)
+                    if border_dark.sum() / max(border.sum(), 1) < 0.3:
+                        continue
+
+            # Zone-aware simplification
+            eps = base_epsilon * peri * zone_cfg['epsilon_mult']
+            approx = cv2.approxPolyDP(contour, eps, True)
+            pts = approx.reshape(-1, 2).astype(float)
+            pts[:, 0] *= scale_x
+            pts[:, 1] *= scale_y
+
+            path_d = f"M {pts[0][0]:.1f},{pts[0][1]:.1f}"
+            for p in pts[1:]:
+                path_d += f" L {p[0]:.1f},{p[1]:.1f}"
+            path_d += " Z"
+
+            zone_name = ZONE_NAMES[zone]
+            shapes.append({
+                "path": path_d,
+                "color": color_hex,
+                "area": area,
+                "zone": zone_name,
+            })
+            zone_counts[zone_name] += 1
+
+    # Painter's algorithm: largest shapes first
+    shapes.sort(key=lambda x: -x["area"])
+
+    print(f"  zone_extract: {len(shapes)} shapes")
+    for zn, zc in zone_counts.items():
+        if zc > 0:
+            print(f"    {zn}: {zc}")
+
+    return {"shapes": shapes, "svg_w": SVG_W, "svg_h": SVG_H,
+            "zone_counts": zone_counts}
 
 
-def _extract_region_alpha(image_path, mask, expand=0):
-    """Extract masked region with alpha channel (for full-canvas layers)."""
-    img = cv2.imread(image_path)
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    h, w = img_rgb.shape[:2]
+# ─── Per-zone style transforms ───
 
-    if mask.shape[:2] != (h, w):
-        mask = cv2.resize(mask, (w, h), interpolation=cv2.INTER_NEAREST)
-
-    if expand > 0:
-        kernel = np.ones((expand, expand), np.uint8)
-        mask = cv2.dilate(mask, kernel)
-
-    rgba = np.zeros((h, w, 4), dtype=np.uint8)
-    rgba[:, :, :3] = img_rgb
-    rgba[:, :, 3] = mask
-
-    tmp = tempfile.mktemp(suffix=".png")
-    Image.fromarray(rgba).save(tmp)
-    return tmp
+def _hex_to_rgb(hex_color):
+    h = hex_color.lstrip('#')
+    return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
 
 
-def _extract_paths(svg_content):
-    """Extract path elements from SVG string."""
-    return re.findall(r'<path[^>]*/?>', svg_content)
+def _rgb_to_hex(r, g, b):
+    return f"#{int(r):02x}{int(g):02x}{int(b):02x}"
 
 
-def _extract_viewbox(svg_content):
-    """Extract viewBox from SVG string."""
-    match = re.search(r'viewBox="([^"]+)"', svg_content)
-    return match.group(1) if match else "0 0 800 800"
+def _desaturate(hex_color, amount):
+    """Desaturate a color by amount (0=none, 1=full grayscale)."""
+    r, g, b = _hex_to_rgb(hex_color)
+    gray = 0.299 * r + 0.587 * g + 0.114 * b
+    r2 = r + (gray - r) * amount
+    g2 = g + (gray - g) * amount
+    b2 = b + (gray - b) * amount
+    return _rgb_to_hex(r2, g2, b2)
 
 
-def _offset_paths(paths, dx, dy):
-    """Translate SVG path elements by (dx, dy) via transform attribute."""
-    if dx == 0 and dy == 0:
-        return paths
-    offset = []
-    for p in paths:
-        # Insert transform before the closing />
-        if '/>' in p:
-            p = p.replace('/>', f' transform="translate({dx:.1f},{dy:.1f})"/>')
-        offset.append(p)
-    return offset
+def _mute(hex_color, amount):
+    """Mute a color toward mid-gray by amount (0=none, 1=full gray)."""
+    r, g, b = _hex_to_rgb(hex_color)
+    r2 = r + (128 - r) * amount
+    g2 = g + (128 - g) * amount
+    b2 = b + (128 - b) * amount
+    return _rgb_to_hex(r2, g2, b2)
+
+
+def _warm(hex_color, amount):
+    """Shift color temperature warmer (positive) or cooler (negative)."""
+    r, g, b = _hex_to_rgb(hex_color)
+    shift = amount * 20  # subtle
+    r2 = min(255, max(0, r + shift))
+    b2 = min(255, max(0, b - shift))
+    return _rgb_to_hex(r2, g, b2)
+
+
+def _opacity(amount):
+    """Return opacity value (for the style attribute)."""
+    return max(0.0, min(1.0, amount))
+
+
+def _apply_color_transform(hex_color, transform_spec):
+    """Apply a style transform to a single color.
+
+    Specs:
+        'desaturate:0.7' — desaturate by 70%
+        'mute:0.3' — mute toward gray by 30%
+        'warm:0.5' / 'cool:0.5' — temperature shift
+        'grayscale' — full grayscale
+
+    Returns transformed hex color.
+    """
+    if ':' in transform_spec:
+        name, val = transform_spec.split(':', 1)
+        val = float(val)
+    else:
+        name = transform_spec
+        val = 1.0
+
+    if name == 'desaturate':
+        return _desaturate(hex_color, val)
+    elif name == 'grayscale':
+        return _desaturate(hex_color, 1.0)
+    elif name == 'mute':
+        return _mute(hex_color, val)
+    elif name == 'warm':
+        return _warm(hex_color, val)
+    elif name == 'cool':
+        return _warm(hex_color, -val)
+    else:
+        return hex_color  # unknown transform, passthrough
+
+
+# ─── SVG assembly ───
+
+def assemble_svg(shapes, svg_w, svg_h, bg_hex, style_transforms=None):
+    """Assemble single SVG with zone-labeled <g> groups.
+
+    Args:
+        shapes: List of {path, color, area, zone}
+        svg_w, svg_h: ViewBox dimensions
+        bg_hex: Background color
+        style_transforms: Optional dict of {zone_name: transform_spec}
+            e.g. {'background': 'desaturate:0.7', 'periphery': 'mute:0.3'}
+
+    Returns:
+        SVG string
+    """
+    # Group shapes by zone, preserving painter's algorithm order within each
+    zone_shapes = {zn: [] for zn in ZONE_NAMES.values()}
+    for s in shapes:
+        zone_shapes[s['zone']].append(s)
+
+    # Apply style transforms if specified
+    if style_transforms:
+        for zone_name, spec in style_transforms.items():
+            if zone_name in zone_shapes:
+                for s in zone_shapes[zone_name]:
+                    s = dict(s)  # don't mutate originals... actually we do need to
+                    # We'll apply transforms during rendering below
+
+    # Background color transform
+    bg_color = bg_hex
+    if style_transforms and 'background' in style_transforms:
+        bg_color = _apply_color_transform(bg_hex, style_transforms['background'])
+
+    lines = [
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {svg_w} {svg_h}">',
+        f'  <rect width="{svg_w}" height="{svg_h}" fill="{bg_color}"/>',
+    ]
+
+    # Render zones back-to-front
+    zone_order = ['background', 'periphery', 'edge', 'target']
+    for zone_name in zone_order:
+        zshapes = zone_shapes.get(zone_name, [])
+        if not zshapes:
+            continue
+
+        transform_spec = (style_transforms or {}).get(zone_name)
+
+        # Check if zone needs opacity
+        opacity_val = None
+        if transform_spec and transform_spec.startswith('opacity:'):
+            opacity_val = _opacity(float(transform_spec.split(':')[1]))
+
+        group_attrs = f'id="{zone_name}"'
+        if opacity_val is not None:
+            group_attrs += f' opacity="{opacity_val:.2f}"'
+
+        lines.append(f'  <g {group_attrs}>')
+
+        for s in zshapes:
+            color = s['color']
+            if transform_spec and not transform_spec.startswith('opacity:'):
+                color = _apply_color_transform(color, transform_spec)
+            lines.append(
+                f'    <path d="{s["path"]}" fill="{color}" '
+                f'stroke="{color}" stroke-width="4" stroke-linejoin="round"/>'
+            )
+
+        lines.append('  </g>')
+
+    lines.append('</svg>')
+    return '\n'.join(lines)
 
 
 # ─── Main entry point ───
 
 def portrait_mode(image_path,
                   # Zone annotations from calling agent
-                  focus_targets=None,   # list of {'bbox': (x1,y1,x2,y2), 'label': str}
-                  focus_edges=None,     # list of {'bbox': (x1,y1,x2,y2), 'label': str}
+                  focus_targets=None,
+                  focus_edges=None,
 
-                  # Per-zone K and smoothing
-                  target_K=128, target_smooth=None,
-                  edge_K=64, edge_smooth="kuwahara:2",
-                  periphery_K=32, periphery_smooth="kuwahara:3",
-                  bg_K=16, bg_smooth="oilpaint:12",
-
-                  # Detail hints for focus target zones (loosen pipeline extraction)
-                  target_detail=True,
-
-                  # Options
-                  use_landmarks=True,
-                  use_saliency=False,
-                  multi_pass=True,
+                  # Pipeline settings
+                  K=96,
+                  smooth=None,
                   svg_width=800,
-                  image_type="auto"):
-    """
-    Create portrait-mode SVG with foveated detail levels.
 
-    Four zones from highest to lowest detail:
-      - Focus Target (face, eyes) → K=128, no smoothing
-      - Focus Edge (beard, hands, hat) → K=64, light kuwahara
-      - Periphery (torso, clothing) → K=32, kuwahara
-      - Background (sky, walls) → K=16, oilpaint
+                  # MediaPipe options
+                  use_landmarks=True,
+
+                  # Per-zone simplification overrides
+                  zone_simplification=None,
+
+                  # Per-zone style transforms
+                  style_transforms=None,
+
+                  # Pipeline passthrough
+                  **overrides):
+    """Create portrait-mode SVG with selective simplification.
+
+    Single pipeline pass at high K → zone-aware contour simplification →
+    optional per-zone style transforms → single SVG.
 
     Args:
         image_path: Path to source image
-        focus_targets: Agent-identified focal regions with rough bboxes
-        focus_edges: Agent-identified compositionally important regions
-        target_K, edge_K, periphery_K, bg_K: Color clusters per zone
-        target_smooth, edge_smooth, periphery_smooth, bg_smooth: IM smoothing
-        target_detail: Loosen pipeline extraction for target zones (more paths)
-        use_landmarks: Try MP face landmarks for precise face geometry
-        use_saliency: Promote high-saliency periphery to edge zone
-        multi_pass: Multi-pass MP segmentation for soft boundaries
+        focus_targets: [{'bbox': (x1,y1,x2,y2), 'label': str}] — highest detail
+        focus_edges: [{'bbox': (x1,y1,x2,y2), 'label': str}] — important areas
+        K: Color clusters (default 96, higher = more tonal detail)
+        smooth: ImageMagick preprocessing ("oilpaint", "kuwahara:N")
         svg_width: Output SVG width
-        image_type: "auto", "photo", "painting", "bw", "grayscale", "graphic"
+        use_landmarks: Try MP face landmarks for precise face geometry
+        zone_simplification: Override ZONE_SIMPLIFICATION defaults.
+            Dict of {ZONE_*: {'epsilon_mult': float, 'min_area': int}}
+        style_transforms: Per-zone color transforms.
+            Dict of {zone_name: transform_spec}.
+            Specs: 'desaturate:0.7', 'mute:0.3', 'grayscale', 'warm:0.5',
+                   'cool:0.5', 'opacity:0.8'
+        **overrides: Passed to pipeline configure() (dark_lum, etc.)
 
     Returns:
         (svg_string, stats_dict)
     """
-    from pipeline import image_to_svg
+    from pipeline import configure, preprocess, quantize, detect_background, edge_map
+    from flowing import task as flow_task, Flow
+
+    t0 = time.time()
 
     img = cv2.imread(image_path)
     if img is None:
         raise ValueError(f"Cannot read image: {image_path}")
     img_h, img_w = img.shape[:2]
-    scale = svg_width / img_w
-    svg_height = int(img_h * scale)
 
-    # ─── Step 1: MediaPipe segmentation ───
-    print("[1/4] Segmentation" + (" (multi-pass)" if multi_pass else ""))
-    masks = get_mp_masks(image_path, multi_pass=multi_pass)
+    # Apply zone simplification overrides
+    if zone_simplification:
+        for zone_val, cfg in zone_simplification.items():
+            ZONE_SIMPLIFICATION[zone_val].update(cfg)
+
+    # Gate task: depends on both detect_background and edge_map so the Flow
+    # builds a DAG that runs preprocess → quantize → [detect_bg, edge_map]
+    @flow_task(depends_on=[detect_background, edge_map])
+    def _portrait_gate(detect_background, edge_map):
+        return {"bg": detect_background, "edges": edge_map}
+
+    # ─── Step 1: Run pipeline through quantize + edge detection ───
+    print(f"[1/4] Pipeline (K={K})")
+    configure(image_path, mode="photo", svg_width=svg_width, K=K,
+              smooth=smooth, pipeline="fill", **overrides)
+
+    flow = Flow(_portrait_gate)
+    flow.run()
+
+    quant = flow.value(quantize)
+    bg = flow.value(detect_background)
+    edges = flow.value(edge_map)
+
+    t_pipeline = time.time() - t0
+    print(f"    Pipeline: {t_pipeline:.1f}s, {len(quant['sorted_clusters'])} clusters")
+
+    # ─── Step 2: Zone detection ───
+    print("[2/4] Zone detection")
+    h, w = quant['h'], quant['w']
 
     landmarks = None
+    face_bbox = None
     if use_landmarks:
-        landmarks = get_mp_landmarks(image_path)
+        landmarks = _get_face_landmarks(image_path)
         if landmarks:
-            print(f"    Landmarks: 478 points detected")
+            print(f"    Landmarks: 478 points")
         else:
-            print(f"    Landmarks: not detected (falling back to bbox)")
+            print(f"    Landmarks: not detected")
 
-    # ─── Step 2: Build zone map ───
-    print("[2/4] Zone detection")
-    zone_map, zone_masks = build_zone_map(
-        image_path, focus_targets, focus_edges, masks, landmarks,
-        use_saliency=use_saliency, image_type=image_type)
+    if not focus_targets and landmarks is None:
+        face_bbox = _get_face_bbox(image_path)
+        if face_bbox:
+            print(f"    Face bbox: {face_bbox}")
 
-    # ─── Step 3: Process each zone ───
-    print("[3/4] Per-zone vectorization")
+    zone_map = build_zone_map(h, w, focus_targets, focus_edges,
+                               landmarks, face_bbox)
 
-    zone_config = {
-        'background': {'K': bg_K, 'smooth': bg_smooth, 'mode': 'graphic',
-                        'overrides': {}},
-        'periphery':  {'K': periphery_K, 'smooth': periphery_smooth, 'mode': 'painting',
-                        'overrides': {}},
-        'edge':       {'K': edge_K, 'smooth': edge_smooth, 'mode': 'painting',
-                        'overrides': {}},
-        'target':     {'K': target_K, 'smooth': target_smooth, 'mode': 'photo',
-                        'overrides': {}},
+    # ─── Step 3: Zone-aware contour extraction ───
+    print("[3/4] Zone-aware extraction")
+    result = zone_extract_contours(
+        quant['label_img'], quant['centers'], quant['sorted_clusters'],
+        h, w, bg['bg_clusters'], edges['edge_img'], zone_map, svg_width,
+        dark_lum=overrides.get('dark_lum', 55),
+    )
+
+    # ─── Step 4: Assemble SVG ───
+    print("[4/4] Assembly")
+    svg = assemble_svg(result['shapes'], result['svg_w'], result['svg_h'],
+                       bg['bg_hex'], style_transforms=style_transforms)
+
+    t_total = time.time() - t0
+
+    stats = {
+        'total': len(result['shapes']),
+        'time': t_total,
+        'K': K,
+        'svg_bytes': len(svg),
+        **result['zone_counts'],
     }
 
-    # Loosen extraction for target zone to get more paths
-    if target_detail:
-        zone_config['target']['overrides'] = {
-            'compactness_min': 0.04,
-            'edge_density_min': 0.10,
-            'isolation_filter': False,
-            'min_area': 20,
-        }
-
-    layers = {}
-    stats = {}
-
-    for zone_name in ['background', 'periphery', 'edge', 'target']:
-        zmask = zone_masks[zone_name]
-        if np.sum(zmask > 128) == 0:
-            print(f"    {zone_name}: empty, skipping")
-            continue
-
-        cfg = zone_config[zone_name]
-        print(f"    {zone_name}: K={cfg['K']}, smooth={cfg['smooth']}")
-
-        # For target/edge zones: use opaque crop to concentrate K-means
-        if zone_name in ('target', 'edge'):
-            tmp_path, crop_bbox = _extract_region_opaque(image_path, zmask, expand=3)
-            cx1, cy1, cx2, cy2 = crop_bbox
-
-            try:
-                layer_svg, _ = image_to_svg(
-                    tmp_path, mode=cfg['mode'], K=cfg['K'],
-                    smooth=cfg['smooth'], svg_width=svg_width,
-                    pipeline="fill", **cfg['overrides'])
-            finally:
-                os.unlink(tmp_path)
-
-            # Extract paths and translate to correct position in composite
-            paths = _extract_paths(layer_svg)
-            # The cropped image was processed at svg_width scale,
-            # but it covers only a portion of the full image.
-            # We need to rescale: crop was (cx2-cx1) wide, rendered at svg_width.
-            # In the composite, this crop occupies (cx2-cx1)*scale pixels.
-            crop_w = cx2 - cx1
-            crop_h = cy2 - cy1
-            crop_svg_w = crop_w * scale
-            crop_svg_h = crop_h * scale
-            # The layer_svg was rendered at full svg_width — need to rescale
-            inner_scale = crop_svg_w / svg_width
-            dx = cx1 * scale
-            dy = cy1 * scale
-
-            # Wrap in a group that scales from svg_width space to crop space
-            layers[zone_name] = {
-                'paths': paths,
-                'transform': f'translate({dx:.1f},{dy:.1f}) scale({inner_scale:.4f})',
-            }
-            stats[zone_name] = len(paths)
-        else:
-            # Background/periphery: full-canvas with alpha
-            tmp_path = _extract_region_alpha(image_path, zmask, expand=3)
-            try:
-                layer_svg, _ = image_to_svg(
-                    tmp_path, mode=cfg['mode'], K=cfg['K'],
-                    smooth=cfg['smooth'], svg_width=svg_width,
-                    pipeline="fill", **cfg['overrides'])
-            finally:
-                os.unlink(tmp_path)
-
-            paths = _extract_paths(layer_svg)
-            layers[zone_name] = {'paths': paths, 'transform': None}
-            stats[zone_name] = len(paths)
-
-    # ─── Step 4: Composite with clipPaths ───
-    print("[4/4] Compositing")
-
-    vb = f"0 0 {svg_width} {svg_height}"
-    svg_parts = [
-        '<?xml version="1.0"?>',
-        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{vb}">',
-        '  <defs>',
-    ]
-
-    # Generate clipPaths for each zone (except background which is full canvas)
-    for zone_name in ['periphery', 'edge', 'target']:
-        zmask = zone_masks.get(zone_name)
-        if zmask is None or np.sum(zmask > 128) == 0:
-            continue
-        polygons = _mask_to_clippath_points(zmask, svg_width, img_w, img_h)
-        if polygons:
-            svg_parts.append(f'    <clipPath id="clip_{zone_name}">')
-            for poly_pts in polygons:
-                svg_parts.append(f'      <polygon points="{poly_pts}"/>')
-            svg_parts.append(f'    </clipPath>')
-
-    svg_parts.append('  </defs>')
-
-    # Layers: back to front
-    for zone_name in ['background', 'periphery', 'edge', 'target']:
-        if zone_name not in layers:
-            continue
-
-        layer = layers[zone_name]
-        paths = layer['paths']
-        transform = layer.get('transform')
-
-        if zone_name == 'background':
-            svg_parts.append(f'  <g id="{zone_name}">')
-        else:
-            clip_attr = f' clip-path="url(#clip_{zone_name})"'
-            svg_parts.append(f'  <g id="{zone_name}"{clip_attr}>')
-
-        if transform:
-            svg_parts.append(f'    <g transform="{transform}">')
-            svg_parts.extend(f'      {p}' for p in paths)
-            svg_parts.append('    </g>')
-        else:
-            svg_parts.extend(f'    {p}' for p in paths)
-
-        svg_parts.append('  </g>')
-
-    svg_parts.append('</svg>')
-    svg = '\n'.join(svg_parts)
-
-    stats['total'] = sum(stats.values())
-    print(f"\n    Total: {stats['total']} paths ({len(svg) // 1024}KB)")
-    for zn, cnt in sorted(stats.items()):
-        if zn != 'total':
-            print(f"      {zn}: {cnt}")
+    print(f"\n    Total: {stats['total']} paths ({len(svg)//1024}KB) in {t_total:.1f}s")
+    for zn in ['target', 'edge', 'periphery', 'background']:
+        if result['zone_counts'].get(zn, 0) > 0:
+            print(f"      {zn}: {result['zone_counts'][zn]}")
 
     return svg, stats
