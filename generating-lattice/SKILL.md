@@ -1,30 +1,49 @@
 ---
 name: generating-lattice
 description: >-
-  Install lat.md CLI and generate lat.md/ knowledge graphs from existing _MAP.md
-  files or by running mapping-codebases first. Validate with lat check, append
-  agent instructions to CLAUDE.md, and suggest @lat: back-links in source code.
-  Use when user says "lat.md", "lattice", "knowledge graph", "document this
-  codebase", "add back-links", or wants cross-referenced architecture docs
-  anchored to source code symbols.
+  Generate and maintain lat.md/ knowledge graphs with bidirectional source code
+  anchoring. Docs link to code via [[src/file#symbol]] wiki links; code links
+  back to docs via @lat: comments. lat check validates both directions, catching
+  drift when either side changes. Use when user says "lat.md", "lattice",
+  "knowledge graph", "document this codebase", "add back-links", or wants
+  cross-referenced architecture docs anchored to source code symbols.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Generating Lattice
 
-Generate `lat.md/` knowledge graphs — structured, cross-referenced markdown that captures architecture, design decisions, and domain logic for a codebase. The output is validated by the `lat` CLI and queryable by coding agents via MCP, CLI, or semantic search.
+Generate and maintain `lat.md/` knowledge graphs — structured, cross-referenced
+markdown anchored to source code symbols. The output is validated by the `lat`
+CLI, which catches documentation drift whenever code or docs change.
 
-**Dependency:** Requires **mapping-codebases** skill. The structural maps (`_MAP.md` files) are the input that makes LLM-assisted authoring token-efficient — read maps to understand API surfaces, then selectively read source files only where design rationale lives.
+**The core mechanism is bidirectional linking:**
+
+- **Top-down** (docs → code): `[[src/auth.js#getValidToken]]` wiki links in
+  `lat.md/` files point to specific symbols in source. When a symbol is renamed
+  or deleted, `lat check` catches the broken link.
+- **Bottom-up** (code → docs): `// @lat: [[auth#Token Refresh]]` comments in
+  source point back to the concept they implement. When a section is renamed or
+  removed, `lat check` catches the dangling reference.
+
+Without both directions, the lattice is a static essay that drifts silently.
+With both, `lat check` enforces consistency.
+
+**Dependency:** Requires **mapping-codebases** skill. The structural maps
+(`_MAP.md` files) are the input that makes LLM-assisted authoring
+token-efficient — read maps to understand API surfaces, then selectively read
+source files only where design rationale lives.
 
 ## Installation
 
 ```bash
 npm install -g lat.md
-lat --version  # verify
+lat --version  # verify (requires Node.js 22+)
 ```
 
-Requires Node.js 22+. The `lat` CLI provides `lat check` (validation), `lat search` (semantic search), `lat section` (browsing), and `lat mcp` (agent integration).
+The `lat` CLI provides `lat check` (validation), `lat search` (semantic
+search), `lat section` (browsing), `lat refs` (reference lookup), and `lat mcp`
+(agent integration).
 
 ## Generation Pipeline
 
@@ -42,118 +61,237 @@ uv pip install tree-sitter-language-pack --python /home/claude/.venv/bin/python
   --skip tests,.github,node_modules,vendor
 ```
 
-Read the root `_MAP.md` first for high-level orientation, then drill into subdirectory maps.
+Read the root `_MAP.md` first for high-level orientation, then drill into
+subdirectory maps. The maps are the symbol inventory — they tell you what exists
+and where, so you can write source code links without reading every file.
 
 ### Phase 2: Selective Source Reading
 
-Maps reveal the API surface (exports, signatures, line numbers) without reading full files. Read source selectively — prioritize files where design rationale lives:
+Maps reveal the API surface (exports, signatures, line numbers) without reading
+full files. Read source selectively to understand design rationale:
 
-**Read fully:** Files with complex algorithms, business logic, configuration constants, data schemas. The maps identify these by export density and file size.
+**Read fully:** Files with complex algorithms, business logic, configuration
+constants, data schemas. The maps identify these by export density and file
+size.
 
-**Read partially:** Header comments and constant blocks in large files. A 2000-line awards engine often has all its rules in the first 100 lines of constants and the doc comment.
+**Read partially:** Header comments and constant blocks in large files.
 
-**Skip:** Files where the map signature tells the full story (thin wrappers, simple CRUD, format utilities).
+**Skip:** Files where the map signature tells the full story (thin wrappers,
+simple CRUD, format utilities).
 
-### Phase 3: Generate lat.md/ Sections
+### Phase 3: Generate Anchored Sections
 
-Create `lat.md/` directory and generate markdown files following lat.md conventions. See [references/authoring-rules.md](references/authoring-rules.md) for detailed syntax.
+Create `lat.md/` directory and generate markdown files. **Every section must be
+anchored to source code symbols** — this is what makes `lat check` catch drift.
 
-**Core rules:**
-- Every section needs a leading paragraph ≤250 characters (excluding `[[wiki link]]` content)
-- Use `[[file#Section#Subsection]]` wiki links to cross-reference between sections
-- Use `[[src/path/file.ts#symbolName]]` wiki links to anchor docs to source code
-- Group by concept, not by file — a "Data Flow" section can reference symbols across many files
+#### Section Structure Rules
 
-**Index file:** `lat.md/lat.md` contains a bullet list of all top-level files with one-sentence descriptions using wiki links: `- [[architecture]] — System design, OAuth flow, routing`
+- Every section MUST have a leading paragraph ≤250 characters (excluding
+  `[[wiki link]]` content). This is the section's identity in search results.
+- `lat check` validates this rule.
 
-**Section planning:** Before writing, outline the conceptual grouping. Typical structures:
-- `architecture.md` — system design, tech stack, data flow, deployment
-- One file per major domain concept (awards engine, sync pipeline, auth flow)
-- Separate files for non-obvious subsystems (route detection, fitness algorithms)
+```markdown
+# Good Section
 
-### Phase 4: Validate
+Brief overview anchored to [[src/auth.js#refreshToken]] and [[src/api.js#fetchWithRetry]].
+
+More detail can follow in subsequent paragraphs.
+```
+
+#### Source Code Links (the top-down anchors)
+
+Use `[[src/path/file.ext#symbolName]]` wiki links to anchor documentation to
+specific symbols. Supported extensions: `.ts`, `.tsx`, `.js`, `.jsx`, `.py`,
+`.rs`, `.go`, `.c`, `.h`.
+
+```markdown
+## Token Refresh
+
+OAuth token lifecycle managed by [[src/auth.js#getValidToken]] with automatic
+refresh via [[src/auth.js#refreshToken]]. The refresh window
+([[src/auth.js#REFRESH_THRESHOLD_MS]]) triggers proactive renewal before expiry.
+```
+
+**Symbol granularity matters.** Link to the specific function, class, constant,
+or method — not just the file. `[[src/auth.js#refreshToken]]` is useful;
+`[[src/auth.js]]` tells you nothing that the filename didn't already say.
+
+For class methods: `[[src/server.ts#App#listen]]`. For Rust impl methods:
+`[[src/lib.rs#Greeter#greet]]`. For Python: `[[lib/utils.py#parse_args]]`.
+
+#### Section-to-Section Links
+
+Use `[[file#Section#Subsection]]` or short form `[[file#Section]]` when the
+file stem is unique:
+
+```markdown
+The sync pipeline ([[data#Sync Pipeline]]) uses the same token refresh
+mechanism described in [[auth#Token Refresh]].
+```
+
+#### Conceptual Grouping
+
+Organize by domain concept, not file structure. A `data.md` file might reference
+`db.js`, `sync.js`, and `demo.js` because they're all part of the data layer.
+The `_MAP.md` files already provide file-level structure; `lat.md/` adds the
+semantic layer explaining WHY things connect.
+
+#### Index File
+
+`lat.md/lat.md` must contain a bullet list of all files with one-sentence
+descriptions using wiki links. `lat check --index` validates completeness:
+
+```markdown
+- [[architecture]] — System design, OAuth flow, routing, signals
+- [[data]] — IndexedDB schema, sync pipeline, demo mode
+- [[awards]] — Award computation engine, data quality rules
+```
+
+Subdirectories need their own index: `lat.md/api/api.md`.
+
+### Phase 4: Add Back-Links in Source Code
+
+Add `// @lat:` or `# @lat:` comments in source code pointing back to `lat.md/`
+sections. **This is not optional** — back-links are what make `lat check`
+detect when source code changes break documentation.
+
+Run the back-link helper to identify where annotations are needed:
+
+```bash
+python3 SKILL_DIR/scripts/suggest_backlinks.py /path/to/repo
+```
+
+This parses all `[[src/...]]` wiki links from `lat.md/` files, locates the
+referenced symbols in source, and suggests `@lat:` comment placements.
+
+Comment syntax by language:
+- JS/TS/Rust/Go/C: `// @lat: [[section#Subsection]]`
+- Python: `# @lat: [[section#Subsection]]`
+
+Place one `@lat:` comment per section reference, at the relevant code location —
+not at the top of the file:
+
+```javascript
+// @lat: [[auth#Token Refresh]]
+async function refreshToken(token) { ... }
+```
+
+To auto-apply suggestions (review the output first):
+
+```bash
+python3 SKILL_DIR/scripts/suggest_backlinks.py /path/to/repo --apply
+```
+
+#### require-code-mention for Critical Sections
+
+For sections where bidirectional traceability is essential (test specs,
+invariants, key business rules), add frontmatter:
+
+```yaml
+---
+lat:
+  require-code-mention: true
+---
+```
+
+This makes `lat check` fail if ANY leaf section in the file lacks a
+corresponding `@lat:` comment in the codebase. Use for test spec files where
+every test must trace to its specification.
+
+### Phase 5: Validate
 
 ```bash
 cd /path/to/repo
 lat check
 ```
 
-Fix all errors — broken wiki links, missing leading paragraphs, paragraphs exceeding 250 characters. The check validates that every `[[src/...]]` link points to an actual symbol in source code.
+This runs ALL checks:
+- **md** — every `[[wiki link]]` in `lat.md/` resolves to a real section or
+  source symbol
+- **code-refs** — every `@lat:` comment in source points to a real section; and
+  every leaf section in `require-code-mention` files is referenced by code
+- **sections** — every section has a leading paragraph ≤250 chars
+- **index** — every directory in `lat.md/` has a complete index file
 
-### Phase 5: Agent Integration
+**All four must pass.** Fix errors iteratively until `lat check` is clean.
 
-Set up the files that make agents use the lattice. `lat init` does this interactively, but the non-interactive pieces can (and should) be written directly.
+### Phase 6: Agent Integration
+
+Set up files that make coding agents maintain the lattice automatically.
 
 **Cache exclusion** — create `lat.md/.gitignore`:
 ```
 .cache/
 ```
-The `.cache/` directory holds the vector DB for semantic search. It's machine-local and regenerated by `lat search --reindex`.
 
-**Agent instructions** — append lat.md workflow to the project's `CLAUDE.md` (or `AGENTS.md`) using marker-based format so existing content is preserved:
+**Agent instructions** — append to `CLAUDE.md` (or `AGENTS.md`) using markers:
 
 ```markdown
 %% lat:begin %%
 # Before starting work
 
-- Run `lat search` to find sections relevant to your task. Read them to understand the design intent before writing code.
+- Run `lat search` to find sections relevant to your task.
 - Run `lat expand` on user prompts to expand any `[[refs]]`.
 
 # Post-task checklist (REQUIRED — do not skip)
 
 After EVERY task, before responding to the user:
 
-- [ ] Update `lat.md/` if you added or changed any functionality, architecture, tests, or behavior
+- [ ] Update `lat.md/` if you changed functionality, architecture, or behavior
 - [ ] Run `lat check` — all wiki links and code refs must pass
-
-# lat.md Commands
-
-    lat locate "Section Name"      # find a section by name
-    lat search "natural language"   # semantic search across sections
-    lat refs "file#Section"         # find what references a section
-    lat expand "user prompt text"   # expand [[refs]] in a prompt
-    lat check                       # validate all links and code refs
 %% lat:end %%
 ```
 
-**What `lat init` adds beyond this** — agent hooks (`.claude/settings.json`, `.cursor/hooks.json`) that auto-inject search results into prompts and block task completion when `lat check` fails. These require the absolute path to the `lat` binary, which is machine-local. Run `lat init` interactively for hook setup; the files above cover everything else.
+**For full agent integration** (hooks that auto-inject search results and block
+completion when `lat check` fails), run `lat init` interactively. This sets up
+agent hooks in `.claude/settings.json`, `.cursor/hooks.json`, etc. The hooks
+require absolute paths to the `lat` binary, which is machine-local.
 
-### Phase 6: Back-links (Optional)
+## Drift Prevention: How It Works
 
-Add `@lat:` comments in source code pointing back to lat.md sections. This completes the bidirectional link between documentation and implementation.
+The lattice stays in sync because changes to either side break `lat check`:
 
-Run the back-link helper to identify where annotations are missing:
+| What changed | What breaks | How lat check catches it |
+|---|---|---|
+| Symbol renamed in source | `[[src/file#oldName]]` wiki links in lat.md/ | `lat check --md` reports broken source ref |
+| Symbol deleted | Same as above | Same — dead source link |
+| Section renamed in lat.md/ | `@lat: [[old#Section]]` comments in source | `lat check --code-refs` reports dangling ref |
+| Section deleted | Same as above | Same — orphaned code ref |
+| New code added without docs | No back-link for new functions | Manual review (or `require-code-mention` enforcement) |
+| New docs without code anchors | Sections with no `[[src/...]]` links | Manual review — but this is the failure to prevent |
 
-```bash
-python3 SKILL_DIR/scripts/suggest_backlinks.py /path/to/repo
-```
-
-This parses all `[[src/...]]` wiki links from `lat.md/` files, locates the referenced symbols in source, and suggests `@lat:` comment placements. Apply suggestions selectively — placement is a judgment call about which section best describes each symbol's purpose.
-
-Comment syntax by language:
-- JS/TS/Rust/Go/C: `// @lat: [[section#Subsection]]`
-- Python: `# @lat: [[section#Subsection]]`
-
-Place one `@lat:` comment per section reference, at the relevant code location — not at the top of the file.
-
-For `require-code-mention: true` files (test specs), every leaf section must have a corresponding `@lat:` comment in the codebase. Use this for traceability between test specifications and test implementations.
+**The critical gap:** new code without docs and new docs without anchors are
+NOT caught automatically unless `require-code-mention` is set. The agent
+integration hooks (Phase 6) address this by reminding agents to update lat.md/
+after every task and running `lat check` before completion.
 
 ## Quality Criteria
 
 A good generated lattice:
-- **Passes `lat check`** — all links resolve, all sections have proper leading paragraphs
-- **Captures WHY, not just WHAT** — design rationale, invariants, non-obvious constraints
-- **Links densely** — sections cross-reference each other AND source code symbols
+- **Passes `lat check` on all four checks** — md, code-refs, sections, index
+- **Has dense source code links** — most sections reference specific symbols
+  via `[[src/...#symbol]]`, not just file-level links
+- **Has back-links** — source code has `@lat:` comments pointing to the
+  sections that describe them
+- **Captures WHY, not just WHAT** — design rationale, invariants, constraints
 - **Groups by concept** — not a 1:1 mirror of the file tree
-- **Concise leading paragraphs** — the ≤250 char first paragraph is the section's identity in search results
-- **Source code links use symbol granularity** — `[[src/auth.js#getValidToken]]` not just `[[src/auth.js]]`
+- **Concise leading paragraphs** — ≤250 chars, the section's identity in search
+
+**Anti-patterns (what our v0.1 got wrong):**
+- Sections with only section-to-section links (`[[clusters#Visual Pipeline]]`)
+  and no source anchors — `lat check` cannot catch code changes
+- Architectural essays that describe the codebase without linking to it —
+  a static document, not a knowledge graph
+- Treating back-links as optional — without `@lat:` comments, the bottom-up
+  view doesn't exist and half the drift detection is missing
 
 ## Token Budget
 
 The maps-first approach significantly reduces LLM token cost:
 - Mapping-codebases (Phase 1): zero LLM tokens — pure AST extraction
 - Selective reading (Phase 2): ~30-50% of source bytes vs reading everything
-- Generation (Phase 3): the actual LLM work — proportional to conceptual complexity, not codebase size
-- Validation (Phase 4): zero LLM tokens — deterministic `lat check`
-
-For a ~15-file JS app (~8K lines), expect to read ~3-4K lines selectively and generate ~250-400 lines of lat.md documentation with 50-80 wiki links.
+- Generation (Phase 3): the actual LLM work — proportional to conceptual
+  complexity, not codebase size
+- Back-links (Phase 4): zero LLM tokens — the suggest_backlinks.py script
+  is deterministic
+- Validation (Phase 5): zero LLM tokens — deterministic `lat check`
