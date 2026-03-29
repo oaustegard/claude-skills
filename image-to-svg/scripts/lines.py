@@ -222,6 +222,179 @@ def merge_collinear(segments, angle_tol=0.12, dist_tol=6.0, gap_tol=15.0):
     return merged
 
 
+def merge_segments_to_curves(lines, merge_distance=10, merge_angle=30):
+    """Merge nearby collinear line segments into bezier curves.
+
+    Clusters extracted line segments by endpoint proximity and angular
+    continuity, then fits smooth bezier curves to each chain.
+
+    Args:
+        lines: list of dicts with {x1, y1, x2, y2, color, stroke_width}
+        merge_distance: max endpoint distance for chaining (in SVG units)
+        merge_angle: max angular deviation in degrees for chaining
+
+    Returns:
+        list of dicts — either:
+          {"path_d": str, "color": hex, "stroke_width": float}  (merged curves)
+          {"x1", "y1", "x2", "y2", "color", "stroke_width"}    (isolated segments)
+    """
+    if not lines:
+        return []
+
+    angle_tol_rad = merge_angle * np.pi / 180
+
+    def seg_angle(seg):
+        return np.arctan2(seg["y2"] - seg["y1"], seg["x2"] - seg["x1"]) % np.pi
+
+    def endpoint_dist(seg_a, seg_b):
+        """Min distance between any pair of endpoints."""
+        pts_a = [(seg_a["x1"], seg_a["y1"]), (seg_a["x2"], seg_a["y2"])]
+        pts_b = [(seg_b["x1"], seg_b["y1"]), (seg_b["x2"], seg_b["y2"])]
+        return min(
+            np.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
+            for a in pts_a for b in pts_b
+        )
+
+    # Build chains via greedy nearest-neighbor with angle + distance constraints
+    used = [False] * len(lines)
+    chains = []
+
+    for i in range(len(lines)):
+        if used[i]:
+            continue
+        chain = [i]
+        used[i] = True
+
+        # Extend chain in both directions
+        changed = True
+        while changed:
+            changed = False
+            head = chain[0]
+            tail = chain[-1]
+
+            best_head = (-1, float("inf"))
+            best_tail = (-1, float("inf"))
+
+            for j in range(len(lines)):
+                if used[j]:
+                    continue
+
+                # Angle check against the neighbor in the chain
+                da_head = abs(seg_angle(lines[head]) - seg_angle(lines[j]))
+                da_head = min(da_head, np.pi - da_head)
+                da_tail = abs(seg_angle(lines[tail]) - seg_angle(lines[j]))
+                da_tail = min(da_tail, np.pi - da_tail)
+
+                d_head = endpoint_dist(lines[head], lines[j])
+                d_tail = endpoint_dist(lines[tail], lines[j])
+
+                if da_head <= angle_tol_rad and d_head <= merge_distance:
+                    if d_head < best_head[1]:
+                        best_head = (j, d_head)
+                if da_tail <= angle_tol_rad and d_tail <= merge_distance:
+                    if d_tail < best_tail[1]:
+                        best_tail = (j, d_tail)
+
+            if best_tail[0] >= 0:
+                chain.append(best_tail[0])
+                used[best_tail[0]] = True
+                changed = True
+            if best_head[0] >= 0 and best_head[0] != best_tail[0]:
+                chain.insert(0, best_head[0])
+                used[best_head[0]] = True
+                changed = True
+
+        chains.append(chain)
+
+    # Convert chains to output
+    result = []
+    for chain in chains:
+        if len(chain) == 1:
+            # Isolated segment — pass through unchanged
+            result.append(dict(lines[chain[0]]))
+            continue
+
+        # Order chain endpoints into a polyline
+        # Use median color and stroke width from chain members
+        chain_segs = [lines[idx] for idx in chain]
+        colors = [s["color"] for s in chain_segs]
+        widths = [s["stroke_width"] for s in chain_segs]
+        # Most common color
+        from collections import Counter
+        color = Counter(colors).most_common(1)[0][0]
+        stroke_width = round(float(np.median(widths)), 1)
+
+        # Build ordered point sequence by walking closest endpoints
+        ordered_pts = [(chain_segs[0]["x1"], chain_segs[0]["y1"]),
+                       (chain_segs[0]["x2"], chain_segs[0]["y2"])]
+        remaining = list(range(1, len(chain_segs)))
+
+        while remaining:
+            last_pt = ordered_pts[-1]
+            best_idx = -1
+            best_dist = float("inf")
+            best_flip = False
+
+            for ri in remaining:
+                seg = chain_segs[ri]
+                d1 = np.sqrt((last_pt[0] - seg["x1"]) ** 2 + (last_pt[1] - seg["y1"]) ** 2)
+                d2 = np.sqrt((last_pt[0] - seg["x2"]) ** 2 + (last_pt[1] - seg["y2"]) ** 2)
+                if d1 < best_dist:
+                    best_dist, best_idx, best_flip = d1, ri, False
+                if d2 < best_dist:
+                    best_dist, best_idx, best_flip = d2, ri, True
+
+            seg = chain_segs[best_idx]
+            if best_flip:
+                ordered_pts.append((seg["x2"], seg["y2"]))
+                ordered_pts.append((seg["x1"], seg["y1"]))
+            else:
+                ordered_pts.append((seg["x1"], seg["y1"]))
+                ordered_pts.append((seg["x2"], seg["y2"]))
+            remaining.remove(best_idx)
+
+        # Deduplicate consecutive near-identical points
+        deduped = [ordered_pts[0]]
+        for pt in ordered_pts[1:]:
+            if np.sqrt((pt[0] - deduped[-1][0]) ** 2 + (pt[1] - deduped[-1][1]) ** 2) > 0.5:
+                deduped.append(pt)
+
+        # Fit bezier curve
+        if len(deduped) == 2:
+            # Two points — just a line, emit as segment
+            result.append({
+                "x1": deduped[0][0], "y1": deduped[0][1],
+                "x2": deduped[1][0], "y2": deduped[1][1],
+                "color": color, "stroke_width": stroke_width,
+            })
+        elif len(deduped) == 3:
+            # Quadratic bezier through 3 points
+            p0, p1, p2 = deduped
+            path_d = (f"M {p0[0]:.1f},{p0[1]:.1f} "
+                      f"Q {p1[0]:.1f},{p1[1]:.1f} "
+                      f"{p2[0]:.1f},{p2[1]:.1f}")
+            result.append({"path_d": path_d, "color": color, "stroke_width": stroke_width})
+        else:
+            # 4+ points — chain of quadratic beziers through midpoints
+            parts = [f"M {deduped[0][0]:.1f},{deduped[0][1]:.1f}"]
+            for k in range(1, len(deduped) - 1):
+                # Control point is the actual point, endpoint is midpoint to next
+                cx, cy = deduped[k]
+                if k < len(deduped) - 2:
+                    ex = (deduped[k][0] + deduped[k + 1][0]) / 2
+                    ey = (deduped[k][1] + deduped[k + 1][1]) / 2
+                else:
+                    ex, ey = deduped[-1]
+                parts.append(f"Q {cx:.1f},{cy:.1f} {ex:.1f},{ey:.1f}")
+            path_d = " ".join(parts)
+            result.append({"path_d": path_d, "color": color, "stroke_width": stroke_width})
+
+    n_curves = sum(1 for r in result if "path_d" in r)
+    n_lines = sum(1 for r in result if "x1" in r)
+    print(f"  merge_to_curves: {n_curves} curves + {n_lines} lines from {len(lines)} segments")
+    return result
+
+
 def measure_stroke_width(mask, x1, y1, x2, y2, n_samples=5):
     """Measure stroke width perpendicular to a line segment.
 
@@ -355,14 +528,34 @@ def suppress_line_regions(img_rgb, thin_mask):
     return result
 
 
-def lines_to_svg_elements(lines):
-    """Convert extracted lines to SVG <line> element strings."""
+def lines_to_svg_elements(lines, opacity=1.0):
+    """Convert extracted lines/curves to SVG element strings.
+
+    Handles two item formats:
+      - {"path_d": str, "color": hex, "stroke_width": float} → <path> element
+      - {"x1", "y1", "x2", "y2", "color", "stroke_width"} → <line> element
+
+    Args:
+        lines: list of line/curve dicts
+        opacity: per-element stroke-opacity (0.0–1.0). Only emitted if < 1.0.
+
+    Returns:
+        list of SVG element strings
+    """
+    opacity_attr = f' stroke-opacity="{opacity}"' if opacity < 1.0 else ''
     elements = []
     for ln in lines:
-        elements.append(
-            f'    <line x1="{ln["x1"]}" y1="{ln["y1"]}" '
-            f'x2="{ln["x2"]}" y2="{ln["y2"]}" '
-            f'stroke="{ln["color"]}" stroke-width="{ln["stroke_width"]}" '
-            f'stroke-linecap="round"/>'
-        )
+        if "path_d" in ln:
+            elements.append(
+                f'    <path d="{ln["path_d"]}" '
+                f'stroke="{ln["color"]}" stroke-width="{ln["stroke_width"]}" '
+                f'stroke-linecap="round" fill="none"{opacity_attr}/>'
+            )
+        else:
+            elements.append(
+                f'    <line x1="{ln["x1"]}" y1="{ln["y1"]}" '
+                f'x2="{ln["x2"]}" y2="{ln["y2"]}" '
+                f'stroke="{ln["color"]}" stroke-width="{ln["stroke_width"]}" '
+                f'stroke-linecap="round"{opacity_attr}/>'
+            )
     return elements
