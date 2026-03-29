@@ -413,9 +413,32 @@ def extract_contours(quantize, detect_background, edge_map):
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, k_morph, iterations=2)
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, k_morph, iterations=1)
 
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
 
-        for contour in contours:
+        if not contours or hierarchy is None:
+            continue
+
+        hier = hierarchy[0]  # shape: (N, 4) — [next, prev, first_child, parent]
+
+        def _contour_to_subpath(contour):
+            """Convert a contour to an SVG subpath string (M...L...Z)."""
+            peri = cv2.arcLength(contour, True)
+            eps = 0.002 * peri
+            approx = cv2.approxPolyDP(contour, eps, True)
+            pts = approx.reshape(-1, 2).astype(float)
+            pts[:, 0] *= scale_x
+            pts[:, 1] *= scale_y
+            d = f"M {pts[0][0]:.1f},{pts[0][1]:.1f}"
+            for p in pts[1:]:
+                d += f" L {p[0]:.1f},{p[1]:.1f}"
+            d += " Z"
+            return d
+
+        # Process outer contours only (parent == -1)
+        for i, contour in enumerate(contours):
+            if hier[i][3] != -1:
+                continue  # skip holes — handled via parent
+
             area = cv2.contourArea(contour)
             if area < MIN_AREA:
                 continue
@@ -441,19 +464,24 @@ def extract_contours(quantize, detect_background, edge_map):
                     if border_dark.sum() / max(border.sum(), 1) < 0.3:
                         continue
 
-            # Simplify and convert to SVG path
-            eps = 0.002 * peri
-            approx = cv2.approxPolyDP(contour, eps, True)
-            pts = approx.reshape(-1, 2).astype(float)
-            pts[:, 0] *= scale_x
-            pts[:, 1] *= scale_y
+            # Build SVG path: outer contour + any hole subpaths
+            path_d = _contour_to_subpath(contour)
+            has_holes = False
 
-            path_d = f"M {pts[0][0]:.1f},{pts[0][1]:.1f}"
-            for p in pts[1:]:
-                path_d += f" L {p[0]:.1f},{p[1]:.1f}"
-            path_d += " Z"
+            # Collect child (hole) contours
+            child_idx = hier[i][2]  # first_child
+            while child_idx != -1:
+                hole = contours[child_idx]
+                hole_area = cv2.contourArea(hole)
+                if hole_area >= MIN_AREA:
+                    path_d += " " + _contour_to_subpath(hole)
+                    has_holes = True
+                child_idx = hier[child_idx][0]  # next sibling
 
-            shapes.append({"path": path_d, "color": color_hex, "area": area})
+            shape = {"path": path_d, "color": color_hex, "area": area}
+            if has_holes:
+                shape["fill_rule"] = "evenodd"
+            shapes.append(shape)
 
     # Painter's algorithm: largest shapes first (behind)
     shapes.sort(key=lambda x: -x["area"])
@@ -504,7 +532,8 @@ def assemble_svg(extract_contours, detect_background):
         f'  <rect width="{SVG_W}" height="{SVG_H}" fill="{bg_hex}"/>',
     ]
     for s in shapes:
-        lines.append(f'  <path d="{s["path"]}" fill="{s["color"]}" stroke="{s["color"]}" stroke-width="4" stroke-linejoin="round"/>')
+        fr = ' fill-rule="evenodd"' if s.get("fill_rule") else ""
+        lines.append(f'  <path d="{s["path"]}" fill="{s["color"]}" stroke="{s["color"]}" stroke-width="4" stroke-linejoin="round"{fr}/>')
     lines.append("</svg>")
 
     svg_content = "\n".join(lines)
@@ -551,7 +580,8 @@ def _assemble_pure(shapes, svg_w, svg_h, bg_hex, palette=None, bg_color=None):
     ]
     for s in shapes:
         c = color_map[s["color"]] if palette and s["color"] in color_map else s["color"]
-        lines.append(f'  <path d="{s["path"]}" fill="{c}" stroke="{c}" stroke-width="4" stroke-linejoin="round"/>')
+        fr = ' fill-rule="evenodd"' if s.get("fill_rule") else ""
+        lines.append(f'  <path d="{s["path"]}" fill="{c}" stroke="{c}" stroke-width="4" stroke-linejoin="round"{fr}/>')
     lines.append("</svg>")
     return "\n".join(lines)
 
@@ -609,7 +639,8 @@ def _assemble_compositional(shapes, stroke_lines, svg_w, svg_h, bg_hex,
     out.append('  <g id="fills">')
     for s in shapes:
         c = color_map.get(s["color"], s["color"]) if palette else s["color"]
-        out.append(f'    <path d="{s["path"]}" fill="{c}" stroke="{c}" stroke-width="4" stroke-linejoin="round"/>')
+        fr = ' fill-rule="evenodd"' if s.get("fill_rule") else ""
+        out.append(f'    <path d="{s["path"]}" fill="{c}" stroke="{c}" stroke-width="4" stroke-linejoin="round"{fr}/>')
     out.append('  </g>')
 
     if stroke_lines:
