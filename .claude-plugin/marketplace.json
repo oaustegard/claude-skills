@@ -357,6 +357,19 @@
       "license": "MIT"
     },
     {
+      "name": "generating-lattice",
+      "description": "Generate and maintain lat.md/ knowledge graphs with bidirectional source code anchoring. Docs link to code via [[src/file#symbol]] wiki links; code links back to docs via @lat: comments. lat check validates both directions, catching drift when either side changes. Use when user says \"lat.md\", \"lattice\", \"knowledge graph\", \"document this codebase\", \"add back-links\", or wants cross-referenced architecture docs anchored to source code symbols.",
+      "source": "./generating-lattice",
+      "strict": false,
+      "skills": [
+        "./"
+      ],
+      "version": "0.2.0",
+      "repository": "https://github.com/oaustegard/claude-skills",
+      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/generating-lattice",
+      "license": "MIT"
+    },
+    {
       "name": "generating-patches",
       "description": "Generates git patch files from codebase modifications for local application. Use when user mentions patch, diff, export changes, bring changes back, apply locally, or after editing uploaded codebases.",
       "source": "./generating-patches",
