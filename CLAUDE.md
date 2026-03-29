@@ -521,3 +521,29 @@ Key implications:
 - These utilities import from the `scripts` package (e.g., `from remembering.scripts import _exec, reprioritize`), with the skill directory on `sys.path`
 - To fix a utility's code, you must update the memory content in the database, not edit a file in this repo
 - The `_exec` function is exported in `scripts/__init__.py`'s `__all__` specifically to support these runtime utilities
+
+%% lat:begin %%
+## lat.md Knowledge Graph
+
+This repo has a `lat.md/` directory containing a concept-grouped knowledge graph of the skill collection. Use it to understand architecture, find related skills, and identify gaps before making changes.
+
+### Before starting work
+
+- Run `lat search` to find sections relevant to your task. Read them to understand design intent and cross-cutting patterns before modifying skills.
+- Run `lat expand` on user prompts to expand any `[[refs]]`.
+
+### Post-task checklist (REQUIRED — do not skip)
+
+After EVERY task, before responding to the user:
+
+- [ ] Update `lat.md/` if you added, removed, or changed any skill, dependency, or architectural pattern
+- [ ] Run `lat check` — all wiki links must pass
+
+### lat.md Commands
+
+    lat locate "Section Name"      # find a section by name
+    lat search "natural language"   # semantic search across sections
+    lat refs "file#Section"         # find what references a section
+    lat expand "user prompt text"   # expand [[refs]] in a prompt
+    lat check                       # validate all links and code refs
+%% lat:end %%
