@@ -17,3 +17,9 @@
 
 - Initial release with mapping-codebases integration and lat.md generation
   pipeline
+
+## [0.2.0] - 2026-03-29
+
+### Added
+
+- v0.2.0 — bidirectional anchoring as core mechanism (#497)
