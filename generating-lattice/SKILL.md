@@ -1,13 +1,14 @@
 ---
 name: generating-lattice
 description: >-
-  Generate lat.md knowledge graphs for codebases using LLM-assisted authoring.
-  Produces cross-referenced markdown sections with wiki links into source code,
-  validated by `lat check`. Requires mapping-codebases skill for structural input.
-  Use when asked to create lat.md documentation, generate a knowledge graph for a
-  codebase, document architecture with cross-references, or add @lat: back-links
-  to source code. Triggers on "lat.md", "lattice", "knowledge graph", "document
-  this codebase", "add back-links".
+  Install lat.md CLI and generate lat.md/ knowledge graphs from existing _MAP.md
+  files or by running mapping-codebases first. Validate with lat check, append
+  agent instructions to CLAUDE.md, and suggest @lat: back-links in source code.
+  Use when user says "lat.md", "lattice", "knowledge graph", "document this
+  codebase", "add back-links", or wants cross-referenced architecture docs
+  anchored to source code symbols.
+metadata:
+  version: 0.1.0
 ---
 
 # Generating Lattice
