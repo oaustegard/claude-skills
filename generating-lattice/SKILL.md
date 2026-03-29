@@ -17,13 +17,6 @@ Generate `lat.md/` knowledge graphs — structured, cross-referenced markdown th
 
 **Dependency:** Requires **mapping-codebases** skill. The structural maps (`_MAP.md` files) are the input that makes LLM-assisted authoring token-efficient — read maps to understand API surfaces, then selectively read source files only where design rationale lives.
 
-## When to Use
-
-- User wants to document a codebase with cross-referenced architecture docs
-- User mentions lat.md, agent lattice, or knowledge graph generation
-- User wants to add `@lat:` back-links from source code to documentation
-- User has `_MAP.md` files and wants to generate the semantic layer on top
-
 ## Installation
 
 ```bash
