@@ -5,7 +5,15 @@ Usage:
     svg, flow = image_to_svg("photo.jpg", mode="painting")
 
     # Compositional pipeline for line art / graphic inputs:
-    svg, flow = image_to_svg("kandinsky.jpg", mode="graphic", pipeline="compositional")
+    svg, flow = image_to_svg("kandinsky.jpg", mode="graphic")
+
+    # Mode implies pipeline: graphic→compositional, all others→fill.
+    # Override with pipeline="compositional" or pipeline="fill".
+
+    # Stroke params (compositional only):
+    svg, flow = image_to_svg("sketch.jpg", mode="graphic",
+                             stroke_width_cap=6, stroke_opacity=0.8,
+                             stroke_merge=True, stroke_blur=0.5)
 """
 import cv2
 import numpy as np
@@ -44,6 +52,14 @@ PALETTES = {
     "ocean":    ["#0c2340", "#1e6091", "#48c9b0", "#e8f4f8"],
 }
 
+# --- Mode → pipeline routing (replaces CV heuristic classify_input) ---
+MODE_PIPELINE = {
+    "graphic":      "compositional",
+    "illustration": "fill",
+    "painting":     "fill",
+    "photo":        "fill",
+}
+
 # --- Pipeline config (module-level, set by configure()) ---
 _cfg = {}
 
@@ -55,7 +71,10 @@ def _hex_luminance(hex_color):
     return 0.299 * r + 0.587 * g + 0.114 * b
 
 
-def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_color=None, smooth=None, bg_clusters=None, pipeline="auto", **overrides):
+def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_color=None, smooth=None, bg_clusters=None, pipeline="auto",
+              stroke_width_cap=4.5, stroke_width_scale=0.65, stroke_opacity=1.0,
+              stroke_merge=None, stroke_merge_distance=10, stroke_merge_angle=30,
+              stroke_blur=0, stroke_dasharray=None, **overrides):
     """Set pipeline config. Called internally by image_to_svg().
 
     Any key in MODES presets can be overridden: K, dark_lum,
@@ -79,9 +98,18 @@ def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_col
              - 0: disable background detection (no background rect fill)
              - list of ints: force specific cluster indices as background
     pipeline: Pipeline selection for handling line art.
-             - "auto" (default): classify input and choose automatically
+             - "auto" (default): mode implies pipeline via MODE_PIPELINE
              - "fill": force fill-only pipeline (current behavior)
              - "compositional": force two-pass line+fill pipeline
+    stroke_width_cap: Maximum SVG stroke width for extracted lines (default 4.5).
+    stroke_width_scale: Multiply measured width by this (default 0.65).
+    stroke_opacity: Per-element stroke opacity 0.0–1.0 (default 1.0).
+    stroke_merge: Enable bezier curve fitting for extracted strokes.
+                  Default: True for compositional pipeline, False otherwise.
+    stroke_merge_distance: Max endpoint distance for chaining (default 10).
+    stroke_merge_angle: Max angular deviation in degrees (default 30).
+    stroke_blur: Gaussian blur stdDeviation applied to stroke group (default 0).
+    stroke_dasharray: SVG stroke-dasharray for sketchy effect (default None).
     """
     if mode not in MODES:
         raise ValueError(f"Unknown mode '{mode}'. Choose from: {list(MODES.keys())}")
@@ -96,6 +124,14 @@ def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_col
         "source_path": str(source_path), "svg_width": svg_width,
         "palette": palette, "bg_color": bg_color, "smooth": smooth,
         "bg_clusters_override": bg_clusters, "pipeline": pipeline,
+        "stroke_width_cap": stroke_width_cap,
+        "stroke_width_scale": stroke_width_scale,
+        "stroke_opacity": stroke_opacity,
+        "stroke_merge": stroke_merge,
+        "stroke_merge_distance": stroke_merge_distance,
+        "stroke_merge_angle": stroke_merge_angle,
+        "stroke_blur": stroke_blur,
+        "stroke_dasharray": stroke_dasharray,
         **MODES[mode], **overrides,
     })
 
@@ -523,16 +559,21 @@ def _assemble_pure(shapes, svg_w, svg_h, bg_hex, palette=None, bg_color=None):
 # --- Compositional assembly (fills + strokes) ---
 
 def _assemble_compositional(shapes, stroke_lines, svg_w, svg_h, bg_hex,
-                            palette=None, bg_color=None):
+                            palette=None, bg_color=None,
+                            stroke_opacity=1.0, stroke_blur=0,
+                            stroke_dasharray=None):
     """Assemble layered SVG with fill shapes behind line strokes.
 
     Args:
         shapes: List of {"path": str, "color": hex, "area": float}
-        stroke_lines: List of {"x1", "y1", "x2", "y2", "color", "stroke_width"}
+        stroke_lines: List of line/curve dicts (from extract_lines or merge_segments_to_curves)
         svg_w, svg_h: ViewBox dimensions
         bg_hex: Detected background color
         palette: Optional palette for fill remapping
         bg_color: Optional background color override
+        stroke_opacity: Opacity for the entire strokes group (0.0–1.0, default 1.0)
+        stroke_blur: Gaussian blur stdDeviation for strokes group (default 0)
+        stroke_dasharray: SVG stroke-dasharray value for sketchy effect (default None)
 
     Returns:
         SVG string with <g id="fills"> and <g id="strokes"> layers
@@ -558,16 +599,32 @@ def _assemble_compositional(shapes, stroke_lines, svg_w, svg_h, bg_hex,
 
     out = [
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {svg_w} {svg_h}">',
-        f'  <rect width="{svg_w}" height="{svg_h}" fill="{bg_hex}"/>',
-        '  <g id="fills">',
     ]
+
+    # Defs for stroke filter (if blur requested)
+    if stroke_blur > 0:
+        out.append(f'  <defs><filter id="sf"><feGaussianBlur stdDeviation="{stroke_blur}"/></filter></defs>')
+
+    out.append(f'  <rect width="{svg_w}" height="{svg_h}" fill="{bg_hex}"/>')
+    out.append('  <g id="fills">')
     for s in shapes:
         c = color_map.get(s["color"], s["color"]) if palette else s["color"]
         out.append(f'    <path d="{s["path"]}" fill="{c}" stroke="{c}" stroke-width="4" stroke-linejoin="round"/>')
     out.append('  </g>')
 
     if stroke_lines:
-        out.append('  <g id="strokes">')
+        # Build group attributes
+        g_attrs = ['id="strokes"']
+        if stroke_opacity < 1.0:
+            g_attrs.append(f'opacity="{stroke_opacity}"')
+        if stroke_blur > 0:
+            g_attrs.append('filter="url(#sf)"')
+        if stroke_dasharray:
+            g_attrs.append(f'stroke-dasharray="{stroke_dasharray}"')
+
+        out.append(f'  <g {" ".join(g_attrs)}>')
+        # Per-element opacity is NOT used when group-level opacity is set
+        # (avoid double-application). Use per-element only if group opacity is 1.0.
         out.extend(lines_to_svg_elements(stroke_lines))
         out.append('  </g>')
 
@@ -576,18 +633,24 @@ def _assemble_compositional(shapes, stroke_lines, svg_w, svg_h, bg_hex,
 
 
 def _run_compositional(source_path, mode, svg_width, palette, bg_color,
-                       smooth, bg_clusters, **overrides):
+                       smooth, bg_clusters,
+                       stroke_width_cap=4.5, stroke_width_scale=0.65,
+                       stroke_opacity=1.0,
+                       stroke_merge=True, stroke_merge_distance=10,
+                       stroke_merge_angle=30,
+                       stroke_blur=0, stroke_dasharray=None,
+                       **overrides):
     """Run the two-pass compositional pipeline.
 
-    Pass 1: Extract lines from the original image -> SVG <line> strokes
-    Pass 2: Suppress lines, run fill pipeline on cleaned image -> SVG <path> fills
+    Pass 1: Extract lines from the original image -> SVG strokes
+    Pass 2: Suppress lines, run fill pipeline on cleaned image -> SVG fills
     Compose both layers into a single SVG.
 
     Returns:
-        (svg_string, flow, classification) tuple
+        (svg_string, flow) tuple
     """
     import tempfile, os
-    from lines import classify_input, extract_lines, suppress_line_regions
+    from lines import extract_lines, suppress_line_regions, merge_segments_to_curves
 
     # Load original image
     img = cv2.imread(str(source_path))
@@ -600,12 +663,22 @@ def _run_compositional(source_path, mode, svg_width, palette, bg_color,
     scale_x = svg_width / w
     scale_y = svg_h / h
 
-    # Pass 1: Line extraction
+    # Pass 1: Line extraction with configurable stroke params
     print("  compositional pass 1: line extraction")
     stroke_lines, thin_mask = extract_lines(
         rgb, scale_x=scale_x, scale_y=scale_y,
         min_line_length=max(20, int(min(h, w) * 0.02)),
+        stroke_width_cap=stroke_width_cap,
+        stroke_width_scale=stroke_width_scale,
     )
+
+    # Bezier curve fitting (merge nearby segments into smooth curves)
+    if stroke_merge and stroke_lines:
+        stroke_lines = merge_segments_to_curves(
+            stroke_lines,
+            merge_distance=stroke_merge_distance,
+            merge_angle=stroke_merge_angle,
+        )
 
     # Pass 2: Suppress lines, run fill pipeline on cleaned image
     print("  compositional pass 2: fill extraction on line-suppressed image")
@@ -636,6 +709,9 @@ def _run_compositional(source_path, mode, svg_width, palette, bg_color,
         contour_result["svg_w"], contour_result["svg_h"],
         bg_result["bg_hex"],
         palette=palette, bg_color=bg_color,
+        stroke_opacity=stroke_opacity,
+        stroke_blur=stroke_blur,
+        stroke_dasharray=stroke_dasharray,
     )
 
     n_fills = len(contour_result["shapes"])
@@ -649,6 +725,9 @@ def _run_compositional(source_path, mode, svg_width, palette, bg_color,
 
 def image_to_svg(source_path, mode="painting", svg_width=1000, palette=None,
                  bg_color=None, smooth=None, bg_clusters=None, pipeline="auto",
+                 stroke_width_cap=4.5, stroke_width_scale=0.65, stroke_opacity=1.0,
+                 stroke_merge=None, stroke_merge_distance=10, stroke_merge_angle=30,
+                 stroke_blur=0, stroke_dasharray=None,
                  **overrides):
     """Convert a raster image to SVG.
 
@@ -664,33 +743,46 @@ def image_to_svg(source_path, mode="painting", svg_width=1000, palette=None,
         bg_clusters: Override background detection.
                      None=auto-detect, 0=disable, [list]=force cluster indices.
         pipeline: Pipeline selection.
-                  "auto" — classify input, use compositional for graphic art (default)
-                  "fill" — fill-only pipeline (previous default behavior)
+                  "auto" — mode implies pipeline via MODE_PIPELINE (default)
+                  "fill" — fill-only pipeline
                   "compositional" — two-pass line+fill pipeline for line art
+        stroke_width_cap: Maximum SVG stroke width for extracted lines (default 4.5).
+        stroke_width_scale: Multiply measured width by this (default 0.65).
+        stroke_opacity: Stroke group opacity 0.0–1.0 (default 1.0).
+        stroke_merge: Enable bezier curve fitting for extracted strokes.
+                      Default: True for compositional pipeline.
+        stroke_merge_distance: Max endpoint distance for chaining (default 10).
+        stroke_merge_angle: Max angular deviation in degrees (default 30).
+        stroke_blur: Gaussian blur stdDeviation for stroke group (default 0).
+        stroke_dasharray: SVG stroke-dasharray for sketchy effect (default None).
         **overrides: Override any mode preset (K, dark_lum, compactness_min,
                      edge_density_min, isolation_filter, min_area)
 
     Returns:
         (svg_string, flow) — the SVG content and the Flow object for inspection
     """
-    # Determine effective pipeline
+    # Determine effective pipeline — mode implies pipeline, no CV classifier
     effective_pipeline = pipeline
     if pipeline == "auto":
-        from lines import classify_input as _classify
-        img = cv2.imread(str(source_path))
-        if img is None:
-            raise FileNotFoundError(f"Cannot read: {source_path}")
-        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        classification = _classify(rgb)
-        effective_pipeline = "compositional" if classification["is_graphic"] else "fill"
-        print(f"  classify: {'graphic' if classification['is_graphic'] else 'photographic'} "
-              f"(edge={classification['edge_density']}, bimodal={classification['bimodality']}, "
-              f"lines={classification['n_lines']})")
+        effective_pipeline = MODE_PIPELINE[mode]
+        print(f"  pipeline: {mode} → {effective_pipeline}")
+
+    # Resolve stroke_merge default
+    effective_merge = stroke_merge if stroke_merge is not None else (effective_pipeline == "compositional")
 
     if effective_pipeline == "compositional":
         svg, flow = _run_compositional(
             source_path, mode=mode, svg_width=svg_width, palette=palette,
-            bg_color=bg_color, smooth=smooth, bg_clusters=bg_clusters, **overrides,
+            bg_color=bg_color, smooth=smooth, bg_clusters=bg_clusters,
+            stroke_width_cap=stroke_width_cap,
+            stroke_width_scale=stroke_width_scale,
+            stroke_opacity=stroke_opacity,
+            stroke_merge=effective_merge,
+            stroke_merge_distance=stroke_merge_distance,
+            stroke_merge_angle=stroke_merge_angle,
+            stroke_blur=stroke_blur,
+            stroke_dasharray=stroke_dasharray,
+            **overrides,
         )
         return svg, flow
 
