@@ -1,11 +1,11 @@
-name: Release Skill
+name: Skill Release & Marketplace
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - '*/SKILL.md'
+      - 'registry/**'
   workflow_dispatch:
     inputs:
       skill_name:
@@ -24,13 +24,21 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  release-skill:
+  release-and-marketplace:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history for changelog generation
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install pyyaml
 
       - name: Release Skills
         env:
@@ -40,3 +48,36 @@ jobs:
           WORKFLOW_DISPATCH_SKILL: ${{ inputs.skill_name }}
           WORKFLOW_DISPATCH_VERSION: ${{ inputs.version }}
         run: .github/scripts/release-skill.sh
+
+      - name: Sync with main after release
+        run: |
+          # The release script may have pushed changelog commits to main.
+          # Pull those in so our next commit builds on top of them.
+          git fetch origin main
+          git reset --hard origin/main
+
+      - name: Generate marketplace.json
+        run: python registry/generate.py .
+
+      - name: Commit and push marketplace
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .claude-plugin/marketplace.json
+          if git diff --cached --quiet; then
+            echo "No changes to marketplace.json"
+            exit 0
+          fi
+          git commit -m "chore: regenerate plugin marketplace [skip ci]"
+          # Push with retry to handle concurrent updates
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              echo "✓ Pushed marketplace update"
+              exit 0
+            fi
+            echo "⚠️  Push attempt $attempt failed, rebasing..."
+            git fetch origin main
+            git rebase origin/main || { git rebase --abort 2>/dev/null; break; }
+          done
+          echo "⚠️  Failed to push marketplace update after 3 attempts"
+          echo "   The release was successful; marketplace.json will update on next trigger."
