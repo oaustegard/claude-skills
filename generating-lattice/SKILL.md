@@ -1,0 +1,127 @@
+---
+name: generating-lattice
+description: >-
+  Generate lat.md knowledge graphs for codebases using LLM-assisted authoring.
+  Produces cross-referenced markdown sections with wiki links into source code,
+  validated by `lat check`. Requires mapping-codebases skill for structural input.
+  Use when asked to create lat.md documentation, generate a knowledge graph for a
+  codebase, document architecture with cross-references, or add @lat: back-links
+  to source code. Triggers on "lat.md", "lattice", "knowledge graph", "document
+  this codebase", "add back-links".
+---
+
+# Generating Lattice
+
+Generate `lat.md/` knowledge graphs — structured, cross-referenced markdown that captures architecture, design decisions, and domain logic for a codebase. The output is validated by the `lat` CLI and queryable by coding agents via MCP, CLI, or semantic search.
+
+**Dependency:** Requires **mapping-codebases** skill. The structural maps (`_MAP.md` files) are the input that makes LLM-assisted authoring token-efficient — read maps to understand API surfaces, then selectively read source files only where design rationale lives.
+
+## When to Use
+
+- User wants to document a codebase with cross-referenced architecture docs
+- User mentions lat.md, agent lattice, or knowledge graph generation
+- User wants to add `@lat:` back-links from source code to documentation
+- User has `_MAP.md` files and wants to generate the semantic layer on top
+
+## Installation
+
+```bash
+npm install -g lat.md
+lat --version  # verify
+```
+
+Requires Node.js 22+. The `lat` CLI provides `lat check` (validation), `lat search` (semantic search), `lat section` (browsing), and `lat mcp` (agent integration).
+
+## Generation Pipeline
+
+### Phase 1: Structural Scan
+
+Ensure `_MAP.md` files exist. Generate them if missing:
+
+```bash
+# Install mapping-codebases dependencies
+uv venv /home/claude/.venv
+uv pip install tree-sitter-language-pack --python /home/claude/.venv/bin/python
+
+# Generate maps
+/home/claude/.venv/bin/python /mnt/skills/user/mapping-codebases/scripts/codemap.py /path/to/repo \
+  --skip tests,.github,node_modules,vendor
+```
+
+Read the root `_MAP.md` first for high-level orientation, then drill into subdirectory maps.
+
+### Phase 2: Selective Source Reading
+
+Maps reveal the API surface (exports, signatures, line numbers) without reading full files. Read source selectively — prioritize files where design rationale lives:
+
+**Read fully:** Files with complex algorithms, business logic, configuration constants, data schemas. The maps identify these by export density and file size.
+
+**Read partially:** Header comments and constant blocks in large files. A 2000-line awards engine often has all its rules in the first 100 lines of constants and the doc comment.
+
+**Skip:** Files where the map signature tells the full story (thin wrappers, simple CRUD, format utilities).
+
+### Phase 3: Generate lat.md/ Sections
+
+Create `lat.md/` directory and generate markdown files following lat.md conventions. See [references/authoring-rules.md](references/authoring-rules.md) for detailed syntax.
+
+**Core rules:**
+- Every section needs a leading paragraph ≤250 characters (excluding `[[wiki link]]` content)
+- Use `[[file#Section#Subsection]]` wiki links to cross-reference between sections
+- Use `[[src/path/file.ts#symbolName]]` wiki links to anchor docs to source code
+- Group by concept, not by file — a "Data Flow" section can reference symbols across many files
+
+**Index file:** `lat.md/lat.md` contains a bullet list of all top-level files with one-sentence descriptions using wiki links: `- [[architecture]] — System design, OAuth flow, routing`
+
+**Section planning:** Before writing, outline the conceptual grouping. Typical structures:
+- `architecture.md` — system design, tech stack, data flow, deployment
+- One file per major domain concept (awards engine, sync pipeline, auth flow)
+- Separate files for non-obvious subsystems (route detection, fitness algorithms)
+
+### Phase 4: Validate
+
+```bash
+cd /path/to/repo
+lat check
+```
+
+Fix all errors — broken wiki links, missing leading paragraphs, paragraphs exceeding 250 characters. The check validates that every `[[src/...]]` link points to an actual symbol in source code.
+
+### Phase 5: Back-links (Optional)
+
+Add `@lat:` comments in source code pointing back to lat.md sections. This completes the bidirectional link between documentation and implementation.
+
+Run the back-link helper to identify where annotations are missing:
+
+```bash
+python3 SKILL_DIR/scripts/suggest_backlinks.py /path/to/repo
+```
+
+This parses all `[[src/...]]` wiki links from `lat.md/` files, locates the referenced symbols in source, and suggests `@lat:` comment placements. Apply suggestions selectively — placement is a judgment call about which section best describes each symbol's purpose.
+
+Comment syntax by language:
+- JS/TS/Rust/Go/C: `// @lat: [[section#Subsection]]`
+- Python: `# @lat: [[section#Subsection]]`
+
+Place one `@lat:` comment per section reference, at the relevant code location — not at the top of the file.
+
+For `require-code-mention: true` files (test specs), every leaf section must have a corresponding `@lat:` comment in the codebase. Use this for traceability between test specifications and test implementations.
+
+## Quality Criteria
+
+A good generated lattice:
+- **Passes `lat check`** — all links resolve, all sections have proper leading paragraphs
+- **Captures WHY, not just WHAT** — design rationale, invariants, non-obvious constraints
+- **Links densely** — sections cross-reference each other AND source code symbols
+- **Groups by concept** — not a 1:1 mirror of the file tree
+- **Concise leading paragraphs** — the ≤250 char first paragraph is the section's identity in search results
+- **Source code links use symbol granularity** — `[[src/auth.js#getValidToken]]` not just `[[src/auth.js]]`
+
+## Token Budget
+
+The maps-first approach significantly reduces LLM token cost:
+- Mapping-codebases (Phase 1): zero LLM tokens — pure AST extraction
+- Selective reading (Phase 2): ~30-50% of source bytes vs reading everything
+- Generation (Phase 3): the actual LLM work — proportional to conceptual complexity, not codebase size
+- Validation (Phase 4): zero LLM tokens — deterministic `lat check`
+
+For a ~15-file JS app (~8K lines), expect to read ~3-4K lines selectively and generate ~250-400 lines of lat.md documentation with 50-80 wiki links.
