@@ -15,26 +15,26 @@
     top_p: Optional[float] = None,
     top_k: Optional[int] = None,
     image_path: Optional[str] = None,
-)` :351
+)` :352
 - **generate_image** (f) `(
     prompt: str,
     output_path: Optional[str] = None,
     model: str = "nano-banana-2",
     temperature: float = 0.7,
-)` :432
+)` :433
 - **invoke_with_structured_output** (f) `(
     prompt: str,
     pydantic_model: Type,
     model: str = DEFAULT_MODEL,
     temperature: float = 0.7,
     image_path: Optional[str] = None,
-)` :583
+)` :584
 - **invoke_parallel** (f) `(
     prompts: list,
     model: str = DEFAULT_MODEL,
     temperature: float = 0.7,
     max_workers: int = 5,
-)` :659
-- **get_available_models** (f) `()` :702
-- **verify_setup** (f) `()` :715
+)` :660
+- **get_available_models** (f) `()` :703
+- **verify_setup** (f) `()` :716
 
