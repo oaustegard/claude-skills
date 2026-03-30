@@ -348,6 +348,7 @@ def _resolve_model(model: str) -> str:
     raise ValueError(f"Invalid model: {model}. Choose from {all_names}")
 
 
+# @lat: [[orchestration#Gemini Client]]
 def invoke_gemini(
     prompt: str,
     model: str = DEFAULT_MODEL,
