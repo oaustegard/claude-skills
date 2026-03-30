@@ -148,6 +148,7 @@ def _ensure_ops_topics_loaded():
         _OPS_KEY_TO_TOPIC = _build_key_to_topic_map(OPS_TOPICS)
 
 
+# @lat: [[memory#Boot Sequence]]
 def classify_ops_key(key: str) -> str | None:
     """Classify an ops key into its topic category.
 
@@ -458,6 +459,7 @@ PERCH_OPS_KEYS = frozenset({
 })
 
 
+# @lat: [[memory#Boot Sequence]]
 def boot(mode: str = None) -> str:
     """Boot sequence: load profile + ops from Turso.
 
@@ -840,6 +842,7 @@ def _format_boot_output(profile_data: list, ops_by_topic: dict,
     return '\n'.join(output)
 
 
+# @lat: [[memory#Journal]]
 def journal(topics: list = None, user_stated: str = None, my_intent: str = None) -> str:
     """Record a journal entry. Returns the entry key."""
     now = datetime.now(UTC)
@@ -887,6 +890,7 @@ def journal_prune(keep: int = 40) -> int:
 
 # --- Therapy session helpers ---
 
+# @lat: [[memory#Therapy & Self-Improvement]]
 def therapy_scope() -> tuple[str | None, list]:
     """Get cutoff timestamp and unprocessed memories for therapy session.
 
@@ -924,6 +928,7 @@ def decisions_recent(n: int = 10, conf: float = 0.7) -> list:
     return recall(type="decision", conf=conf, n=n, strict=True)
 
 
+# @lat: [[memory#Therapy & Self-Improvement]]
 def therapy_reflect(*, n_sample: int = 20, similarity_threshold: int = 3,
                      dry_run: bool = True) -> dict:
     """Cross-episodic reflection: extract patterns from clusters of similar experiences.
@@ -1107,6 +1112,7 @@ def muninn_export() -> dict:
 
 # --- Session Continuity (v4.3.0, #231) ---
 
+# @lat: [[memory#Session Continuity]]
 def session_save(summary: str = None, context: dict = None) -> str:
     """Save a session checkpoint for later resumption.
 
@@ -1157,6 +1163,7 @@ def session_save(summary: str = None, context: dict = None) -> str:
     )
 
 
+# @lat: [[memory#Session Continuity]]
 def session_resume(session_id: str = None) -> dict:
     """Resume from the most recent session checkpoint.
 
