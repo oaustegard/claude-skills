@@ -364,7 +364,7 @@
       "skills": [
         "./"
       ],
-      "version": "0.2.0",
+      "version": "0.3.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills/tree/main/generating-lattice",
       "license": "MIT"
