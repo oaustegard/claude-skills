@@ -43,6 +43,7 @@ _loaded_sources: List[str] = []
 # Environment Detection
 # =============================================================================
 
+# @lat: [[infrastructure#Environment Detection]]
 def detect_environment() -> str:
     """
     Detect which AI agent environment we're running in.
@@ -407,6 +408,7 @@ def _load_dotenv_files() -> Dict[str, str]:
 # Main API
 # =============================================================================
 
+# @lat: [[infrastructure#Environment Detection]]
 def load_all(force_reload: bool = False) -> Dict[str, str]:
     """
     Load environment variables from all detected sources.
