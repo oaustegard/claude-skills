@@ -19,7 +19,7 @@
     cache_prompt: bool = False,
     messages: list[dict] | None = None,
     **kwargs
-)` :198
+)` :199
 - **invoke_claude_streaming** (f) `(
     prompt: Union[str, list[dict]],
     callback: callable = None,
@@ -30,7 +30,7 @@
     cache_system: bool = False,
     cache_prompt: bool = False,
     **kwargs
-)` :328
+)` :329
 - **invoke_parallel** (f) `(
     prompts: list[dict],
     model: str = "claude-sonnet-4-6",
@@ -38,7 +38,7 @@
     max_workers: int = 5,
     shared_system: Union[str, list[dict], None] = None,
     cache_shared_system: bool = False
-)` :406
+)` :408
 - **invoke_parallel_streaming** (f) `(
     prompts: list[dict],
     callbacks: list[callable] = None,
@@ -47,20 +47,20 @@
     max_workers: int = 5,
     shared_system: Union[str, list[dict], None] = None,
     cache_shared_system: bool = False
-)` :535
-- **StallDetector** (C) :606
-  - **__init__** (m) `(self, timeout: float = 60.0, on_stall: callable = None)` :619
-  - **register** (m) `(self, task_id: str)` :627
-  - **heartbeat** (m) `(self, task_id: str)` :632
-  - **unregister** (m) `(self, task_id: str)` :638
-  - **check_stalled** (m) `(self)` :643
-  - **start_monitoring** (m) `(self, poll_interval: float = 5.0)` :659
-  - **stop_monitoring** (m) `(self)` :682
-- **InterruptToken** (C) :690
-  - **__init__** (m) `(self)` :692
-  - **interrupt** (m) `(self)` :695
-  - **is_interrupted** (m) `(self)` :699
-  - **reset** (m) `(self)` :703
+)` :537
+- **StallDetector** (C) :609
+  - **__init__** (m) `(self, timeout: float = 60.0, on_stall: callable = None)` :622
+  - **register** (m) `(self, task_id: str)` :630
+  - **heartbeat** (m) `(self, task_id: str)` :635
+  - **unregister** (m) `(self, task_id: str)` :641
+  - **check_stalled** (m) `(self)` :646
+  - **start_monitoring** (m) `(self, poll_interval: float = 5.0)` :662
+  - **stop_monitoring** (m) `(self)` :685
+- **InterruptToken** (C) :694
+  - **__init__** (m) `(self)` :696
+  - **interrupt** (m) `(self)` :699
+  - **is_interrupted** (m) `(self)` :703
+  - **reset** (m) `(self)` :707
 - **invoke_parallel_interruptible** (f) `(
     prompts: list[dict],
     interrupt_token: InterruptToken = None,
@@ -69,8 +69,8 @@
     max_workers: int = 5,
     shared_system: Union[str, list[dict], None] = None,
     cache_shared_system: bool = False
-)` :708
-- **ConversationThread** (C) :784
+)` :712
+- **ConversationThread** (C) :789
   - **__init__** (m) `(
         self,
         system: Union[str, list[dict], None] = None,
@@ -80,18 +80,18 @@
         cache_system: bool = True,
         max_turns: int | None = None,
         continuation_prompt: str | None = None
-    )` :796
-  - **send** (m) `(self, user_message: Union[str, list[dict]], cache_history: bool = True)` :830
+    )` :801
+  - **send** (m) `(self, user_message: Union[str, list[dict]], cache_history: bool = True)` :835
   - **send_continuation** (m) `(
         self,
         guidance: str | None = None,
         cache_history: bool = True
-    )` :884
-  - **get_messages** (m) `(self)` :919
-  - **clear** (m) `(self)` :923
-  - **__len__** (m) `(self)` :927
-- **get_available_models** (f) `()` :932
-- **parse_json_response** (f) `(raw: str)` :949
+    )` :889
+  - **get_messages** (m) `(self)` :924
+  - **clear** (m) `(self)` :928
+  - **__len__** (m) `(self)` :932
+- **get_available_models** (f) `()` :937
+- **parse_json_response** (f) `(raw: str)` :954
 - **invoke_claude_json** (f) `(
     prompt: Union[str, list[dict]],
     model: str = "claude-sonnet-4-6",
@@ -102,7 +102,7 @@
     cache_prompt: bool = False,
     messages: list[dict] | None = None,
     **kwargs
-)` :975
+)` :980
 
 ### orchestration.py
 > Imports: `time, threading, typing, concurrent.futures, claude_client`...
@@ -125,7 +125,7 @@
     max_tokens: int = 4096,
     temperature: float = 1.0,
     **kwargs,
-)` :59
+)` :60
 - **invoke_parallel_with_reconciliation** (f) `(
     prompts: list[dict],
     *,
@@ -138,16 +138,16 @@
     max_retries: int = 3,
     stall_timeout: Optional[float] = None,
     on_stall: Optional[Callable] = None,
-)` :127
-- **ConcurrencyLimiter** (C) :294
+)` :129
+- **ConcurrencyLimiter** (C) :297
   - **__init__** (m) `(
         self,
         global_limit: int = 10,
         category_limits: Optional[dict[str, int]] = None,
-    )` :307
-  - **_get_category_semaphore** (m) `(self, category: Optional[str])` :320
-  - **acquire** (m) `(self, category: Optional[str] = None, timeout: float = None)` :329
-  - **release** (m) `(self, category: Optional[str] = None)` :351
+    )` :310
+  - **_get_category_semaphore** (m) `(self, category: Optional[str])` :323
+  - **acquire** (m) `(self, category: Optional[str] = None, timeout: float = None)` :332
+  - **release** (m) `(self, category: Optional[str] = None)` :354
 - **invoke_parallel_managed** (f) `(
     prompts: list[dict],
     *,
@@ -161,37 +161,37 @@
     concurrency_limiter: Optional[ConcurrencyLimiter] = None,
     stall_timeout: Optional[float] = None,
     on_stall: Optional[Callable] = None,
-)` :359
+)` :362
 
 ### task_state.py
 > Imports: `enum, threading, time, typing`
-- **TaskState** (C) :20
-- **InvalidTransitionError** (C) :45
-  - **__init__** (m) `(self, task_id: str, current: TaskState, target: TaskState)` :47
-- **TaskInfo** (C) :56
+- **TaskState** (C) :21
+- **InvalidTransitionError** (C) :46
+  - **__init__** (m) `(self, task_id: str, current: TaskState, target: TaskState)` :48
+- **TaskInfo** (C) :57
   - **__init__** (m) `(self, task_id: str, state: TaskState, attempt: int,
                  created_at: float, updated_at: float,
-                 category: Optional[str], metadata: Optional[dict])` :61
-  - **__repr__** (m) `(self)` :72
-- **TaskTracker** (C) :101
-  - **__init__** (m) `(self, max_retries: int = 3)` :112
+                 category: Optional[str], metadata: Optional[dict])` :62
+  - **__repr__** (m) `(self)` :73
+- **TaskTracker** (C) :103
+  - **__init__** (m) `(self, max_retries: int = 3)` :114
   - **add** (m) `(self, task_id: str, category: Optional[str] = None,
-            metadata: Optional[dict] = None)` :117
-  - **transition** (m) `(self, task_id: str, target: TaskState)` :140
-  - **claim** (m) `(self, task_id: str)` :170
-  - **start** (m) `(self, task_id: str)` :174
-  - **complete** (m) `(self, task_id: str)` :178
-  - **fail** (m) `(self, task_id: str, error: Optional[str] = None)` :182
-  - **retry** (m) `(self, task_id: str)` :203
-  - **cancel** (m) `(self, task_id: str)` :231
-  - **get** (m) `(self, task_id: str)` :235
-  - **get_by_state** (m) `(self, state: TaskState)` :240
-  - **get_by_category** (m) `(self, category: str)` :248
-  - **active_count** (m) `(self, category: Optional[str] = None)` :256
-  - **is_all_terminal** (m) `(self)` :270
-  - **summary** (m) `(self)` :277
-  - **__len__** (m) `(self)` :286
-  - **__contains__** (m) `(self, task_id: str)` :290
+            metadata: Optional[dict] = None)` :119
+  - **transition** (m) `(self, task_id: str, target: TaskState)` :142
+  - **claim** (m) `(self, task_id: str)` :172
+  - **start** (m) `(self, task_id: str)` :176
+  - **complete** (m) `(self, task_id: str)` :180
+  - **fail** (m) `(self, task_id: str, error: Optional[str] = None)` :184
+  - **retry** (m) `(self, task_id: str)` :205
+  - **cancel** (m) `(self, task_id: str)` :233
+  - **get** (m) `(self, task_id: str)` :237
+  - **get_by_state** (m) `(self, state: TaskState)` :242
+  - **get_by_category** (m) `(self, category: str)` :250
+  - **active_count** (m) `(self, category: Optional[str] = None)` :258
+  - **is_all_terminal** (m) `(self)` :272
+  - **summary** (m) `(self)` :279
+  - **__len__** (m) `(self)` :288
+  - **__contains__** (m) `(self, task_id: str)` :292
 
 ### test_caching.py
 > Imports: `sys, pathlib, claude_client`
