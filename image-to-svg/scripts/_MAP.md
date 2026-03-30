@@ -17,16 +17,7 @@
 - **lines_to_svg_elements** (f) `(lines, opacity=1.0)` :533
 
 ### pipeline.py
-> Imports: `cv2, sys, collections, pathlib, flowing`
-- **configure** (f) `(source_path, mode="painting", svg_width=1000, palette=None, bg_color=None, smooth=None, bg_clusters=None, pipeline="auto",
-              stroke_width_cap=4.5, stroke_width_scale=0.65, stroke_opacity=1.0,
-              stroke_merge=None, stroke_merge_distance=10, stroke_merge_angle=30,
-              stroke_blur=0, stroke_dasharray=None, **overrides)` :75
-- **image_to_svg** (f) `(source_path, mode="painting", svg_width=1000, palette=None,
-                 bg_color=None, smooth=None, bg_clusters=None, pipeline="auto",
-                 stroke_width_cap=4.5, stroke_width_scale=0.65, stroke_opacity=1.0,
-                 stroke_merge=None, stroke_merge_distance=10, stroke_merge_angle=30,
-                 stroke_blur=0, stroke_dasharray=None,
-                 **overrides)` :728
-- **image_to_svg_batch** (f) `(source_path, variants, svg_width=1000)` :801
-
+> Imports: `cv2, collections, flowing, pathlib`
+- **configure** (f) `(source_path, mode="painting", svg_width=1000, ..., gap_stroke=None, **overrides)` :75
+- **image_to_svg** (f) `(source_path, mode="painting", svg_width=1000, ..., **overrides)` :777
+- **image_to_svg_batch** (f) `(source_path, variants, svg_width=1000)` :850
