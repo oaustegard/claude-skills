@@ -71,6 +71,7 @@ def _hex_luminance(hex_color):
     return 0.299 * r + 0.587 * g + 0.114 * b
 
 
+# @lat: [[visual-pipeline#Raster-to-Vector Pipeline]]
 def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_color=None, smooth=None, bg_clusters=None, pipeline="auto",
               stroke_width_cap=4.5, stroke_width_scale=0.65, stroke_opacity=1.0,
               stroke_merge=None, stroke_merge_distance=10, stroke_merge_angle=30,
@@ -772,6 +773,7 @@ def _run_compositional(source_path, mode, svg_width, palette, bg_color,
 
 # --- Public API ---
 
+# @lat: [[visual-pipeline#Raster-to-Vector Pipeline]]
 def image_to_svg(source_path, mode="painting", svg_width=1000, palette=None,
                  bg_color=None, smooth=None, bg_clusters=None, pipeline="auto",
                  stroke_width_cap=4.5, stroke_width_scale=0.65, stroke_opacity=1.0,
