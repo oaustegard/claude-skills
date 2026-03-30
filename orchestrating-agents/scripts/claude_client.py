@@ -195,6 +195,7 @@ def _format_message_with_cache(
     return content
 
 
+# @lat: [[orchestration#Claude API Client]]
 def invoke_claude(
     prompt: Union[str, list[dict]],
     model: str = "claude-sonnet-4-6",
@@ -403,6 +404,7 @@ def invoke_claude_streaming(
         raise ClaudeInvocationError(f"Unexpected error: {str(e)}")
 
 
+# @lat: [[orchestration#Parallel Execution]]
 def invoke_parallel(
     prompts: list[dict],
     model: str = "claude-sonnet-4-6",
@@ -603,6 +605,7 @@ def invoke_parallel_streaming(
     return results
 
 
+# @lat: [[orchestration#Stall Detection]]
 class StallDetector:
     """
     Detects stalled operations by tracking activity timestamps.
@@ -687,6 +690,7 @@ class StallDetector:
             self._monitor_thread = None
 
 
+# @lat: [[orchestration#Parallel Execution]]
 class InterruptToken:
     """Thread-safe interrupt flag for cancelling operations."""
     def __init__(self):
@@ -781,6 +785,7 @@ def invoke_parallel_interruptible(
     return results
 
 
+# @lat: [[orchestration#Conversation Threads]]
 class ConversationThread:
     """
     Manages multi-turn conversations with automatic prompt caching.

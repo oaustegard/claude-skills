@@ -56,6 +56,7 @@ def compute_backoff_delay(
     return delay_ms / 1000.0
 
 
+# @lat: [[orchestration#Orchestration Layer]]
 def invoke_with_retry(
     prompt: Union[str, list[dict]],
     *,
@@ -124,6 +125,7 @@ def invoke_with_retry(
 # Task 5: Reconciliation Hook
 # ---------------------------------------------------------------------------
 
+# @lat: [[orchestration#Orchestration Layer]]
 def invoke_parallel_with_reconciliation(
     prompts: list[dict],
     *,
@@ -291,6 +293,7 @@ def invoke_parallel_with_reconciliation(
 # Task 6: Concurrency Control
 # ---------------------------------------------------------------------------
 
+# @lat: [[orchestration#Orchestration Layer]]
 class ConcurrencyLimiter:
     """
     Enforces global and per-category concurrency limits.

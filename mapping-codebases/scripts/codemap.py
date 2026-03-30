@@ -885,6 +885,7 @@ EXTRACTORS = {
     'markdown': extract_markdown,
 }
 
+# @lat: [[code-intelligence#AST Mapping]]
 def analyze_file(filepath: Path) -> FileInfo | None:
     """Analyze a single file and return its info."""
     lang = get_language(filepath)
@@ -1014,6 +1015,7 @@ def generate_map_for_directory(dirpath: Path, skip_dirs: set[str]) -> str | None
     return '\n'.join(lines) + '\n'
 
 
+# @lat: [[code-intelligence#AST Mapping]]
 def generate_maps(root: Path, skip_dirs: set[str], dry_run: bool = False):
     """Walk directory tree and generate _MAP.md files."""
     count = 0

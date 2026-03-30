@@ -1,57 +1,49 @@
 # Patterns
 
-Architectural patterns that recur across unrelated skills. These aren't formal dependencies — they're shared design decisions that emerged independently.
+Cross-cutting design decisions that recur across unrelated skills, anchored to the implementations where they appear.
 
 ## Progressive Disclosure
 
-**Skills using it:** building-github-index, creating-mcp-servers, crafting-instructions, mapping-codebases, generating-lattice
+The universal response to context window limits. Structure information so consumers see the overview first and drill into details on demand.
 
-**The pattern:** Don't dump everything. Provide a structural overview first, then let the consumer drill into details on demand. building-github-index generates layered repo indexes for Claude project knowledge. creating-mcp-servers explicitly documents progressive disclosure for tool descriptions. mapping-codebases exports only the API surface (signatures, exports), deferring full source to selective reading.
+[[mapping-codebases/scripts/codemap.py#generate_maps]] produces `_MAP.md` files showing only exports and signatures — the API surface without implementation. [[building-github-index-v2/scripts/github_index.py#generate_index]] creates layered repo indexes with one-line summaries linking to full content. The lattice itself (lat.md/) follows this pattern: index → concept files → source code links.
 
-**Why it recurs:** Token cost. Every skill that produces documentation for LLM consumption faces the same constraint — context windows are finite. Progressive disclosure is the universal response to this constraint.
+## Declarative Spec, Deterministic Render
 
-## Knowledge Skills vs. Code Skills
+The LLM generates structured data; a deterministic runtime renders it. This separates creativity from correctness and makes output validatable.
 
-Some skills contain only a SKILL.md with no scripts — the markdown *is* the implementation. 17 of 59 skills work this way.
-
-**Examples:** asking-questions, charting, check-tools, cloning-project, creating-bookmarklets, down-skilling, fetching-blocked-urls, generating-patches, hello-demo, learning-goal, making-waffles, processing-images, processing-video, reviewing-ai-papers, sorting-groceries, updating-knowledge, versioning-skills
-
-**The pattern:** Some skills contain only a SKILL.md that guides Claude's behavior — no Python scripts, no automation. They work because Claude already has the capabilities (ImageMagick, ffmpeg, git, web search); the skill provides decision frameworks, formatting rules, and workflow patterns.
-
-**Design rationale:** This is the cheapest possible skill architecture. No installation, no dependencies, no maintenance. The SKILL.md *is* the implementation — it's a prompt injection that shapes Claude's existing behavior. The tradeoff: no enforcement. A knowledge skill can be ignored; a code skill with validation (like generating-lattice's `lat check`) cannot.
-
-## Declarative Spec → Deterministic Render
-
-**Skills using it:** charting-vega-lite, json-render-ui, generating-lattice (lat.md format)
-
-**The pattern:** The LLM generates structured data (Vega-Lite JSON, UITree JSON, wiki-linked markdown). A deterministic runtime renders it. The LLM's job is conceptual — *what* to show — not mechanical — *how* to render it.
-
-**Why it matters:** This pattern separates LLM creativity from deterministic correctness. The spec is validatable (schema checks, lat check). The render is reproducible. Compare to the charting skill, which generates imperative matplotlib code — harder to validate, easier to break.
-
-## Container Awareness
-
-**Skills addressing it:** configuring, accessing-github-repos, using-webctl, check-tools, coding-mojo, controlling-spotify
-
-**The shared problem:** Claude.ai containers are ephemeral, network-restricted, and lack persistent state. Skills must handle: tool installation on every session, credential loading from env files, network egress through allowed domains, filesystem resets between conversations.
-
-**The non-pattern:** Despite this shared concern, each skill solves it independently. configuring exists as a universal loader, but most skills that need environment setup don't reference it. This is the collection's most obvious missed abstraction.
+The `lat check` CLI validates wiki links and back-references in lat.md/ files — the spec is markdown with `[[src/...#symbol]]` anchors. The flowing skill's [[flowing/scripts/flowing.py#task]] decorator declares a DAG spec that [[flowing/scripts/flowing.py#Flow#run]] executes deterministically. The json-render-ui skill extends this to UI generation.
 
 ## AST-First Analysis
 
-**Skills using it:** mapping-codebases, exploring-codebases, searching-codebases
+Tree-sitter parsing produces structure without reading full source, saving tokens and enabling machine-verifiable operations.
 
-**The pattern:** Use tree-sitter AST parsing instead of regex or text matching for code understanding. Extract structure mechanically (zero LLM tokens), then apply intelligence selectively.
+[[mapping-codebases/scripts/codemap.py#analyze_file]] extracts symbols via AST. [[exploring-codebases/scripts/search.py#HybridRetriever#_expand_context]] walks the AST to find enclosing nodes. [[inspecting-skills/scripts/index.py#extract_symbols]] uses Python's `ast` module for symbol extraction. [[searching-codebases/scripts/ngram_index.py#NgramIndex#build]] indexes at the byte level but [[searching-codebases/scripts/context.py#expand_match]] returns AST-bounded results.
 
-**Hub dependency:** All three depend on mapping-codebases, which owns the tree-sitter integration. The `_MAP.md` file format is the shared interchange.
+## Container Awareness
 
-## Deprecation by Absorption
+Claude.ai containers are ephemeral, network-restricted, and lack persistent state. Skills must handle tool installation, credential loading, and filesystem resets on every session.
 
-**Instances:** sampling-bluesky-zeitgeist → browsing-bluesky, building-github-index → building-github-index-v2
+[[configuring/scripts/getting_env.py#detect_environment]] identifies which container type is running. [[remembering/scripts/utilities.py#install_utilities]] materializes runtime code from memory on every boot. The boot.sh script installs skills from GitHub on every session because nothing persists.
 
-**The pattern:** When a skill grows to subsume another, the original is marked deprecated but not removed. Both instances still exist in the collection. This is benign for now but creates confusion in skill routing — the deprecated skill's trigger words still match.
+Despite this shared concern, most skills solve it independently. configuring exists as a universal loader, but only a few skills actually reference it — the collection's most obvious missed abstraction.
 
-## Memory Integration
+## Retry with Backoff
 
-**Skills with memory integration:** orchestrating-skills, remembering (core), inspecting-skills, mapping-webapp (via api-credentials)
+Network calls fail. Every skill that makes HTTP requests implements retry, but the patterns vary.
 
-**The non-pattern:** Most skills are stateless. They don't read from or write to Muninn's memory system. This is mostly correct — standalone tools shouldn't need memory. But analysis skills (reviewing-ai-papers, updating-knowledge, convening-experts) could benefit from recalling prior research. The connection is handled by the conversation-level Muninn boot, not by the skills themselves. Memory integration is an *environmental* capability, not a skill-level one.
+[[orchestrating-agents/scripts/orchestration.py#compute_backoff_delay]] provides a shared implementation with jitter and continuation-awareness. [[orchestrating-agents/scripts/orchestration.py#invoke_with_retry]] wraps it for Claude API calls. The flowing skill's [[flowing/scripts/flowing.py#task]] decorator supports `retry` and `retry_backoff_base_ms` parameters for DAG steps.
+
+The Turso database layer in [[remembering/scripts/turso.py]] has its own retry logic. The browsing-bluesky scripts handle rate limiting from the ATProto API independently.
+
+## Parallel-Then-Reconcile
+
+Fan out work to multiple workers, then merge results.
+
+[[orchestrating-agents/scripts/orchestration.py#invoke_parallel_with_reconciliation]] is the explicit implementation — it runs prompts in parallel, then applies a reconciliation callback. [[orchestrating-agents/scripts/claude_client.py#invoke_parallel]] is the simpler variant without reconciliation. [[tiling-tree/scripts/tiling_tree.py#build_tree]] uses parallelism for recursive MECE decomposition. [[invoking-gemini/scripts/gemini_client.py#invoke_parallel]] mirrors the pattern for Gemini calls.
+
+## Knowledge vs. Code Skills
+
+Some skills contain only a SKILL.md — the markdown IS the implementation. They work because Claude already has the capabilities; the skill provides decision frameworks and workflow patterns.
+
+Code skills can enforce behavior (generating-lattice uses `lat check`, [[remembering/scripts/task.py#Task#complete]] gates completion on storage). Knowledge skills rely on Claude following instructions, which is inherently less reliable. The tradeoff is maintenance cost: knowledge skills have zero dependencies and zero installation overhead.

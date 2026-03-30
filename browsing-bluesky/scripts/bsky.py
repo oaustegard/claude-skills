@@ -213,6 +213,7 @@ def get_user_posts(handle: str, limit: int = 20) -> List[Dict[str, Any]]:
     return [_parse_post(item["post"]) for item in r.json().get("feed", [])]
 
 
+# @lat: [[bluesky#API Surface]]
 def search_posts(
     query: str,
     author: Optional[str] = None,
@@ -371,6 +372,7 @@ def get_trending_topics(limit: int = 10) -> Dict[str, Any]:
     }
 
 
+# @lat: [[bluesky#Firehose Sampling]]
 def sample_firehose(duration: int = 10, filter: Optional[str] = None) -> Dict[str, Any]:
     """Sample the Bluesky firehose for trending topics.
 
@@ -732,6 +734,7 @@ for kw, score in keywords:
         return []
 
 
+# @lat: [[bluesky#Account Analysis]]
 def analyze_account(
     handle: str,
     posts_limit: int = 20,

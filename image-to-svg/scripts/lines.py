@@ -15,6 +15,7 @@ import cv2
 import numpy as np
 
 
+# @lat: [[visual-pipeline#Line Art Extraction]]
 def classify_input(img_rgb):
     """Detect whether image is graphic-style (lines, strokes, geometric) vs photographic.
 
@@ -447,6 +448,7 @@ def sample_line_color(img_rgb, mask, x1, y1, x2, y2, n_samples=10):
     return f"#{median_color[0]:02x}{median_color[1]:02x}{median_color[2]:02x}"
 
 
+# @lat: [[visual-pipeline#Line Art Extraction]]
 def extract_lines(img_rgb, scale_x=1.0, scale_y=1.0, min_line_length=20,
                   stroke_width_cap=4.5, stroke_width_scale=0.65):
     """Extract line features from a graphic-style image.

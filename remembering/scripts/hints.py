@@ -14,6 +14,7 @@ from .config import config_get
 from .turso import _exec
 
 
+# @lat: [[memory#Recall Hints]]
 def recall_hints(context: str = None, *, terms: List[str] = None,
                  include_tags: bool = True, include_summaries: bool = True,
                  min_matches: int = 1) -> Dict:

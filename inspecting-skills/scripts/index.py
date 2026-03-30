@@ -209,6 +209,7 @@ def extract_symbols(source: str, module_name: str) -> ModuleIndex:
     return index
 
 
+# @lat: [[skill-lifecycle#Skill Inspection]]
 def index_skill(layout: SkillLayout) -> SkillIndex:
     """
     Create a complete index of a skill's exportable code.
