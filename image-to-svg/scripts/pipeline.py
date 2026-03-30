@@ -75,7 +75,7 @@ def _hex_luminance(hex_color):
 def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_color=None, smooth=None, bg_clusters=None, pipeline="auto",
               stroke_width_cap=4.5, stroke_width_scale=0.65, stroke_opacity=1.0,
               stroke_merge=None, stroke_merge_distance=10, stroke_merge_angle=30,
-              stroke_blur=0, stroke_dasharray=None, **overrides):
+              stroke_blur=0, stroke_dasharray=None, gap_stroke=None, **overrides):
     """Set pipeline config. Called internally by image_to_svg().
 
     Any key in MODES presets can be overridden: K, dark_lum,
@@ -111,6 +111,10 @@ def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_col
     stroke_merge_angle: Max angular deviation in degrees (default 30).
     stroke_blur: Gaussian blur stdDeviation applied to stroke group (default 0).
     stroke_dasharray: SVG stroke-dasharray for sketchy effect (default None).
+    gap_stroke: Gap-coverage stroke-width for fill paths. Each path gets
+                stroke=fill to cover inter-cluster seams. Default: auto-computed
+                as max(1.0, round(svg_width / source_width)), scaling with
+                the viewBox-to-source ratio. Set explicitly to override.
     """
     if mode not in MODES:
         raise ValueError(f"Unknown mode '{mode}'. Choose from: {list(MODES.keys())}")
@@ -133,6 +137,7 @@ def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_col
         "stroke_merge_angle": stroke_merge_angle,
         "stroke_blur": stroke_blur,
         "stroke_dasharray": stroke_dasharray,
+        "gap_stroke": gap_stroke,
         **MODES[mode], **overrides,
     })
 
@@ -263,6 +268,13 @@ def preprocess():
     blurred = cv2.bilateralFilter(rgb, 9, 50, 50)
     blurred = cv2.GaussianBlur(blurred, (3, 3), 0)
     h, w = blurred.shape[:2]
+    # Auto-compute gap_stroke if not explicitly set.
+    # Gap seams are ~1px in source space; stroke needs to cover them in SVG space.
+    if _cfg.get("gap_stroke") is None:
+        _cfg["gap_stroke"] = max(1.0, round(_cfg["svg_width"] / w))
+    # Area-scale: thresholds calibrated for ~1000px sources.
+    # Smaller sources get lower area thresholds to preserve fine detail.
+    _cfg["_area_scale"] = (w / 1000) ** 2
     print(f"  preprocess: {w}x{h}")
     return {"blurred": blurred, "h": h, "w": w}
 
@@ -375,7 +387,9 @@ def extract_contours(quantize, detect_background, edge_map):
     COMPACT_MIN = _cfg["compactness_min"]
     EDGE_DENS_MIN = _cfg["edge_density_min"]
     USE_ISOLATION = _cfg["isolation_filter"]
-    MIN_AREA = _cfg["min_area"]
+    area_scale = _cfg.get("_area_scale", 1.0)
+    MIN_AREA = max(1, int(_cfg["min_area"] * area_scale))
+    ISO_THRESHOLD = max(10, int(500 * area_scale))
 
     SVG_W = _cfg["svg_width"]
     SVG_H = int(SVG_W * h / w)
@@ -414,9 +428,32 @@ def extract_contours(quantize, detect_background, edge_map):
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, k_morph, iterations=2)
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, k_morph, iterations=1)
 
-        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours, hierarchy = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
 
-        for contour in contours:
+        if not contours or hierarchy is None:
+            continue
+
+        hier = hierarchy[0]  # shape: (N, 4) — [next, prev, first_child, parent]
+
+        def _contour_to_subpath(contour):
+            """Convert a contour to an SVG subpath string (M...L...Z)."""
+            peri = cv2.arcLength(contour, True)
+            eps = 0.002 * peri
+            approx = cv2.approxPolyDP(contour, eps, True)
+            pts = approx.reshape(-1, 2).astype(float)
+            pts[:, 0] *= scale_x
+            pts[:, 1] *= scale_y
+            d = f"M {pts[0][0]:.1f},{pts[0][1]:.1f}"
+            for p in pts[1:]:
+                d += f" L {p[0]:.1f},{p[1]:.1f}"
+            d += " Z"
+            return d
+
+        # Process outer contours only (parent == -1)
+        for i, contour in enumerate(contours):
+            if hier[i][3] != -1:
+                continue  # skip holes — handled via parent
+
             area = cv2.contourArea(contour)
             if area < MIN_AREA:
                 continue
@@ -436,25 +473,30 @@ def extract_contours(quantize, detect_background, edge_map):
                     continue
 
                 # Isolation filter: small dark shapes surrounded by non-dark = artifacts
-                if USE_ISOLATION and area < 500:
+                if USE_ISOLATION and area < ISO_THRESHOLD:
                     border = cv2.dilate(contour_mask, np.ones((11, 11), np.uint8), 1) & ~contour_mask
                     border_dark = cv2.bitwise_and(dark_territory, border)
                     if border_dark.sum() / max(border.sum(), 1) < 0.3:
                         continue
 
-            # Simplify and convert to SVG path
-            eps = 0.002 * peri
-            approx = cv2.approxPolyDP(contour, eps, True)
-            pts = approx.reshape(-1, 2).astype(float)
-            pts[:, 0] *= scale_x
-            pts[:, 1] *= scale_y
+            # Build SVG path: outer contour + any hole subpaths
+            path_d = _contour_to_subpath(contour)
+            has_holes = False
 
-            path_d = f"M {pts[0][0]:.1f},{pts[0][1]:.1f}"
-            for p in pts[1:]:
-                path_d += f" L {p[0]:.1f},{p[1]:.1f}"
-            path_d += " Z"
+            # Collect child (hole) contours
+            child_idx = hier[i][2]  # first_child
+            while child_idx != -1:
+                hole = contours[child_idx]
+                hole_area = cv2.contourArea(hole)
+                if hole_area >= MIN_AREA:
+                    path_d += " " + _contour_to_subpath(hole)
+                    has_holes = True
+                child_idx = hier[child_idx][0]  # next sibling
 
-            shapes.append({"path": path_d, "color": color_hex, "area": area})
+            shape = {"path": path_d, "color": color_hex, "area": area}
+            if has_holes:
+                shape["fill_rule"] = "evenodd"
+            shapes.append(shape)
 
     # Painter's algorithm: largest shapes first (behind)
     shapes.sort(key=lambda x: -x["area"])
@@ -504,8 +546,10 @@ def assemble_svg(extract_contours, detect_background):
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {SVG_W} {SVG_H}">',
         f'  <rect width="{SVG_W}" height="{SVG_H}" fill="{bg_hex}"/>',
     ]
+    gap_sw = _cfg["gap_stroke"]
     for s in shapes:
-        lines.append(f'  <path d="{s["path"]}" fill="{s["color"]}" stroke="{s["color"]}" stroke-width="4" stroke-linejoin="round"/>')
+        fr = ' fill-rule="evenodd"' if s.get("fill_rule") else ""
+        lines.append(f'  <path d="{s["path"]}" fill="{s["color"]}" stroke="{s["color"]}" stroke-width="{gap_sw}" stroke-linejoin="round"{fr}/>')
     lines.append("</svg>")
 
     svg_content = "\n".join(lines)
@@ -515,7 +559,7 @@ def assemble_svg(extract_contours, detect_background):
 
 # --- Assembly (pure function, no global state) ---
 
-def _assemble_pure(shapes, svg_w, svg_h, bg_hex, palette=None, bg_color=None):
+def _assemble_pure(shapes, svg_w, svg_h, bg_hex, palette=None, bg_color=None, gap_stroke=1.0):
     """Assemble SVG from shapes. Does NOT mutate input shapes.
 
     Args:
@@ -524,6 +568,7 @@ def _assemble_pure(shapes, svg_w, svg_h, bg_hex, palette=None, bg_color=None):
         bg_hex: Detected background color
         palette: Optional list of hex colors (darkest→lightest) or preset name
         bg_color: Optional background color override
+        gap_stroke: Gap-coverage stroke-width for fill paths (default 1.0)
 
     Returns:
         SVG string
@@ -552,7 +597,8 @@ def _assemble_pure(shapes, svg_w, svg_h, bg_hex, palette=None, bg_color=None):
     ]
     for s in shapes:
         c = color_map[s["color"]] if palette and s["color"] in color_map else s["color"]
-        lines.append(f'  <path d="{s["path"]}" fill="{c}" stroke="{c}" stroke-width="4" stroke-linejoin="round"/>')
+        fr = ' fill-rule="evenodd"' if s.get("fill_rule") else ""
+        lines.append(f'  <path d="{s["path"]}" fill="{c}" stroke="{c}" stroke-width="{gap_stroke}" stroke-linejoin="round"{fr}/>')
     lines.append("</svg>")
     return "\n".join(lines)
 
@@ -562,7 +608,7 @@ def _assemble_pure(shapes, svg_w, svg_h, bg_hex, palette=None, bg_color=None):
 def _assemble_compositional(shapes, stroke_lines, svg_w, svg_h, bg_hex,
                             palette=None, bg_color=None,
                             stroke_opacity=1.0, stroke_blur=0,
-                            stroke_dasharray=None):
+                            stroke_dasharray=None, gap_stroke=1.0):
     """Assemble layered SVG with fill shapes behind line strokes.
 
     Args:
@@ -575,6 +621,7 @@ def _assemble_compositional(shapes, stroke_lines, svg_w, svg_h, bg_hex,
         stroke_opacity: Opacity for the entire strokes group (0.0–1.0, default 1.0)
         stroke_blur: Gaussian blur stdDeviation for strokes group (default 0)
         stroke_dasharray: SVG stroke-dasharray value for sketchy effect (default None)
+        gap_stroke: Gap-coverage stroke-width for fill paths (default 1.0)
 
     Returns:
         SVG string with <g id="fills"> and <g id="strokes"> layers
@@ -610,7 +657,8 @@ def _assemble_compositional(shapes, stroke_lines, svg_w, svg_h, bg_hex,
     out.append('  <g id="fills">')
     for s in shapes:
         c = color_map.get(s["color"], s["color"]) if palette else s["color"]
-        out.append(f'    <path d="{s["path"]}" fill="{c}" stroke="{c}" stroke-width="4" stroke-linejoin="round"/>')
+        fr = ' fill-rule="evenodd"' if s.get("fill_rule") else ""
+        out.append(f'    <path d="{s["path"]}" fill="{c}" stroke="{c}" stroke-width="{gap_stroke}" stroke-linejoin="round"{fr}/>')
     out.append('  </g>')
 
     if stroke_lines:
@@ -713,6 +761,7 @@ def _run_compositional(source_path, mode, svg_width, palette, bg_color,
         stroke_opacity=stroke_opacity,
         stroke_blur=stroke_blur,
         stroke_dasharray=stroke_dasharray,
+        gap_stroke=_cfg.get("gap_stroke", 1.0),
     )
 
     n_fills = len(contour_result["shapes"])
@@ -894,7 +943,8 @@ def image_to_svg_batch(source_path, variants, svg_width=1000):
             if isinstance(palette, str):
                 palette = PALETTES.get(palette, palette)
             svg = _assemble_pure(shapes, svg_w, svg_h, bg_hex,
-                                 palette=palette, bg_color=cfg["bg_color"])
+                                 palette=palette, bg_color=cfg["bg_color"],
+                                 gap_stroke=_cfg.get("gap_stroke", 1.0))
             results[cfg["name"]] = svg
             print(f"    {cfg['name']}: {len(svg)//1024}KB")
 
