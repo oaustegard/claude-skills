@@ -107,6 +107,7 @@ def setup_skill_path(skills_root: Union[str, Path, None] = None) -> Path:
     return _skills_root
 
 
+# @lat: [[skill-lifecycle#Cross-Skill Imports]]
 def skill_import(
     skill_name: str,
     symbols: Optional[list[str]] = None
@@ -199,6 +200,7 @@ def register_skill(skill_name: str, skill_path: Union[str, Path]) -> None:
     _registered_skills[skill_name_to_module(skill_name)] = Path(skill_path).resolve()
 
 
+# @lat: [[skill-lifecycle#Cross-Skill Imports]]
 class SkillImportFinder(importlib.abc.MetaPathFinder):
     """
     Meta path finder that enables importing skills with underscore names.
