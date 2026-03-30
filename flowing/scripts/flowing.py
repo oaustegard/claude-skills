@@ -86,6 +86,7 @@ class TaskDef:
         return self is other
 
 
+# @lat: [[orchestration#DAG Workflow Runner]]
 def task(
     fn: Optional[Callable] = None,
     *,
@@ -205,6 +206,7 @@ def _run_step(td: TaskDef, results: dict[str, StepResult]) -> StepResult:
     )
 
 
+# @lat: [[orchestration#DAG Workflow Runner]]
 class Flow:
     def __init__(self, *terminals: TaskDef, max_workers: int = 5, fail_fast: bool = True):
         if not terminals:
