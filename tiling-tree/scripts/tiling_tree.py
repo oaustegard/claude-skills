@@ -113,6 +113,7 @@ Respond with JSON:
 
 # ── Tree construction ─────────────────────────────────────────────────────────
 
+# @lat: [[orchestration#Tiling Tree]]
 def build_tree(problem: str, max_depth: int = 2) -> Node:
     root = Node(
         id="root",
