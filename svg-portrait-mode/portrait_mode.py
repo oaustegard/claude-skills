@@ -171,6 +171,7 @@ def _landmarks_to_mask(landmarks, indices, h, w, dilate=0):
 
 # ─── Zone map construction ───
 
+# @lat: [[visual-pipeline#Foveated Vectorization]]
 def build_zone_map(h, w, focus_targets=None, focus_edges=None,
                    landmarks=None, face_bbox=None):
     """Build pixel-level zone map from agent annotations and optional MP data.
@@ -565,6 +566,7 @@ def assemble_svg(shapes, svg_w, svg_h, bg_hex, style_transforms=None):
 
 # ─── Main entry point ───
 
+# @lat: [[visual-pipeline#Foveated Vectorization]]
 def portrait_mode(image_path,
                   # Zone annotations from calling agent
                   focus_targets=None,
