@@ -5,6 +5,7 @@ UTIL_DIR = os.environ.get("MUNINN_UTIL_DIR", os.path.join(os.path.expanduser("~"
 CODE_START = "<" + "<" + "<PYTHON>" + ">" + ">"
 CODE_END = "<" + "<" + "<END>" + ">" + ">"
 
+# @lat: [[infrastructure#Utility Materialization]]
 def install_utilities() -> dict:
     """
     Materialize all utility-code memories to disk.
