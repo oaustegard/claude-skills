@@ -16,12 +16,14 @@ from datetime import datetime, UTC
 from .turso import _exec
 
 
+# @lat: [[memory#Config System]]
 def config_get(key: str) -> str | None:
     """Get a config value by key."""
     result = _exec("SELECT value FROM config WHERE key = ?", [key])
     return result[0]["value"] if result else None
 
 
+# @lat: [[memory#Config System]]
 def config_set(key: str, value: str, category: str, *,
                char_limit: int = None, read_only: bool = False) -> None:
     """Set a config value with optional constraints.
