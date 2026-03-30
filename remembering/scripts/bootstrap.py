@@ -14,6 +14,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from scripts import _exec, _init, config_set
 
+# @lat: [[memory#Schema & Database]]
 def create_tables():
     """Create memories and config tables if they don't exist.
 
@@ -75,6 +76,7 @@ def create_tables():
 
     print("Tables created/verified")
 
+# @lat: [[memory#Schema & Database]]
 def migrate_schema():
     """Add new columns to existing v2.0.0+ tables if needed.
 
