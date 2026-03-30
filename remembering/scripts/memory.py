@@ -108,6 +108,7 @@ def _write_memory(mem_id: str, what: str, type: str, now: str, conf: float,
     )
 
 
+# @lat: [[memory#Core Operations]]
 def remember(what: str, type: str, *, tags: list = None, conf: float = None,
              refs: list = None, priority: int = 0, valid_from: str = None,
              sync: bool = True, session_id: str = None,
@@ -233,6 +234,7 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
     return mem_id
 
 
+# @lat: [[memory#Background Writes]]
 def remember_bg(what: str, type: str, *, tags: list = None, conf: float = None,
                 entities: list = None, refs: list = None,
                 importance: float = None, memory_class: str = None, valid_from: str = None) -> str:
@@ -250,6 +252,7 @@ def remember_bg(what: str, type: str, *, tags: list = None, conf: float = None,
                     importance=importance, memory_class=memory_class, valid_from=valid_from, sync=False)
 
 
+# @lat: [[memory#Background Writes]]
 def flush(timeout: float = 5.0) -> dict:
     """Block until all pending background writes complete.
 
@@ -282,6 +285,7 @@ def flush(timeout: float = 5.0) -> dict:
     return {"completed": completed, "timed_out": timed_out}
 
 
+# @lat: [[memory#Core Operations]]
 def recall(search: str = None, *, n: int = 10, tags: list = None,
            type: str = None, conf: float = None, tag_mode: str = "any",
            strict: bool = False, session_id: str = None,
@@ -633,6 +637,7 @@ def _query(search: str = None, tags: list = None, type: str = None,
     return results
 
 
+# @lat: [[memory#Temporal Queries]]
 def recall_since(after: str, *, search: str = None, n: int = 50,
                  type: str = None, tags: list = None, tag_mode: str = "any",
                  session_id: str = None, raw: bool = False) -> MemoryResultList:
@@ -704,6 +709,7 @@ def recall_since(after: str, *, search: str = None, n: int = 50,
     return results if raw else wrap_results(results)
 
 
+# @lat: [[memory#Temporal Queries]]
 def recall_between(after: str, before: str, *, search: str = None,
                    n: int = 100, type: str = None, tags: list = None,
                    tag_mode: str = "any", session_id: str = None, raw: bool = False) -> MemoryResultList:
@@ -778,6 +784,7 @@ def recall_between(after: str, before: str, *, search: str = None,
     return results if raw else wrap_results(results)
 
 
+# @lat: [[memory#Core Operations]]
 def forget(memory_id: str) -> bool:
     """Soft-delete a memory. Supports both full and partial UUIDs.
 
@@ -829,6 +836,7 @@ def forget(memory_id: str) -> bool:
     return True
 
 
+# @lat: [[memory#Core Operations]]
 def supersede(original_id: str, summary: str, type: str, *,
               tags: list = None, conf: float = None) -> str:
     """Create a patch that supersedes an existing memory. Type required. Returns new memory ID.
@@ -1047,6 +1055,7 @@ def prune_by_priority(max_priority: int = -1, dry_run: bool = True) -> dict:
 
 
 # Priority adjustment with biological memory consolidation pattern (v3.3.0)
+# @lat: [[memory#Core Operations]]
 def strengthen(memory_id: str, boost: int = 1) -> dict:
     """Strengthen a memory by incrementing its priority. Supports partial IDs.
 
@@ -1090,6 +1099,7 @@ def strengthen(memory_id: str, boost: int = 1) -> dict:
     }
 
 
+# @lat: [[memory#Core Operations]]
 def weaken(memory_id: str, drop: int = 1) -> dict:
     """Weaken a memory by decrementing its priority. Supports partial IDs.
 
@@ -1127,6 +1137,7 @@ def weaken(memory_id: str, drop: int = 1) -> dict:
 
 # --- Batch APIs (v4.5.0, #299) ---
 
+# @lat: [[memory#Batch Operations]]
 def recall_batch(queries: list, *, n: int = 10, type: str = None,
                  tags: list = None, tag_mode: str = "any",
                  conf: float = None, session_id: str = None,
@@ -1256,6 +1267,7 @@ def recall_batch(queries: list, *, n: int = 10, type: str = None,
     return output
 
 
+# @lat: [[memory#Batch Operations]]
 def remember_batch(items: list, *, sync: bool = True) -> list:
     """Store multiple memories in a single HTTP round-trip.
 
@@ -1507,6 +1519,7 @@ def get_chain(memory_id: str, depth: int = 3) -> list:
 
 # --- Memory consolidation (v4.2.0, #253) ---
 
+# @lat: [[memory#Consolidation & Curation]]
 def consolidate(*, tags: list = None, min_cluster: int = 3, dry_run: bool = True,
                 session_id: str = None) -> dict:
     """Consolidate clusters of related memories into summary memories.
@@ -1652,6 +1665,7 @@ def consolidate(*, tags: list = None, min_cluster: int = 3, dry_run: bool = True
 
 # --- Autonomous memory management (v5.1.0, #295) ---
 
+# @lat: [[memory#Consolidation & Curation]]
 def curate(*, dry_run: bool = True, consolidation_threshold: int = 3,
            stale_days: int = 90, low_priority_cap: int = -1,
            max_actions: int = 20) -> dict:
@@ -1777,6 +1791,7 @@ def curate(*, dry_run: bool = True, consolidation_threshold: int = 3,
 
 # --- Systematized decision trace storage (v5.1.0, #297) ---
 
+# @lat: [[memory#Decision Traces]]
 def decision_trace(choice: str, context: str, rationale: str, *,
                    alternatives: list = None, tradeoffs: str = None,
                    contraindications: str = None, tags: list = None,
