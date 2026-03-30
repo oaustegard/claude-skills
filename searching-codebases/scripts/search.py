@@ -50,6 +50,7 @@ _REGEX_META = {'*', '+', '?', '[', ']', '(', ')', '{', '}', '|', '^', '$', '\\',
 _STRONG_REGEX_META = {'*', '+', '?', '[', ']', '{', '}', '^', '$', '\\', '|'}
 
 
+# @lat: [[code-intelligence#Multi-Modal Search]]
 def detect_mode(query: str) -> str:
     """
     Heuristic: is this query a regex/literal or a conceptual search?
