@@ -334,6 +334,7 @@ def _expand_from_maps(file_path: str, line_number: int, search_root: str,
 
 # --- Tree-sitter based context expansion (original) ---
 
+# @lat: [[code-intelligence#Hybrid Code Search]]
 class HybridRetriever:
     def __init__(self, use_maps: bool = False, search_root: str = "."):
         self.parsers = {}
