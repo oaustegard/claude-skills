@@ -54,6 +54,7 @@ DEFAULT_SKIP_DIRS = {
 MAX_FILE_SIZE = 1_000_000  # 1MB
 
 
+# @lat: [[code-intelligence#N-gram Indexing]]
 class NgramIndex:
     """
     Sparse n-gram inverted index for a directory of source files.
