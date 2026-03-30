@@ -85,6 +85,7 @@ def _delete_task_state(name: str) -> None:
         pass
 
 
+# @lat: [[memory#Task Discipline]]
 class Task:
     """Structural forcing function for multi-step work with type-specific checklists.
 
@@ -203,6 +204,7 @@ class Task:
         return "\n".join(lines)
 
 
+# @lat: [[memory#Task Discipline]]
 def task(name: str, steps=None, task_type: str = None,
          require_store: bool = True, persist: bool = True) -> Task:
     """Create a tracked task with type-specific checklist.
