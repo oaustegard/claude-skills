@@ -29,6 +29,12 @@
 - Initial release with mapping-codebases integration and lat.md generation
   pipeline
 
+## [0.3.0] - 2026-03-30
+
+### Other
+
+- Lattice ↔ map integration: _MAP.md symbol lookup + cross-references (#509)
+
 ## [0.2.0] - 2026-03-29
 
 ### Added
