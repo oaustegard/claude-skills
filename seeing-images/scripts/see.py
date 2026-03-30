@@ -33,6 +33,7 @@ def _crop_region(img, region):
 # ============================================================
 # GRID — systematic spatial decomposition
 # ============================================================
+# @lat: [[visual-pipeline#Augmented Vision]]
 def grid(path, rows=3, cols=3, labels=True):
     """Split image into labeled grid cells. Returns path to composite."""
     img = _load(path)
@@ -496,6 +497,7 @@ def denoise(path, region=None, strength=3):
 # ============================================================
 # PALETTE — dominant color extraction
 # ============================================================
+# @lat: [[visual-pipeline#Augmented Vision]]
 def palette(path, n=8, region=None):
     """Extract n dominant colors using quantization. Returns colors + proportions."""
     img = _load(path)
