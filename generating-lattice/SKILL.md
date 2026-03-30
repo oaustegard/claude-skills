@@ -8,7 +8,7 @@ description: >-
   "knowledge graph", "document this codebase", "add back-links", or wants
   cross-referenced architecture docs anchored to source code symbols.
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # Generating Lattice
@@ -161,8 +161,9 @@ Run the back-link helper to identify where annotations are needed:
 python3 SKILL_DIR/scripts/suggest_backlinks.py /path/to/repo
 ```
 
-This parses all `[[src/...]]` wiki links from `lat.md/` files, locates the
-referenced symbols in source, and suggests `@lat:` comment placements.
+This parses all `[[src/...]]` wiki links from `lat.md/` files, looks up
+referenced symbols in `_MAP.md` files for O(1) line number resolution, and
+suggests `@lat:` comment placements. Requires `_MAP.md` files from Phase 1.
 
 Comment syntax by language:
 - JS/TS/Rust/Go/C: `// @lat: [[section#Subsection]]`
@@ -180,6 +181,27 @@ To auto-apply suggestions (review the output first):
 
 ```bash
 python3 SKILL_DIR/scripts/suggest_backlinks.py /path/to/repo --apply
+```
+
+### Phase 4b: Annotate Maps with Lattice Cross-References
+
+After backlinks exist in source, annotate `_MAP.md` files so someone browsing
+a code map can find the lat.md section that explains WHY a module is designed
+the way it is:
+
+```bash
+python3 SKILL_DIR/scripts/annotate_maps.py /path/to/repo
+```
+
+This scans `@lat:` comments in source and adds `> Documented in:` lines to
+`_MAP.md` file headers. Idempotent — safe to re-run after regenerating maps.
+
+Example output in `_MAP.md`:
+```markdown
+### auth.js
+> Documented in: [[auth#Token Refresh]], [[auth#Server]]
+> Imports: `express`
+- **refreshToken** (f) `(token)` :15
 ```
 
 #### require-code-mention for Critical Sections

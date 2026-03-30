@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0 (2026-03-29)
+
+- `suggest_backlinks.py`: Replaced regex-based symbol lookup with `_MAP.md`
+  parsing for O(1) line number resolution. No more language-specific
+  `SYMBOL_PATTERNS` dict. Requires `_MAP.md` files from mapping-codebases. (#505)
+- New `annotate_maps.py`: Post-processor that adds `> Documented in:` lines to
+  `_MAP.md` file headers, linking to lat.md sections via `@lat:` comments in
+  source. Completes the three-layer navigation graph (maps ↔ lattice ↔ source).
+  Idempotent. (#506)
+- SKILL.md: Added Phase 4b documenting the annotate_maps step.
+
 ## 0.2.0 (2026-03-29)
 
 - **Breaking**: Back-links (Phase 4) are no longer optional — they are the
