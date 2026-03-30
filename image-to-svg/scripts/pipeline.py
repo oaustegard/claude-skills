@@ -271,6 +271,9 @@ def preprocess():
     # Gap seams are ~1px in source space; stroke needs to cover them in SVG space.
     if _cfg.get("gap_stroke") is None:
         _cfg["gap_stroke"] = max(1.0, round(_cfg["svg_width"] / w))
+    # Area-scale: thresholds calibrated for ~1000px sources.
+    # Smaller sources get lower area thresholds to preserve fine detail.
+    _cfg["_area_scale"] = (w / 1000) ** 2
     print(f"  preprocess: {w}x{h}")
     return {"blurred": blurred, "h": h, "w": w}
 
@@ -383,7 +386,9 @@ def extract_contours(quantize, detect_background, edge_map):
     COMPACT_MIN = _cfg["compactness_min"]
     EDGE_DENS_MIN = _cfg["edge_density_min"]
     USE_ISOLATION = _cfg["isolation_filter"]
-    MIN_AREA = _cfg["min_area"]
+    area_scale = _cfg.get("_area_scale", 1.0)
+    MIN_AREA = max(1, int(_cfg["min_area"] * area_scale))
+    ISO_THRESHOLD = max(10, int(500 * area_scale))
 
     SVG_W = _cfg["svg_width"]
     SVG_H = int(SVG_W * h / w)
@@ -467,7 +472,7 @@ def extract_contours(quantize, detect_background, edge_map):
                     continue
 
                 # Isolation filter: small dark shapes surrounded by non-dark = artifacts
-                if USE_ISOLATION and area < 500:
+                if USE_ISOLATION and area < ISO_THRESHOLD:
                     border = cv2.dilate(contour_mask, np.ones((11, 11), np.uint8), 1) & ~contour_mask
                     border_dark = cv2.bitwise_and(dark_territory, border)
                     if border_dark.sum() / max(border.sum(), 1) < 0.3:
