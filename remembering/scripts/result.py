@@ -79,6 +79,7 @@ COMMON_MISTAKES = {
 }
 
 
+# @lat: [[memory#Result Wrapping]]
 class MemoryResult:
     """Type-safe wrapper for memory query results.
 
