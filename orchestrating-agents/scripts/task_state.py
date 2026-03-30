@@ -17,6 +17,7 @@ import time
 from typing import Optional
 
 
+# @lat: [[orchestration#Task State Machine]]
 class TaskState(enum.Enum):
     """Valid states for a managed task."""
     UNCLAIMED = "unclaimed"
@@ -98,6 +99,7 @@ class _TaskRecord:
         )
 
 
+# @lat: [[orchestration#Task State Machine]]
 class TaskTracker:
     """
     Thread-safe task lifecycle manager.
