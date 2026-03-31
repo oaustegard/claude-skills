@@ -740,6 +740,48 @@ def _extract_ruby(tree, source: bytes, relpath: str) -> list[Symbol]:
     return symbols
 
 
+_HEADING_MARKERS = {
+    'atx_h1_marker': 1, 'atx_h2_marker': 2, 'atx_h3_marker': 3,
+    'atx_h4_marker': 4, 'atx_h5_marker': 5, 'atx_h6_marker': 6,
+}
+
+
+def _extract_markdown(tree, source: bytes, relpath: str) -> list[Symbol]:
+    """Extract heading outline from Markdown AST as hierarchical symbols."""
+    symbols = []
+
+    def extract_section(node) -> Optional[Symbol]:
+        heading = None
+        children = []
+        for c in node.children:
+            if c.type == 'atx_heading' and heading is None:
+                level = 0
+                text = ''
+                for sc in c.children:
+                    if sc.type in _HEADING_MARKERS:
+                        level = _HEADING_MARKERS[sc.type]
+                    elif sc.type == 'inline':
+                        text = source[sc.start_byte:sc.end_byte].decode('utf-8', errors='replace').strip()
+                if text:
+                    heading = Symbol(name=text, kind=f'h{level}', file=relpath,
+                                     line=c.start_point[0]+1, end_line=node.end_point[0]+1)
+            elif c.type == 'section':
+                child_sym = extract_section(c)
+                if child_sym:
+                    children.append(child_sym)
+        if heading:
+            heading.children = children
+        return heading
+
+    for child in tree.root_node.children:
+        if child.type == 'section':
+            sym = extract_section(child)
+            if sym:
+                symbols.append(sym)
+
+    return symbols
+
+
 def _extract_generic(tree, source: bytes, relpath: str, lang: str) -> list[Symbol]:
     """Generic extractor using node type heuristics. Works for many languages."""
     symbols = []
@@ -1067,6 +1109,7 @@ EXTRACTORS = {
     'typescript': _extract_typescript,
     'tsx': _extract_typescript,
     'ruby': _extract_ruby,
+    'markdown': _extract_markdown,
 }
 
 
