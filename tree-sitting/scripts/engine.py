@@ -312,6 +312,434 @@ def _extract_c(tree, source: bytes, relpath: str) -> list[Symbol]:
     return symbols
 
 
+def _extract_go(tree, source: bytes, relpath: str) -> list[Symbol]:
+    """Extract symbols from Go AST with signatures and receiver method grouping."""
+    symbols = []
+    receiver_methods: dict[str, list[Symbol]] = {}  # type_name -> [method Symbols]
+
+    def func_sig(node, skip_receiver: bool = False) -> Optional[str]:
+        params = None
+        result = None
+        seen_pl = 0
+        for c in node.children:
+            if c.type == 'parameter_list':
+                seen_pl += 1
+                if skip_receiver and seen_pl == 1:
+                    continue
+                params = _get_text(c, source)
+            elif params is not None and c.type in (
+                'type_identifier', 'pointer_type', 'qualified_type',
+                'slice_type', 'map_type', 'interface_type', 'parameter_list',
+            ):
+                if c.type == 'parameter_list':
+                    result = _get_text(c, source)  # multi-return
+                else:
+                    result = _get_text(c, source)
+        if params:
+            return f"{params} {result}" if result else params
+        return None
+
+    top = list(tree.root_node.children)
+
+    def visit(node, siblings=None, idx=None):
+        if node.type == 'function_declaration':
+            name = next((_get_text(c, source) for c in node.children if c.type == 'identifier'), '')
+            if name:
+                sig = func_sig(node)
+                doc = _preceding_doc(siblings, idx, source) if siblings and idx is not None else None
+                symbols.append(Symbol(name=name, kind='function', file=relpath,
+                                      line=node.start_point[0]+1, end_line=node.end_point[0]+1,
+                                      signature=sig, doc=doc))
+
+        elif node.type == 'method_declaration':
+            recv_type = None
+            mname = None
+            for c in node.children:
+                if c.type == 'parameter_list' and recv_type is None:
+                    for p in c.children:
+                        if p.type == 'parameter_declaration':
+                            for s in p.children:
+                                if s.type == 'pointer_type':
+                                    for inner in s.children:
+                                        if inner.type == 'type_identifier':
+                                            recv_type = _get_text(inner, source)
+                                elif s.type == 'type_identifier':
+                                    recv_type = _get_text(s, source)
+                elif c.type == 'field_identifier':
+                    mname = _get_text(c, source)
+            if recv_type and mname:
+                sig = func_sig(node, skip_receiver=True)
+                doc = _preceding_doc(siblings, idx, source) if siblings and idx is not None else None
+                msym = Symbol(name=mname, kind='method', file=relpath,
+                              line=node.start_point[0]+1, end_line=node.end_point[0]+1,
+                              signature=sig, doc=doc)
+                receiver_methods.setdefault(recv_type, []).append(msym)
+
+        elif node.type == 'type_declaration':
+            for c in node.children:
+                if c.type == 'type_spec':
+                    name = next((_get_text(sc, source) for sc in c.children
+                                 if sc.type == 'type_identifier'), '')
+                    if name:
+                        # Determine kind from type body
+                        kind = 'type'
+                        for sc in c.children:
+                            if sc.type == 'struct_type':
+                                kind = 'struct'
+                            elif sc.type == 'interface_type':
+                                kind = 'interface'
+                        doc = _preceding_doc(siblings, idx, source) if siblings and idx is not None else None
+                        symbols.append(Symbol(name=name, kind=kind, file=relpath,
+                                              line=node.start_point[0]+1, end_line=node.end_point[0]+1,
+                                              doc=doc))
+
+        elif node.type == 'const_declaration':
+            doc = _preceding_doc(siblings, idx, source) if siblings and idx is not None else None
+            for c in node.children:
+                if c.type == 'const_spec':
+                    name = next((_get_text(sc, source) for sc in c.children
+                                 if sc.type == 'identifier'), '')
+                    if name:
+                        symbols.append(Symbol(name=name, kind='constant', file=relpath,
+                                              line=c.start_point[0]+1, end_line=c.end_point[0]+1,
+                                              doc=doc))
+                        doc = None  # only first const in group gets doc
+
+        elif node.type == 'var_declaration':
+            for c in node.children:
+                if c.type == 'var_spec':
+                    name = next((_get_text(sc, source) for sc in c.children
+                                 if sc.type == 'identifier'), '')
+                    if name:
+                        symbols.append(Symbol(name=name, kind='variable', file=relpath,
+                                              line=c.start_point[0]+1, end_line=c.end_point[0]+1))
+
+        children = list(node.children)
+        for i, child in enumerate(children):
+            visit(child, siblings=children, idx=i)
+
+    for i, child in enumerate(top):
+        visit(child, siblings=top, idx=i)
+
+    # Attach receiver methods to their types
+    for sym in symbols:
+        if sym.kind in ('struct', 'interface', 'type') and sym.name in receiver_methods:
+            sym.children = receiver_methods.pop(sym.name)
+    for type_name, methods in receiver_methods.items():
+        symbols.append(Symbol(name=type_name, kind='type', file=relpath,
+                              line=methods[0].line, end_line=methods[-1].end_line,
+                              children=methods))
+    return symbols
+
+
+def _extract_rust(tree, source: bytes, relpath: str) -> list[Symbol]:
+    """Extract symbols from Rust AST with signatures and impl method grouping."""
+    symbols = []
+    impl_methods: dict[str, list[Symbol]] = {}  # type_name -> [method Symbols]
+
+    def func_sig(node) -> Optional[str]:
+        params = None
+        ret = None
+        for c in node.children:
+            if c.type == 'parameters':
+                params = _get_text(c, source)
+            elif params is not None and c.type in (
+                'type_identifier', 'generic_type', 'reference_type',
+                'scoped_type_identifier', 'primitive_type', 'tuple_type',
+            ):
+                ret = _get_text(c, source)
+        if params:
+            return f"{params} -> {ret}" if ret else params
+        return None
+
+    def is_pub(node) -> bool:
+        return any(c.type == 'visibility_modifier' and 'pub' in _get_text(c, source)
+                   for c in node.children)
+
+    top = list(tree.root_node.children)
+
+    def visit(node, siblings=None, idx=None):
+        if node.type in ('function_item', 'struct_item', 'enum_item', 'trait_item'):
+            if is_pub(node):
+                name = next((_get_text(c, source) for c in node.children
+                             if c.type in ('identifier', 'type_identifier')), '')
+                if name:
+                    kind = node.type.replace('_item', '')
+                    sig = func_sig(node) if node.type == 'function_item' else None
+                    doc = _preceding_doc(siblings, idx, source) if siblings and idx is not None else None
+                    symbols.append(Symbol(name=name, kind=kind, file=relpath,
+                                          line=node.start_point[0]+1, end_line=node.end_point[0]+1,
+                                          signature=sig, doc=doc))
+
+        elif node.type in ('const_item', 'static_item', 'type_item'):
+            if is_pub(node):
+                name = next((_get_text(c, source) for c in node.children
+                             if c.type in ('identifier', 'type_identifier')), '')
+                if name:
+                    kind_map = {'const_item': 'constant', 'static_item': 'static', 'type_item': 'type'}
+                    doc = _preceding_doc(siblings, idx, source) if siblings and idx is not None else None
+                    symbols.append(Symbol(name=name, kind=kind_map[node.type], file=relpath,
+                                          line=node.start_point[0]+1, end_line=node.end_point[0]+1,
+                                          doc=doc))
+
+        elif node.type == 'mod_item':
+            if is_pub(node):
+                name = next((_get_text(c, source) for c in node.children
+                             if c.type == 'identifier'), '')
+                if name:
+                    doc = _preceding_doc(siblings, idx, source) if siblings and idx is not None else None
+                    symbols.append(Symbol(name=name, kind='module', file=relpath,
+                                          line=node.start_point[0]+1, end_line=node.end_point[0]+1,
+                                          doc=doc))
+
+        elif node.type == 'impl_item':
+            impl_type = None
+            is_trait_impl = False
+            # Detect trait impl: `impl Trait for Type`
+            # Children: type_identifier(Trait), 'for', type_identifier(Type), declaration_list
+            saw_for = False
+            for c in node.children:
+                if c.type == 'for':
+                    saw_for = True
+                    is_trait_impl = True
+                elif c.type == 'type_identifier':
+                    if saw_for:
+                        impl_type = _get_text(c, source)  # type being implemented
+                    elif impl_type is None and not saw_for:
+                        impl_type = _get_text(c, source)  # might be overwritten if 'for' comes later
+                elif c.type == 'generic_type':
+                    for sc in c.children:
+                        if sc.type == 'type_identifier':
+                            if saw_for:
+                                impl_type = _get_text(sc, source)
+                            elif impl_type is None:
+                                impl_type = _get_text(sc, source)
+                            break
+                elif c.type == 'declaration_list' and impl_type:
+                    decl_children = list(c.children)
+                    for di, dc in enumerate(decl_children):
+                        if dc.type == 'function_item':
+                            # Trait impl methods don't need pub; inherent impl methods do
+                            if is_trait_impl or is_pub(dc):
+                                fname = next((_get_text(p, source) for p in dc.children
+                                              if p.type == 'identifier'), '')
+                                if fname:
+                                    sig = func_sig(dc)
+                                    doc = _preceding_doc(decl_children, di, source)
+                                    msym = Symbol(name=fname, kind='method', file=relpath,
+                                                  line=dc.start_point[0]+1, end_line=dc.end_point[0]+1,
+                                                  signature=sig, doc=doc)
+                                    impl_methods.setdefault(impl_type, []).append(msym)
+            return  # don't recurse into impl
+
+        children = list(node.children)
+        for i, child in enumerate(children):
+            visit(child, siblings=children, idx=i)
+
+    for i, child in enumerate(top):
+        visit(child, siblings=top, idx=i)
+
+    # Attach impl methods to their types
+    for sym in symbols:
+        if sym.kind in ('struct', 'enum', 'trait') and sym.name in impl_methods:
+            sym.children = impl_methods.pop(sym.name)
+    for type_name, methods in impl_methods.items():
+        symbols.append(Symbol(name=type_name, kind='type', file=relpath,
+                              line=methods[0].line, end_line=methods[-1].end_line,
+                              children=methods))
+    return symbols
+
+
+def _extract_typescript(tree, source: bytes, relpath: str) -> list[Symbol]:
+    """Extract symbols from TypeScript/JavaScript AST with signatures and class hierarchy."""
+    symbols = []
+
+    def return_type(node) -> Optional[str]:
+        for c in node.children:
+            if c.type in ('type_annotation', 'type_predicate_annotation'):
+                return _get_text(c, source).lstrip(': ').strip()
+        return None
+
+    def func_sig(node) -> Optional[str]:
+        params = next((_get_text(c, source) for c in node.children
+                       if c.type == 'formal_parameters'), None)
+        if params:
+            rt = return_type(node)
+            return f"{params}: {rt}" if rt else params
+        return None
+
+    def class_methods(node) -> list[Symbol]:
+        methods = []
+        for c in node.children:
+            if c.type == 'class_body':
+                body_kids = list(c.children)
+                for i, sc in enumerate(body_kids):
+                    if sc.type == 'method_definition':
+                        name = next((_get_text(p, source) for p in sc.children
+                                     if p.type == 'property_identifier'), '')
+                        if name:
+                            sig = func_sig(sc)
+                            doc = _preceding_doc(body_kids, i, source)
+                            methods.append(Symbol(name=name, kind='method', file=relpath,
+                                                  line=sc.start_point[0]+1, end_line=sc.end_point[0]+1,
+                                                  signature=sig, doc=doc))
+        return methods
+
+    top = list(tree.root_node.children)
+
+    def visit(node, siblings=None, idx=None):
+        # Functions (named declarations)
+        if node.type in ('function_declaration', 'generator_function_declaration'):
+            name = next((_get_text(c, source) for c in node.children
+                         if c.type == 'identifier'), '')
+            if name:
+                sig = func_sig(node)
+                doc = _preceding_doc(siblings, idx, source) if siblings and idx is not None else None
+                symbols.append(Symbol(name=name, kind='function', file=relpath,
+                                      line=node.start_point[0]+1, end_line=node.end_point[0]+1,
+                                      signature=sig, doc=doc))
+
+        # Classes
+        elif node.type in ('class_declaration', 'class'):
+            name = next((_get_text(c, source) for c in node.children
+                         if c.type in ('type_identifier', 'identifier')), '')
+            if name:
+                methods = class_methods(node)
+                doc = _preceding_doc(siblings, idx, source) if siblings and idx is not None else None
+                symbols.append(Symbol(name=name, kind='class', file=relpath,
+                                      line=node.start_point[0]+1, end_line=node.end_point[0]+1,
+                                      doc=doc, children=methods))
+
+        # Interfaces (TS)
+        elif node.type == 'interface_declaration':
+            name = next((_get_text(c, source) for c in node.children
+                         if c.type == 'type_identifier'), '')
+            if name:
+                doc = _preceding_doc(siblings, idx, source) if siblings and idx is not None else None
+                symbols.append(Symbol(name=name, kind='interface', file=relpath,
+                                      line=node.start_point[0]+1, end_line=node.end_point[0]+1,
+                                      doc=doc))
+
+        # Abstract classes (TS)
+        elif node.type == 'abstract_class_declaration':
+            name = next((_get_text(c, source) for c in node.children
+                         if c.type == 'type_identifier'), '')
+            if name:
+                methods = class_methods(node)
+                doc = _preceding_doc(siblings, idx, source) if siblings and idx is not None else None
+                symbols.append(Symbol(name=name, kind='class', file=relpath,
+                                      line=node.start_point[0]+1, end_line=node.end_point[0]+1,
+                                      doc=doc, children=methods))
+
+        # const/let = arrow function
+        elif node.type == 'lexical_declaration':
+            doc = _preceding_doc(siblings, idx, source) if siblings and idx is not None else None
+            for c in node.children:
+                if c.type == 'variable_declarator':
+                    name = next((_get_text(p, source) for p in c.children
+                                 if p.type == 'identifier'), '')
+                    value = next((p for p in c.children
+                                  if p.type in ('arrow_function', 'function_expression')), None)
+                    if name and value:
+                        sig = func_sig(value)
+                        symbols.append(Symbol(name=name, kind='function', file=relpath,
+                                              line=node.start_point[0]+1, end_line=node.end_point[0]+1,
+                                              signature=sig, doc=doc))
+
+        # Export wrapping — recurse into exported declarations
+        elif node.type == 'export_statement':
+            children = list(node.children)
+            for i, child in enumerate(children):
+                visit(child, siblings=children, idx=i)
+            return  # don't double-recurse
+
+        children = list(node.children)
+        for i, child in enumerate(children):
+            visit(child, siblings=children, idx=i)
+
+    for i, child in enumerate(top):
+        visit(child, siblings=top, idx=i)
+
+    return symbols
+
+
+def _extract_ruby(tree, source: bytes, relpath: str) -> list[Symbol]:
+    """Extract symbols from Ruby AST with signatures and class/module hierarchy."""
+    symbols = []
+
+    def body_children(node) -> list[Symbol]:
+        """Extract methods and nested classes/modules from a class/module body."""
+        children = []
+        for c in node.children:
+            if c.type == 'body_statement':
+                kids = list(c.children)
+                for i, sc in enumerate(kids):
+                    if sc.type == 'method':
+                        name = next((_get_text(p, source) for p in sc.children
+                                     if p.type == 'identifier'), '')
+                        sig = next((_get_text(p, source) for p in sc.children
+                                    if p.type == 'method_parameters'), None)
+                        if name:
+                            doc = _preceding_doc(kids, i, source)
+                            children.append(Symbol(name=name, kind='method', file=relpath,
+                                                   line=sc.start_point[0]+1, end_line=sc.end_point[0]+1,
+                                                   signature=sig, doc=doc))
+                    elif sc.type == 'singleton_method':
+                        name = next((_get_text(p, source) for p in sc.children
+                                     if p.type == 'identifier'), '')
+                        sig = next((_get_text(p, source) for p in sc.children
+                                    if p.type == 'method_parameters'), None)
+                        if name:
+                            doc = _preceding_doc(kids, i, source)
+                            children.append(Symbol(name=f"self.{name}", kind='method', file=relpath,
+                                                   line=sc.start_point[0]+1, end_line=sc.end_point[0]+1,
+                                                   signature=sig, doc=doc))
+                    elif sc.type in ('class', 'module'):
+                        cname = next((_get_text(p, source) for p in sc.children
+                                      if p.type in ('constant', 'scope_resolution')), '')
+                        if cname:
+                            doc = _preceding_doc(kids, i, source)
+                            nested = body_children(sc)
+                            children.append(Symbol(name=cname, kind=sc.type, file=relpath,
+                                                   line=sc.start_point[0]+1, end_line=sc.end_point[0]+1,
+                                                   doc=doc, children=nested))
+        return children
+
+    top = list(tree.root_node.children)
+
+    def visit(node, siblings=None, idx=None, depth=0):
+        if node.type in ('class', 'module'):
+            name = next((_get_text(c, source) for c in node.children
+                         if c.type in ('constant', 'scope_resolution')), '')
+            if name:
+                children = body_children(node)
+                doc = _preceding_doc(siblings, idx, source) if siblings and idx is not None else None
+                symbols.append(Symbol(name=name, kind=node.type, file=relpath,
+                                      line=node.start_point[0]+1, end_line=node.end_point[0]+1,
+                                      doc=doc, children=children))
+            return
+
+        elif node.type == 'method' and depth == 0:
+            name = next((_get_text(c, source) for c in node.children
+                         if c.type == 'identifier'), '')
+            sig = next((_get_text(c, source) for c in node.children
+                        if c.type == 'method_parameters'), None)
+            if name:
+                doc = _preceding_doc(siblings, idx, source) if siblings and idx is not None else None
+                symbols.append(Symbol(name=name, kind='function', file=relpath,
+                                      line=node.start_point[0]+1, end_line=node.end_point[0]+1,
+                                      signature=sig, doc=doc))
+
+        children = list(node.children)
+        for i, child in enumerate(children):
+            visit(child, siblings=children, idx=i, depth=depth+1)
+
+    for i, child in enumerate(top):
+        visit(child, siblings=top, idx=i)
+
+    return symbols
+
+
 def _extract_generic(tree, source: bytes, relpath: str, lang: str) -> list[Symbol]:
     """Generic extractor using node type heuristics. Works for many languages."""
     symbols = []
@@ -633,6 +1061,12 @@ def _extract_via_tags(tree, source: bytes, relpath: str, lang: str) -> list[Symb
 EXTRACTORS = {
     'python': _extract_python,
     'c': _extract_c,
+    'go': _extract_go,
+    'rust': _extract_rust,
+    'javascript': _extract_typescript,  # same grammar family
+    'typescript': _extract_typescript,
+    'tsx': _extract_typescript,
+    'ruby': _extract_ruby,
 }
 
 

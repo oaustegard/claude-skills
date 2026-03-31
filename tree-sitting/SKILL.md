@@ -85,8 +85,8 @@ Python, JavaScript, TypeScript, TSX, Go, Rust, Ruby, Java, C, C++, C#, Swift, Ko
 
 Three-tier extraction:
 
-1. **Custom extractors** (richest — signatures, hierarchy, docstrings): Python, C
-2. **tags.scm queries** (community-maintained — kinds, docs where grammars support it): Rust, Go, JavaScript, TypeScript, TSX, Ruby, Java, C++, C#
+1. **Custom extractors** (richest — signatures, hierarchy, docstrings): Python, C, Go, Rust, JavaScript, TypeScript, TSX, Ruby
+2. **tags.scm queries** (community-maintained — kinds, docs where grammars support it): Java, C++, C#
 3. **Generic heuristic** (names + kinds + locations): all others
 
 tags.scm queries use the same patterns maintained by tree-sitter grammar repos, giving correct symbol classification (e.g. Rust `impl` methods vs free functions, Go interfaces vs structs) without hand-written extractors.
