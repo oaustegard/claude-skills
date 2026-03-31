@@ -2,7 +2,7 @@
 name: svg-portrait-mode
 description: "Portrait Mode" for SVGs — foveated vectorization with 4-zone selective detail. Combines Claude vision annotations, MediaPipe segmentation/landmarks, and optional saliency. Like phone portrait mode, but vectorized.
 metadata:
-  version: 0.6.0
+  version: 0.6.1
 ---
 
 # SVG Portrait Mode
