@@ -319,6 +319,19 @@
       "license": "MIT"
     },
     {
+      "name": "featuring",
+      "description": "Generate _FEATURES.md files that describe what a codebase DOES from a user/consumer perspective, anchored to source symbols via tree-sitting. Produces top-down feature documentation organized by capability, not file structure. Use when someone says \"what does this do\", \"document features\", \"feature inventory\", \"_FEATURES.md\", or needs to understand a codebase's purpose before modifying it. Complements tree-sitting (structural) with semantic (why/what-for) layer.",
+      "source": "./featuring",
+      "strict": false,
+      "skills": [
+        "./"
+      ],
+      "version": "0.1.0",
+      "repository": "https://github.com/oaustegard/claude-skills",
+      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/featuring",
+      "license": "MIT"
+    },
+    {
       "name": "fetching-blocked-urls",
       "description": "Retrieve clean markdown from URLs when web_fetch fails. Converts pages via Jina AI reader service with automatic retry. Use when web_fetch or curl returns 403, blocked, paywall, timeout, JavaScript-rendering errors, or empty content or user explicitly suggests using jina.",
       "source": "./fetching-blocked-urls",
