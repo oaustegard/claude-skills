@@ -1,8 +1,8 @@
 ---
 name: invoking-gemini
-description: Invokes Google Gemini models for structured outputs, multi-modal tasks, and Google-specific features. Use when users request Gemini, structured JSON output, Google API integration, or cost-effective parallel processing.
+description: Invokes Google Gemini models for structured outputs, image generation, multi-modal tasks, and Google-specific features. Use when users request Gemini, image generation, structured JSON output, Google API integration, or cost-effective parallel processing.
 metadata:
-  version: 0.4.0
+  version: 0.5.0
 ---
 
 # Invoking Gemini
@@ -10,6 +10,11 @@ metadata:
 Delegate tasks to Google's Gemini models when they offer advantages over Claude.
 
 ## When to Use Gemini
+
+**Image generation:**
+- Blog header images, illustrations, diagrams
+- Style-guided image creation (risograph, editorial, etc.)
+- Text rendering in images
 
 **Structured outputs:**
 - JSON Schema validation with property ordering guarantees
@@ -19,111 +24,115 @@ Delegate tasks to Google's Gemini models when they offer advantages over Claude.
 **Cost optimization:**
 - Parallel batch processing (Gemini 3 Flash is lightweight)
 - High-volume simple tasks
-- Budget-constrained operations
-
-**Google ecosystem:**
-- Integration with Google services
-- Vertex AI workflows
-- Google-specific APIs
 
 **Multi-modal tasks:**
 - Image analysis with JSON output
 - Video processing
 - Audio transcription with structure
 
-## Available Models
-
-All Gemini 3 models are currently in preview. Use only these — no Gemini 2.x.
-
-### Text / Reasoning Models
-
-**gemini-3-flash-preview** (Default / Recommended):
-- Gemini 3 Flash: Pro-level intelligence at Flash speed and pricing
-- 1M token context window, 64k output
-- Knowledge cutoff: Jan 2025
-- $0.50 input / $3.00 output per 1M tokens
-- Alias: `flash`
-
-**gemini-3.1-pro-preview**:
-- Gemini 3.1 Pro: Best for complex tasks requiring broad world knowledge and advanced reasoning across modalities
-- 1M token context window, 64k output
-- Knowledge cutoff: Jan 2025
-- $2.00 / $12.00 per 1M tokens (<200k tokens); $4.00 / $18.00 (>200k tokens)
-- Alias: `pro`
-
-**gemini-3.1-flash-lite-preview**:
-- Gemini 3.1 Flash-Lite: Workhorse model for cost-efficiency and high-volume tasks
-- 1M token context window, 64k output
-- Knowledge cutoff: Jan 2025
-- $0.25 (text, image, video), $0.50 (audio) input / $1.50 output per 1M tokens
-- Alias: `lite`
-
-### Image Generation Models
-
-**nano-banana-2** (Default image model):
-- Gemini 3.1 Flash Image — high-volume, high-efficiency image generation
-- API model: `gemini-3.1-flash-image-preview`
-- 128k input context, 32k output
-- $0.25 per 1M text input tokens / $0.067 per image output
-- Alias: `image`
-
-**nano-banana-pro**:
-- Gemini 3 Pro Image — highest quality image generation with text rendering and multi-turn editing
-- API model: `gemini-3-pro-image-preview`
-- 65k input context, 32k output
-- $2.00 per 1M text input tokens / $0.134 per image output
-- Alias: `image-pro`
-
-See [references/models.md](references/models.md) for full model details and pricing.
-
 ## Setup
-
-**Prerequisites:**
 
 ```bash
 uv pip install requests pydantic
-# google-generativeai only needed for direct API fallback:
-# uv pip install google-generativeai
 ```
 
 **Credentials — Option A (recommended): Cloudflare AI Gateway**
 
-Requests are routed through [Cloudflare AI Gateway](https://developers.cloudflare.com/ai-gateway/),
-bypassing IP blocks and gaining caching, analytics, and rate limiting.
+Source `/mnt/project/proxy.env` with `CF_ACCOUNT_ID`, `CF_GATEWAY_ID`, `CF_API_TOKEN`.
+Requests route through Cloudflare AI Gateway, bypassing IP blocks. Google API key stored in gateway via BYOK.
 
-Create `/mnt/project/proxy.env`:
-```
-CF_ACCOUNT_ID=<your-cloudflare-account-id>
-CF_GATEWAY_ID=<your-gateway-name>
-CF_API_TOKEN=<your-cf-api-token>
-# GOOGLE_API_KEY only needed if not using Cloudflare BYOK:
-# GOOGLE_API_KEY=AIzaSy...
-```
+**Credentials — Option B: Direct Google API**
 
-- Get your Cloudflare Account ID: Cloudflare dashboard → right sidebar
-- Create a gateway: Cloudflare dashboard → AI Gateway → Create gateway
-- Generate an API token: https://dash.cloudflare.com/profile/api-tokens
-- Store your Gemini key in the gateway (BYOK): AI Gateway → your gateway → API Keys
+If no `proxy.env`, falls back to direct: `GOOGLE_API_KEY.txt` or `API_CREDENTIALS.json`.
 
-**Credentials — Option B: Direct Google API (fallback)**
+## Image Generation
 
-If no `proxy.env` is found, the client falls back to direct Google API access:
+Generate images using Gemini's native image models. This is the primary way to create illustrations, blog headers, diagrams, and visual content.
 
-- Create document: `GOOGLE_API_KEY.txt` (content: `AIzaSy...`)
-- Or create `API_CREDENTIALS.json`: `{"google_api_key": "AIzaSy..."}`
-
-  Get your API key: https://console.cloud.google.com/apis/credentials
-
-## Basic Usage
-
-Import the client:
+### Quick Start
 
 ```python
 import sys
-sys.path.append('/mnt/skills/invoking-gemini/scripts')
+sys.path.append('/mnt/skills/user/invoking-gemini/scripts')
+from gemini_client import generate_image
+
+# One call — returns {"path": "...", "caption": "..."} or None
+result = generate_image("A watercolor painting of a mountain lake at sunset")
+print(result["path"])  # /mnt/user-data/outputs/gemini_image_1740000000.png
+```
+
+### Function Signature
+
+```python
+generate_image(
+    prompt: str,                    # The image description
+    output_path: str = None,        # Auto-generates if omitted
+    model: str = "nano-banana-2",   # Default: fast. Use "image-pro" for quality
+    temperature: float = 0.7,       # 0.5-0.7 for diagrams, 0.7-0.8 for illustrations
+) -> dict | None
+# Returns: {"path": "/mnt/user-data/outputs/gemini_image_*.png", "caption": str|None}
+# Returns None on failure
+```
+
+### Model Selection
+
+| Alias | Model | Best For | Cost/image |
+|-------|-------|----------|------------|
+| `"nano-banana-2"` or `"image"` | gemini-3.1-flash-image-preview | Fast iteration, drafts | $0.067 |
+| `"image-pro"` or `"nano-banana-pro"` | gemini-3-pro-image-preview | Published content, text rendering | $0.134 |
+
+### Complete Blog Header Example
+
+```python
+import sys
+sys.path.append('/mnt/skills/user/invoking-gemini/scripts')
+from gemini_client import generate_image
+
+# 1. Compose prompt with style prefix + subject
+style_prefix = (
+    "Style: Risograph-inspired editorial illustration. "
+    "Visible halftone dot texture and slight color misregistration between layers. "
+    "Limited ink palette: deep indigo, warm coral, and sage green on off-white paper. "
+    "Layered transparency where colors overlap creates rich secondary tones. "
+    "Modern and professional — the aesthetic of an indie design studio, not a fantasy novel. "
+    "Generous whitespace. No photorealism, no glow effects, no cyberpunk. No text or labels."
+)
+subject = "A raven perched on a stack of books, observing a network graph"
+prompt = f"{style_prefix}\n\nSubject: {subject}. Wide landscape format, suitable as a blog header."
+
+# 2. Generate (use image-pro for published content)
+result = generate_image(prompt, model="image-pro", temperature=0.75)
+
+if result:
+    print(f"Saved: {result['path']}")
+    # 3. Present to user
+    # present_files([result["path"]])
+```
+
+### Prompt Patterns
+
+- **Style prefix + subject**: Prepend a style description, then describe the subject
+- **Be specific about style**: "Risograph-inspired editorial illustration" not "a nice picture"
+- **Include composition**: "Wide landscape format" / "centered, high contrast"
+- **Text rendering**: "A poster with the text 'SALE' in bold red letters" (works well with image-pro)
+- **Negative constraints**: "No photorealism, no glow effects" to avoid defaults
+
+### Custom Output Path
+
+```python
+result = generate_image(
+    "A logo for a coffee shop called 'Bean There'",
+    output_path="/mnt/user-data/outputs/coffee_logo.png"
+)
+```
+
+## Basic Text Usage
+
+```python
+import sys
+sys.path.append('/mnt/skills/user/invoking-gemini/scripts')
 from gemini_client import invoke_gemini
 
-# Simple prompt
 response = invoke_gemini(
     prompt="Explain quantum computing in 3 bullet points",
     model="gemini-3-flash-preview"
@@ -136,8 +145,8 @@ print(response)
 Use Pydantic models for guaranteed JSON Schema compliance:
 
 ```python
-from pydantic import BaseModel, Field
 from gemini_client import invoke_with_structured_output
+from pydantic import BaseModel, Field
 
 class BookAnalysis(BaseModel):
     title: str
@@ -149,69 +158,54 @@ result = invoke_with_structured_output(
     prompt="Analyze the book '1984' by George Orwell",
     pydantic_model=BookAnalysis
 )
-
-# result is a BookAnalysis instance
 print(result.title)  # "1984"
-print(result.genre)  # "Dystopian Fiction"
 ```
 
-**Advantages over Claude:**
-- Guaranteed property ordering in JSON
-- Strict enum enforcement
-- Native schema validation (no prompt engineering)
-- Lower cost for simple extractions
-
 ## Parallel Invocation
-
-Process multiple prompts concurrently:
 
 ```python
 from gemini_client import invoke_parallel
 
-prompts = [
-    "Summarize the plot of Hamlet",
-    "Summarize the plot of Macbeth",
-    "Summarize the plot of Othello"
-]
-
 results = invoke_parallel(
-    prompts=prompts,
+    prompts=["Summarize Hamlet", "Summarize Macbeth", "Summarize Othello"],
     model="gemini-3-flash-preview"
 )
-
-for prompt, result in zip(prompts, results):
-    print(f"Q: {prompt[:30]}...")
-    print(f"A: {result[:100]}...\n")
 ```
 
-**Use cases:**
-- Batch classification tasks
-- Data labeling
-- Multiple independent analyses
-- A/B testing prompts
+## Available Models
+
+All Gemini 3 models are currently in preview. Use only these — no Gemini 2.x.
+
+### Text / Reasoning Models
+
+| Model | Alias | Input/1M | Output/1M | Context |
+|-------|-------|----------|-----------|---------|
+| gemini-3-flash-preview | `flash` | $0.50 | $3.00 | 1M |
+| gemini-3.1-pro-preview | `pro` | $2.00 | $12.00 | 1M |
+| gemini-3.1-flash-lite-preview | `lite` | $0.25 | $1.50 | 1M |
+
+### Image Models
+
+| Model | Alias | Input/1M | Per Image |
+|-------|-------|----------|-----------|
+| gemini-3.1-flash-image-preview | `image`, `nano-banana-2` | $0.25 | $0.067 |
+| gemini-3-pro-image-preview | `image-pro`, `nano-banana-pro` | $2.00 | $0.134 |
+
+See [references/models.md](references/models.md) for full details.
 
 ## Error Handling
 
-The client handles common errors:
-
 ```python
-from gemini_client import invoke_gemini
-
-response = invoke_gemini(
-    prompt="Your prompt here",
-    model="gemini-3-flash-preview"
-)
-
+response = invoke_gemini(prompt="...", model="gemini-3-flash-preview")
 if response is None:
-    print("Error: API call failed")
-    # Check project knowledge file for valid google_api_key
+    print("API call failed — check credentials")
+
+result = generate_image("...")
+if result is None:
+    print("Image generation failed — check credentials or try again")
 ```
 
-**Common issues:**
-- Missing API key → Add GOOGLE_API_KEY.txt to project knowledge (see Setup above)
-- Invalid model → Raises ValueError
-- Rate limit → Automatically retries with backoff
-- Network error → Returns None after retries
+Common issues: Missing API key → see Setup. Rate limit → auto-retries with backoff. Network error → returns None.
 
 ## Advanced Features
 
@@ -230,8 +224,8 @@ response = invoke_gemini(
 ### Multi-modal Input
 
 ```python
-# Image analysis with structured output
 from pydantic import BaseModel
+from gemini_client import invoke_with_structured_output
 
 class ImageDescription(BaseModel):
     objects: list[str]
@@ -247,159 +241,12 @@ result = invoke_with_structured_output(
 
 See [references/advanced.md](references/advanced.md) for more patterns.
 
-## Image Generation
-
-Generate images using Gemini's native image models:
-
-```python
-from gemini_client import generate_image
-
-# Basic generation
-result = generate_image("A watercolor painting of a mountain lake at sunset")
-print(result["path"])     # /mnt/user-data/outputs/gemini_image_1740000000.png
-print(result["caption"])  # Optional text the model returns alongside the image
-```
-
-### Model Selection
-
-```python
-# Fast generation (default) — nano-banana-2 → gemini-3.1-flash-image-preview
-result = generate_image("A red bicycle", model="nano-banana-2")
-
-# High-fidelity — nano-banana-pro → gemini-3-pro-image-preview
-result = generate_image("A red bicycle", model="image-pro")
-```
-
-### Custom Output Path
-
-```python
-result = generate_image(
-    "A logo for a coffee shop called 'Bean There'",
-    output_path="/mnt/user-data/outputs/coffee_logo.png"
-)
-```
-
-### Effective Prompt Patterns
-
-- **Be specific about style:** "A watercolor painting of..." vs "A picture of..."
-- **Include composition details:** "centered, wide angle, high contrast"
-- **Specify text rendering:** "A poster with the text 'SALE' in bold red letters"
-- **Multi-turn editing:** Generate once, then refine with follow-up prompts
-
-### Return Value
-
-```python
-{
-    "path": "/mnt/user-data/outputs/gemini_image_1740000000.png",
-    "caption": "Optional descriptive text from the model"  # or None
-}
-```
-
-Returns `None` on failure (credentials missing, API error, no image in response).
-
-## Comparison: Gemini vs Claude
-
-**Use Gemini when:**
-- Structured output is primary goal
-- Cost is a constraint
-- Property ordering matters
-- Batch processing many simple tasks
-
-**Use Claude when:**
-- Complex reasoning required
-- Long context needed (200K tokens)
-- Code generation quality matters
-- Nuanced instruction following
-
-**Use both:**
-- Claude for planning/reasoning
-- Gemini for structured extraction
-- Parallel workflows with different strengths
-
-## Token Efficiency Pattern
-
-Gemini 3 Flash is cost-effective for sub-tasks:
-
-```python
-# Claude (you) plans the approach
-# Gemini executes structured extractions
-
-data_points = []
-for file in uploaded_files:
-    # Gemini extracts structured data
-    result = invoke_with_structured_output(
-        prompt=f"Extract contact info from {file}",
-        pydantic_model=ContactInfo
-    )
-    data_points.append(result)
-
-# Claude synthesizes results
-# ... your analysis here ...
-```
-
-## Limitations
-
-**Not suitable for:**
-- Tasks requiring deep reasoning
-- Long context (>1M tokens)
-- Complex code generation
-- Subjective creative writing
-
-**Token limits:**
-- gemini-3-flash-preview: ~1M input, 64k output
-- gemini-3.1-pro-preview: ~1M input, 64k output (2x pricing above 200k)
-- gemini-3.1-flash-lite-preview: ~1M input, 64k output
-
-**Rate limits:**
-- Vary by API tier
-- Client handles automatic retry
-
-## Examples
-
-See [references/examples.md](references/examples.md) for:
-- Data extraction from documents
-- Batch classification
-- Multi-modal analysis
-- Hybrid Claude+Gemini workflows
-
 ## Troubleshooting
 
-**"No credentials configured":**
-- Create `/mnt/project/proxy.env` with `CF_ACCOUNT_ID`, `CF_GATEWAY_ID`, `CF_API_TOKEN`
-- Or add `GOOGLE_API_KEY.txt` for direct API access
-- See Setup section above for details
+**"No credentials configured":** Create `/mnt/project/proxy.env` with CF credentials, or add `GOOGLE_API_KEY.txt`.
 
-**CF Gateway 401/403:**
-- Verify your `CF_API_TOKEN` has AI Gateway permissions
-- Check that gateway authentication is enabled in the Cloudflare dashboard
-- If not using BYOK, add `GOOGLE_API_KEY` to `proxy.env`
+**CF Gateway 401/403:** Verify `CF_API_TOKEN` has AI Gateway permissions. If not using BYOK, add `GOOGLE_API_KEY` to `proxy.env`.
 
-**CF Gateway 429 (rate limited):**
-- The client automatically retries with exponential backoff
-- Check your gateway's rate limit settings in Cloudflare dashboard
+**Import errors:** `uv pip install requests pydantic`
 
-**Import errors:**
-```bash
-uv pip install requests pydantic
-# For direct API fallback only:
-uv pip install google-generativeai
-```
-
-**Schema validation failures:**
-- Check Pydantic model definitions
-- Ensure prompt is clear about expected structure
-- Add examples to prompt if needed
-
-## Cost Comparison
-
-All Gemini 3 models (preview, Jan 2025 cutoff):
-
-| Model | Input / 1M tokens | Output / 1M tokens |
-|---|---|---|
-| Gemini 3 Flash (`gemini-3-flash-preview`) | $0.50 | $3.00 |
-| Gemini 3.1 Pro (`gemini-3.1-pro-preview`) | $2.00 (<200k) / $4.00 (>200k) | $12.00 / $18.00 |
-| Gemini 3.1 Flash-Lite (`gemini-3.1-flash-lite-preview`) | $0.25 text/image/video, $0.50 audio | $1.50 |
-| Nano Banana 2 / 3.1 Flash Image (`gemini-3.1-flash-image-preview`) | $0.25 text | $0.067 per image |
-| Nano Banana Pro / 3 Pro Image (`gemini-3-pro-image-preview`) | $2.00 text | $0.134 per image |
-
-**Strategy:** Use Flash-Lite for high-volume simple tasks, 3 Flash for balanced performance, 3.1 Pro for complex reasoning.
+**Image generation returns None:** Check credentials. If persistent, try `model="nano-banana-2"` (more reliable than image-pro). Check for content policy blocks in error output.
