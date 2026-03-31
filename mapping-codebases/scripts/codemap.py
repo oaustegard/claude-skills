@@ -156,6 +156,8 @@ EXT_TO_LANG = {
     '.rs': 'rust',
     '.rb': 'ruby',
     '.java': 'java',
+    '.c': 'c',
+    '.h': 'c',
     '.html': 'html',
     '.md': 'markdown',
 }
@@ -733,6 +735,209 @@ def extract_java(tree, source: bytes) -> FileInfo:
     return FileInfo(name="", symbols=symbols, imports=imports)
 
 
+def extract_c(tree, source: bytes) -> FileInfo:
+    """Extract exports and imports from C AST (.c and .h files)."""
+    symbols = []
+    imports = []
+
+    def _normalize_sig(s: str) -> str:
+        """Collapse multi-line signatures to single line."""
+        return ' '.join(s.split())
+
+    def _get_c_return_type(node) -> str:
+        """Build the return type string from tokens before the declarator."""
+        parts = []
+        for child in node.children:
+            if child.type in ('function_declarator', 'pointer_declarator', 'compound_statement'):
+                break
+            if child.type == 'storage_class_specifier':
+                continue  # skip static/extern
+            if child.type in ('primitive_type', 'type_identifier', 'sized_type_specifier',
+                              'type_qualifier'):
+                parts.append(get_node_text(child, source))
+        return ' '.join(parts) if parts else ''
+
+    def _find_func_declarator(node):
+        """Find function_declarator, possibly nested inside pointer_declarator.
+        Returns (func_declarator_node, is_pointer_return)."""
+        for child in node.children:
+            if child.type == 'function_declarator':
+                return child, False
+            if child.type == 'pointer_declarator':
+                inner = _find_func_declarator(child)
+                if inner and inner[0]:
+                    return inner[0], True
+        return None, False
+
+    def _get_func_info(node):
+        """Extract (name, params, return_type, is_static) from a function node."""
+        is_static = any(
+            c.type == 'storage_class_specifier' and get_node_text(c, source) == 'static'
+            for c in node.children
+        )
+
+        ret_type = _get_c_return_type(node)
+        func_decl, is_ptr_return = _find_func_declarator(node)
+        if not func_decl:
+            return None
+
+        if is_ptr_return:
+            ret_type += ' *'
+
+        name = ''
+        params = ''
+        for child in func_decl.children:
+            if child.type == 'identifier':
+                name = get_node_text(child, source)
+            elif child.type == 'parameter_list':
+                params = _normalize_sig(get_node_text(child, source))
+
+        if not name:
+            return None
+
+        return name, params, ret_type.strip(), is_static
+
+    def _find_field_name(node):
+        """Recursively find field_identifier inside declarators (pointer, array, etc.)."""
+        for child in node.children:
+            if child.type == 'field_identifier':
+                return get_node_text(child, source)
+            if child.type in ('pointer_declarator', 'array_declarator'):
+                result = _find_field_name(child)
+                if result:
+                    return result
+        return ''
+
+    def _get_struct_fields(node) -> list:
+        """Extract field declarations from a struct/union field_declaration_list."""
+        fields = []
+        for child in node.children:
+            if child.type == 'field_declaration_list':
+                for fc in child.children:
+                    if fc.type == 'field_declaration':
+                        field_text = get_node_text(fc, source).rstrip(';').strip()
+                        fname = _find_field_name(fc)
+                        if fname:
+                            line = fc.start_point[0] + 1
+                            fields.append(Symbol(name=fname, kind='field', line=line,
+                                                 signature=field_text))
+        return fields
+
+    # C headers wrap everything in #ifndef include guards, #ifdef __cplusplus,
+    # and extern "C" { ... } blocks. Recurse through all of these to find
+    # the actual declarations underneath.
+    _CONTAINER_TYPES = {
+        'preproc_ifdef', 'preproc_ifndef', 'preproc_if',
+        'preproc_else', 'preproc_elif',
+        'linkage_specification',  # extern "C" { ... }
+        'declaration_list',       # body of linkage_specification
+    }
+
+    def _collect_toplevel(node):
+        """Yield declaration-like nodes, recursing through preprocessor and linkage blocks."""
+        for child in node.children:
+            if child.type in _CONTAINER_TYPES:
+                yield from _collect_toplevel(child)
+            else:
+                yield child
+
+    for node in _collect_toplevel(tree.root_node):
+        # Includes → imports
+        if node.type == 'preproc_include':
+            for child in node.children:
+                if child.type in ('system_lib_string', 'string_literal'):
+                    imports.append(get_node_text(child, source).strip('"<>'))
+
+        # Function definitions (with body)
+        elif node.type == 'function_definition':
+            info = _get_func_info(node)
+            if info:
+                name, params, ret_type, is_static = info
+                if not is_static:
+                    sig = params
+                    if ret_type:
+                        sig += f' -> {ret_type}'
+                    symbols.append(Symbol(name=name, kind='function',
+                                         signature=sig, line=node.start_point[0] + 1))
+
+        # Declarations: forward decls, function prototypes, globals
+        elif node.type == 'declaration':
+            is_static = any(
+                c.type == 'storage_class_specifier' and get_node_text(c, source) == 'static'
+                for c in node.children
+            )
+            if is_static:
+                continue
+
+            # Check if it contains a function declarator (prototype)
+            has_func_decl = False
+            for child in node.children:
+                if child.type == 'function_declarator':
+                    has_func_decl = True
+                elif child.type == 'pointer_declarator':
+                    for c in child.children:
+                        if c.type == 'function_declarator':
+                            has_func_decl = True
+
+            if has_func_decl:
+                info = _get_func_info(node)
+                if info:
+                    name, params, ret_type, _ = info
+                    sig = params
+                    if ret_type:
+                        sig += f' -> {ret_type}'
+                    symbols.append(Symbol(name=name, kind='function',
+                                         signature=sig, line=node.start_point[0] + 1))
+
+        # Type definitions (typedef struct/enum/union/scalar)
+        elif node.type == 'type_definition':
+            typedef_name = ''
+            inner_kind = ''
+            inner_node = None
+            for child in node.children:
+                if child.type == 'type_identifier':
+                    typedef_name = get_node_text(child, source)
+                elif child.type == 'struct_specifier':
+                    inner_kind = 'struct'
+                    inner_node = child
+                elif child.type == 'enum_specifier':
+                    inner_kind = 'enum'
+                    inner_node = child
+                elif child.type == 'union_specifier':
+                    inner_kind = 'union'
+                    inner_node = child
+            if typedef_name:
+                line = node.start_point[0] + 1
+                sym = Symbol(name=typedef_name, kind=inner_kind or 'typedef', line=line)
+                if inner_node and inner_kind in ('struct', 'union'):
+                    sym.children = _get_struct_fields(inner_node)
+                symbols.append(sym)
+
+        # Standalone struct definitions (not typedef)
+        elif node.type == 'struct_specifier':
+            name = ''
+            for child in node.children:
+                if child.type == 'type_identifier':
+                    name = get_node_text(child, source)
+            if name:
+                line = node.start_point[0] + 1
+                sym = Symbol(name=name, kind='struct', line=line)
+                sym.children = _get_struct_fields(node)
+                symbols.append(sym)
+
+        # Standalone enum definitions
+        elif node.type == 'enum_specifier':
+            name = ''
+            for child in node.children:
+                if child.type == 'type_identifier':
+                    name = get_node_text(child, source)
+            if name:
+                line = node.start_point[0] + 1
+                symbols.append(Symbol(name=name, kind='enum', line=line))
+
+    return FileInfo(name="", symbols=symbols, imports=imports)
+
+
 def extract_html_javascript(tree, source: bytes) -> FileInfo:
     """Extract JavaScript functions and imports from HTML <script> tags."""
     symbols = []
@@ -881,6 +1086,7 @@ EXTRACTORS = {
     'rust': extract_rust,
     'ruby': extract_ruby,
     'java': extract_java,
+    'c': extract_c,
     'html': extract_html_javascript,
     'markdown': extract_markdown,
 }
