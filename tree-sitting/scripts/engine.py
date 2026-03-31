@@ -87,10 +87,13 @@ class Symbol:
 
 
 def _get_parser(lang: str):
-    """Get or create a cached parser for the given language."""
+    """Get or create a cached parser for the given language. Returns None if unavailable."""
     if lang not in _parsers:
-        from tree_sitter_language_pack import get_parser
-        _parsers[lang] = get_parser(lang)
+        try:
+            from tree_sitter_language_pack import get_parser
+            _parsers[lang] = get_parser(lang)
+        except Exception:
+            _parsers[lang] = None
     return _parsers[lang]
 
 
@@ -133,6 +136,11 @@ def _python_docstring(node, source: bytes) -> Optional[str]:
     for child in node.children:
         if child.type == 'block':
             for stmt in child.children:
+                # New grammar: string directly in block
+                if stmt.type == 'string':
+                    text = _get_text(stmt, source).strip('"""').strip("'''").strip()
+                    return text.split('\n')[0].strip() or None
+                # Old grammar: string inside expression_statement
                 if stmt.type == 'expression_statement':
                     for expr in stmt.children:
                         if expr.type == 'string':
@@ -350,6 +358,276 @@ def _extract_generic(tree, source: bytes, relpath: str, lang: str) -> list[Symbo
     return symbols
 
 
+# ─── tags.scm registry ───────────────────────────────────────────────────
+# Community-maintained tree-sitter tag queries. Each returns @name + @definition.{kind}
+# captures. Some include @doc for doc-comment extraction. Predicates like #strip! are
+# parsed but treated as no-ops by the Python binding — we handle stripping ourselves.
+
+TAGS_SCM: dict[str, str] = {
+    'rust': '''
+(struct_item name: (type_identifier) @name) @definition.class
+(enum_item name: (type_identifier) @name) @definition.class
+(union_item name: (type_identifier) @name) @definition.class
+(type_item name: (type_identifier) @name) @definition.class
+(declaration_list (function_item name: (identifier) @name) @definition.method)
+(function_item name: (identifier) @name) @definition.function
+(trait_item name: (type_identifier) @name) @definition.interface
+(mod_item name: (identifier) @name) @definition.module
+(macro_definition name: (identifier) @name) @definition.macro
+''',
+    'go': '''
+(
+  (comment)* @doc
+  .
+  (function_declaration
+    name: (identifier) @name) @definition.function
+  (#strip! @doc "^//\\\\s*")
+  (#set-adjacent! @doc @definition.function)
+)
+(
+  (comment)* @doc
+  .
+  (method_declaration
+    name: (field_identifier) @name) @definition.method
+  (#strip! @doc "^//\\\\s*")
+  (#set-adjacent! @doc @definition.method)
+)
+(type_spec name: (type_identifier) @name) @definition.type
+(type_declaration (type_spec name: (type_identifier) @name type: (interface_type))) @definition.interface
+(type_declaration (type_spec name: (type_identifier) @name type: (struct_type))) @definition.class
+(var_declaration (var_spec name: (identifier) @name)) @definition.constant
+(const_declaration (const_spec name: (identifier) @name)) @definition.constant
+''',
+    'javascript': '''
+(
+  (comment)* @doc
+  .
+  (method_definition
+    name: (property_identifier) @name) @definition.method
+  (#not-eq? @name "constructor")
+  (#strip! @doc "^[\\\\s\\\\*/]+|^[\\\\s\\\\*/]$")
+  (#select-adjacent! @doc @definition.method)
+)
+(
+  (comment)* @doc
+  .
+  [
+    (class name: (_) @name)
+    (class_declaration name: (_) @name)
+  ] @definition.class
+  (#strip! @doc "^[\\\\s\\\\*/]+|^[\\\\s\\\\*/]$")
+  (#select-adjacent! @doc @definition.class)
+)
+(
+  (comment)* @doc
+  .
+  [
+    (function_expression name: (identifier) @name)
+    (function_declaration name: (identifier) @name)
+    (generator_function name: (identifier) @name)
+    (generator_function_declaration name: (identifier) @name)
+  ] @definition.function
+  (#strip! @doc "^[\\\\s\\\\*/]+|^[\\\\s\\\\*/]$")
+  (#select-adjacent! @doc @definition.function)
+)
+(
+  (comment)* @doc
+  .
+  (lexical_declaration
+    (variable_declarator
+      name: (identifier) @name
+      value: [(arrow_function) (function_expression)]) @definition.function)
+  (#strip! @doc "^[\\\\s\\\\*/]+|^[\\\\s\\\\*/]$")
+  (#select-adjacent! @doc @definition.function)
+)
+(
+  (comment)* @doc
+  .
+  (variable_declaration
+    (variable_declarator
+      name: (identifier) @name
+      value: [(arrow_function) (function_expression)]) @definition.function)
+  (#strip! @doc "^[\\\\s\\\\*/]+|^[\\\\s\\\\*/]$")
+  (#select-adjacent! @doc @definition.function)
+)
+(assignment_expression
+  left: [
+    (identifier) @name
+    (member_expression property: (property_identifier) @name)
+  ]
+  right: [(arrow_function) (function_expression)]
+) @definition.function
+(pair
+  key: (property_identifier) @name
+  value: [(arrow_function) (function_expression)]) @definition.function
+''',
+    'typescript': '''
+(function_signature name: (identifier) @name) @definition.function
+(method_signature name: (property_identifier) @name) @definition.method
+(abstract_method_signature name: (property_identifier) @name) @definition.method
+(abstract_class_declaration name: (type_identifier) @name) @definition.class
+(module name: (identifier) @name) @definition.module
+(interface_declaration name: (type_identifier) @name) @definition.interface
+''',
+    'tsx': '''
+(function_signature name: (identifier) @name) @definition.function
+(method_signature name: (property_identifier) @name) @definition.method
+(abstract_method_signature name: (property_identifier) @name) @definition.method
+(abstract_class_declaration name: (type_identifier) @name) @definition.class
+(module name: (identifier) @name) @definition.module
+(interface_declaration name: (type_identifier) @name) @definition.interface
+''',
+    'ruby': '''
+(
+  (comment)* @doc
+  .
+  [
+    (method name: (_) @name) @definition.method
+    (singleton_method name: (_) @name) @definition.method
+  ]
+  (#strip! @doc "^#\\\\s*")
+  (#select-adjacent! @doc @definition.method)
+)
+(alias name: (_) @name) @definition.method
+(
+  (comment)* @doc
+  .
+  [
+    (class name: [(constant) @name (scope_resolution name: (_) @name)]) @definition.class
+    (singleton_class value: [(constant) @name (scope_resolution name: (_) @name)]) @definition.class
+  ]
+  (#strip! @doc "^#\\\\s*")
+  (#select-adjacent! @doc @definition.class)
+)
+(module name: [(constant) @name (scope_resolution name: (_) @name)]) @definition.module
+''',
+    'java': '''
+(class_declaration name: (identifier) @name) @definition.class
+(method_declaration name: (identifier) @name) @definition.method
+(interface_declaration name: (identifier) @name) @definition.interface
+''',
+    'cpp': '''
+(struct_specifier name: (type_identifier) @name body:(_)) @definition.class
+(declaration type: (union_specifier name: (type_identifier) @name)) @definition.class
+(function_declarator declarator: (identifier) @name) @definition.function
+(function_declarator declarator: (field_identifier) @name) @definition.function
+(function_declarator declarator: (qualified_identifier scope: (namespace_identifier) @scope name: (identifier) @name)) @definition.method
+(type_definition declarator: (type_identifier) @name) @definition.type
+(enum_specifier name: (type_identifier) @name) @definition.type
+(class_specifier name: (type_identifier) @name) @definition.class
+''',
+    'c_sharp': '''
+(class_declaration name: (identifier) @name) @definition.class
+(interface_declaration name: (identifier) @name) @definition.interface
+(method_declaration name: (identifier) @name) @definition.method
+(namespace_declaration name: (identifier) @name) @definition.module
+''',
+}
+
+# TS/TSX inherit JS patterns for runtime definitions (tags.scm only has TS-specific extras)
+# Combine: JS base + TS extras
+for _ts_lang in ('typescript', 'tsx'):
+    TAGS_SCM[_ts_lang] = TAGS_SCM['javascript'] + '\n' + TAGS_SCM[_ts_lang]
+
+_query_cache: dict[str, object] = {}  # lang -> compiled Query
+
+
+def _get_tags_query(lang: str):
+    """Get or compile cached tags.scm query for a language."""
+    if lang in _query_cache:
+        return _query_cache[lang]
+    scm = TAGS_SCM.get(lang)
+    if not scm:
+        return None
+    try:
+        from tree_sitter import Query
+        parser = _get_parser(lang)
+        if parser is None:
+            _query_cache[lang] = None
+            return None
+        q = Query(parser.language, scm)
+        _query_cache[lang] = q
+        return q
+    except Exception:
+        _query_cache[lang] = None  # Don't retry on error
+        return None
+
+
+def _strip_doc_comment(text: str) -> str:
+    """Strip comment markers from a doc comment node's text."""
+    text = text.strip()
+    # Try each comment style
+    for prefix in ('/**', '/*', '///', '//', '#'):
+        if text.startswith(prefix):
+            text = text[len(prefix):]
+    text = text.rstrip('*/').strip()
+    # Return first meaningful line
+    for line in text.split('\n'):
+        line = line.strip().lstrip('*#/').strip()
+        if line and not line.startswith('@') and not line.startswith('\\'):
+            return line
+    return ''
+
+
+def _extract_via_tags(tree, source: bytes, relpath: str, lang: str) -> list[Symbol]:
+    """Extract symbols using tags.scm queries. Returns empty list if no tags.scm available."""
+    query = _get_tags_query(lang)
+    if query is None:
+        return []
+
+    from tree_sitter import QueryCursor
+    cursor = QueryCursor(query)
+
+    # Collect definitions: (start_line, name) -> Symbol, preferring specific kinds
+    KIND_PRIORITY = {'method': 3, 'interface': 2, 'class': 2, 'module': 2,
+                     'macro': 2, 'type': 1, 'function': 1, 'constant': 0}
+    seen: dict[tuple[int, str], Symbol] = {}  # (start_line, name) -> Symbol
+
+    for _pat_idx, captures in cursor.matches(tree.root_node):
+        # Find the definition capture
+        def_key = None
+        for k in captures:
+            if k.startswith('definition.'):
+                def_key = k
+                break
+        if not def_key:
+            continue
+
+        name_nodes = captures.get('name', [])
+        def_nodes = captures.get(def_key, [])
+        if not name_nodes or not def_nodes:
+            continue
+
+        name_text = source[name_nodes[0].start_byte:name_nodes[0].end_byte].decode('utf-8', errors='replace')
+        def_node = def_nodes[0]
+        kind = def_key.split('.')[-1]  # function, method, class, etc.
+        start_line = def_node.start_point[0] + 1
+        end_line = def_node.end_point[0] + 1
+
+        # Extract doc from @doc capture if present
+        doc = None
+        doc_nodes = captures.get('doc', [])
+        if doc_nodes:
+            doc_text = source[doc_nodes[0].start_byte:doc_nodes[0].end_byte].decode('utf-8', errors='replace')
+            doc = _strip_doc_comment(doc_text) or None
+
+        # Dedup: prefer higher-priority kind for same (line, name)
+        key = (start_line, name_text)
+        existing = seen.get(key)
+        if existing:
+            if KIND_PRIORITY.get(kind, 0) > KIND_PRIORITY.get(existing.kind, 0):
+                existing.kind = kind  # Upgrade in place
+                if doc and not existing.doc:
+                    existing.doc = doc
+            continue
+
+        sym = Symbol(name=name_text, kind=kind, file=relpath,
+                     line=start_line, end_line=end_line, doc=doc)
+        seen[key] = sym
+
+    return list(seen.values())
+
+
 # ─── Extractor dispatch ───────────────────────────────────────────────────
 
 EXTRACTORS = {
@@ -359,10 +637,19 @@ EXTRACTORS = {
 
 
 def extract_symbols(tree, source: bytes, relpath: str, lang: str) -> list[Symbol]:
-    """Extract symbols from a parsed tree."""
+    """Extract symbols from a parsed tree.
+
+    Priority: custom extractor → tags.scm → generic heuristic.
+    """
+    # 1. Custom extractor (language-specific, richest output)
     extractor = EXTRACTORS.get(lang)
     if extractor:
         return extractor(tree, source, relpath)
+    # 2. tags.scm query (community-maintained, good coverage)
+    tags_result = _extract_via_tags(tree, source, relpath, lang)
+    if tags_result:
+        return tags_result
+    # 3. Generic heuristic fallback
     return _extract_generic(tree, source, relpath, lang)
 
 
@@ -452,6 +739,8 @@ class CodeCache:
                     source = fp.read_bytes()
                     total_bytes += len(source)
                     parser = _get_parser(lang)
+                    if parser is None:
+                        continue  # Parser not available for this language
                     tree = parser.parse(source)
                     syms = extract_symbols(tree, source, relpath, lang)
                     imps = extract_imports(tree, source, lang)
