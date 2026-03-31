@@ -4,7 +4,7 @@ code_rag.py — TF-IDF semantic search over codebases
 
 Semantic search layer that bridges natural language intent to actual
 codebase identifiers. Indexes docstrings, comments, function signatures,
-markdown sections, and _MAP.md entries from mapping-codebases.
+markdown sections, and _MAP.md entries (if present).
 
 Zero dependencies beyond scikit-learn + numpy (pre-installed).
 
@@ -161,7 +161,7 @@ def _extract_markdown(filepath: str, rel_path: str) -> list[Chunk]:
 
 
 def _extract_map_entries(filepath: str, rel_path: str) -> list[Chunk]:
-    """Extract file entries from _MAP.md files produced by mapping-codebases.
+    """Extract file entries from _MAP.md files (if present in the repo).
     
     Each ### file heading becomes a chunk with the function signatures and
     class hierarchies as searchable text.

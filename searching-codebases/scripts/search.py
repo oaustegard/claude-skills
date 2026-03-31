@@ -17,10 +17,7 @@ Usage:
     # GitHub repo
     python search.py https://github.com/org/repo "authentication flow"
 
-    # Structure overview only (delegates to mapping-codebases)
-    python search.py /path/to/repo --map-only
-
-    # Expand to full function bodies (default: signatures only)
+    # Expand to full function bodies via tree-sitting AST
     python search.py /path/to/repo "query" --expand
 
     # Benchmark regex search: indexed vs brute-force
@@ -76,37 +73,6 @@ def detect_mode(query: str) -> str:
         return "semantic"
 
     return "regex"
-
-
-def run_map(root: str, skip: str = None):
-    """Generate structural maps by delegating to mapping-codebases."""
-    codemap = None
-    for candidate in [
-        "/mnt/skills/user/mapping-codebases/scripts/codemap.py",
-        os.path.join(os.path.dirname(__file__), "..", "..", "mapping-codebases", "scripts", "codemap.py"),
-    ]:
-        if os.path.isfile(candidate):
-            codemap = candidate
-            break
-
-    if not codemap:
-        print("Warning: mapping-codebases not found, skipping structural maps", file=sys.stderr)
-        return
-
-    # Ensure tree-sitter is available
-    venv_python = "/home/claude/.venv/bin/python"
-    if not os.path.isfile(venv_python):
-        subprocess.run(["uv", "venv", "/home/claude/.venv"], capture_output=True)
-        subprocess.run(
-            ["uv", "pip", "install", "tree-sitter-language-pack",
-             "--python", venv_python],
-            capture_output=True,
-        )
-
-    cmd = [venv_python, codemap, root]
-    if skip:
-        cmd.extend(["--skip", skip])
-    subprocess.run(cmd, capture_output=True)
 
 
 def search_regex(root: str, queries: list, expand: bool = False,
@@ -296,10 +262,9 @@ def format_results(results: dict, root: str, output_json: bool = False) -> str:
 def main():
     parser = argparse.ArgumentParser(description="Unified code search")
     parser.add_argument("source", help="Path, GitHub URL, 'uploads', or 'project'")
-    parser.add_argument("queries", nargs="*", help="Search queries")
+    parser.add_argument("queries", nargs="+", help="Search queries")
     parser.add_argument("--regex", action="store_true", help="Force regex mode")
     parser.add_argument("--semantic", action="store_true", help="Force semantic mode")
-    parser.add_argument("--map-only", action="store_true", help="Generate structural maps only")
     parser.add_argument("--expand", action="store_true", help="Expand to full function bodies")
     parser.add_argument("--benchmark", action="store_true", help="Benchmark indexed vs brute-force")
     parser.add_argument("--branch", default="main", help="Git branch for GitHub URLs")
@@ -317,15 +282,6 @@ def main():
     skip_dirs = None
     if args.skip:
         skip_dirs = set(args.skip.split(","))
-
-    # Map-only mode
-    if args.map_only:
-        run_map(root, args.skip)
-        print(f"Maps generated in {root}")
-        return
-
-    if not args.queries:
-        parser.error("Provide at least one query, or use --map-only")
 
     # Route queries
     all_results = {}
@@ -362,8 +318,6 @@ def main():
         all_results.update(results)
 
     if semantic_queries:
-        # Generate maps first for enriched TF-IDF
-        run_map(root, args.skip)
         results = search_semantic(root, semantic_queries, expand=args.expand,
                                   verbose=args.verbose, skip_dirs=skip_dirs)
         all_results.update(results)

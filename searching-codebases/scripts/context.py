@@ -1,15 +1,15 @@
 """
 Expand search match lines into full structural context (functions/classes).
 
-Uses _MAP.md files (from mapping-codebases) when available, with optional
-tree-sitter fallback. Returns the complete function or class containing
-a match, not just the matching line.
+Uses tree-sitting's AST cache for symbol boundaries. Scans the repo once
+on first expand call (~700ms), then all expansions are sub-millisecond.
+Falls back to a fixed-size context window if tree-sitting is unavailable.
 """
 
 import os
-import re
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional
+import sys
+from dataclasses import dataclass
+from typing import List, Optional
 
 
 @dataclass
@@ -26,89 +26,31 @@ class CodeContext:
     signature: Optional[str] = None
 
 
-@dataclass
-class MapSymbol:
-    """A symbol parsed from a _MAP.md file."""
-    name: str
-    kind: str  # C=class, f=function, m=method
-    line: int
-    signature: str = ""
-    parent: Optional[str] = None
+# Lazily initialized tree-sitting cache
+_cache = None
+_cache_root = None
 
 
-# Extension → language mapping
-EXT_TO_LANG = {
-    ".py": "python", ".pyi": "python",
-    ".js": "javascript", ".jsx": "javascript", ".mjs": "javascript",
-    ".ts": "typescript", ".tsx": "typescript", ".mts": "typescript",
-    ".go": "go", ".rs": "rust", ".rb": "ruby",
-    ".java": "java", ".c": "c", ".h": "c",
-    ".cpp": "cpp", ".hpp": "cpp", ".cc": "cpp",
-    ".cs": "csharp", ".php": "php",
-}
+def _ensure_cache(search_root: str):
+    """Scan the repo with tree-sitting on first call. No-op on subsequent calls."""
+    global _cache, _cache_root
+    if _cache is not None and _cache_root == search_root:
+        return _cache
 
-_KIND_TO_NODE_TYPE = {"C": "class", "f": "function", "m": "method"}
+    try:
+        ts_scripts = "/mnt/skills/user/tree-sitting/scripts"
+        if ts_scripts not in sys.path:
+            sys.path.insert(0, ts_scripts)
+        from engine import CodeCache
 
-
-def parse_map_file(map_path: str) -> Dict[str, List[MapSymbol]]:
-    """Parse a _MAP.md file into symbols grouped by filename."""
-    symbols_by_file: Dict[str, List[MapSymbol]] = {}
-    current_file = None
-    current_class = None
-
-    with open(map_path, "r") as f:
-        for line in f:
-            # File header: ### filename.py
-            file_match = re.match(r"^###\s+(.+)$", line)
-            if file_match:
-                current_file = file_match.group(1).strip()
-                current_class = None
-                if current_file not in symbols_by_file:
-                    symbols_by_file[current_file] = []
-                continue
-
-            if not current_file:
-                continue
-
-            # Symbol: - **Name** (C/f/m) `signature` :line
-            sym_match = re.match(
-                r"^(\s*)-\s+\*\*(\w+)\*\*\s+\((\w)\)\s*(?:`([^`]*)`\s*)?:(\d+)",
-                line,
-            )
-            if sym_match:
-                indent = len(sym_match.group(1))
-                name = sym_match.group(2)
-                kind = sym_match.group(3)
-                sig = sym_match.group(4) or ""
-                line_num = int(sym_match.group(5))
-
-                parent = None
-                if indent >= 2 and current_class:
-                    parent = current_class
-
-                if kind == "C":
-                    current_class = name
-
-                symbols_by_file[current_file].append(
-                    MapSymbol(name=name, kind=kind, line=line_num,
-                              signature=sig, parent=parent)
-                )
-
-    return symbols_by_file
-
-
-def find_map_for_file(file_path: str, search_root: str) -> Optional[str]:
-    """Find the _MAP.md that covers a given file."""
-    directory = os.path.dirname(file_path)
-    while directory.startswith(search_root):
-        candidate = os.path.join(directory, "_MAP.md")
-        if os.path.isfile(candidate):
-            return candidate
-        parent = os.path.dirname(directory)
-        if parent == directory:
-            break
-        directory = parent
-    return None
+        _cache = CodeCache()
+        _cache.scan(search_root)
+        _cache_root = search_root
+        return _cache
+    except Exception as e:
+        print(f"tree-sitting unavailable ({e}), using window fallback",
+              file=sys.stderr)
+        return None
 
 
 def expand_match(file_path: str, line_number: int, search_root: str,
@@ -116,51 +58,61 @@ def expand_match(file_path: str, line_number: int, search_root: str,
     """
     Expand a match at file:line into its containing function/class.
 
-    Uses _MAP.md data for structural boundaries. Falls back to returning
-    a context window around the match if no map is available.
+    Uses tree-sitting AST data for structural boundaries. Falls back to
+    a context window around the match if tree-sitting is unavailable.
 
     Args:
         file_path: Absolute path to matched file
         line_number: 1-indexed line number of the match
-        search_root: Root directory (for finding _MAP.md files)
+        search_root: Root directory of the codebase
         signatures_only: Return only signature, not full body
     """
-    map_path = find_map_for_file(file_path, search_root)
-    if map_path:
-        return _expand_from_map(file_path, line_number, map_path, signatures_only)
+    cache = _ensure_cache(search_root)
+    if cache is not None:
+        return _expand_from_ast(file_path, line_number, search_root,
+                                cache, signatures_only)
     return _expand_window(file_path, line_number)
 
 
-def _expand_from_map(file_path: str, line_number: int, map_path: str,
-                     signatures_only: bool) -> Optional[CodeContext]:
-    """Expand using structural data from _MAP.md."""
-    filename = os.path.basename(file_path)
-    lang = EXT_TO_LANG.get(os.path.splitext(file_path)[1].lower())
+def _expand_from_ast(file_path: str, line_number: int, search_root: str,
+                     cache, signatures_only: bool) -> Optional[CodeContext]:
+    """Expand using tree-sitting's parsed AST symbols."""
+    relpath = os.path.relpath(file_path, search_root)
 
-    symbols_by_file = parse_map_file(map_path)
-    symbols = symbols_by_file.get(filename, [])
-    if not symbols:
+    # Get symbols for this file from the cache
+    entry = cache.files.get(relpath)
+    if not entry or not entry.symbols:
         return _expand_window(file_path, line_number)
 
-    # Find containing symbol (last symbol with line <= match)
+    # Find the innermost symbol containing this line
     containing = None
-    for sym in symbols:
-        if sym.line <= line_number:
-            containing = sym
-        else:
-            break
+    for sym in entry.symbols:
+        start = sym.get("start_line") or sym.get("line", 0)
+        end = sym.get("end_line", start)
+        if start <= line_number <= end:
+            # Prefer the most specific (innermost) match
+            if containing is None:
+                containing = sym
+            else:
+                prev_start = containing.get("start_line") or containing.get("line", 0)
+                if start >= prev_start:
+                    containing = sym
+
+    if not containing:
+        # No containing symbol — try nearest preceding symbol
+        best = None
+        for sym in entry.symbols:
+            start = sym.get("start_line") or sym.get("line", 0)
+            if start <= line_number:
+                if best is None or start > (best.get("start_line") or best.get("line", 0)):
+                    best = sym
+        containing = best
 
     if not containing:
         return _expand_window(file_path, line_number)
 
-    # Find end: next non-child symbol's line - 1
-    sym_idx = symbols.index(containing)
-    next_line = None
-    for i in range(sym_idx + 1, len(symbols)):
-        if containing.kind == "C" and symbols[i].parent == containing.name:
-            continue
-        next_line = symbols[i].line
-        break
+    start_line = containing.get("start_line") or containing.get("line", 1)
+    end_line = containing.get("end_line") or start_line
 
     try:
         with open(file_path, "r") as f:
@@ -168,40 +120,43 @@ def _expand_from_map(file_path: str, line_number: int, map_path: str,
     except (FileNotFoundError, PermissionError):
         return None
 
-    start_line = containing.line
-    end_line = (next_line - 1) if next_line else len(lines)
+    # Ensure end_line doesn't exceed file
+    end_line = min(end_line, len(lines))
 
     # Trim trailing blanks
     while end_line > start_line and not lines[end_line - 1].strip():
         end_line -= 1
 
-    source = "".join(lines[start_line - 1 : end_line])
+    source = "".join(lines[start_line - 1:end_line])
+
+    name = containing.get("name", "")
+    kind = containing.get("kind", "function")
+    # Normalize kind to node_type
+    kind_map = {
+        "class": "class", "struct": "class", "interface": "class",
+        "enum": "class", "trait": "class",
+        "method": "method", "impl_method": "method",
+        "function": "function", "func": "function",
+    }
+    node_type = kind_map.get(kind, kind)
 
     signature = None
     if signatures_only:
-        sig = containing.signature or ""
-        if lang == "python":
-            if containing.kind == "C":
-                signature = f"class {containing.name}:\n    ..."
-            else:
-                signature = f"def {containing.name}{sig}:\n    ..."
-        elif lang in ("javascript", "typescript"):
-            if containing.kind == "C":
-                signature = f"class {containing.name} {{ ... }}"
-            else:
-                signature = f"function {containing.name}{sig} {{ ... }}"
-        elif lang == "go":
-            signature = f"func {containing.name}{sig} {{ ... }}"
+        sig = containing.get("signature", "")
+        if sig:
+            signature = sig
         else:
-            signature = f"{containing.name}{sig}"
+            # Use first line as signature fallback
+            first_line = lines[start_line - 1].rstrip() if start_line <= len(lines) else name
+            signature = first_line
 
-    display = f"{containing.parent}.{containing.name}" if containing.parent else containing.name
-    node_type = _KIND_TO_NODE_TYPE.get(containing.kind, containing.kind)
+    parent = containing.get("parent")
+    display = f"{parent}.{name}" if parent else name
 
     return CodeContext(
         file_path=file_path, start_line=start_line, end_line=end_line,
         match_line=line_number, node_type=node_type, name=display,
-        source=source, language=lang, signature=signature,
+        source=source, language=entry.lang, signature=signature,
     )
 
 
@@ -216,13 +171,19 @@ def _expand_window(file_path: str, line_number: int,
 
     start = max(1, line_number - context)
     end = min(len(lines), line_number + context)
-    source = "".join(lines[start - 1 : end])
-    lang = EXT_TO_LANG.get(os.path.splitext(file_path)[1].lower())
+    source = "".join(lines[start - 1:end])
+
+    ext = os.path.splitext(file_path)[1].lower()
+    ext_to_lang = {
+        ".py": "python", ".js": "javascript", ".ts": "typescript",
+        ".go": "go", ".rs": "rust", ".rb": "ruby", ".java": "java",
+        ".c": "c", ".cpp": "cpp", ".cs": "csharp",
+    }
 
     return CodeContext(
         file_path=file_path, start_line=start, end_line=end,
         match_line=line_number, node_type="context", name="",
-        source=source, language=lang,
+        source=source, language=ext_to_lang.get(ext),
     )
 
 

@@ -1,16 +1,17 @@
 ---
 name: searching-codebases
-description: >
+description: >-
   Find code by regex pattern or natural language concept in any codebase.
   Auto-routes between n-gram indexed regex search (2-20x faster than ripgrep)
-  and TF-IDF semantic search. Expands results to full functions via AST maps.
-  Accepts GitHub URLs, local directories, uploaded files/archives, or project
-  knowledge. Use when asked to find implementations, search for patterns,
-  explore unfamiliar repos, or answer "where is X" / "how does Y work" about
-  code. Triggers on "search this repo", "find where X is", "grep for",
-  "what handles Y", regex patterns, or natural-language questions about code.
+  and TF-IDF semantic search. Expands results to full functions via tree-sitting
+  AST data. Accepts GitHub URLs, local directories, uploaded files/archives, or
+  project knowledge. Use when asked to find implementations, search for patterns,
+  or answer "where is X" / "how does Y work" about code. Triggers on "search
+  this repo", "find where X is", "grep for", "what handles Y", regex patterns,
+  or natural-language questions about code. This is the convergent "find X" skill
+  — for first-encounter orientation, use exploring-codebases instead.
 metadata:
-  version: 1.0.0
+  version: 2.0.0
 ---
 
 # Searching Codebases
@@ -24,7 +25,8 @@ search strategies, automatic routing.
 uv tool install ripgrep
 ```
 
-Tree-sitter (for structural maps) installs automatically when needed.
+tree-sitting (for structural context expansion) installs automatically when
+the `--expand` flag is used.
 
 ## Primary Command
 
@@ -63,8 +65,7 @@ natural language → semantic. Override with `--regex` or `--semantic`.
 ## Options
 
 - `--regex` / `--semantic`: Force search mode
-- `--expand`: Return full function bodies instead of matching lines
-- `--map-only`: Generate structural maps only (delegates to mapping-codebases)
+- `--expand`: Return full function bodies via tree-sitting AST context
 - `--benchmark`: Compare indexed regex vs brute-force ripgrep
 - `--branch NAME`: Git branch for GitHub URLs (default: main)
 - `--skip DIRS`: Comma-separated directories to skip
@@ -80,11 +81,12 @@ with ripgrep. Frequency-weighted n-grams make rare character sequences
 more selective.
 
 **Semantic search** builds a TF-IDF index over code chunks (functions,
-classes, map entries). Queries are ranked by cosine similarity. Structural
-maps from mapping-codebases enrich the index when available.
+classes, structural entries). Queries are ranked by cosine similarity.
 
-**Context expansion** (`--expand`) uses `_MAP.md` files to identify function
-boundaries, returning complete structural units rather than line fragments.
+**Context expansion** (`--expand`) uses tree-sitting's AST cache to
+identify function/class boundaries, returning complete structural units
+rather than line fragments. On first use, tree-sitting scans the repo
+(~700ms for 250 files); subsequent expansions are sub-millisecond.
 
 **Small codebases** (< 20 files) skip indexing entirely — direct ripgrep is
 faster when there's nothing to narrow.
@@ -103,24 +105,31 @@ python3 $SKILL_DIR/scripts/search.py ./repo \
 
 ## Dependencies
 
-- **mapping-codebases**: Generates `_MAP.md` files for context expansion and
-  TF-IDF enrichment. Not required — search works without maps, just with
-  less context in results.
+- **tree-sitting**: Provides AST-based context expansion for `--expand`.
+  Not required — search works without it, just with less structural context
+  in results.
 - **ripgrep**: Required for regex verification. Install via `uv tool install ripgrep`.
 - **scikit-learn**: Required for semantic mode. Installs automatically.
 
+## When to Use
+
+- **Known target**: "where is the retry logic?", "find all error handlers"
+- **Pattern matching**: regex across large codebases with indexed speedup
+- **Concept search**: "authentication flow", "database connection pooling"
+- **Cross-reference**: find all callers/users of a specific function
+
 ## When NOT to Use
 
-- Repos under ~10 files: just read them directly
-- Exact identifier known: `rg "identifier" /path` is simpler
-- Need AST-precise extraction (complete function bodies via tree-sitter):
-  use exploring-codebases with `--expand-full` instead
+- **First encounter**: "what does this repo do?" → use exploring-codebases
+- **Repos under ~10 files**: just read them directly
+- **Exact symbol lookup**: `find_symbol('ClassName')` via tree-sitting is simpler
+- **Structural overview**: use tree-sitting's `tree_overview()` / `dir_overview()`
 
 ## Files
 
 - `scripts/search.py` — Entry point, query routing, output formatting
 - `scripts/resolve.py` — Input source resolution (GitHub, uploads, archives)
-- `scripts/context.py` — AST/map-based context expansion
+- `scripts/context.py` — tree-sitting-based AST context expansion
 - `scripts/ngram_index.py` — Sparse n-gram inverted index, regex decomposition
 - `scripts/sparse_ngrams.py` — Core n-gram algorithms, frequency weights
 - `scripts/code_rag.py` — TF-IDF semantic search over code chunks
