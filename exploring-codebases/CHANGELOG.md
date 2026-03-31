@@ -2,6 +2,19 @@
 
 All notable changes to the `exploring-codebases` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.0.0] - 2026-03-31
+
+### Added
+
+- add mapping-features skill for behavioral web app documentation (#432)
+- implement issues #229, #231, #281, #282, #283 (v4.3.0)
+
+### Other
+
+- exploring v1.0.0, searching v2.0.0: tree-sitting replaces mapping-codebases
+- Regenerate _MAP.md files after @lat: backlink insertion (#504)
+- Lattice v2: bidirectional source-anchored knowledge graph (#503)
+
 ## [0.3.1] - 2026-02-13
 
 ### Fixed

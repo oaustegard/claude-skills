@@ -2,6 +2,14 @@
 
 All notable changes to the `searching-codebases` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.0.0] - 2026-03-31
+
+### Other
+
+- exploring v1.0.0, searching v2.0.0: tree-sitting replaces mapping-codebases
+- Regenerate _MAP.md files after @lat: backlink insertion (#504)
+- Lattice v2: bidirectional source-anchored knowledge graph (#503)
+
 ## [1.0.0] - 2026-03-25
 
 ### Added
