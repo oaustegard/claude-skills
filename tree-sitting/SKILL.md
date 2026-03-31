@@ -2,7 +2,7 @@
 name: tree-sitting
 description: AST-powered code navigation via tree-sitter. Parses codebases into in-memory ASTs and exposes query tools for symbol search, file/directory overview, source retrieval, and references. Use when exploring unfamiliar repos, navigating code, or needing fast symbol lookup. Replaces serial file reads with sub-millisecond cached queries. Triggers on "map this codebase", "explore repo", "find symbol", "navigate code", "tree-sitter", or when starting work on an unfamiliar repository.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # tree-sitting
@@ -83,8 +83,13 @@ The server persists between tool calls — scan once, query many times.
 
 Python, JavaScript, TypeScript, TSX, Go, Rust, Ruby, Java, C, C++, C#, Swift, Kotlin, Scala, HTML, CSS, Markdown, JSON, YAML, TOML, Lua, Bash, Elisp, Zig, Elixir.
 
-Custom extractors (full signatures + hierarchy): Python, C.
-Generic extractor (names + kinds + locations + docs): all others.
+Three-tier extraction:
+
+1. **Custom extractors** (richest — signatures, hierarchy, docstrings): Python, C
+2. **tags.scm queries** (community-maintained — kinds, docs where grammars support it): Rust, Go, JavaScript, TypeScript, TSX, Ruby, Java, C++, C#
+3. **Generic heuristic** (names + kinds + locations): all others
+
+tags.scm queries use the same patterns maintained by tree-sitter grammar repos, giving correct symbol classification (e.g. Rust `impl` methods vs free functions, Go interfaces vs structs) without hand-written extractors.
 
 ## What It Extracts
 
