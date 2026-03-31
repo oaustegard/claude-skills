@@ -34,3 +34,9 @@ Initial release.
 - check.py: drift detection (broken refs, dead features, uncovered symbols)
 - Single flat _FEATURES.md format
 - CI integration example
+
+## [0.2.0] - 2026-03-31
+
+### Added
+
+- v0.2.0 — Hierarchical features + multi-pass synthesis (#515)
