@@ -532,12 +532,161 @@ print("\nCategory distribution:")
 print(df['category'].value_counts())
 ```
 
+## Example 11: Blog Header Image Generation
+
+Generate a styled blog header image with a single call.
+
+```python
+import sys
+sys.path.append('/mnt/skills/user/invoking-gemini/scripts')
+from gemini_client import generate_image
+
+# Style prefix — prepend to any subject for consistent visual identity
+RISO_ILLUSTRATION = (
+    "Style: Risograph-inspired editorial illustration. "
+    "Visible halftone dot texture and slight color misregistration between layers. "
+    "Limited ink palette: deep indigo, warm coral, and sage green on off-white paper. "
+    "Layered transparency where colors overlap creates rich secondary tones. "
+    "Modern and professional — the aesthetic of an indie design studio, not a fantasy novel. "
+    "Generous whitespace. No photorealism, no glow effects, no cyberpunk. No text or labels."
+)
+
+RISO_DIAGRAM = (
+    "Style: Risograph-inspired technical diagram. "
+    "Visible halftone dot texture and slight color misregistration. "
+    "Limited ink palette: deep indigo for primary shapes and text, "
+    "warm coral for highlights and active elements, "
+    "sage green for secondary elements and connections. "
+    "Off-white paper background. Clean layout with generous spacing. "
+    "Professional and readable."
+)
+
+# Generate illustration header
+subject = "A raven perched on a network graph, watching data flow between nodes"
+result = generate_image(
+    f"{RISO_ILLUSTRATION}\n\nSubject: {subject}. Wide landscape format, suitable as a blog header.",
+    model="image-pro",       # Use image-pro for published content
+    temperature=0.75,
+    output_path="/mnt/user-data/outputs/blog_header.png"
+)
+
+if result:
+    print(f"Header saved: {result['path']}")
+else:
+    print("Generation failed — retry or check credentials")
+```
+
+Key patterns:
+- **Style prefix + subject composition**: The prefix sets visual rules, the subject describes content
+- **`image-pro` for published content**: Better quality and text rendering than default
+- **Temperature 0.7-0.8 for illustrations**: Allows creative variation while staying on-style
+- **Explicit output path**: Control where the file lands for downstream use
+
+## Example 12: Technical Diagram Generation
+
+Generate a styled technical diagram with text labels.
+
+```python
+from gemini_client import generate_image
+
+RISO_DIAGRAM = (
+    "Style: Risograph-inspired technical diagram. "
+    "Visible halftone dot texture and slight color misregistration. "
+    "Limited ink palette: deep indigo for primary shapes and text, "
+    "warm coral for highlights and active elements, "
+    "sage green for secondary elements and connections. "
+    "Off-white paper background. Clean layout with generous spacing. "
+    "Professional and readable."
+)
+
+result = generate_image(
+    f"{RISO_DIAGRAM}\n\n"
+    "A flowchart showing: User Request → Claude Planning → Gemini Extraction → "
+    "Claude Synthesis → Final Report. Highlight the Gemini step in coral. "
+    "Wide landscape format.",
+    model="image-pro",
+    temperature=0.6,  # Lower temp for diagrams — more precise
+)
+```
+
+## Example 13: Batch Image Generation with Variants
+
+Generate multiple variants of the same concept for selection.
+
+```python
+from gemini_client import generate_image
+
+subjects = [
+    "A raven carrying a scroll through a library of glowing books",
+    "A raven assembling puzzle pieces that form a constellation",
+    "A raven observing its reflection in a pool of data streams",
+]
+
+results = []
+for i, subject in enumerate(subjects):
+    result = generate_image(
+        f"Style: Risograph-inspired editorial illustration with deep indigo, "
+        f"warm coral, sage green on off-white. No text.\n\n"
+        f"Subject: {subject}. Wide landscape format.",
+        model="nano-banana-2",   # Use fast model for drafts
+        temperature=0.8,
+        output_path=f"/mnt/user-data/outputs/variant_{i+1}.png"
+    )
+    if result:
+        results.append(result["path"])
+        print(f"Variant {i+1}: {result['path']}")
+
+# Present all variants for user to pick
+# present_files(results)
+```
+
+## Example 14: Image Generation with Structured Feedback Loop
+
+Generate an image, analyze it with Gemini vision, regenerate if needed.
+
+```python
+from gemini_client import generate_image, invoke_with_structured_output
+from pydantic import BaseModel, Field
+
+class ImageQuality(BaseModel):
+    has_text_artifacts: bool = Field(description="Unwanted text in the image")
+    style_match: int = Field(ge=1, le=5, description="How well it matches risograph style")
+    composition_score: int = Field(ge=1, le=5)
+    issues: list[str] = Field(description="Problems to fix in re-generation")
+
+# Generate
+result = generate_image(
+    "Style: Risograph editorial. Deep indigo, coral, sage green.\n\n"
+    "Subject: A raven on a circuit board. Wide landscape.",
+    model="image-pro",
+    temperature=0.75,
+)
+
+if result:
+    # Analyze with vision
+    quality = invoke_with_structured_output(
+        prompt="Evaluate this image for: unwanted text artifacts, "
+               "risograph style fidelity (halftone dots, misregistration, limited palette), "
+               "and composition quality.",
+        pydantic_model=ImageQuality,
+        image_path=result["path"]
+    )
+    print(f"Style match: {quality.style_match}/5")
+    print(f"Issues: {quality.issues}")
+
+    # Re-generate with fixes if needed
+    if quality.style_match < 3 or quality.has_text_artifacts:
+        fix_prompt = f"Fix: {', '.join(quality.issues)}. "
+        # Regenerate with adjusted prompt...
+```
+
 ## Best Practices from Examples
 
 **1. Temperature tuning:**
 - Factual extraction: 0.1-0.3
 - Classification: 0.3-0.5
-- Creative tasks: 0.7-0.9
+- Diagrams / technical images: 0.5-0.7
+- Creative tasks / illustrations: 0.7-0.9
 
 **2. Batch processing:**
 - Process in batches of 50-100
@@ -559,3 +708,10 @@ print(df['category'].value_counts())
 - JSON for hierarchical data
 - Markdown for documentation
 - Database for large datasets
+
+**6. Image generation:**
+- Compose prompts as: style prefix + subject + format ("Wide landscape")
+- Use `image-pro` / `nano-banana-pro` for published content, `nano-banana-2` for drafts
+- Temperature 0.5-0.7 for diagrams, 0.7-0.8 for illustrations
+- Add negative constraints ("No photorealism, no glow effects") to avoid model defaults
+- Always check result is not None before using the path
