@@ -1,14 +1,15 @@
 ---
 name: featuring
 description: >-
-  Generate _FEATURES.md files that describe what a codebase DOES from a user/consumer
-  perspective, anchored to source symbols via tree-sitting. Produces top-down feature
-  documentation organized by capability, not file structure. Use when someone says
+  Generate hierarchical _FEATURES.md files that describe what a codebase DOES from a
+  user/consumer perspective, anchored to source symbols via tree-sitting. Supports large
+  complex codebases through feature-driven decomposition into sub-feature files. Uses a
+  multi-pass synthesis: orientation → detail → overview rewrite. Use when someone says
   "what does this do", "document features", "feature inventory", "_FEATURES.md",
   or needs to understand a codebase's purpose before modifying it. Complements
   tree-sitting (structural) with semantic (why/what-for) layer.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Featuring
@@ -19,6 +20,10 @@ organized by feature/capability, anchored to specific source symbols.
 **tree-sitting** tells you WHAT symbols exist.
 **_FEATURES.md** tells you WHY they exist and what they accomplish together.
 
+For large codebases, the root `_FEATURES.md` decomposes into sub-feature files
+linked by capability area — not by folder structure. An agent starts at the root
+and is drawn into sub-files only when working on a relevant area.
+
 ## Dependency
 
 Requires **tree-sitting** skill. Uses its engine for AST scanning.
@@ -28,72 +33,135 @@ uv venv /home/claude/.venv 2>/dev/null
 uv pip install tree-sitter-language-pack --python /home/claude/.venv/bin/python
 ```
 
-## Workflow
+## Workflow: Multi-Pass Synthesis
 
-### Step 1: Gather structural data
+Feature documentation is built in three passes. The overview is written LAST,
+after all features are understood — not first.
+
+### Pass 1: Orientation (quick scan)
 
 ```bash
 /home/claude/.venv/bin/python /mnt/skills/user/featuring/scripts/gather.py /path/to/repo \
   --skip tests,.github,node_modules --source-budget 8000
 ```
 
-This scans the codebase via tree-sitting and outputs a structured summary:
-entry points, public API, types, import graph, and key source excerpts.
-The `--source-budget` controls how much source code is included (chars).
+Read the gather output. Before writing anything, form a hypothesis:
 
-### Step 2: Synthesize features (LLM)
+> "This codebase appears to be a **[what it is]** that provides **[capability A]**,
+> **[capability B]**, and **[capability C]**."
 
-Read the gather output. Identify features by asking:
+Write this down as a DRAFT overview. It will be wrong or incomplete — that's fine.
+The point is to orient before diving into detail.
 
-1. **What can a user/consumer DO with this?** (capabilities, commands, API endpoints)
+**How to identify capability areas:**
+
+1. **What can a user/consumer DO with this?** (commands, API endpoints, UI actions)
 2. **What problems does it solve?** (the WHY behind the code)
 3. **What are the main workflows?** (how features compose)
 4. **What are the constraints/invariants?** (rules the code enforces)
 
-Group related symbols into features. A feature is NOT a file — it's a capability
-that may span multiple files. A single file may contribute to multiple features.
+### Pass 2: Detailed feature extraction
 
-### Step 3: Write _FEATURES.md
+For each capability area identified in Pass 1:
 
-Output a single `_FEATURES.md` file at the repo root (or per major subsystem
-for large repos).
+1. Gather the symbols that implement it (from gather output + targeted `get_source()`)
+2. Understand how they collaborate — the workflow
+3. Identify constraints and invariants
+4. Write the feature section
+
+During this pass, you'll discover:
+- Capabilities you missed in Pass 1
+- Features that are more complex than expected (decomposition candidates)
+- Features that are simpler than expected (merge candidates)
+- Cross-cutting concerns that span multiple capability areas
+
+**Hierarchy decision** (per feature, during this pass):
+
+| Signal | Action |
+|--------|--------|
+| ≤6 key symbols, self-contained | Inline in root `_FEATURES.md` |
+| >6 key symbols OR clear sub-capabilities | Own `_FEATURES.md` sub-file |
+| Spans many files but is ONE capability | Inline (breadth ≠ complexity) |
+| Has sub-features that are independently useful | Own sub-file |
+| Is infrastructure (logging, DB layer) | Inline briefly, unless it IS the product |
+
+### Pass 3: Overview rewrite
+
+NOW — after all features are documented — rewrite the overview. The Pass 1
+draft was a hypothesis. Pass 3 replaces it with a proper progressive-disclosure
+overview that:
+
+1. States what the codebase is in one sentence
+2. Lists the top-level capability areas (3-8 items)
+3. For each area that has a sub-file: one sentence + link + "read when" guidance
+4. For inline features: just the list entry (detail is below in the same file)
+
+This is the most important part. The overview IS the entry point for every
+agent session. It must be accurate, complete, and fast to scan.
+
 
 ## _FEATURES.md Format
+
+### Root file
 
 ```markdown
 # Features: {project-name}
 
 > One-sentence description of what this codebase is and does.
 
-## {Feature Name}
+**Capability areas:**
+- **[Area A]** — one-sentence summary
+- **[Area B]** — one-sentence summary → [details](path/to/_FEATURES.md)
+- **[Area C]** — one-sentence summary
 
-{2-3 sentences: what this feature does from a user perspective.
-What problem it solves. When you'd use it.}
+## {Inline Feature Name}
+
+{2-3 sentences: what this feature does from a user perspective.}
 
 **Key symbols:**
 - `file.py#function_name` — role in this feature
 - `file.py#ClassName` — role in this feature
 
-**Workflow:** {Brief description of how a user exercises this feature,
-or how the symbols collaborate to deliver it.}
+**Workflow:** {How a user exercises this feature or how symbols collaborate.}
 
-**Constraints:** {Invariants, limits, rules this feature enforces.}
+**Constraints:** {Invariants, limits, rules.}
 
 ---
 
-## {Next Feature}
-...
+## {Complex Feature Area}
+
+> One-sentence summary of what this area covers.
+
+This area is documented in detail in [{area-name}/_FEATURES.md]({path}).
+Read it when working on {specific trigger — e.g., "the memory retrieval pipeline",
+"adding a new API endpoint", "modifying the build system"}.
+
+At a glance, this area provides:
+- {sub-capability 1} — one line
+- {sub-capability 2} — one line
+- {sub-capability 3} — one line
 ```
+
+### Sub-feature files
+
+Sub-feature files follow the SAME format as the root, recursively. They can
+contain inline features and further sub-file references. Each sub-file:
+
+- Has its own `# Features: {area-name}` header
+- Has its own overview paragraph
+- Is self-contained — an agent reading only this file understands the area
+- Links back to the root: `← [Root features](../_FEATURES.md)`
 
 ### Format rules
 
 - **Organized by capability**, not by file/directory
-- **Symbol references** use `file#symbol` notation (relative paths)
+- **Symbol references** use `file#symbol` notation (relative to repo root)
 - **Leading paragraph** per feature: what a user gets, not implementation details
 - **Key symbols**: the 2-6 most important symbols, with their role explained
-- **Workflow**: how the feature works end-to-end (optional, include when non-obvious)
-- **Constraints**: rules/invariants (optional, include when they exist)
+- **Workflow**: how the feature works end-to-end (include when non-obvious)
+- **Constraints**: rules/invariants (include when they exist)
 - **No source code** in _FEATURES.md — it's a map, not a mirror
+- **"Read when" guidance** on every sub-file link — tells agents WHEN to drill in
 
 ### What makes a good feature entry
 
@@ -107,7 +175,26 @@ Bad: "**memory.py** — Contains `remember()`, `recall()`, `forget()`, and
 The first tells you WHAT you can do. The second describes file contents —
 tree-sitting already gives you that.
 
-### Identifying features
+### Hierarchy design principles
+
+The hierarchy is **feature-driven**, not folder-driven. Folders are natural
+candidates for decomposition boundaries, but the decision is based on:
+
+1. **Does this capability area have enough complexity to warrant its own file?**
+   (>6 key symbols, multiple sub-workflows, or independently useful sub-features)
+2. **Would an agent working on this area benefit from focused context?**
+   (if yes, a sub-file saves them from parsing unrelated features)
+3. **Is this area likely to be read independently of the rest?**
+   (if yes, it should be self-contained in its own file)
+
+Counter-examples — do NOT split just because:
+- The code lives in a separate folder (folder ≠ feature)
+- There are many files (files ≠ complexity)
+- A class has many methods (one class = one feature unless methods serve
+  distinct user-facing purposes)
+
+
+## Identifying features
 
 Heuristics for finding feature boundaries:
 
@@ -124,6 +211,7 @@ Features to SKIP in _FEATURES.md:
 - Internal utilities that only serve other features
 - Test code (unless the testing approach IS a feature, e.g., a testing framework)
 
+
 ## Keeping _FEATURES.md in Sync
 
 Three mechanisms, layered:
@@ -135,13 +223,14 @@ Three mechanisms, layered:
   [--features _FEATURES.md] [--skip tests,.github]
 ```
 
-Parses `file#symbol` references from _FEATURES.md, resolves them against the
-live codebase via tree-sitting, and reports:
+Parses `file#symbol` references from ALL _FEATURES.md files (root + sub-files),
+resolves them against the live codebase via tree-sitting, and reports:
 
 - **Broken refs** — symbol deleted or renamed (exit code 1)
 - **Moved symbols** — symbol exists but in a different file than referenced
 - **Dead features** — ALL key symbols in a feature section are gone
 - **Uncovered symbols** — new public API not mentioned in any feature
+- **Orphan sub-files** — sub-feature files not linked from any parent
 
 Exit code 0 = clean, 1 = drift detected. Suitable for CI or pre-commit hooks.
 
@@ -153,6 +242,7 @@ Add to CLAUDE.md or equivalent:
 ## Feature Documentation
 
 - `_FEATURES.md` documents what this codebase does, organized by capability.
+- Start here when orienting to the codebase. Follow sub-file links as needed.
 - After changing behavior (new feature, renamed API, deleted functionality):
   run `python featuring/scripts/check.py .` and fix any broken refs.
 - After adding a new public API surface: add it to the appropriate feature
@@ -164,18 +254,10 @@ Add to CLAUDE.md or equivalent:
 
 When check reports broken refs, the fix is usually surgical: update the
 `file#symbol` reference to the new name/location. For dead features (all refs
-gone), either delete the section or regenerate it:
+gone), either delete the section or regenerate it.
 
-```bash
-# Re-gather structural data for the affected area
-/home/claude/.venv/bin/python /mnt/skills/user/featuring/scripts/gather.py /path/to/repo
-
-# Then use LLM to rewrite just the broken feature sections
-```
-
-Full regeneration (re-running gather + LLM synthesis for everything) is the
-nuclear option. Prefer targeted updates — they're cheaper and preserve
-hand-written narrative.
+Full regeneration (re-running all three passes) is the nuclear option.
+Prefer targeted updates — they're cheaper and preserve hand-written narrative.
 
 ### CI Integration
 
@@ -200,56 +282,54 @@ The agent should:
 
 1. Call `scan()` to parse the codebase
 2. Call `tree_overview()` for orientation
-3. Call `dir_overview()` and `file_symbols()` to understand each module
-4. Call `get_source()` for key symbols where intent isn't clear from signatures
-5. Write `_FEATURES.md` directly
+3. **Pass 1:** Form a hypothesis about what the codebase does
+4. Call `dir_overview()` and `file_symbols()` to understand each capability area
+5. Call `get_source()` for key symbols where intent isn't clear from signatures
+6. **Pass 2:** Write detailed feature sections, deciding hierarchy per-feature
+7. **Pass 3:** Rewrite the overview now that all features are documented
 
 Add to CLAUDE.md:
 ```markdown
 ## Codebase Understanding
 
 Read `_FEATURES.md` for top-down feature orientation before modifying code.
+Follow links to sub-feature files when working on a specific area.
 Use tree-sitting MCP tools for structural queries (symbol lookup, source retrieval).
-After adding new features or changing behavior, update `_FEATURES.md`.
+After adding new features or changing behavior, update the relevant _FEATURES.md.
 ```
 
-## Example
+## Example: Small Codebase (flat)
 
-For the `remembering` skill (memory system), gather.py would produce structural
-data showing 21 functions in memory.py, 6 in config.py, etc. The synthesized
-_FEATURES.md would group these into:
+A CLI tool with 15 public symbols → single `_FEATURES.md`, all features inline.
+No sub-files needed.
 
-- **Memory Storage** — `memory.py#remember`, `memory.py#remember_batch`
-- **Memory Retrieval** — `memory.py#recall`, `memory.py#recall_batch`, `memory.py#recall_since`
-- **Memory Lifecycle** — `memory.py#forget`, `memory.py#supersede`, `memory.py#reprioritize`
-- **Memory Maintenance** — `memory.py#consolidate`, `memory.py#curate`, `memory.py#prune_by_age`
-- **Decision Tracing** — `memory.py#decision_trace`, `memory.py#get_alternatives`, `memory.py#get_chain`
-- **Configuration** — `config.py#config_get`, `config.py#config_set`
-- **Task Tracking** — `task.py#Task`, `task.py#task`, `task.py#task_resume`
-- **Boot** — `boot.py#boot`, `boot.py#profile`, `boot.py#ops`
+## Example: Large Codebase (hierarchical)
 
-Each with narrative explaining what a user gets, not just what the function does.
+The `remembering` skill (memory system for an AI agent) has ~60 public symbols
+across 8 files. Hierarchical decomposition:
 
-## Large Repos
-
-For repos with >50 files across distinct subsystems, generate one `_FEATURES.md`
-per subsystem directory rather than a single monolithic file. Link them from a
-root `_FEATURES.md` index:
-
-```markdown
-# Features: {project}
-
-- [{subsystem-a}](subsystem-a/_FEATURES.md) — what subsystem-a does
-- [{subsystem-b}](subsystem-b/_FEATURES.md) — what subsystem-b does
 ```
+_FEATURES.md              (root — overview + 3 inline features + 3 sub-file refs)
+├── scripts/_FEATURES.md  (memory operations — storage, retrieval, lifecycle, maintenance)
+└── utils/_FEATURES.md    (utility modules — therapy, reminders, blog publishing)
+```
+
+Root `_FEATURES.md` would contain:
+- **Overview**: "Persistent memory system for Muninn. Stores, retrieves, and
+  maintains typed memories across sessions via Turso."
+- **Inline**: Boot Sequence, Configuration, Task Tracking (simple, ≤4 symbols each)
+- **Sub-file ref**: Memory Operations → `scripts/_FEATURES.md`
+  ("Read when working on storage, retrieval, or memory lifecycle")
+- **Sub-file ref**: Utility Modules → `utils/_FEATURES.md`
+  ("Read when working on therapy sessions, reminders, or blog publishing")
 
 ## Relationship to Other Skills
 
 | Skill | What it provides | Drift detection |
 |-------|-----------------|-----------------|
 | **tree-sitting** | Structural inventory (symbols, signatures) | N/A (live queries) |
-| **featuring** | Feature documentation (what/why) | `check.py` — one-directional (docs → code) |
-| **generating-lattice** | Bidirectional knowledge graph | `lat check` — bidirectional (docs ↔ code) |
+| **featuring** | Feature documentation (what/why), hierarchical | `check.py` — docs → code |
+| **generating-lattice** | Bidirectional knowledge graph | `lat check` — docs ↔ code |
 | **mapping-webapp** | Web app behavioral docs (pages, flows) | None |
 
 featuring's check is lighter than lattice's: no source code annotations needed,

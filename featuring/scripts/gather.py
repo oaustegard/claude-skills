@@ -6,8 +6,16 @@ Scans a codebase with tree-sitting's engine, then outputs a structured summary
 optimized for LLM consumption: entry points, public APIs, symbol clusters by
 directory, and selective source excerpts for key files.
 
+Supports two modes:
+  - Full scan: entire codebase → root _FEATURES.md synthesis
+  - Area scan: specific subdirectory or file set → sub-feature file synthesis
+
 Usage:
-    python gather.py /path/to/repo [--skip tests,.github] [--depth 2] [--source-budget 8000]
+    # Full repo scan
+    python gather.py /path/to/repo [--skip tests,.github] [--source-budget 8000]
+
+    # Area scan (specific capability area)
+    python gather.py /path/to/repo --area src/memory --source-budget 4000
 
 Output: structured markdown to stdout, suitable as LLM prompt input.
 """
@@ -17,11 +25,12 @@ import os
 import argparse
 from pathlib import Path
 
+
 def _find_treesit_engine():
     """Locate tree-sitting engine across known skill directories."""
     candidates = [
-        Path(__file__).resolve().parent.parent.parent / 'tree-sitting' / 'scripts',  # sibling skill
-        Path('/mnt/skills/user/tree-sitting/scripts'),  # Claude.ai skill mount
+        Path(__file__).resolve().parent.parent.parent / 'tree-sitting' / 'scripts',
+        Path('/mnt/skills/user/tree-sitting/scripts'),
         Path('/mnt/skills/public/tree-sitting/scripts'),
     ]
     for p in candidates:
@@ -46,22 +55,27 @@ def setup_engine():
         sys.exit(1)
 
 
-def classify_symbols(cache) -> dict:
-    """Classify symbols into feature-relevant categories."""
+def classify_symbols(cache, area_prefix=None) -> dict:
+    """Classify symbols into feature-relevant categories.
+
+    If area_prefix is set, only include symbols from files under that path.
+    """
     categories = {
-        'entry_points': [],    # main, cli, serve, run, app
-        'public_api': [],      # exported functions/classes (non-private, non-test)
-        'types': [],           # classes, structs, enums, interfaces
-        'constants': [],       # defines, const, config
-        'tests': [],           # test functions
-        'internal': [],        # private/helper functions
+        'entry_points': [],
+        'public_api': [],
+        'types': [],
+        'constants': [],
+        'tests': [],
+        'internal': [],
     }
 
     entry_patterns = {'main', 'cli', 'run', 'serve', 'start', 'app', 'init', 'setup', 'boot'}
     test_patterns = {'test_', 'test', 'spec_', 'it_'}
 
     for relpath, entry in cache.files.items():
-        # Skip markdown files — headings aren't code symbols
+        # Area filter
+        if area_prefix and not relpath.startswith(area_prefix):
+            continue
         if entry.lang == 'markdown':
             continue
         is_test_file = any(p in relpath.lower() for p in ('test', 'spec', '__tests__'))
@@ -84,20 +98,17 @@ def classify_symbols(cache) -> dict:
     return categories
 
 
-def identify_key_files(cache, source_budget: int) -> list:
-    """Pick files worth reading source from, within a token budget.
-
-    Heuristic: files with the most public symbols, entry points, or
-    complex type hierarchies are most likely to reveal feature intent.
-    """
+def identify_key_files(cache, source_budget: int, area_prefix=None) -> list:
+    """Pick files worth reading source from, within a token budget."""
     file_scores = []
     for relpath, entry in cache.files.items():
+        if area_prefix and not relpath.startswith(area_prefix):
+            continue
         if any(p in relpath.lower() for p in ('test', 'spec', '__tests__', 'vendor', 'node_modules')):
             continue
         if entry.lang in ('json', 'yaml', 'toml', 'css', 'html', 'markdown'):
             continue
 
-        # Score by: public symbols, entry points, type definitions, children count
         score = 0
         for sym in entry.symbols:
             name_lower = sym.name.lower()
@@ -112,20 +123,65 @@ def identify_key_files(cache, source_budget: int) -> list:
             source_len = len(entry.source)
             file_scores.append((relpath, score, source_len))
 
-    # Sort by score descending, take files within budget
     file_scores.sort(key=lambda x: x[1], reverse=True)
     selected = []
     remaining = source_budget
     for relpath, score, size in file_scores:
-        char_estimate = size  # bytes ≈ chars for source code
+        char_estimate = size
         if char_estimate <= remaining:
             selected.append(relpath)
             remaining -= char_estimate
         elif remaining > 2000:
-            # Take a partial (first N lines)
             selected.append(relpath)
             break
     return selected
+
+
+def compute_complexity(cache, area_prefix=None) -> dict:
+    """Compute complexity metrics to help decide hierarchy.
+
+    Returns dict with counts and a suggested decomposition.
+    """
+    public_count = 0
+    file_count = 0
+    type_count = 0
+    dir_symbols = {}  # dir → count of public symbols
+
+    for relpath, entry in cache.files.items():
+        if area_prefix and not relpath.startswith(area_prefix):
+            continue
+        if entry.lang in ('json', 'yaml', 'toml', 'css', 'html', 'markdown'):
+            continue
+        if any(p in relpath.lower() for p in ('test', 'spec', '__tests__', 'vendor')):
+            continue
+
+        file_count += 1
+        parent = str(Path(relpath).parent) if '/' in relpath else '.'
+
+        for sym in entry.symbols:
+            if sym.name.startswith('_'):
+                continue
+            public_count += 1
+            dir_symbols[parent] = dir_symbols.get(parent, 0) + 1
+            if sym.kind in ('class', 'struct', 'enum', 'interface', 'trait', 'type'):
+                type_count += 1
+
+    # Suggest decomposition if complex enough
+    suggestions = []
+    if public_count > 30:
+        # Find directory clusters with significant symbol counts
+        for d, count in sorted(dir_symbols.items(), key=lambda x: -x[1]):
+            if count >= 6:
+                suggestions.append((d, count))
+
+    return {
+        'public_symbols': public_count,
+        'files': file_count,
+        'types': type_count,
+        'dir_clusters': dir_symbols,
+        'decomposition_candidates': suggestions,
+        'needs_hierarchy': public_count > 20 or len(suggestions) > 2,
+    }
 
 
 def format_symbol_brief(sym, indent=0) -> str:
@@ -140,24 +196,57 @@ def format_symbol_brief(sym, indent=0) -> str:
     return ' '.join(parts)
 
 
-def gather(repo_path: str, skip: set = None, source_budget: int = 8000) -> str:
-    """Scan a codebase and produce structured output for feature synthesis."""
+def gather(repo_path: str, skip: set = None, source_budget: int = 8000,
+           area: str = None) -> str:
+    """Scan a codebase and produce structured output for feature synthesis.
+
+    Args:
+        repo_path: Root of the codebase to scan
+        skip: Directory names to skip
+        source_budget: Approximate char budget for source excerpts
+        area: Optional subdirectory to focus on (for sub-feature generation)
+    """
     cache = setup_engine()
 
     stats = cache.scan(repo_path, skip=skip)
     if stats['files'] == 0:
         return f"No parseable files found in {repo_path}"
 
-    categories = classify_symbols(cache)
-    key_files = identify_key_files(cache, source_budget)
+    # Normalize area prefix
+    area_prefix = area.rstrip('/') + '/' if area else None
+    if area_prefix == './':
+        area_prefix = None
+
+    categories = classify_symbols(cache, area_prefix)
+    key_files = identify_key_files(cache, source_budget, area_prefix)
+    complexity = compute_complexity(cache, area_prefix)
 
     lines = []
 
     # ── Header
     root_name = Path(repo_path).name
-    lines.append(f"# Structural Scan: {root_name}")
+    if area:
+        lines.append(f"# Structural Scan: {root_name}/{area}")
+    else:
+        lines.append(f"# Structural Scan: {root_name}")
     lines.append(f"Files: {stats['files']} | Symbols: {stats['symbols']} | "
                  f"Languages: {', '.join(stats['languages'])}")
+    lines.append("")
+
+    # ── Complexity assessment (helps LLM decide hierarchy)
+    lines.append("## Complexity Assessment")
+    lines.append(f"Public symbols: {complexity['public_symbols']} | "
+                 f"Source files: {complexity['files']} | "
+                 f"Types: {complexity['types']}")
+    if complexity['needs_hierarchy']:
+        lines.append(f"**Hierarchy recommended.** This codebase has enough complexity "
+                     f"for sub-feature files.")
+        if complexity['decomposition_candidates']:
+            lines.append("\nCandidate areas for sub-files (by symbol density):")
+            for d, count in complexity['decomposition_candidates']:
+                lines.append(f"  - `{d}/` — {count} public symbols")
+    else:
+        lines.append("**Flat structure sufficient.** A single _FEATURES.md should work.")
     lines.append("")
 
     # ── Directory structure
@@ -182,7 +271,7 @@ def gather(repo_path: str, skip: set = None, source_budget: int = 8000) -> str:
             lines.append(f"\n### {filepath}")
             for sym in by_file[filepath]:
                 lines.append(format_symbol_brief(sym))
-                for child in sym.children[:5]:  # cap method listings
+                for child in sym.children[:5]:
                     lines.append(format_symbol_brief(child, indent=1))
                 if len(sym.children) > 5:
                     lines.append(f"    ... +{len(sym.children) - 5} more methods")
@@ -208,7 +297,6 @@ def gather(repo_path: str, skip: set = None, source_budget: int = 8000) -> str:
             if not entry:
                 continue
             source_text = entry.source.decode('utf-8', errors='replace')
-            # For large files, show first ~150 lines
             source_lines = source_text.split('\n')
             if len(source_lines) > 150:
                 excerpt = '\n'.join(source_lines[:150])
@@ -222,21 +310,20 @@ def gather(repo_path: str, skip: set = None, source_budget: int = 8000) -> str:
 
     # ── Import graph summary
     lines.append("## Import Graph (internal dependencies)")
-    # Collect all module names that exist in the repo for internal detection
     repo_modules = set()
     for relpath in cache.files:
-        # Convert file paths to potential module names
         stem = Path(relpath).stem
         if stem != '__init__':
             repo_modules.add(stem)
         parts = Path(relpath).parts
-        for p in parts[:-1]:  # directory names
+        for p in parts[:-1]:
             repo_modules.add(p)
 
     for relpath, entry in sorted(cache.files.items()):
+        if area_prefix and not relpath.startswith(area_prefix):
+            continue
         if entry.lang == 'markdown':
             continue
-        # Keep relative imports (start with .) and imports matching repo modules
         internal = [imp for imp in entry.imports
                     if imp.startswith('.') or
                     imp.split('.')[0] in repo_modules]
@@ -250,12 +337,14 @@ def main():
     parser = argparse.ArgumentParser(description='Gather codebase structure for feature synthesis')
     parser.add_argument('repo', help='Path to codebase root')
     parser.add_argument('--skip', default='', help='Comma-separated dirs to skip')
+    parser.add_argument('--area', default=None,
+                        help='Focus on a specific subdirectory (for sub-feature generation)')
     parser.add_argument('--source-budget', type=int, default=8000,
                         help='Approximate char budget for source excerpts (default: 8000)')
     args = parser.parse_args()
 
     skip = set(args.skip.split(',')) if args.skip else None
-    print(gather(args.repo, skip=skip, source_budget=args.source_budget))
+    print(gather(args.repo, skip=skip, source_budget=args.source_budget, area=args.area))
 
 
 if __name__ == '__main__':
