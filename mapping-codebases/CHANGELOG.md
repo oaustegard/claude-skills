@@ -2,6 +2,17 @@
 
 All notable changes to the `mapping-codebases` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.0] - 2026-03-31
+
+### Added
+
+- mapping-codebases v0.8.0 — C support + doc comments, line ranges, constants, enum variants (#510)
+
+### Other
+
+- Regenerate _MAP.md files after @lat: backlink insertion (#504)
+- Lattice v2: bidirectional source-anchored knowledge graph (#503)
+
 ## [0.7.1] - 2026-03-24
 
 ### Added
