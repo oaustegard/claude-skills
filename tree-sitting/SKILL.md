@@ -85,7 +85,7 @@ Python, JavaScript, TypeScript, TSX, Go, Rust, Ruby, Java, C, C++, C#, Swift, Ko
 
 Three-tier extraction:
 
-1. **Custom extractors** (richest — signatures, hierarchy, docstrings): Python, C, Go, Rust, JavaScript, TypeScript, TSX, Ruby
+1. **Custom extractors** (richest — signatures, hierarchy, docstrings): Python, C, Go, Rust, JavaScript, TypeScript, TSX, Ruby, Markdown (heading outline)
 2. **tags.scm queries** (community-maintained — kinds, docs where grammars support it): Java, C++, C#
 3. **Generic heuristic** (names + kinds + locations): all others
 
