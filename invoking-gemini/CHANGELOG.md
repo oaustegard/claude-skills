@@ -2,6 +2,18 @@
 
 All notable changes to the `invoking-gemini` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.5.0] - 2026-03-31
+
+### Added
+
+- surface Image Generation, add examples (#520)
+- add mapping-features skill for behavioral web app documentation (#432)
+
+### Other
+
+- Regenerate _MAP.md files after @lat: backlink insertion (#504)
+- Lattice v2: bidirectional source-anchored knowledge graph (#503)
+
 ## [0.3.1] - 2026-03-01
 
 ### Fixed
