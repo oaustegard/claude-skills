@@ -463,13 +463,13 @@
     },
     {
       "name": "invoking-gemini",
-      "description": "Invokes Google Gemini models for structured outputs, multi-modal tasks, and Google-specific features. Use when users request Gemini, structured JSON output, Google API integration, or cost-effective parallel processing.",
+      "description": "Invokes Google Gemini models for structured outputs, image generation, multi-modal tasks, and Google-specific features. Use when users request Gemini, image generation, structured JSON output, Google API integration, or cost-effective parallel processing.",
       "source": "./invoking-gemini",
       "strict": false,
       "skills": [
         "./"
       ],
-      "version": "0.4.0",
+      "version": "0.5.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills/tree/main/invoking-gemini",
       "license": "MIT"
