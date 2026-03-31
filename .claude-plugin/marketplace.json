@@ -281,13 +281,13 @@
     },
     {
       "name": "exploring-codebases",
-      "description": "Semantic search for codebases. Locates matches with ripgrep and expands them into full AST nodes (functions/classes) using tree-sitter or pre-generated _MAP.md files. Returns complete, syntactically valid code blocks rather than fragmented lines. Use when looking for specific implementations, examples, or references where full context is needed.",
+      "description": "First-encounter codebase orientation. Chains tree-sitting (structural inventory) and featuring (feature synthesis) into an EDA workflow for unfamiliar repositories. Use when someone says \"explore this repo\", \"what does this do\", \"I just cloned this\", \"help me understand this codebase\", or when starting work on an unfamiliar repository. This is the divergent \"what's here?\" skill — for targeted \"where is X?\" queries, use searching-codebases instead.",
       "source": "./exploring-codebases",
       "strict": false,
       "skills": [
         "./"
       ],
-      "version": "0.3.1",
+      "version": "1.0.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills/tree/main/exploring-codebases",
       "license": "MIT"
@@ -632,13 +632,13 @@
     },
     {
       "name": "searching-codebases",
-      "description": "Find code by regex pattern or natural language concept in any codebase. Auto-routes between n-gram indexed regex search (2-20x faster than ripgrep) and TF-IDF semantic search. Expands results to full functions via AST maps. Accepts GitHub URLs, local directories, uploaded files/archives, or project knowledge. Use when asked to find implementations, search for patterns, explore unfamiliar repos, or answer \"where is X\" / \"how does Y work\" about code. Triggers on \"search this repo\", \"find where X is\", \"grep for\", \"what handles Y\", regex patterns, or natural-language questions about code.\n",
+      "description": "Find code by regex pattern or natural language concept in any codebase. Auto-routes between n-gram indexed regex search (2-20x faster than ripgrep) and TF-IDF semantic search. Expands results to full functions via tree-sitting AST data. Accepts GitHub URLs, local directories, uploaded files/archives, or project knowledge. Use when asked to find implementations, search for patterns, or answer \"where is X\" / \"how does Y work\" about code. Triggers on \"search this repo\", \"find where X is\", \"grep for\", \"what handles Y\", regex patterns, or natural-language questions about code. This is the convergent \"find X\" skill — for first-encounter orientation, use exploring-codebases instead.",
       "source": "./searching-codebases",
       "strict": false,
       "skills": [
         "./"
       ],
-      "version": "1.0.0",
+      "version": "2.0.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills/tree/main/searching-codebases",
       "license": "MIT"
