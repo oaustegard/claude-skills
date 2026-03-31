@@ -13,6 +13,41 @@ from typing import Optional
 
 # Lazy import — tree-sitter installed at skill activation time
 _parsers: dict = {}
+_bootstrapped = False
+
+
+def _bootstrap_parsers():
+    """Ensure tree-sitter parsers are available.
+
+    In proxied environments (Claude.ai), tree-sitter-language-pack can't download
+    parsers due to SSL certificate issues. This copies bundled .so files from
+    the skill's parsers/ directory to the cache location.
+    """
+    global _bootstrapped
+    if _bootstrapped:
+        return
+    _bootstrapped = True
+
+    try:
+        from tree_sitter_language_pack import get_parser
+        get_parser('python')
+        return  # Already available
+    except Exception as e:
+        if 'Download error' not in str(e) and 'DownloadError' not in type(e).__name__:
+            raise
+
+    # Copy bundled parsers to cache
+    import shutil
+    from tree_sitter_language_pack import cache_dir
+    cache_libs = Path(cache_dir())
+    cache_libs.mkdir(parents=True, exist_ok=True)
+
+    bundled = Path(__file__).parent.parent / 'parsers'
+    if bundled.is_dir():
+        for so in bundled.glob('*.so'):
+            dest = cache_libs / so.name
+            if not dest.exists():
+                shutil.copy2(so, dest)
 
 EXT_TO_LANG = {
     '.py': 'python', '.pyi': 'python',
@@ -89,6 +124,7 @@ class Symbol:
 def _get_parser(lang: str):
     """Get or create a cached parser for the given language. Returns None if unavailable."""
     if lang not in _parsers:
+        _bootstrap_parsers()
         try:
             from tree_sitter_language_pack import get_parser
             _parsers[lang] = get_parser(lang)
