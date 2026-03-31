@@ -1,5 +1,5 @@
 """
-SVG Portrait Mode v0.6.0 — Selective simplification.
+SVG Portrait Mode v0.6.1 — Selective simplification.
 
 One pipeline pass at high K → zone-aware contour simplification → optional
 per-zone style transforms. No clipPaths, no multi-pipeline compositing.
@@ -48,12 +48,14 @@ ZONE_NAMES = {
 
 # Per-zone simplification defaults
 # epsilon_mult: multiplier on base epsilon (0.002 * perimeter)
+#   Unified at 1.0 across zones to prevent inter-zone tearing (issue #512).
+#   Visual hierarchy is achieved via min_area (shape count) instead.
 # min_area: minimum contour area in pixels²
 ZONE_SIMPLIFICATION = {
-    ZONE_TARGET:     {'epsilon_mult': 0.5,  'min_area': 15},
+    ZONE_TARGET:     {'epsilon_mult': 1.0,  'min_area': 15},
     ZONE_EDGE:       {'epsilon_mult': 1.0,  'min_area': 40},
-    ZONE_PERIPHERY:  {'epsilon_mult': 2.5,  'min_area': 100},
-    ZONE_BG:         {'epsilon_mult': 5.0,  'min_area': 200},
+    ZONE_PERIPHERY:  {'epsilon_mult': 1.0,  'min_area': 150},
+    ZONE_BG:         {'epsilon_mult': 1.0,  'min_area': 400},
 }
 
 # MediaPipe face mesh landmark indices

@@ -1,5 +1,5 @@
 # claude-skills/
-*Files: 1 | Subdirectories: 57*
+*Files: 1 | Subdirectories: 61*
 
 ## Subdirectories
 
@@ -10,6 +10,7 @@
 - [building-github-index/](./building-github-index/_MAP.md)
 - [building-github-index-v2/](./building-github-index-v2/_MAP.md)
 - [categorizing-bsky-accounts/](./categorizing-bsky-accounts/_MAP.md)
+- [charting/](./charting/_MAP.md)
 - [charting-vega-lite/](./charting-vega-lite/_MAP.md)
 - [check-tools/](./check-tools/_MAP.md)
 - [cloning-project/](./cloning-project/_MAP.md)
@@ -29,6 +30,7 @@
 - [fetching-blocked-urls/](./fetching-blocked-urls/_MAP.md)
 - [flowing/](./flowing/_MAP.md)
 - [forecasting-reverso/](./forecasting-reverso/_MAP.md)
+- [generating-lattice/](./generating-lattice/_MAP.md)
 - [generating-patches/](./generating-patches/_MAP.md)
 - [githubbing/](./githubbing/_MAP.md)
 - [hello-demo/](./hello-demo/_MAP.md)
@@ -39,6 +41,7 @@
 - [invoking-github/](./invoking-github/_MAP.md)
 - [iterating/](./iterating/_MAP.md)
 - [json-render-ui/](./json-render-ui/_MAP.md)
+- [lat.md/](./lat.md/_MAP.md)
 - [llm-as-computer/](./llm-as-computer/_MAP.md)
 - [making-waffles/](./making-waffles/_MAP.md)
 - [mapping-codebases/](./mapping-codebases/_MAP.md)
@@ -55,6 +58,7 @@
 - [searching-codebases/](./searching-codebases/_MAP.md)
 - [seeing-images/](./seeing-images/_MAP.md)
 - [sorting-groceries/](./sorting-groceries/_MAP.md)
+- [svg-portrait-mode/](./svg-portrait-mode/_MAP.md)
 - [templates/](./templates/_MAP.md)
 - [tiling-tree/](./tiling-tree/_MAP.md)
 - [updating-knowledge/](./updating-knowledge/_MAP.md)
