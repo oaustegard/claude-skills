@@ -5,7 +5,7 @@ description: Apply semi-formal certificate reasoning to code analysis — patch 
 
 # Semi-Formal Code Reasoning
 
-Structured certificate templates that force mandatory checkpoints before conclusions. Based on Ugare & Chandra (2026), validated in replication experiments.
+Structured certificate templates that force mandatory checkpoints before conclusions.
 
 ## Skip Conditions
 
@@ -33,10 +33,3 @@ For complex tasks, apply templates sequentially:
 3. **Patch equivalence** to compare alternative fixes
 
 Each output feeds the next as premises.
-
-## Provenance
-
-- Paper: Ugare & Chandra, "Agentic Code Reasoning with Semi-Formal Certificates" (arXiv:2603.01896, March 2026)
-- Replication: Django name-shadowing (0%→100% fault localization), 3 real bugs (+11pp aggregate)
-- CVE validation: CVE-2026-29000 (pac4j-jwt, 383 lines). Haiku: +20pp with template. Sonnet: -20pp with template.
-- Finding: Template value is model-capability-dependent. Scaffolding helps weaker models; it becomes overhead for stronger ones.
