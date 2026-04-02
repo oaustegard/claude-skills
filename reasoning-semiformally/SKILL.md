@@ -1,5 +1,6 @@
 ---
 name: reasoning-semiformally
+version: 0.3.0
 description: Apply semi-formal certificate reasoning to code analysis — patch verification, fault localization, patch equivalence. Use when reviewing patches, hunting bugs across scopes, comparing fixes, or when code reasoning requires tracing execution across files/modules. Triggers on code review, bug localization, patch comparison, name shadowing, scope analysis, regression checking.
 ---
 
