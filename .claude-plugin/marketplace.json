@@ -605,6 +605,18 @@
       "license": "MIT"
     },
     {
+      "name": "reasoning-semiformally",
+      "description": "Apply semi-formal certificate reasoning to code analysis — patch verification, fault localization, patch equivalence. Use when reviewing patches, hunting bugs across scopes, comparing fixes, or when code reasoning requires tracing execution across files/modules. Triggers on code review, bug localization, patch comparison, name shadowing, scope analysis, regression checking.",
+      "source": "./reasoning-semiformally",
+      "strict": false,
+      "skills": [
+        "./"
+      ],
+      "repository": "https://github.com/oaustegard/claude-skills",
+      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/reasoning-semiformally",
+      "license": "MIT"
+    },
+    {
       "name": "remembering",
       "description": "Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, retention management, type-safe results, proactive memory hints, GitHub access detection, autonomous curation, episodic scoring, and decision traces.",
       "source": "./remembering",
