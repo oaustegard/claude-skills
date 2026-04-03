@@ -458,15 +458,22 @@ PERCH_OPS_KEYS = frozenset({
     'remembering-api', 'memory-types', 'storage-discipline',
 })
 
+# Valid task names for boot(task=...) in perch mode (#528)
+PERCH_VALID_TASKS = frozenset({'fly', 'zeitgeist', 'dispatch', 'sleep'})
+
 
 # @lat: [[memory#Boot Sequence]]
-def boot(mode: str = None) -> str:
+def boot(mode: str = None, task: str = None) -> str:
     """Boot sequence: load profile + ops from Turso.
 
     Args:
         mode: Optional boot mode. "perch" emits a slim ~10K-char output
               suitable for API callers with tight token budgets (#353).
               None (default) emits full boot output.
+        task: Optional task name for perch mode. When set with mode="perch",
+              appends task-specific instructions to the boot output (#528).
+              Valid values: "fly", "zeitgeist", "dispatch", "sleep".
+              Ignored when mode is not "perch".
 
     Returns formatted string with complete profile and ops values.
 
@@ -480,6 +487,7 @@ def boot(mode: str = None) -> str:
 
     v5.0.0: Removed local cache. All reads go to Turso directly.
     v5.4.0: Added mode="perch" for slim API boot (#353).
+    v5.8.0: Added task= for unified perch task prompts (#528).
     """
     # Refresh OPS_TOPICS from config (v3.6.0: dynamic loading)
     global OPS_TOPICS, _OPS_KEY_TO_TOPIC
@@ -509,7 +517,7 @@ def boot(mode: str = None) -> str:
             return f"ERROR: Unable to load config (remote failed: {e}, no defaults available)"
 
     if mode == "perch":
-        return _boot_perch(profile_data, ops_data)
+        return _boot_perch(profile_data, ops_data, task=task)
 
     # -- Full boot (default) --
 
@@ -545,20 +553,31 @@ def boot(mode: str = None) -> str:
     return _format_boot_output(profile_data, ops_by_topic, uncategorized, reference_ops, installed_utils, github_access, pending_tasks, recent_flights, due_reminders)
 
 
-def _boot_perch(profile_data: list, ops_data: list) -> str:
-    """Slim boot for perch/API context (#353).
+def _boot_perch(profile_data: list, ops_data: list, *, task: str = None) -> str:
+    """Slim boot for perch/API context (#353, #528).
 
     Emits ~10K chars by keeping only identity core + essential memory ops.
     Drops: recall-triggers, utility listings, voice/tensions profile,
     reference entries, GitHub detection, incomplete tasks.
 
+    When task is specified, appends task-specific instructions from the
+    tasks/ directory within the remembering skill (#528).
+
     Args:
         profile_data: List of profile config entries
         ops_data: List of all ops config entries
+        task: Optional task name ("fly", "zeitgeist", "dispatch", "sleep").
+              If specified, task instructions are appended to boot output.
 
     Returns:
-        Compact boot output string
+        Compact boot output string, optionally with task instructions appended
     """
+    # Validate task if provided
+    if task is not None and task not in PERCH_VALID_TASKS:
+        raise ValueError(
+            f"Unknown task '{task}'. Valid tasks: {', '.join(sorted(PERCH_VALID_TASKS))}"
+        )
+
     output = []
 
     # Time anchor (temporal grounding)
@@ -579,7 +598,31 @@ def _boot_perch(profile_data: list, ops_data: list) -> str:
         for o in perch_ops:
             output.append(_format_entry(o))
 
+    # Task instructions (#528)
+    if task:
+        task_content = _load_task_prompt(task)
+        if task_content:
+            output.append(f"\n# TASK\n{task_content}")
+
     return '\n'.join(output)
+
+
+def _load_task_prompt(task: str) -> str | None:
+    """Load task-specific prompt content from the tasks/ directory (#528).
+
+    Task prompts are version-controlled markdown files that provide
+    structured instructions for perch autonomous sessions.
+
+    Args:
+        task: Task name (e.g., "fly", "zeitgeist", "dispatch", "sleep")
+
+    Returns:
+        Task prompt content as string, or None if file not found.
+    """
+    task_file = Path(__file__).parent / "tasks" / f"{task}.md"
+    if task_file.exists():
+        return task_file.read_text().strip()
+    return None
 
 
 def _load_incomplete_tasks() -> list:
