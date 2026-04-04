@@ -2,6 +2,9 @@
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
+  "metadata": {
+    "version": "2026.0404.1742"
+  },
   "owner": {
     "name": "Oskar Austegard"
   },

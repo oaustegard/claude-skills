@@ -1,5 +1,5 @@
 # claude-skills/
-*Files: 1 | Subdirectories: 65*
+*Files: 1 | Subdirectories: 66*
 
 ## Subdirectories
 
@@ -50,6 +50,7 @@
 - [mapping-webapp/](./mapping-webapp/_MAP.md)
 - [orchestrating-agents/](./orchestrating-agents/_MAP.md)
 - [orchestrating-skills/](./orchestrating-skills/_MAP.md)
+- [plugins/](./plugins/_MAP.md)
 - [processing-images/](./processing-images/_MAP.md)
 - [processing-video/](./processing-video/_MAP.md)
 - [reasoning-semiformally/](./reasoning-semiformally/_MAP.md)
