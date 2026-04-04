@@ -6,10 +6,12 @@ tracking which filesystem paths are modified for layer snapshot/caching.
 """
 
 import hashlib
+import json
 import os
 import re
 import subprocess
 import shlex
+import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -85,10 +87,31 @@ def parse_containerfile(path: str) -> list[Instruction]:
     return instructions
 
 
-def content_hash(path: str) -> str:
-    """SHA-256 hash of a Containerfile's contents (the cache key)."""
+def content_hash(path: str, extra_salt: str = "") -> str:
+    """SHA-256 hash of a Containerfile's contents (the cache key).
+    
+    Optionally include extra_salt (e.g. a git SHA) so the cache
+    invalidates when external dependencies change.
+    """
     content = Path(path).read_text().strip()
+    if extra_salt:
+        content += f"\n# salt: {extra_salt}"
     return hashlib.sha256(content.encode()).hexdigest()[:16]
+
+
+def github_head_sha(repo: str, ref: str = "main", token: str = "") -> str:
+    """Fetch the HEAD SHA of a GitHub repo ref. Returns empty string on failure."""
+    try:
+        url = f"https://api.github.com/repos/{repo}/commits/{ref}"
+        headers = {"Accept": "application/vnd.github+json"}
+        if token:
+            headers["Authorization"] = f"token {token}"
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read())
+            return data.get("sha", "")[:12]
+    except Exception:
+        return ""
 
 
 def snapshot_baseline(paths: list[str]) -> dict[str, set[str]]:
@@ -345,11 +368,12 @@ class ContainerLayer:
         containerfile_path: str,
         cache_repo: str = "oaustegard/claude-container-layers",
         gh_token: Optional[str] = None,
+        salt: str = "",
     ):
         self.containerfile_path = containerfile_path
         self.cache_repo = cache_repo
         self.gh_token = gh_token or os.environ.get("GH_TOKEN", "")
-        self._hash = content_hash(containerfile_path)
+        self._hash = content_hash(containerfile_path, extra_salt=salt)
     
     @property
     def tag(self) -> str:
