@@ -1,0 +1,18 @@
+# ╔══════════════════════════════════════════════════════╗
+# ║  Muninn Container Layer                              ║
+# ║  Declarative environment for Claude ephemeral sessions ║
+# ╚══════════════════════════════════════════════════════╝
+
+# ── Skills ──────────────────────────────────────────────
+FETCH github:oaustegard/claude-skills /mnt/skills/user
+
+# ── Python path config ──────────────────────────────────
+RUN echo '/mnt/skills/user/remembering' > /usr/local/lib/python3.12/dist-packages/muninn-remembering.pth
+SNAPSHOT /usr/local/lib/python3.12/dist-packages/muninn-remembering.pth
+
+# ── Python packages ─────────────────────────────────────
+# The uv shim auto-appends RUN lines here for ad-hoc installs.
+# To capture: source /mnt/skills/user/container-layer/scripts/uv_shim.sh /path/to/Containerfile
+
+# ── Working directory ───────────────────────────────────
+WORKDIR /home/claude
