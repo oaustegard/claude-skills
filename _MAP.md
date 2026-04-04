@@ -1,5 +1,5 @@
 # claude-skills/
-*Files: 1 | Subdirectories: 61*
+*Files: 1 | Subdirectories: 65*
 
 ## Subdirectories
 
@@ -16,6 +16,7 @@
 - [cloning-project/](./cloning-project/_MAP.md)
 - [coding-mojo/](./coding-mojo/_MAP.md)
 - [configuring/](./configuring/_MAP.md)
+- [container-layer/](./container-layer/_MAP.md)
 - [controlling-spotify/](./controlling-spotify/_MAP.md)
 - [convening-experts/](./convening-experts/_MAP.md)
 - [crafting-instructions/](./crafting-instructions/_MAP.md)
@@ -27,6 +28,7 @@
 - [exploring-codebases/](./exploring-codebases/_MAP.md)
 - [exploring-data/](./exploring-data/_MAP.md)
 - [extracting-keywords/](./extracting-keywords/_MAP.md)
+- [featuring/](./featuring/_MAP.md)
 - [fetching-blocked-urls/](./fetching-blocked-urls/_MAP.md)
 - [flowing/](./flowing/_MAP.md)
 - [forecasting-reverso/](./forecasting-reverso/_MAP.md)
@@ -50,6 +52,7 @@
 - [orchestrating-skills/](./orchestrating-skills/_MAP.md)
 - [processing-images/](./processing-images/_MAP.md)
 - [processing-video/](./processing-video/_MAP.md)
+- [reasoning-semiformally/](./reasoning-semiformally/_MAP.md)
 - [registry/](./registry/_MAP.md)
 - [remembering/](./remembering/_MAP.md)
 - [reviewing-ai-papers/](./reviewing-ai-papers/_MAP.md)
@@ -61,6 +64,7 @@
 - [svg-portrait-mode/](./svg-portrait-mode/_MAP.md)
 - [templates/](./templates/_MAP.md)
 - [tiling-tree/](./tiling-tree/_MAP.md)
+- [tree-sitting/](./tree-sitting/_MAP.md)
 - [updating-knowledge/](./updating-knowledge/_MAP.md)
 - [using-webctl/](./using-webctl/_MAP.md)
 - [versioning-skills/](./versioning-skills/_MAP.md)

@@ -7,760 +7,195 @@
   },
   "plugins": [
     {
-      "name": "accessing-github-repos",
-      "description": "GitHub repository access in containerized environments using REST API and credential detection. Use when git clone fails, or when accessing private repos/writing files via API.",
-      "source": "./accessing-github-repos",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "2.0.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/accessing-github-repos",
-      "license": "MIT"
-    },
-    {
-      "name": "api-credentials",
-      "description": "Securely manages API credentials for multiple providers (Anthropic Claude, Google Gemini, GitHub). Use when skills need to access stored API keys for external service invocations.",
-      "source": "./api-credentials",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.0.3",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/api-credentials",
-      "license": "MIT"
-    },
-    {
-      "name": "asking-questions",
-      "description": "Guidance for asking clarifying questions when user requests are ambiguous, have multiple valid approaches, or require critical decisions. Use when implementation choices exist that could significantly affect outcomes.",
-      "source": "./asking-questions",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "1.0.7",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/asking-questions",
-      "license": "MIT"
-    },
-    {
-      "name": "browsing-bluesky",
-      "description": "Browse Bluesky content via API and firehose - search posts, fetch user activity, sample trending topics, read feeds and lists, analyze and categorize accounts. Supports authenticated access for personalized feeds. Use for Bluesky research, user monitoring, trend analysis, feed reading, firehose sampling, account categorization.",
-      "source": "./browsing-bluesky",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.5.1",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/browsing-bluesky",
-      "license": "MIT"
-    },
-    {
-      "name": "building-github-index",
-      "description": "Generate progressive disclosure indexes for GitHub repositories to use as Claude project knowledge. Use when setting up projects referencing external documentation, creating searchable indexes of technical blogs or knowledge bases, combining multiple repos into one index, or when user mentions \"index\", \"github repo\", \"project knowledge\", or \"documentation reference\".",
-      "source": "./building-github-index",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "2.0.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/building-github-index",
-      "license": "MIT"
-    },
-    {
-      "name": "building-github-index",
-      "description": "Generate progressive disclosure indexes for GitHub repositories to use as Claude project knowledge. Use when setting up projects referencing external documentation, creating searchable indexes of technical blogs or knowledge bases, combining multiple repos into one index, or when user mentions \"index\", \"github repo\", \"project knowledge\", or \"documentation reference\".",
-      "source": "./building-github-index-v2",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "2.0.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/building-github-index-v2",
-      "license": "MIT"
-    },
-    {
-      "name": "categorizing-bsky-accounts",
-      "description": "Analyze and categorize Bluesky accounts by topic using keyword extraction. Use when users mention Bluesky account analysis, following/follower lists, topic discovery, account curation, or network analysis.",
-      "source": "./categorizing-bsky-accounts",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.2.1",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/categorizing-bsky-accounts",
-      "license": "MIT"
-    },
-    {
-      "name": "charting",
-      "description": "Select the right Python charting library (seaborn, matplotlib, graphviz) and produce publication-quality static visualizations. Use when creating charts, plots, graphs, diagrams, heatmaps, visualizations from data, or when choosing between matplotlib/seaborn/graphviz. Also triggers for network diagrams, flowcharts, dependency trees, state machines, and entity-relationship diagrams. For interactive browser-rendered charts or uploaded data exploration, defer to charting-vega-lite instead.",
-      "source": "./charting",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.1.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/charting",
-      "license": "MIT"
-    },
-    {
-      "name": "charting-vega-lite",
-      "description": "Create interactive data visualizations using Vega-Lite declarative JSON grammar. Supports 20+ chart types (bar, line, scatter, histogram, boxplot, grouped/stacked variations, etc.) via templates and programmatic builders. Use when users upload data for charting, request specific chart types, or mention visualizations. Produces portable JSON specs with inline data islands that work in Claude artifacts and can be adapted for production.",
-      "source": "./charting-vega-lite",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.1.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/charting-vega-lite",
-      "license": "MIT"
-    },
-    {
-      "name": "check-tools",
-      "description": "Validates development tool installations across Python, Node.js, Java, Go, Rust, C/C++, Git, and system utilities. Use when verifying environments or troubleshooting dependencies.",
-      "source": "./check-tools",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "1.1.3",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/check-tools",
-      "license": "MIT"
-    },
-    {
-      "name": "cloning-project",
-      "description": "Exports project instructions and knowledge files from the current Claude project. Use when users want to clone, copy, backup, or export a project's configuration and files.",
-      "source": "./cloning-project",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "1.0.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/cloning-project",
-      "license": "MIT"
-    },
-    {
-      "name": "coding-mojo",
-      "description": "Develop and run Mojo code in Claude.ai containers. Handles installation, compilation, and execution. Use when writing Mojo code, benchmarking Mojo vs Python, or when user mentions Mojo, Modular, or MAX. Routes to Modular's official skills (mojo-syntax, mojo-python-interop, mojo-gpu-fundamentals) for language-specific correction layers.",
-      "source": "./coding-mojo",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.2.1",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/coding-mojo",
-      "license": "MIT"
-    },
-    {
-      "name": "configuring",
-      "description": "Universal environment variable loader for AI agent environments. Loads secrets and config from Claude.ai, Claude Code, OpenAI Codex, Jules, and standard .env files.",
-      "source": "./configuring",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "2.0.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/configuring",
-      "license": "MIT"
-    },
-    {
-      "name": "container-layer",
-      "description": "Build and cache a personalized container environment from a Dockerfile-like spec. Use when the user mentions \"container layer\", \"Containerfile\", \"custom container\", \"environment setup\", \"cache my installs\", \"uv shim\", or wants to persist package installations, skills, or environment config across ephemeral sessions. Also triggers when the user asks to snapshot, restore, or rebuild their environment, or wants to capture ad-hoc package installs into a reproducible spec.",
-      "source": "./container-layer",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.1.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/container-layer",
-      "license": "MIT"
-    },
-    {
-      "name": "controlling-spotify",
-      "description": "Control Spotify playback and manage playlists via MCP server. Use when user requests playing music, controlling Spotify, creating playlists, searching songs, or managing their Spotify library.",
-      "source": "./controlling-spotify",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.1.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/controlling-spotify",
-      "license": "MIT"
-    },
-    {
-      "name": "convening-experts",
-      "description": "Convenes expert panels for problem-solving. Use when user mentions panel, experts, multiple perspectives, MECE, DMAIC, RAPID, Six Sigma, root cause analysis, strategic decisions, or process improvement.",
-      "source": "./convening-experts",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "1.0.3",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/convening-experts",
-      "license": "MIT"
-    },
-    {
-      "name": "crafting-instructions",
-      "description": "Generate optimized instructions for Claude (Project instructions, Skills, or standalone prompts). Use when users request creating project setups, writing effective prompts, building Skills, or need guidance on instruction types for Claude.ai.",
-      "source": "./crafting-instructions",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.3.1",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/crafting-instructions",
-      "license": "MIT"
-    },
-    {
-      "name": "creating-bookmarklets",
-      "description": "Creates browser-executable JavaScript bookmarklets with strict formatting requirements. Use when users mention bookmarklets, browser utilities, dragging code to bookmarks bar, or need JavaScript that runs when clicked in the browser toolbar.",
-      "source": "./creating-bookmarklets",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "1.0.3",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/creating-bookmarklets",
-      "license": "MIT"
-    },
-    {
-      "name": "creating-mcp-servers",
-      "description": "Creates production-ready MCP servers using FastMCP v2. Use when building MCP servers, optimizing tool descriptions for context efficiency, implementing progressive disclosure for multiple capabilities, or packaging servers for distribution.",
-      "source": "./creating-mcp-servers",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
+      "name": "ai-and-reasoning",
+      "description": "AI model invocation, multi-agent orchestration, prompt distillation, and structured reasoning frameworks.",
+      "source": "./plugins/ai-and-reasoning",
       "version": "1.1.0",
       "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/creating-mcp-servers",
-      "license": "MIT"
+      "homepage": "https://github.com/oaustegard/claude-skills",
+      "license": "MIT",
+      "category": "Ai And Reasoning",
+      "keywords": [
+        "orchestrating-agents",
+        "convening-experts",
+        "down-skilling",
+        "invoking-gemini",
+        "llm-as-computer",
+        "reviewing-ai-papers",
+        "tiling-tree"
+      ]
     },
     {
-      "name": "creating-skill",
-      "description": "Creates Skills for Claude. Use when users request creating/updating skills, need skill structure guidance, or mention extending Claude's capabilities through custom skills.",
-      "source": "./creating-skill",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "2.1.2",
+      "name": "code-intelligence",
+      "description": "Codebase exploration, navigation, mapping, and static analysis tools for understanding unfamiliar codebases.",
+      "source": "./plugins/code-intelligence",
+      "version": "2.0.0",
       "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/creating-skill",
-      "license": "MIT"
+      "homepage": "https://github.com/oaustegard/claude-skills",
+      "license": "MIT",
+      "category": "Code Intelligence",
+      "keywords": [
+        "exploring-codebases",
+        "featuring",
+        "generating-lattice",
+        "mapping-codebases",
+        "mapping-webapp",
+        "reasoning-semiformally",
+        "searching-codebases",
+        "tree-sitting"
+      ]
     },
     {
-      "name": "developing-preact",
-      "description": "Specialized Preact development skill for standards-based web applications with native-first architecture and minimal dependency footprint. Use when building Preact projects, particularly those involving data visualization, interactive applications, single-page apps with HTM syntax, Web Components integration, CSV/JSON data parsing, WebGL shader visualizations, or zero-build solutions with vendored ESM imports.",
-      "source": "./developing-preact",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
+      "name": "data-and-visualization",
+      "description": "Data analysis, charting, forecasting, and interactive visualization tools.",
+      "source": "./plugins/data-and-visualization",
+      "version": "1.0.0",
+      "repository": "https://github.com/oaustegard/claude-skills",
+      "homepage": "https://github.com/oaustegard/claude-skills",
+      "license": "MIT",
+      "category": "Data And Visualization",
+      "keywords": [
+        "charting",
+        "charting-vega-lite",
+        "exploring-data",
+        "extracting-keywords",
+        "forecasting-reverso",
+        "json-render-ui"
+      ]
+    },
+    {
+      "name": "development-tools",
+      "description": "Software development utilities: MCP servers, bookmarklets, frameworks, patching, and environment validation.",
+      "source": "./plugins/development-tools",
       "version": "1.2.0",
       "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/developing-preact",
-      "license": "MIT"
-    },
-    {
-      "name": "down-skilling",
-      "description": "Distill Opus-level reasoning into optimized instructions for Haiku 4.5 (and Sonnet). Generates explicit, procedural prompts with n-shot examples that maximize smaller model performance on a given task. Use when user says \"down-skill\", \"distill for Haiku\", \"optimize for Haiku\", \"make this work on Haiku\", \"generate Haiku instructions\", or needs to delegate a task to a smaller model with high reliability.",
-      "source": "./down-skilling",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "1.1.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/down-skilling",
-      "license": "MIT"
-    },
-    {
-      "name": "exploring-codebases",
-      "description": "First-encounter codebase orientation. Chains tree-sitting (structural inventory) and featuring (feature synthesis) into an EDA workflow for unfamiliar repositories. Use when someone says \"explore this repo\", \"what does this do\", \"I just cloned this\", \"help me understand this codebase\", or when starting work on an unfamiliar repository. This is the divergent \"what's here?\" skill — for targeted \"where is X?\" queries, use searching-codebases instead.",
-      "source": "./exploring-codebases",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "1.0.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/exploring-codebases",
-      "license": "MIT"
-    },
-    {
-      "name": "exploring-data",
-      "description": "Exploratory data analysis using ydata-profiling. Use when users upload .csv/.xlsx/.json/.parquet files or request \"explore data\", \"analyze dataset\", \"EDA\", \"profile data\". Generates interactive HTML or JSON reports with statistics, visualizations, correlations, and quality alerts.",
-      "source": "./exploring-data",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.0.3",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/exploring-data",
-      "license": "MIT"
-    },
-    {
-      "name": "extracting-keywords",
-      "description": "Extract keywords from documents using YAKE algorithm with support for 34 languages (Arabic to Chinese). Use when users request keyword extraction, key terms, topic identification, content summarization, or document analysis. Includes domain-specific stopwords for AI/ML and life sciences. Optional deeper extraction mode (n=2+n=3 combined) for comprehensive coverage.",
-      "source": "./extracting-keywords",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.2.1",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/extracting-keywords",
-      "license": "MIT"
-    },
-    {
-      "name": "featuring",
-      "description": "Generate hierarchical _FEATURES.md files that describe what a codebase DOES from a user/consumer perspective, anchored to source symbols via tree-sitting. Supports large complex codebases through feature-driven decomposition into sub-feature files. Uses a multi-pass synthesis: orientation → detail → overview rewrite. Use when someone says \"what does this do\", \"document features\", \"feature inventory\", \"_FEATURES.md\", or needs to understand a codebase's purpose before modifying it. Complements tree-sitting (structural) with semantic (why/what-for) layer.",
-      "source": "./featuring",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.2.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/featuring",
-      "license": "MIT"
-    },
-    {
-      "name": "fetching-blocked-urls",
-      "description": "Retrieve clean markdown from URLs when web_fetch fails. Converts pages via Jina AI reader service with automatic retry. Use when web_fetch or curl returns 403, blocked, paywall, timeout, JavaScript-rendering errors, or empty content or user explicitly suggests using jina.",
-      "source": "./fetching-blocked-urls",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.1.1",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/fetching-blocked-urls",
-      "license": "MIT"
-    },
-    {
-      "name": "flowing",
-      "description": "Lightweight DAG workflow runner with checkpoint resume and detachable tasks. Use when orchestrating 3+ sequential or parallel tool calls into a single invocation, or when pipelines need resume-from-failure without re-running succeeded steps.",
-      "source": "./flowing",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "1.0.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/flowing",
-      "license": "MIT"
-    },
-    {
-      "name": "forecasting-reverso",
-      "description": "Zero-shot univariate time series forecasting using the Reverso foundation model (NumPy/Numba CPU-only inference). Activate when users provide time series data and request forecasts, predictions, or extrapolations. Supports Reverso Small (550K params). Triggers on \"forecast\", \"predict\", \"time series\", \"Reverso\", or when tabular data with a temporal dimension needs future-value estimation.",
-      "source": "./forecasting-reverso",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/forecasting-reverso",
-      "license": "MIT"
-    },
-    {
-      "name": "generating-lattice",
-      "description": "Generate and maintain lat.md/ knowledge graphs with bidirectional source code anchoring. Docs link to code via [[src/file#symbol]] wiki links; code links back to docs via @lat: comments. lat check validates both directions, catching drift when either side changes. Use when user says \"lat.md\", \"lattice\", \"knowledge graph\", \"document this codebase\", \"add back-links\", or wants cross-referenced architecture docs anchored to source code symbols.",
-      "source": "./generating-lattice",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.3.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/generating-lattice",
-      "license": "MIT"
-    },
-    {
-      "name": "generating-patches",
-      "description": "Generates git patch files from codebase modifications for local application. Use when user mentions patch, diff, export changes, bring changes back, apply locally, or after editing uploaded codebases.",
-      "source": "./generating-patches",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.1.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/generating-patches",
-      "license": "MIT"
-    },
-    {
-      "name": "githubbing",
-      "description": "GitHub CLI (gh) installation and authenticated operations in Claude.ai containers. Use when user needs to create issues, PRs, view repos, or perform GitHub operations beyond raw API calls.",
-      "source": "./githubbing",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "1.1.2",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/githubbing",
+      "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",
+      "category": "Development Tools",
       "keywords": [
-        "configuring"
+        "check-tools",
+        "coding-mojo",
+        "creating-bookmarklets",
+        "creating-mcp-servers",
+        "developing-preact",
+        "generating-patches"
       ]
     },
     {
-      "name": "hello-demo",
-      "description": "Delivers a static Hello World HTML demo page with bookmarklet. Use when user requests the hello demo, hello world demo, or demo page.",
-      "source": "./hello-demo",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "1.0.4",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/hello-demo",
-      "license": "MIT"
-    },
-    {
-      "name": "image-to-svg",
-      "description": "Convert raster images (photos, paintings, illustrations, line art) into SVG vector reproductions. Use when the user uploads an image and asks to reproduce, vectorize, trace, or convert it to SVG. Also use when asked to decompose an image into shapes, create an SVG version of a picture, or faithfully reproduce artwork as vector graphics. Handles graphic/line-art inputs (Kandinsky, architectural drawings, ink work) via a compositional pipeline that extracts lines as SVG strokes. Do NOT use for creating original SVG illustrations from text descriptions — only for converting existing raster images.",
-      "source": "./image-to-svg",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/image-to-svg",
-      "license": "MIT"
-    },
-    {
-      "name": "inspecting-skills",
-      "description": "Discovers and indexes Python code in skills, enabling cross-skill imports. Use when importing functions from other skills or analyzing skill codebases.",
-      "source": "./inspecting-skills",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "1.0.2",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/inspecting-skills",
-      "license": "MIT"
-    },
-    {
-      "name": "installing-skills",
-      "description": "Install skills from github.com/oaustegard/claude-skills into /mnt/skills/user. Use when user mentions \"install skills\", \"load skills\", \"add skills\", \"update skills\", \"refresh skills\", or references a skill not currently installed.",
-      "source": "./installing-skills",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/installing-skills",
-      "license": "MIT"
-    },
-    {
-      "name": "invoking-gemini",
-      "description": "Invokes Google Gemini models for structured outputs, image generation, multi-modal tasks, and Google-specific features. Use when users request Gemini, image generation, structured JSON output, Google API integration, or cost-effective parallel processing.",
-      "source": "./invoking-gemini",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.5.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/invoking-gemini",
-      "license": "MIT"
-    },
-    {
-      "name": "invoking-github",
-      "description": "Enables GitHub repository operations (read/write/commit/PR) for Claude.ai chat environments. Use when users request GitHub commits, repository updates, DEVLOG persistence, or cross-session state management via GitHub branches. Not needed in Claude Code (has native git access).",
-      "source": "./invoking-github",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.0.3",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/invoking-github",
-      "license": "MIT"
-    },
-    {
-      "name": "iterating",
-      "description": "Multi-conversation methodology for iterative stateful work with context accumulation. Use when users request work that spans multiple sessions (research, debugging, refactoring, feature development), need to build on past progress, explicitly mention iterative work, work logs, project knowledge, or cross-conversation learning.",
-      "source": "./iterating",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "1.1.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/iterating",
-      "license": "MIT"
-    },
-    {
-      "name": "llm-as-computer",
-      "description": "Execute programs on a compiled transformer stack machine where every instruction fetch and memory read is a parabolic attention head. Demonstrates that transformer attention + FF layers can implement a working computer. Use when user mentions \"llm-as-computer\", \"lac\", \"stack machine\", \"compiled transformer\", \"percepta\", \"parabolic attention\", \"execute program\", or asks to run/trace programs on the transformer executor.",
-      "source": "./llm-as-computer",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "1.0.1",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/llm-as-computer",
-      "license": "MIT"
-    },
-    {
-      "name": "making-waffles",
-      "description": "Generates WAFFLES Declarations for social media posts — preemptive lists of what a post does NOT say. Use when users mention WAFFLES, ask for clarifications on their post, want to prevent misinterpretation, or request disclaimers for controversial/nuanced takes.",
-      "source": "./making-waffles",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.1.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/making-waffles",
-      "license": "MIT"
-    },
-    {
-      "name": "mapping-codebases",
-      "description": "Generate navigable code maps for unfamiliar codebases. Extracts exports/imports via AST (tree-sitter) to create _MAP.md files per directory showing classes, functions, methods with signatures and line numbers. Use when exploring repositories, understanding project structure, analyzing unfamiliar code, or before modifications. Triggers on \"map this codebase\", \"explore repo\", \"understand structure\", \"what does this project contain\", or when starting work on an unfamiliar repository.",
-      "source": "./mapping-codebases",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.8.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/mapping-codebases",
-      "license": "MIT"
-    },
-    {
-      "name": "mapping-webapp",
-      "description": "Generate behavioral/feature documentation for web apps using code-first analysis. Reads source code and _MAP.md files to produce _FEATURES.md, with optional visual verification via browser automation. Companion to mapping-codebases. Use when documenting app behavior, creating feature inventories, generating behavioral ground truth for agents, or before modifying UI code. Triggers on \"map features\", \"document app behavior\", \"feature inventory\", \"what does this app do\".",
-      "source": "./mapping-webapp",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.3.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/mapping-webapp",
-      "license": "MIT"
-    },
-    {
-      "name": "orchestrating-agents",
-      "description": "Orchestrates parallel API instances, delegated sub-tasks, and multi-agent workflows with streaming and tool-enabled delegation patterns. Use for parallel analysis, multi-perspective reviews, or complex task decomposition.",
-      "source": "./orchestrating-agents",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.3.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/orchestrating-agents",
-      "license": "MIT"
-    },
-    {
-      "name": "orchestrating-skills",
-      "description": "Skill-aware orchestration with context routing. Decomposes complex tasks into skill-typed subtasks, extracts targeted context subsets, executes subagents in parallel, and synthesizes results. Self-answers trivial lookups inline. No SDK dependency — uses raw HTTP via httpx. Use when tasks require multiple analytical perspectives, when context is large and subtasks only need portions, or when orchestrating-agents spawns too many redundant subagents.",
-      "source": "./orchestrating-skills",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.3.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/orchestrating-skills",
-      "license": "MIT"
-    },
-    {
-      "name": "processing-images",
-      "description": "Image processing toolkit awareness. Use when: user uploads images for manipulation, requests format conversion, batch processing, compositing, resizing, optimization, analysis, effects, metadata inspection, montages, animated GIFs, color correction, or any image-related task. Also use when working with screenshots, photos, diagrams, icons, or visual assets. Triggers on 'resize', 'crop', 'convert', 'compress', 'optimize', 'thumbnail', 'watermark', 'montage', 'collage', 'gif', 'sprite sheet', 'color space', 'metadata', 'EXIF', 'compare images', 'diff', 'overlay', 'composite', 'batch process', 'image analysis', 'histogram', 'blur', 'sharpen', 'rotate', 'flip', 'border', 'shadow', 'round corners', 'favicon', 'icon set'.",
-      "source": "./processing-images",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.1.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/processing-images",
-      "license": "MIT"
-    },
-    {
-      "name": "processing-video",
-      "description": "Audio and video processing with ffmpeg. Use when: user asks to convert, trim, merge, compress, or transcode video or audio files; extract audio from video; create GIFs or animated WebP from video; add subtitles or watermarks to video; change video resolution, framerate, or codec; normalize audio loudness; extract frames from video; concatenate clips; create thumbnails from video; strip or add audio tracks; convert between audio formats (MP3, AAC, FLAC, Opus, WAV); adjust volume; apply video filters; stabilize shaky video; generate waveform or spectrum visualizations; probe media file metadata. Triggers on 'ffmpeg', 'video', 'audio', 'transcode', 'MP4', 'MKV', 'WebM', 'MP3', 'AAC', 'FLAC', 'Opus', 'WAV', 'GIF from video', 'extract audio', 'add subtitles', 'video to gif', 'compress video', 'trim video', 'merge videos', 'normalize audio', 'framerate', 'resolution', 'bitrate', 'codec', 'ffprobe', 'waveform', 'spectrogram'.",
-      "source": "./processing-video",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.1.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/processing-video",
-      "license": "MIT"
-    },
-    {
-      "name": "reasoning-semiformally",
-      "description": "Apply semi-formal certificate reasoning to code analysis — patch verification, fault localization, patch equivalence. Use when reviewing patches, hunting bugs across scopes, comparing fixes, or when code reasoning requires tracing execution across files/modules. Triggers on code review, bug localization, patch comparison, name shadowing, scope analysis, regression checking.",
-      "source": "./reasoning-semiformally",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/reasoning-semiformally",
-      "license": "MIT"
-    },
-    {
-      "name": "remembering",
-      "description": "Advanced memory operations reference. Basic patterns (profile loading, simple recall/remember) are in project instructions. Consult this skill for background writes, memory versioning, complex queries, edge cases, session scoping, retention management, type-safe results, proactive memory hints, GitHub access detection, autonomous curation, episodic scoring, and decision traces.",
-      "source": "./remembering",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "5.4.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/remembering",
-      "license": "MIT"
-    },
-    {
-      "name": "reviewing-ai-papers",
-      "description": "Analyze AI/ML technical content (papers, articles, blog posts) and extract actionable insights filtered through enterprise AI engineering lens. Use when user provides URL/document for AI/ML content analysis, asks to \"review this paper\", or mentions technical content in domains like RAG, embeddings, fine-tuning, prompt engineering, LLM deployment.",
-      "source": "./reviewing-ai-papers",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.1.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/reviewing-ai-papers",
-      "license": "MIT"
-    },
-    {
-      "name": "searching-codebases",
-      "description": "Find code by regex pattern or natural language concept in any codebase. Auto-routes between n-gram indexed regex search (2-20x faster than ripgrep) and TF-IDF semantic search. Expands results to full functions via tree-sitting AST data. Accepts GitHub URLs, local directories, uploaded files/archives, or project knowledge. Use when asked to find implementations, search for patterns, or answer \"where is X\" / \"how does Y work\" about code. Triggers on \"search this repo\", \"find where X is\", \"grep for\", \"what handles Y\", regex patterns, or natural-language questions about code. This is the convergent \"find X\" skill — for first-encounter orientation, use exploring-codebases instead.",
-      "source": "./searching-codebases",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
+      "name": "environment-and-config",
+      "description": "Environment setup, credential management, container building, and workflow orchestration.",
+      "source": "./plugins/environment-and-config",
       "version": "2.0.0",
       "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/searching-codebases",
-      "license": "MIT"
-    },
-    {
-      "name": "seeing-images",
-      "description": "Augmented vision tools for analyzing images beyond native visual capabilities. Use when tasked with describing images in detail, reproducing images as SVGs, identifying subtle features, comparing image regions, reading degraded text, or any task requiring careful visual inspection. Also use when the image-to-svg skill needs ground truth about colors, shapes, or boundaries.",
-      "source": "./seeing-images",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "1.0.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/seeing-images",
-      "license": "MIT"
-    },
-    {
-      "name": "sorting-groceries",
-      "description": "Sort grocery lists by aisle order using store aisle sign photos. Build aisle maps from uploaded images, match items to aisles, and output optimized shopping routes. Use when users upload aisle sign photos, request grocery list sorting, want shopping trip optimization, need store layout mapping, or mention grocery list organization.",
-      "source": "./sorting-groceries",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.1.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/sorting-groceries",
-      "license": "MIT"
-    },
-    {
-      "name": "tiling-tree",
-      "description": "Exhaustive problem space exploration using the MIT Synthetic Neurobiology \"tiling tree\" method. Partitions a problem into MECE (Mutually Exclusive, Collectively Exhaustive) subsets recursively via parallel subagents, then evaluates leaf ideas against specified criteria. Use when users say \"tiling tree\", \"tile the solution space\", \"exhaustively explore approaches to\", \"what are all the ways to\", or request a MECE breakdown of a problem. Requires orchestrating-agents skill.",
-      "source": "./tiling-tree",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "1.0.1",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/tiling-tree",
+      "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",
+      "category": "Environment And Config",
       "keywords": [
-        "orchestrating-agents"
+        "api-credentials",
+        "configuring",
+        "container-layer",
+        "flowing"
       ]
     },
     {
-      "name": "tree-sitting",
-      "description": "AST-powered code navigation via tree-sitter. Parses codebases into in-memory ASTs and exposes query tools for symbol search, file/directory overview, source retrieval, and references. Use when exploring unfamiliar repos, navigating code, or needing fast symbol lookup. Replaces serial file reads with sub-millisecond cached queries. Triggers on \"map this codebase\", \"explore repo\", \"find symbol\", \"navigate code\", \"tree-sitter\", or when starting work on an unfamiliar repository.",
-      "source": "./tree-sitting",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.2.0",
+      "name": "github-and-git",
+      "description": "GitHub repository access, CLI operations, indexing, and git workflow tools.",
+      "source": "./plugins/github-and-git",
+      "version": "2.0.0",
       "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/tree-sitting",
-      "license": "MIT"
+      "homepage": "https://github.com/oaustegard/claude-skills",
+      "license": "MIT",
+      "category": "Github And Git",
+      "keywords": [
+        "accessing-github-repos",
+        "building-github-index",
+        "building-github-index-v2",
+        "githubbing",
+        "invoking-github"
+      ]
     },
     {
-      "name": "updating-knowledge",
-      "description": "Systematic research methodology for building comprehensive, current knowledge on any topic. Requires web_search tool. Use when questions require thorough investigation, recent developments post-cutoff, synthesis across multiple sources, or when Claude's knowledge may be outdated or incomplete. Triggered by \"Research\", \"Investigate\", \"What's current on\", \"Latest info on\", complex queries needing validation, or technical topics with recent changes.",
-      "source": "./updating-knowledge",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "1.0.3",
+      "name": "knowledge-and-memory",
+      "description": "Research methodology, persistent memory, iterative workflows, and project knowledge management.",
+      "source": "./plugins/knowledge-and-memory",
+      "version": "5.4.0",
       "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/updating-knowledge",
-      "license": "MIT"
+      "homepage": "https://github.com/oaustegard/claude-skills",
+      "license": "MIT",
+      "category": "Knowledge And Memory",
+      "keywords": [
+        "asking-questions",
+        "cloning-project",
+        "iterating",
+        "remembering",
+        "updating-knowledge"
+      ]
     },
     {
-      "name": "using-webctl",
-      "description": "Browser automation via webctl CLI in Claude.ai containers with authenticated proxy support. Use when users mention webctl, browser automation, Playwright browsing, web scraping, or headless Chrome in container environments.",
-      "source": "./using-webctl",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "0.0.1",
+      "name": "media-processing",
+      "description": "Image manipulation, video/audio processing, SVG conversion, and computer vision augmentation.",
+      "source": "./plugins/media-processing",
+      "version": "1.0.0",
       "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/using-webctl",
-      "license": "MIT"
+      "homepage": "https://github.com/oaustegard/claude-skills",
+      "license": "MIT",
+      "category": "Media Processing",
+      "keywords": [
+        "image-to-svg",
+        "processing-images",
+        "processing-video",
+        "seeing-images"
+      ]
     },
     {
-      "name": "versioning-skills",
-      "description": "REQUIRED for all skill development. Automatically version control every skill file modification for rollback/comparison. Use after init_skill.sh, after every str_replace/create_file, and before packaging.",
-      "source": "./versioning-skills",
-      "strict": false,
-      "skills": [
-        "./"
-      ],
-      "version": "1.1.0",
+      "name": "skill-development",
+      "description": "Tools for creating, versioning, installing, inspecting, and orchestrating Claude skills.",
+      "source": "./plugins/skill-development",
+      "version": "2.1.2",
       "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/versioning-skills",
-      "license": "MIT"
+      "homepage": "https://github.com/oaustegard/claude-skills",
+      "license": "MIT",
+      "category": "Skill Development",
+      "keywords": [
+        "crafting-instructions",
+        "creating-skill",
+        "inspecting-skills",
+        "installing-skills",
+        "orchestrating-skills",
+        "versioning-skills"
+      ]
+    },
+    {
+      "name": "social-and-lifestyle",
+      "description": "Social media browsing, content analysis, music control, and everyday utility tools.",
+      "source": "./plugins/social-and-lifestyle",
+      "version": "1.0.0",
+      "repository": "https://github.com/oaustegard/claude-skills",
+      "homepage": "https://github.com/oaustegard/claude-skills",
+      "license": "MIT",
+      "category": "Social And Lifestyle",
+      "keywords": [
+        "browsing-bluesky",
+        "categorizing-bsky-accounts",
+        "controlling-spotify",
+        "making-waffles",
+        "sorting-groceries"
+      ]
+    },
+    {
+      "name": "web-and-retrieval",
+      "description": "Web content fetching, browser automation, and URL handling tools.",
+      "source": "./plugins/web-and-retrieval",
+      "version": "1.0.4",
+      "repository": "https://github.com/oaustegard/claude-skills",
+      "homepage": "https://github.com/oaustegard/claude-skills",
+      "license": "MIT",
+      "category": "Web And Retrieval",
+      "keywords": [
+        "fetching-blocked-urls",
+        "hello-demo",
+        "using-webctl"
+      ]
     }
   ]
 }

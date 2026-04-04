@@ -6,12 +6,11 @@ from typing import Optional
 
 @dataclass
 class PluginEntry:
-    """A single plugin entry wrapping one skill."""
+    """A single plugin entry for a category-based plugin containing multiple skills."""
     name: str
     description: str
     source: str = "./"
     strict: bool = False
-    skills: list[str] = field(default_factory=list)
     version: Optional[str] = None
     author: Optional[dict] = None
     repository: Optional[str] = None
@@ -25,8 +24,6 @@ class PluginEntry:
             "name": self.name,
             "description": self.description,
             "source": self.source,
-            "strict": self.strict,
-            "skills": self.skills,
         }
         if self.version:
             d["version"] = self.version
