@@ -176,6 +176,19 @@
       "license": "MIT"
     },
     {
+      "name": "container-layer",
+      "description": "Build and cache a personalized container environment from a Dockerfile-like spec. Use when the user mentions \"container layer\", \"Containerfile\", \"custom container\", \"environment setup\", \"cache my installs\", \"uv shim\", or wants to persist package installations, skills, or environment config across ephemeral sessions. Also triggers when the user asks to snapshot, restore, or rebuild their environment, or wants to capture ad-hoc package installs into a reproducible spec.",
+      "source": "./container-layer",
+      "strict": false,
+      "skills": [
+        "./"
+      ],
+      "version": "0.1.0",
+      "repository": "https://github.com/oaustegard/claude-skills",
+      "homepage": "https://github.com/oaustegard/claude-skills/tree/main/container-layer",
+      "license": "MIT"
+    },
+    {
       "name": "controlling-spotify",
       "description": "Control Spotify playback and manage playlists via MCP server. Use when user requests playing music, controlling Spotify, creating playlists, searching songs, or managing their Spotify library.",
       "source": "./controlling-spotify",
