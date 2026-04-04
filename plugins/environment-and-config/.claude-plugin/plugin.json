@@ -1,0 +1,5 @@
+{
+  "name": "environment-and-config",
+  "description": "Environment setup, credential management, container building, and workflow orchestration.",
+  "version": "2.0.0"
+}

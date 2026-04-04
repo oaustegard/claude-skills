@@ -1,0 +1,5 @@
+{
+  "name": "media-processing",
+  "description": "Image manipulation, video/audio processing, SVG conversion, and computer vision augmentation.",
+  "version": "1.0.0"
+}

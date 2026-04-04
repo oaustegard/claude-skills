@@ -1,0 +1,5 @@
+{
+  "name": "github-and-git",
+  "description": "GitHub repository access, CLI operations, indexing, and git workflow tools.",
+  "version": "2.0.0"
+}

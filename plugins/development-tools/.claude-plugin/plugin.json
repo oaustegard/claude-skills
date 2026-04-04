@@ -1,0 +1,5 @@
+{
+  "name": "development-tools",
+  "description": "Software development utilities: MCP servers, bookmarklets, frameworks, patching, and environment validation.",
+  "version": "1.2.0"
+}

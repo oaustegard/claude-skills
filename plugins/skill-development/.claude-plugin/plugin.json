@@ -1,0 +1,5 @@
+{
+  "name": "skill-development",
+  "description": "Tools for creating, versioning, installing, inspecting, and orchestrating Claude skills.",
+  "version": "2.1.2"
+}

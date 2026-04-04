@@ -1,0 +1,118 @@
+{
+  "categories": {
+    "code-intelligence": {
+      "description": "Codebase exploration, navigation, mapping, and static analysis tools for understanding unfamiliar codebases.",
+      "skills": [
+        "exploring-codebases",
+        "featuring",
+        "generating-lattice",
+        "mapping-codebases",
+        "mapping-webapp",
+        "reasoning-semiformally",
+        "searching-codebases",
+        "tree-sitting"
+      ]
+    },
+    "data-and-visualization": {
+      "description": "Data analysis, charting, forecasting, and interactive visualization tools.",
+      "skills": [
+        "charting",
+        "charting-vega-lite",
+        "exploring-data",
+        "extracting-keywords",
+        "forecasting-reverso",
+        "json-render-ui"
+      ]
+    },
+    "development-tools": {
+      "description": "Software development utilities: MCP servers, bookmarklets, frameworks, patching, and environment validation.",
+      "skills": [
+        "check-tools",
+        "coding-mojo",
+        "creating-bookmarklets",
+        "creating-mcp-servers",
+        "developing-preact",
+        "generating-patches"
+      ]
+    },
+    "github-and-git": {
+      "description": "GitHub repository access, CLI operations, indexing, and git workflow tools.",
+      "skills": [
+        "accessing-github-repos",
+        "building-github-index",
+        "building-github-index-v2",
+        "githubbing",
+        "invoking-github"
+      ]
+    },
+    "ai-and-reasoning": {
+      "description": "AI model invocation, multi-agent orchestration, prompt distillation, and structured reasoning frameworks.",
+      "skills": [
+        "convening-experts",
+        "down-skilling",
+        "invoking-gemini",
+        "llm-as-computer",
+        "orchestrating-agents",
+        "reviewing-ai-papers",
+        "tiling-tree"
+      ]
+    },
+    "media-processing": {
+      "description": "Image manipulation, video/audio processing, SVG conversion, and computer vision augmentation.",
+      "skills": [
+        "image-to-svg",
+        "processing-images",
+        "processing-video",
+        "seeing-images"
+      ]
+    },
+    "web-and-retrieval": {
+      "description": "Web content fetching, browser automation, and URL handling tools.",
+      "skills": [
+        "fetching-blocked-urls",
+        "hello-demo",
+        "using-webctl"
+      ]
+    },
+    "social-and-lifestyle": {
+      "description": "Social media browsing, content analysis, music control, and everyday utility tools.",
+      "skills": [
+        "browsing-bluesky",
+        "categorizing-bsky-accounts",
+        "controlling-spotify",
+        "making-waffles",
+        "sorting-groceries"
+      ]
+    },
+    "knowledge-and-memory": {
+      "description": "Research methodology, persistent memory, iterative workflows, and project knowledge management.",
+      "skills": [
+        "asking-questions",
+        "cloning-project",
+        "iterating",
+        "remembering",
+        "updating-knowledge"
+      ]
+    },
+    "skill-development": {
+      "description": "Tools for creating, versioning, installing, inspecting, and orchestrating Claude skills.",
+      "skills": [
+        "crafting-instructions",
+        "creating-skill",
+        "inspecting-skills",
+        "installing-skills",
+        "orchestrating-skills",
+        "versioning-skills"
+      ]
+    },
+    "environment-and-config": {
+      "description": "Environment setup, credential management, container building, and workflow orchestration.",
+      "skills": [
+        "api-credentials",
+        "configuring",
+        "container-layer",
+        "flowing"
+      ]
+    }
+  }
+}
