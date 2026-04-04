@@ -1,6 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "oaustegard-claude-skills",
+  "version": "1.0.0",
   "description": "Community skills for Claude Code and Claude.ai",
   "owner": {
     "name": "Oskar Austegard"
@@ -11,191 +12,77 @@
       "description": "AI model invocation, multi-agent orchestration, prompt distillation, and structured reasoning frameworks.",
       "source": "./plugins/ai-and-reasoning",
       "version": "1.1.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills",
-      "license": "MIT",
-      "category": "Ai And Reasoning",
-      "keywords": [
-        "orchestrating-agents",
-        "convening-experts",
-        "down-skilling",
-        "invoking-gemini",
-        "llm-as-computer",
-        "reviewing-ai-papers",
-        "tiling-tree"
-      ]
+      "category": "ai-and-reasoning"
     },
     {
       "name": "code-intelligence",
       "description": "Codebase exploration, navigation, mapping, and static analysis tools for understanding unfamiliar codebases.",
       "source": "./plugins/code-intelligence",
       "version": "2.0.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills",
-      "license": "MIT",
-      "category": "Code Intelligence",
-      "keywords": [
-        "exploring-codebases",
-        "featuring",
-        "generating-lattice",
-        "mapping-codebases",
-        "mapping-webapp",
-        "reasoning-semiformally",
-        "searching-codebases",
-        "tree-sitting"
-      ]
+      "category": "code-intelligence"
     },
     {
       "name": "data-and-visualization",
       "description": "Data analysis, charting, forecasting, and interactive visualization tools.",
       "source": "./plugins/data-and-visualization",
       "version": "1.0.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills",
-      "license": "MIT",
-      "category": "Data And Visualization",
-      "keywords": [
-        "charting",
-        "charting-vega-lite",
-        "exploring-data",
-        "extracting-keywords",
-        "forecasting-reverso",
-        "json-render-ui"
-      ]
+      "category": "data-and-visualization"
     },
     {
       "name": "development-tools",
       "description": "Software development utilities: MCP servers, bookmarklets, frameworks, patching, and environment validation.",
       "source": "./plugins/development-tools",
       "version": "1.2.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills",
-      "license": "MIT",
-      "category": "Development Tools",
-      "keywords": [
-        "check-tools",
-        "coding-mojo",
-        "creating-bookmarklets",
-        "creating-mcp-servers",
-        "developing-preact",
-        "generating-patches"
-      ]
+      "category": "development-tools"
     },
     {
       "name": "environment-and-config",
       "description": "Environment setup, credential management, container building, and workflow orchestration.",
       "source": "./plugins/environment-and-config",
       "version": "2.0.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills",
-      "license": "MIT",
-      "category": "Environment And Config",
-      "keywords": [
-        "api-credentials",
-        "configuring",
-        "container-layer",
-        "flowing"
-      ]
+      "category": "environment-and-config"
     },
     {
       "name": "github-and-git",
       "description": "GitHub repository access, CLI operations, indexing, and git workflow tools.",
       "source": "./plugins/github-and-git",
       "version": "2.0.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills",
-      "license": "MIT",
-      "category": "Github And Git",
-      "keywords": [
-        "accessing-github-repos",
-        "building-github-index",
-        "building-github-index-v2",
-        "githubbing",
-        "invoking-github"
-      ]
+      "category": "github-and-git"
     },
     {
       "name": "knowledge-and-memory",
       "description": "Research methodology, persistent memory, iterative workflows, and project knowledge management.",
       "source": "./plugins/knowledge-and-memory",
       "version": "5.4.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills",
-      "license": "MIT",
-      "category": "Knowledge And Memory",
-      "keywords": [
-        "asking-questions",
-        "cloning-project",
-        "iterating",
-        "remembering",
-        "updating-knowledge"
-      ]
+      "category": "knowledge-and-memory"
     },
     {
       "name": "media-processing",
       "description": "Image manipulation, video/audio processing, SVG conversion, and computer vision augmentation.",
       "source": "./plugins/media-processing",
       "version": "1.0.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills",
-      "license": "MIT",
-      "category": "Media Processing",
-      "keywords": [
-        "image-to-svg",
-        "processing-images",
-        "processing-video",
-        "seeing-images"
-      ]
+      "category": "media-processing"
     },
     {
       "name": "skill-development",
       "description": "Tools for creating, versioning, installing, inspecting, and orchestrating Claude skills.",
       "source": "./plugins/skill-development",
       "version": "2.1.2",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills",
-      "license": "MIT",
-      "category": "Skill Development",
-      "keywords": [
-        "crafting-instructions",
-        "creating-skill",
-        "inspecting-skills",
-        "installing-skills",
-        "orchestrating-skills",
-        "versioning-skills"
-      ]
+      "category": "skill-development"
     },
     {
       "name": "social-and-lifestyle",
       "description": "Social media browsing, content analysis, music control, and everyday utility tools.",
       "source": "./plugins/social-and-lifestyle",
       "version": "1.0.0",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills",
-      "license": "MIT",
-      "category": "Social And Lifestyle",
-      "keywords": [
-        "browsing-bluesky",
-        "categorizing-bsky-accounts",
-        "controlling-spotify",
-        "making-waffles",
-        "sorting-groceries"
-      ]
+      "category": "social-and-lifestyle"
     },
     {
       "name": "web-and-retrieval",
       "description": "Web content fetching, browser automation, and URL handling tools.",
       "source": "./plugins/web-and-retrieval",
       "version": "1.0.4",
-      "repository": "https://github.com/oaustegard/claude-skills",
-      "homepage": "https://github.com/oaustegard/claude-skills",
-      "license": "MIT",
-      "category": "Web And Retrieval",
-      "keywords": [
-        "fetching-blocked-urls",
-        "hello-demo",
-        "using-webctl"
-      ]
+      "category": "web-and-retrieval"
     }
   ]
 }

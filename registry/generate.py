@@ -69,22 +69,6 @@ def compute_category_version(skill_dirs: list[Path]) -> str:
     return ".".join(str(x) for x in max_parts)
 
 
-def collect_keywords(skill_dir: Path) -> list[str]:
-    """Collect keywords from a skill's frontmatter."""
-    try:
-        fm, _ = parse_skill_md(skill_dir / "SKILL.md")
-        meta = fm.get("metadata") or {}
-        keywords = []
-        deps = meta.get("depends_on")
-        if isinstance(deps, list):
-            keywords.extend(str(d) for d in deps)
-        elif isinstance(deps, str):
-            keywords.extend(s.strip() for s in deps.split(",") if s.strip())
-        return keywords
-    except Exception:
-        return []
-
-
 def build_plugins_dir(root: Path, categories: dict) -> None:
     """Create plugins/ directory structure with symlinks to skill directories."""
     plugins_dir = root / "plugins"
@@ -157,30 +141,12 @@ def build_marketplace(root: Path, categories: dict) -> Marketplace:
         if not skill_dirs:
             continue
 
-        # Collect all keywords from constituent skills
-        all_keywords: list[str] = []
-        for sd in skill_dirs:
-            all_keywords.extend(collect_keywords(sd))
-        # Add skill names as keywords for discoverability
-        all_keywords.extend(sd.name for sd in skill_dirs)
-        # Deduplicate preserving order
-        seen: set[str] = set()
-        unique_keywords: list[str] = []
-        for kw in all_keywords:
-            if kw not in seen:
-                seen.add(kw)
-                unique_keywords.append(kw)
-
         entry = PluginEntry(
             name=cat_name,
             description=cat_info["description"],
             source=f"./plugins/{cat_name}",
             version=compute_category_version(skill_dirs),
-            homepage=f"https://github.com/{REPO}",
-            repository=f"https://github.com/{REPO}",
-            license="MIT",
-            category=cat_name.replace("-", " ").title(),
-            keywords=unique_keywords,
+            category=cat_name,
         )
         marketplace.plugins.append(entry)
 
