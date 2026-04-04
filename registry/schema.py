@@ -1,6 +1,7 @@
 """Data classes for the Claude Code plugin marketplace."""
 
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Optional
 
 
@@ -10,7 +11,6 @@ class PluginEntry:
     name: str
     description: str
     source: str = "./"
-    strict: bool = False
     version: Optional[str] = None
     author: Optional[dict] = None
     repository: Optional[str] = None
@@ -54,10 +54,12 @@ class Marketplace:
     plugins: list[PluginEntry] = field(default_factory=list)
 
     def to_dict(self) -> dict:
+        version = datetime.now(timezone.utc).strftime("%Y.%m%d.%H%M")
         return {
             "$schema": self.schema,
             "name": self.name,
             "description": self.description,
+            "metadata": {"version": version},
             "owner": self.owner,
             "plugins": [p.to_dict() for p in self.plugins],
         }
