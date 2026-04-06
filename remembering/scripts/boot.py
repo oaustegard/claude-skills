@@ -37,8 +37,8 @@ from .utilities import install_utilities
 _DEFAULT_OPS_TOPICS = {
     'Core Boot & Behavior': [
         'boot-behavior', 'boot-output-hygiene', 'dev-workflow',
-        'grounding-safeguards', 'token-discipline',
-        'training-knowledge-dated',
+        'grounding-safeguards', 'operating-imperatives',
+        'token-discipline', 'training-knowledge-dated',
     ],
     'Memory Discipline': [
         'remembering-api', 'memory-types', 'storage-discipline',
@@ -805,11 +805,59 @@ def _format_boot_output(profile_data: list, ops_by_topic: dict,
             output.append(f"\n## Other ({len(uncategorized)} uncategorized — add to ops-topics: {', '.join(keys)})")
             output.extend(_format_entry(o) for o in uncategorized)
 
-        # Reference index: show what's available but not loaded
+        # Reference index: trigger-grouped for progressive disclosure
         if reference_ops:
-            output.append("\n## Reference Entries (load via config_get)")
-            ref_keys = sorted([o['key'] for o in reference_ops])
-            output.append(", ".join(ref_keys))
+            output.append("\n## Reference (config_get when triggered)")
+            ref_keys = set(o['key'] for o in reference_ops)
+            _REF_GROUPS = [
+                ("Corrections/feedback", [
+                    "correction-damper", "correction-acknowledgment-trap"]),
+                ("Memory ops", [
+                    "storage-discipline", "recall-discipline", "recall-before-solutions",
+                    "recall-triggers", "remembering-api", "remembering-no-init",
+                    "memory-types", "memory-backup", "memory-consolidation",
+                    "knowledge-vs-experience-storage", "interaction-memories",
+                    "large-memory-preamble", "priority-usage", "resource-before-storage",
+                    "decision-alternatives", "serendipity-usage"]),
+                ("Commands", [
+                    "exp-command", "fly-command", "rem-command", "zeitgeist-command",
+                    "remind-commands", "stash-resume-protocol"]),
+                ("Git/PRs", [
+                    "pr-verification", "pr-workflow", "github-branch-policy",
+                    "github-url-routing", "github-pat-permissions", "github-container-access",
+                    "github-issues", "rebase-via-branch-reset", "ratchet-development"]),
+                ("Sessions/rituals", [
+                    "therapy", "therapy-experience-layer-audit", "therapy-prediction-phase",
+                    "dream-review", "morning-health-check", "evening-activity-check",
+                    "prediction-calibration", "perch-triage"]),
+                ("Publishing", [
+                    "blog-post-platform", "publishing-authority", "austegard-com-hosting",
+                    "bsky-api-endpoints", "bsky-feed-shortcuts"]),
+                ("Analysis workflow", [
+                    "analysis-workflow", "file-first-analysis", "task-deliver-workflow",
+                    "insight-to-implementation", "repo-review-workflow", "use-review-skill",
+                    "mapping-codebases-usage"]),
+                ("Efficiency", [
+                    "token-discipline", "tool-call-batching", "tool-call-budget",
+                    "context-hygiene", "visual-work-outputs"]),
+                ("Communication", [
+                    "communication-patterns", "language-precision"]),
+                ("Environment/infra", [
+                    "python-path-setup", "python-remembering-setup", "muninn-env-loading",
+                    "container-limits", "network-tools", "jq-install",
+                    "heredoc-for-multiline", "iterative-container-work",
+                    "muninn-utils-workflow", "dynamic-code-vs-handoff",
+                    "skill-file-changes", "utility-code-storage"]),
+            ]
+            grouped = set()
+            for label, keys in _REF_GROUPS:
+                present = [k for k in keys if k in ref_keys]
+                if present:
+                    output.append(f"  {label} → {', '.join(present)}")
+                    grouped.update(present)
+            ungrouped = sorted(ref_keys - grouped)
+            if ungrouped:
+                output.append(f"  Other → {', '.join(ungrouped)}")
 
     # Capabilities section (GitHub and utilities)
     output.append("\n# CAPABILITIES")
