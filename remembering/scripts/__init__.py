@@ -82,6 +82,12 @@ from .task import (
     recall_gate, CHECKLISTS,
 )
 
+# Import spoke discovery layer (v6.0.0: hub-spoke constellation)
+from .spokes import (
+    spokes_list, spokes_status, spokes_add, spokes_remove,
+    spokes_discover, spokes_summary,
+)
+
 # Short aliases
 r = remember
 q = recall
@@ -117,4 +123,7 @@ __all__ = [
     # v5.2.0: Task discipline (#332)
     "task", "Task", "task_resume", "incomplete_tasks",
     "recall_gate", "CHECKLISTS",
+    # v6.0.0: Hub-spoke constellation
+    "spokes_list", "spokes_status", "spokes_add", "spokes_remove",
+    "spokes_discover", "spokes_summary",
 ]
