@@ -462,8 +462,27 @@ PERCH_OPS_KEYS = frozenset({
 PERCH_VALID_TASKS = frozenset({'fly', 'zeitgeist', 'dispatch', 'sleep'})
 
 
+def _format_telemetry(marks: list) -> str:
+    """Format telemetry timing marks into a boot footer.
+
+    Args:
+        marks: List of (label, monotonic_timestamp) tuples from boot().
+
+    Returns:
+        Formatted string with per-phase and total timings.
+    """
+    lines = ["\n\n⏱ BOOT TELEMETRY (python)"]
+    total_ms = (marks[-1][1] - marks[0][1]) * 1000
+    for (label_a, t_a), (label_b, t_b) in zip(marks, marks[1:]):
+        delta_ms = (t_b - t_a) * 1000
+        bar = "█" * max(1, int(delta_ms / 50))  # 1 block per 50ms
+        lines.append(f"  {label_b:<16} {delta_ms:6.0f}ms {bar}")
+    lines.append(f"  {'TOTAL':<16} {total_ms:6.0f}ms")
+    return "\n".join(lines)
+
+
 # @lat: [[memory#Boot Sequence]]
-def boot(mode: str = None, task: str = None) -> str:
+def boot(mode: str = None, task: str = None, telemetry: bool = False) -> str:
     """Boot sequence: load profile + ops from Turso.
 
     Args:
@@ -474,6 +493,8 @@ def boot(mode: str = None, task: str = None) -> str:
               appends task-specific instructions to the boot output (#528).
               Valid values: "fly", "zeitgeist", "dispatch", "sleep".
               Ignored when mode is not "perch".
+        telemetry: If True, appends per-phase timing data to boot output.
+              Useful for diagnosing boot performance. Default False.
 
     Returns formatted string with complete profile and ops values.
 
@@ -488,11 +509,22 @@ def boot(mode: str = None, task: str = None) -> str:
     v5.0.0: Removed local cache. All reads go to Turso directly.
     v5.4.0: Added mode="perch" for slim API boot (#353).
     v5.8.0: Added task= for unified perch task prompts (#528).
+    v5.9.0: Added telemetry= for boot performance instrumentation.
     """
+    import time as _time
+
+    _telemetry_marks = []
+    def _mark(label):
+        if telemetry:
+            _telemetry_marks.append((label, _time.monotonic()))
+
+    _mark("start")
+
     # Refresh OPS_TOPICS from config (v3.6.0: dynamic loading)
     global OPS_TOPICS, _OPS_KEY_TO_TOPIC
     OPS_TOPICS = _load_ops_topics()
     _OPS_KEY_TO_TOPIC = _build_key_to_topic_map(OPS_TOPICS)
+    _mark("ops_topics")
 
     # Fetch profile + ops with retry logic for transient errors
     try:
@@ -515,6 +547,7 @@ def boot(mode: str = None, task: str = None) -> str:
             print(f"Warning: Remote config fetch failed, using repo defaults: {e}")
         else:
             return f"ERROR: Unable to load config (remote failed: {e}, no defaults available)"
+    _mark("config_fetch")
 
     if mode == "perch":
         return _boot_perch(profile_data, ops_data, task=task)
@@ -523,15 +556,19 @@ def boot(mode: str = None, task: str = None) -> str:
 
     # Detect GitHub access methods
     github_access = detect_github_access()
+    _mark("github_detect")
 
     # Install utility code memories to disk
     installed_utils = install_utilities()
+    _mark("utilities")
 
     # Surface incomplete cross-session tasks (#332)
     pending_tasks = _load_incomplete_tasks()
+    _mark("tasks")
 
     # Surface recent flight logs (#415)
     recent_flights = _load_recent_flights()
+    _mark("flights")
 
     # Surface due reminders (#445: use remind_due() from utility)
     try:
@@ -539,6 +576,7 @@ def boot(mode: str = None, task: str = None) -> str:
         due_reminders = remind_due(horizon_days=2)
     except ImportError:
         due_reminders = []
+    _mark("reminders")
 
     # Filter ops by boot_load flag (progressive disclosure)
     # Reference-only entries (boot_load=0) excluded from boot output but accessible via config_get()
@@ -550,7 +588,14 @@ def boot(mode: str = None, task: str = None) -> str:
     ops_by_topic, uncategorized = group_ops_by_topic(core_ops)
 
     # Format output with markdown headings
-    return _format_boot_output(profile_data, ops_by_topic, uncategorized, reference_ops, installed_utils, github_access, pending_tasks, recent_flights, due_reminders)
+    result = _format_boot_output(profile_data, ops_by_topic, uncategorized, reference_ops, installed_utils, github_access, pending_tasks, recent_flights, due_reminders)
+    _mark("format")
+
+    # Append telemetry footer if requested
+    if telemetry and len(_telemetry_marks) >= 2:
+        result += _format_telemetry(_telemetry_marks)
+
+    return result
 
 
 def _boot_perch(profile_data: list, ops_data: list, *, task: str = None) -> str:
