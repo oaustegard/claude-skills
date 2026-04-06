@@ -11,6 +11,7 @@ import subprocess
 import tempfile
 import urllib.request
 import urllib.error
+from datetime import datetime, timezone
 from typing import Optional
 
 
@@ -60,7 +61,7 @@ def _create_release(repo: str, tag: str, token: str) -> dict:
     
     payload = json.dumps({
         "tag_name": tag,
-        "name": f"Container Layer {tag}",
+        "name": f"Container Layer {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H%M%SZ')} {tag}",
         "body": "Auto-generated container layer cache. Safe to delete.",
         "draft": False,
         "prerelease": True,
