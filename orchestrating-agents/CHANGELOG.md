@@ -2,6 +2,23 @@
 
 All notable changes to the `orchestrating-agents` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.4.0] - 2026-04-08
+
+### Added
+
+- add AgentPool, EXECUTE_MODE, inter-agent messaging (v0.4.0) (#537)
+- add mapping-features skill for behavioral web app documentation (#432)
+
+### Fixed
+
+- remove shim and local _parse_json workarounds from tiling-tree (#314)
+- streaming passes system=None to API when no system prompt given
+
+### Other
+
+- Regenerate _MAP.md files after @lat: backlink insertion (#504)
+- Lattice v2: bidirectional source-anchored knowledge graph (#503)
+
 ## [0.3.0] - 2026-03-05
 
 ### Added
