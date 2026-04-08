@@ -2,7 +2,7 @@
 name: orchestrating-agents
 description: Orchestrates parallel API instances, delegated sub-tasks, and multi-agent workflows with streaming and tool-enabled delegation patterns. Use for parallel analysis, multi-perspective reviews, or complex task decomposition.
 metadata:
-  version: 0.3.0
+  version: 0.4.0
 ---
 
 # Orchestrating Agents
@@ -442,6 +442,86 @@ See [references/workflows.md](references/workflows.md) for detailed examples inc
 - Recursive task delegation
 - Advanced Agent SDK delegation patterns
 - Prompt caching workflows
+
+## Execute Mode (Default Sub-Agent Prompt)
+
+For autonomous sub-agents that should execute without asking questions:
+
+```python
+from claude_client import invoke_claude, EXECUTE_MODE
+
+response = invoke_claude(
+    prompt="Review auth.py for SQL injection vulnerabilities",
+    system=f"You are a security expert.\n\n{EXECUTE_MODE}"
+)
+```
+
+`EXECUTE_MODE` encodes these principles (adapted from OpenAI Codex):
+- Make assumptions instead of asking questions; state them briefly
+- Think ahead: what else might be needed?
+- Report failures with what you tried and what you'll do next
+- Summarize deliverables and how to validate them
+
+## Agent Pool (Named Agents with Messaging)
+
+For workflows where multiple agents need to communicate:
+
+```python
+from agent_pool import AgentPool
+
+pool = AgentPool(
+    shared_system="You are reviewing the auth module of a web app.",
+    max_depth=3,    # prevent recursive spawn explosion
+    max_agents=10,
+)
+
+# Spawn named agents with roles
+pool.spawn("security", system=f"Focus on vulnerabilities.\n\n{pool.EXECUTE_MODE}")
+pool.spawn("perf", system=f"Focus on performance.\n\n{pool.EXECUTE_MODE}")
+
+# Run turns (pending inter-agent messages auto-injected)
+sec_result = pool.run("security", "Review the login flow")
+
+# Agent-to-agent messaging
+pool.send("security", to="perf",
+          content="Auth does N+1 queries in the session check loop",
+          trigger_turn=True)  # auto-runs perf with this context
+
+# Broadcast to all agents
+pool.broadcast("security", "Auth uses bcrypt cost=12, 200ms per hash")
+
+# Query pool state
+pool.agents()           # ["security", "perf"]
+pool.agent_info("perf") # {name, depth, children, pending_messages, turns}
+```
+
+### Spawn Reservation (Atomic Agent Creation)
+
+For complex workflows where agent creation might fail:
+
+```python
+from agent_pool import AgentPool
+
+pool = AgentPool(shared_system="Code review team")
+
+# Reservation pattern: name is reserved, rolled back on exception
+with pool.reserve("analyst", parent="lead") as res:
+    res.configure(system="You analyze code complexity.", model="claude-opus-4-6")
+    # If configure or any other work raises, the name is released
+# Agent "analyst" is now live
+
+# Depth limits prevent unbounded recursion
+pool.spawn("sub-analyst", parent="analyst")  # depth=2, OK
+pool.spawn("sub-sub", parent="sub-analyst")  # depth=3, raises ValueError
+```
+
+### When to Use AgentPool vs invoke_parallel
+
+| Pattern | Use When |
+|---------|----------|
+| `invoke_parallel()` | Independent tasks, no inter-agent communication needed |
+| `AgentPool` | Agents need to share findings, build on each other's work, or have parent/child relationships |
+| `invoke_parallel_managed()` | Independent tasks with retry, stall detection, concurrency limits |
 
 
 

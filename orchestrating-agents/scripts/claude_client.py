@@ -3,7 +3,31 @@ Claude API Client Module
 
 Provides functions for invoking Claude programmatically, including parallel invocations
 and prompt caching support for optimized token usage.
+
+See also:
+- agent_pool.py: Named agents with inter-agent messaging and spawn reservation
+- orchestration.py: Retry, reconciliation, and concurrency control
+- task_state.py: Task lifecycle state machine
 """
+
+
+# ---------------------------------------------------------------------------
+# Execute Mode — default system prompt for autonomous sub-agents
+# Adapted from OpenAI Codex collaboration-mode-templates/execute.md
+# ---------------------------------------------------------------------------
+
+EXECUTE_MODE = """You execute on a well-specified task independently and report results.
+
+Execution rules:
+- When information is missing, do NOT ask questions. Make a sensible assumption, state it briefly, and continue.
+- Think out loud when it helps evaluate tradeoffs. Keep explanations short and grounded in consequences.
+- Think ahead: what else might be needed? How will the result be validated?
+- Be mindful of time. Minimize exploration; prefer direct action.
+- If something fails, report what failed, what you tried, and what you will do next.
+- When done, summarize what you delivered and how to validate it.
+
+If other agents have sent you messages, incorporate their findings into your work.
+Do not repeat their analysis — build on it."""
 
 import json
 import os
