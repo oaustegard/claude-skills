@@ -9,7 +9,7 @@ description: >-
   or needs to understand a codebase's purpose before modifying it. Complements
   tree-sitting (structural) with semantic (why/what-for) layer.
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # Featuring
@@ -31,6 +31,15 @@ Requires **tree-sitting** skill. Uses its engine for AST scanning.
 ```bash
 uv venv /home/claude/.venv 2>/dev/null
 uv pip install tree-sitter-language-pack --python /home/claude/.venv/bin/python
+```
+
+For quick structural orientation before running gather.py, use tree-sitting's CLI:
+
+```bash
+TREESIT=/mnt/skills/user/tree-sitting/scripts/treesit.py
+
+# Complete tree, sparse detail — see the full shape
+/home/claude/.venv/bin/python $TREESIT /path/to/repo --depth=-1 --detail=sparse
 ```
 
 ## Workflow: Multi-Pass Synthesis
@@ -277,16 +286,14 @@ jobs:
 
 ## Claude Code Integration
 
-In Claude Code, the tree-sitting MCP server replaces the gather script.
-The agent should:
+In Claude Code, use tree-sitting's CLI or engine directly. The agent should:
 
-1. Call `scan()` to parse the codebase
-2. Call `tree_overview()` for orientation
-3. **Pass 1:** Form a hypothesis about what the codebase does
-4. Call `dir_overview()` and `file_symbols()` to understand each capability area
-5. Call `get_source()` for key symbols where intent isn't clear from signatures
-6. **Pass 2:** Write detailed feature sections, deciding hierarchy per-feature
-7. **Pass 3:** Rewrite the overview now that all features are documented
+1. Run `treesit.py /path --depth=-1 --detail=sparse` for full structural overview
+2. **Pass 1:** Form a hypothesis about what the codebase does
+3. Run `treesit.py /path --path=DIR --detail=full` for each capability area
+4. Run `treesit.py /path --no-tree 'source:symbol_name'` where intent isn't clear
+5. **Pass 2:** Write detailed feature sections, deciding hierarchy per-feature
+6. **Pass 3:** Rewrite the overview now that all features are documented
 
 Add to CLAUDE.md:
 ```markdown

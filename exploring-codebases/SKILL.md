@@ -9,7 +9,7 @@ description: >-
   the divergent "what's here?" skill — for targeted "where is X?" queries,
   use searching-codebases instead.
 metadata:
-  version: 1.0.0
+  version: 2.0.0
 ---
 
 # Exploring Codebases
@@ -25,45 +25,41 @@ featuring (semantic) into a progressive disclosure sequence.
 
 ```bash
 uv venv /home/claude/.venv 2>/dev/null
-uv pip install tree-sitter-language-pack fastmcp --python /home/claude/.venv/bin/python
+uv pip install tree-sitter-language-pack --python /home/claude/.venv/bin/python
 ```
 
 ## Workflow
 
-### Phase 1: Structural Inventory (tree-sitting)
+```bash
+TREESIT=/mnt/skills/user/tree-sitting/scripts/treesit.py
+PYTHON=/home/claude/.venv/bin/python
+```
+
+### Phase 1: Structural Orientation
 
 Get oriented — what's here, how big, what languages?
 
 ```bash
-cd /mnt/skills/user/tree-sitting/scripts
-/home/claude/.venv/bin/python -c "
-import sys; sys.path.insert(0, '.')
-from engine import cache
-
-stats = cache.scan('/path/to/repo')
-print(cache.tree_overview())
-"
+$PYTHON $TREESIT /path/to/repo --stats
 ```
 
-This gives you the directory tree with file counts, symbol counts, and
-languages per directory. Takes ~700ms for a 250-file repo, then all
-subsequent queries are sub-millisecond.
+Default depth=1 shows root-level files and one level of subdirectories
+with file counts, symbol counts, and languages. Takes ~700ms total
+(scan + output).
 
 ### Phase 2: Drill Into Structure
 
-Follow what looks interesting. Use tree-sitting queries to build understanding:
+Follow what looks interesting. Each call auto-scans — no state to manage.
 
 ```bash
-/home/claude/.venv/bin/python -c "
-import sys; sys.path.insert(0, '/mnt/skills/user/tree-sitting/scripts')
-from engine import cache
+# Drill into a directory with full detail (signatures, docs, children, imports)
+$PYTHON $TREESIT /path/to/repo --path=src/core --detail=full
 
-# Already scanned — these are instant
-print(cache.dir_overview('src/core'))       # Files + top symbols in a directory
-print(cache.find_symbol('*Handler*'))       # Glob search across codebase
-print(cache.file_symbols('src/api/routes.py'))  # Full API of a single file
-print(cache.get_source('handle_request'))   # Read a specific implementation
-"
+# Search for patterns across the codebase
+$PYTHON $TREESIT /path/to/repo 'find:*Handler*:function'
+
+# Read a specific implementation
+$PYTHON $TREESIT /path/to/repo --no-tree 'source:handle_request'
 ```
 
 **Heuristics for what to drill into first:**
@@ -77,7 +73,7 @@ print(cache.get_source('handle_request'))   # Read a specific implementation
 Once you understand the structure, generate the "what does it DO?" layer:
 
 ```bash
-/home/claude/.venv/bin/python /mnt/skills/user/featuring/scripts/gather.py /path/to/repo \
+$PYTHON /mnt/skills/user/featuring/scripts/gather.py /path/to/repo \
   --skip tests,.github,node_modules --source-budget 8000
 ```
 
@@ -87,20 +83,14 @@ into features, write user-facing descriptions.
 
 ### Phase 4: Targeted Deep Dives
 
-With structural inventory + feature map in hand, use tree-sitting's
-`get_source()` to read specific implementations where the feature
-narrative needs verification or where behavior isn't clear from signatures.
+With structural inventory + feature map in hand, read specific implementations
+where the feature narrative needs verification or behavior isn't clear:
 
 ```bash
-/home/claude/.venv/bin/python -c "
-import sys; sys.path.insert(0, '/mnt/skills/user/tree-sitting/scripts')
-from engine import cache
-
-# Read implementations that matter
-print(cache.get_source('authenticate'))
-print(cache.references('AuthToken'))
-"
+$PYTHON $TREESIT /path/to/repo --no-tree 'source:authenticate' 'refs:AuthToken'
 ```
+
+Multiple queries in one call — each adds ~0ms on top of the scan cost.
 
 ## When to Use This vs Other Skills
 
@@ -128,7 +118,7 @@ concrete artifacts, when warranted, are:
 
 For large repos (>100 files), use `--skip` aggressively in Phase 1 to
 exclude tests, vendored code, generated files, and docs. Focus the initial
-scan on `src/` or the primary source directory. Expand scope as needed.
+scan on `--path=src` or the primary source directory. Expand scope as needed.
 
 For monorepos, treat each package/service as a separate exploration.
 Generate per-subsystem `_FEATURES.md` files linked from a root index.
