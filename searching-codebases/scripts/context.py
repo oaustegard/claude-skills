@@ -87,32 +87,33 @@ def _expand_from_ast(file_path: str, line_number: int, search_root: str,
     # Find the innermost symbol containing this line
     containing = None
     for sym in entry.symbols:
-        start = sym.get("start_line") or sym.get("line", 0)
-        end = sym.get("end_line", start)
-        if start <= line_number <= end:
+        if sym.line <= line_number <= sym.end_line:
             # Prefer the most specific (innermost) match
             if containing is None:
                 containing = sym
             else:
-                prev_start = containing.get("start_line") or containing.get("line", 0)
-                if start >= prev_start:
+                if sym.line >= containing.line:
                     containing = sym
+        # Also check children (methods within classes)
+        for child in getattr(sym, 'children', []):
+            if child.line <= line_number <= child.end_line:
+                if containing is None or child.line >= containing.line:
+                    containing = child
 
     if not containing:
         # No containing symbol — try nearest preceding symbol
         best = None
         for sym in entry.symbols:
-            start = sym.get("start_line") or sym.get("line", 0)
-            if start <= line_number:
-                if best is None or start > (best.get("start_line") or best.get("line", 0)):
+            if sym.line <= line_number:
+                if best is None or sym.line > best.line:
                     best = sym
         containing = best
 
     if not containing:
         return _expand_window(file_path, line_number)
 
-    start_line = containing.get("start_line") or containing.get("line", 1)
-    end_line = containing.get("end_line") or start_line
+    start_line = containing.line
+    end_line = containing.end_line or start_line
 
     try:
         with open(file_path, "r") as f:
@@ -129,8 +130,8 @@ def _expand_from_ast(file_path: str, line_number: int, search_root: str,
 
     source = "".join(lines[start_line - 1:end_line])
 
-    name = containing.get("name", "")
-    kind = containing.get("kind", "function")
+    name = containing.name or ""
+    kind = containing.kind or "function"
     # Normalize kind to node_type
     kind_map = {
         "class": "class", "struct": "class", "interface": "class",
@@ -142,7 +143,7 @@ def _expand_from_ast(file_path: str, line_number: int, search_root: str,
 
     signature = None
     if signatures_only:
-        sig = containing.get("signature", "")
+        sig = containing.signature or ""
         if sig:
             signature = sig
         else:
@@ -150,12 +151,9 @@ def _expand_from_ast(file_path: str, line_number: int, search_root: str,
             first_line = lines[start_line - 1].rstrip() if start_line <= len(lines) else name
             signature = first_line
 
-    parent = containing.get("parent")
-    display = f"{parent}.{name}" if parent else name
-
     return CodeContext(
         file_path=file_path, start_line=start_line, end_line=end_line,
-        match_line=line_number, node_type=node_type, name=display,
+        match_line=line_number, node_type=node_type, name=name,
         source=source, language=entry.lang, signature=signature,
     )
 

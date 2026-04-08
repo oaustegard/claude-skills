@@ -1,83 +1,112 @@
 ---
 name: tree-sitting
-description: AST-powered code navigation via tree-sitter. Parses codebases into in-memory ASTs and exposes query tools for symbol search, file/directory overview, source retrieval, and references. Use when exploring unfamiliar repos, navigating code, or needing fast symbol lookup. Replaces serial file reads with sub-millisecond cached queries. Triggers on "map this codebase", "explore repo", "find symbol", "navigate code", "tree-sitter", or when starting work on an unfamiliar repository.
+description: AST-powered code navigation via tree-sitter. Auto-scans codebases and provides progressive-disclosure tree views with symbol search, source retrieval, and reference finding. Each invocation is self-contained — no cross-process state. Use when exploring unfamiliar repos, navigating code, or needing fast symbol lookup. Triggers on "map this codebase", "explore repo", "find symbol", "navigate code", "tree-sitter", or when starting work on an unfamiliar repository.
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # tree-sitting
 
-AST-powered code navigation using tree-sitter. Parses all source files into in-memory syntax trees, then provides fast query tools. One scan (~700ms for a 250-file repo), then all queries are sub-millisecond.
+AST-powered code navigation using tree-sitter. Each invocation auto-scans
+the codebase (~700ms for 250 files), then runs queries at sub-millisecond speed.
 
 ## Setup
 
 ```bash
 uv venv /home/claude/.venv 2>/dev/null
-uv pip install tree-sitter-language-pack fastmcp --python /home/claude/.venv/bin/python
+uv pip install tree-sitter-language-pack --python /home/claude/.venv/bin/python
 ```
 
 Total install: <2s cold cache, <400ms warm.
 
-## Usage: Claude.ai (direct calls)
+## Usage: CLI (treesit.py)
+
+Every call auto-scans, prints a tree overview, then runs any queries.
+No state to manage between calls.
 
 ```bash
-cd /mnt/skills/user/tree-sitting/scripts
-/home/claude/.venv/bin/python -c "
-import sys; sys.path.insert(0, '.')
-from engine import cache
+TREESIT=/mnt/skills/user/tree-sitting/scripts/treesit.py
 
-stats = cache.scan('/path/to/repo')
-print(cache.tree_overview())
-print(cache.find_symbol('ClassName'))
-print(cache.dir_overview('src/core'))
-print(cache.file_symbols('src/core/parser.c'))
-print(cache.get_source_range('src/core/parser.c', 100, 150))
-"
+# Orient: root-level overview (default depth=1)
+/home/claude/.venv/bin/python $TREESIT /path/to/repo
+
+# Featuring: complete tree, minimal detail
+/home/claude/.venv/bin/python $TREESIT /path/to/repo --depth=-1 --detail=sparse
+
+# Explore a subdirectory in full detail
+/home/claude/.venv/bin/python $TREESIT /path/to/repo --path=src/core --detail=full
+
+# Run queries (tree overview + query results)
+/home/claude/.venv/bin/python $TREESIT /path/to/repo 'find:Parser*' 'source:parse_input'
+
+# Queries only, no tree
+/home/claude/.venv/bin/python $TREESIT /path/to/repo --no-tree 'refs:AuthToken'
 ```
 
-Multiple queries in one bash call = one parse cost + N × <1ms queries.
+### Options
 
-## Usage: Claude Code (MCP server)
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--depth N` | 1 | Directory depth: -1=all, 0=root only, 1=one level |
+| `--detail LEVEL` | normal | Node detail: sparse, normal, full |
+| `--path DIR` | (root) | Scope to subdirectory |
+| `--skip DIRS` | | Extra dirs to skip (comma-separated) |
+| `--no-tree` | | Suppress tree overview, show only queries |
+| `--stats` | | Show scan timing and counts |
 
-Add to Claude Code MCP config:
+### Detail Levels
 
-```json
-{
-  "mcpServers": {
-    "tree-sitting": {
-      "command": "/path/to/.venv/bin/python",
-      "args": ["/path/to/tree-sitting/scripts/server.py"],
-      "cwd": "/path/to/tree-sitting/scripts"
-    }
-  }
-}
-```
+| Level | Per-node output | Use case |
+|-------|----------------|----------|
+| `sparse` | `name (kind) :lines` | featuring: see the full shape |
+| `normal` | `name(kind_initial)` per file (compact) | exploring: quick orientation |
+| `full` | signature + doc + children + imports | exploring: deep dive into a directory |
 
-The server persists between tool calls — scan once, query many times.
+### Queries
 
-### MCP Tools
+Append after the repo path. Multiple queries per call.
 
-| Tool | Purpose |
-|------|---------|
-| `scan` | Parse codebase into ASTs. Call first. ~700ms for 250 files. |
-| `tree_overview` | Directory tree with file/symbol counts. First orientation. |
-| `dir_overview` | Files + top symbols for one directory. Dynamic _MAP.md. |
-| `find_symbol` | Search by name/substring/glob across codebase. |
-| `file_symbols` | All symbols in a file with signatures and docs. |
-| `get_source` | Source code of a specific symbol. Prefers implementation over declaration. |
-| `references` | Find all textual references to a symbol. Fast grep against cached source. |
+| Query | Example | Description |
+|-------|---------|-------------|
+| `find:PATTERN[:KIND[:LIMIT]]` | `find:*Handler*:function` | Symbol search (glob/substring) |
+| `symbols:FILE` | `symbols:src/api.py` | All symbols in a file |
+| `source:SYMBOL[:FILE]` | `source:parse_input` | Source code of a symbol |
+| `refs:SYMBOL[:LIMIT]` | `refs:AuthToken:30` | Text references across codebase |
+| `imports:FILE` | `imports:src/api.py` | Import list for a file |
+| `dir:PATH` | `dir:src/core` | Directory overview (engine format) |
 
 ### Workflow
 
 ```
-1. scan("/path/to/repo")           → parse everything, build index
-2. tree_overview()                  → orient: what dirs, how big, what languages
-3. dir_overview("src/core")         → drill into interesting directory
-4. find_symbol("Parser*")           → find specific symbols
-5. file_symbols("src/core/parser.c") → see full API of a file
-6. get_source("parse_input")        → read the implementation
-7. references("ParseState")         → find usage across codebase
+1. treesit.py /repo                           → orient: what dirs, how big
+2. treesit.py /repo --path=src/core           → drill into interesting directory
+3. treesit.py /repo 'find:Parser*'            → find specific symbols
+4. treesit.py /repo 'source:parse_input'      → read implementation
+5. treesit.py /repo 'refs:ParseState'         → find usage across codebase
 ```
+
+Each call is self-contained. No need to "scan first, query later" —
+scan happens automatically every time (~700ms).
+
+## Usage: Direct Python (single invocation)
+
+For custom scripts that need the engine API directly:
+
+```python
+import sys; sys.path.insert(0, '/mnt/skills/user/tree-sitting/scripts')
+from engine import CodeCache
+
+cache = CodeCache()
+cache.scan('/path/to/repo')
+# All queries in the SAME invocation:
+print(cache.tree_overview())
+print(cache.find_symbol('ClassName'))
+print(cache.get_source_range('src/core/parser.c', 100, 150))
+```
+
+**Important:** The cache is in-memory only. All scan + query calls MUST
+happen in the same Python process. Splitting across separate `python -c`
+invocations loses the cache — use `treesit.py` instead.
 
 ## Supported Languages
 
@@ -89,13 +118,11 @@ Three-tier extraction:
 2. **tags.scm queries** (community-maintained — kinds, docs where grammars support it): Java, C++, C#
 3. **Generic heuristic** (names + kinds + locations): all others
 
-tags.scm queries use the same patterns maintained by tree-sitter grammar repos, giving correct symbol classification (e.g. Rust `impl` methods vs free functions, Go interfaces vs structs) without hand-written extractors.
-
 ## What It Extracts
 
 - **Symbols**: functions, classes, structs, enums, methods, constants, defines, types
 - **Signatures**: parameter lists and return types (Python, C; partial for others)
-- **Doc comments**: first-line summaries from docstrings, JSDoc, Doxygen, `///`, `#` 
+- **Doc comments**: first-line summaries from docstrings, JSDoc, Doxygen, `///`, `#`
 - **Line ranges**: start and end line for every symbol
 - **Imports**: per-file dependency tracking
 - **Hierarchy**: class→methods, struct→fields (Python, C)
@@ -103,13 +130,14 @@ tags.scm queries use the same patterns maintained by tree-sitter grammar repos, 
 ## Architecture
 
 ```
-CodeCache (in-memory singleton)
+CodeCache (in-memory, per-invocation)
   ├── files: {relpath → FileEntry(source, tree, symbols, imports)}
   ├── _symbol_index: {name → [Symbol, ...]}  ← fast lookup
   └── methods: scan(), find_symbol(), file_symbols(), dir_overview(), ...
        │
-       ├── FastMCP server (Claude Code) — long-lived process, stdio transport
-       └── Direct Python calls (Claude.ai) — one bash invocation per query batch
+       └── treesit.py CLI — auto-scan + progressive-disclosure tree + queries
 ```
 
-Parse cost is paid once. The symbol index enables O(1) exact match and O(n) substring/glob search where n is the number of unique symbol names (not files).
+Parse cost is paid once per invocation. The symbol index enables O(1) exact
+match and O(n) substring/glob search where n is the number of unique symbol
+names (not files).
