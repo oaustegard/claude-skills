@@ -2,6 +2,17 @@
 
 All notable changes to the `tree-sitting` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.3.0] - 2026-04-08
+
+### Added
+
+- add treesit.py CLI, fix cross-process cache loss, fix Symbol dict bug (#536)
+
+### Other
+
+- marketplace: restructure as category-based plugins for Claude Code discovery (#530)
+- Add missing READMEs for searching-codebases, featuring, tree-sitting (#521)
+
 ## [0.2.0] - 2026-03-31
 
 ### Added

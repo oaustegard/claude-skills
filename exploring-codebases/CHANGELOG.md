@@ -2,6 +2,16 @@
 
 All notable changes to the `exploring-codebases` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.0.0] - 2026-04-08
+
+### Added
+
+- add treesit.py CLI, fix cross-process cache loss, fix Symbol dict bug (#536)
+
+### Other
+
+- exploring-codebases: remove dead search.py (replaced by tree-sitting)
+
 ## [1.0.0] - 2026-03-31
 
 ### Added

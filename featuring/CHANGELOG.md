@@ -35,6 +35,17 @@ Initial release.
 - Single flat _FEATURES.md format
 - CI integration example
 
+## [0.3.0] - 2026-04-08
+
+### Added
+
+- add treesit.py CLI, fix cross-process cache loss, fix Symbol dict bug (#536)
+
+### Other
+
+- marketplace: restructure as category-based plugins for Claude Code discovery (#530)
+- Add missing READMEs for searching-codebases, featuring, tree-sitting (#521)
+
 ## [0.2.0] - 2026-03-31
 
 ### Added
