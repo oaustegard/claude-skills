@@ -133,10 +133,70 @@ def get_anthropic_api_key() -> str:
 
 class ClaudeInvocationError(Exception):
     """Custom exception for Claude API invocation errors"""
-    def __init__(self, message: str, status_code: int = None, details: Any = None):
+    def __init__(self, message: str, status_code: int = None, details: Any = None, kind: str = "unknown"):
         super().__init__(message)
         self.status_code = status_code
         self.details = details
+        self.kind = kind
+
+
+# ---------------------------------------------------------------------------
+# Error classification and recovery
+# ---------------------------------------------------------------------------
+
+# Error kinds returned in ClaudeInvocationError.kind
+ERROR_RATE_LIMIT = "rate_limit"          # 429
+ERROR_OVERLOADED = "overloaded"          # 529
+ERROR_CONTEXT_TOO_LONG = "context_overflow"  # 400 + context length message
+ERROR_OUTPUT_PARSE = "output_parse"      # JSON parse failure (invoke_claude_json)
+ERROR_CONNECTION = "connection"          # Network errors
+ERROR_AUTH = "auth"                      # 401/403
+ERROR_UNKNOWN = "unknown"
+
+_TRANSIENT_ERRORS = {ERROR_RATE_LIMIT, ERROR_OVERLOADED, ERROR_CONNECTION}
+
+
+def _classify_error(error: Exception) -> str:
+    """Classify an exception into an error kind."""
+    if isinstance(error, anthropic.RateLimitError):
+        return ERROR_RATE_LIMIT
+    if isinstance(error, anthropic.APIStatusError):
+        if error.status_code == 529:
+            return ERROR_OVERLOADED
+        if error.status_code in (401, 403):
+            return ERROR_AUTH
+        if error.status_code == 400:
+            msg = str(error).lower()
+            if "too long" in msg or "context" in msg or "token" in msg:
+                return ERROR_CONTEXT_TOO_LONG
+        return ERROR_UNKNOWN
+    if isinstance(error, anthropic.APIConnectionError):
+        return ERROR_CONNECTION
+    if isinstance(error, json.JSONDecodeError):
+        return ERROR_OUTPUT_PARSE
+    return ERROR_UNKNOWN
+
+
+def _backoff_delay(attempt: int, base: float = 1.0, cap: float = 30.0) -> float:
+    """Exponential backoff with jitter, capped."""
+    import random
+    delay = min(base * (2 ** attempt), cap)
+    return delay * (0.5 + random.random() * 0.5)
+
+
+class Retry:
+    """Return from on_error to retry with a modified prompt."""
+    __slots__ = ("prompt", "system")
+    def __init__(self, prompt=None, system=None):
+        self.prompt = prompt    # replacement prompt (None = reuse original)
+        self.system = system    # replacement system (None = reuse original)
+
+
+class Fail:
+    """Return from on_error to abort immediately."""
+    __slots__ = ("message",)
+    def __init__(self, message: str = ""):
+        self.message = message
 
 
 def _format_cache_control() -> dict:
@@ -230,10 +290,12 @@ def invoke_claude(
     cache_system: bool = False,
     cache_prompt: bool = False,
     messages: list[dict] | None = None,
+    max_retries: int = 0,
+    on_error: callable = None,
     **kwargs
 ) -> str:
     """
-    Invoke Claude API with a single prompt.
+    Invoke Claude API with a single prompt and optional error recovery.
 
     Args:
         prompt: The user message to send to Claude (string or list of content blocks)
@@ -245,19 +307,39 @@ def invoke_claude(
         cache_system: Add cache_control to system prompt (requires 1024+ tokens, default: False)
         cache_prompt: Add cache_control to user prompt (requires 1024+ tokens, default: False)
         messages: Optional pre-built messages list (overrides prompt parameter)
+        max_retries: Max retry attempts for transient errors (default: 0 = no retries).
+            Transient errors (rate_limit, overloaded, connection) auto-retry with
+            exponential backoff. Non-transient errors only retry if on_error returns Retry.
+        on_error: Optional callback for custom recovery. Called as:
+            on_error(error: ClaudeInvocationError, attempt: int) -> Retry | Fail | None
+            - Return Retry(prompt=..., system=...) to retry with modified inputs
+            - Return Fail(message=...) to abort immediately
+            - Return None to use default behavior (retry transient, raise others)
         **kwargs: Additional API parameters (top_p, top_k, etc.)
 
     Returns:
         str: Response text from Claude
 
     Raises:
-        ClaudeInvocationError: If API call fails
+        ClaudeInvocationError: If API call fails after all retries
         ValueError: If parameters are invalid
 
     Note:
         Prompt caching requires minimum 1,024 tokens per cache breakpoint.
         Cache lifetime is 5 minutes, refreshed on each use.
         Maximum 4 cache breakpoints allowed per request.
+
+    Examples:
+        # Auto-retry transient errors (rate limits, overload, connection):
+        response = invoke_claude("Analyze this", max_retries=3)
+
+        # Custom recovery for context overflow:
+        def handle_overflow(error, attempt):
+            if error.kind == "context_overflow":
+                return Retry(prompt="Summarize briefly: " + short_version)
+            return None  # default behavior for other errors
+
+        response = invoke_claude(long_prompt, max_retries=2, on_error=handle_overflow)
     """
     # Validate prompt unless using pre-built messages
     if not messages:
@@ -279,66 +361,100 @@ def invoke_claude(
         raise ClaudeInvocationError(
             f"Failed to get API key: {e}",
             status_code=None,
-            details="Check api-credentials skill configuration"
+            details="Check api-credentials skill configuration",
+            kind=ERROR_AUTH
         )
 
     client = anthropic.Anthropic(api_key=api_key)
 
-    # Build message parameters
-    message_params = {
-        "model": model,
-        "max_tokens": max_tokens,
-        "temperature": temperature,
-        **kwargs
-    }
+    # Mutable state for retry loop
+    current_prompt = prompt
+    current_system = system
+    last_error = None
 
-    # Handle messages (pre-built or from prompt)
-    if messages:
-        # Use pre-built messages list (for multi-turn conversations)
-        message_params["messages"] = messages
-    else:
-        # Build single message from prompt with optional caching
-        content = _format_message_with_cache(prompt, cache_prompt)
-        message_params["messages"] = [{"role": "user", "content": content}]
+    for attempt in range(max_retries + 1):
+        # Build message parameters fresh each attempt (prompt/system may change)
+        message_params = {
+            "model": model,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            **kwargs
+        }
 
-    # Handle system prompt with optional caching
-    if system:
-        formatted_system = _format_system_with_cache(system, cache_system)
-        message_params["system"] = formatted_system
-
-    try:
-        if streaming:
-            # Streaming mode
-            full_response = ""
-            with client.messages.stream(**message_params) as stream:
-                for text in stream.text_stream:
-                    print(text, end="", flush=True)
-                    full_response += text
-            print()  # Newline after stream
-            return full_response
+        if messages:
+            message_params["messages"] = messages
         else:
-            # Non-streaming mode
-            message = client.messages.create(**message_params)
-            return message.content[0].text
+            content = _format_message_with_cache(current_prompt, cache_prompt)
+            message_params["messages"] = [{"role": "user", "content": content}]
 
-    except anthropic.APIStatusError as e:
-        raise ClaudeInvocationError(
-            f"API request failed: {e.message}",
-            status_code=e.status_code,
-            details=e.response
-        )
-    except anthropic.APIConnectionError as e:
-        raise ClaudeInvocationError(
-            f"Connection error: {e}",
-            status_code=None,
-            details="Check network connection"
-        )
-    except Exception as e:
-        raise ClaudeInvocationError(
-            f"Unexpected error: {e}",
-            status_code=None,
-            details=type(e).__name__
-        )
+        if current_system:
+            formatted_system = _format_system_with_cache(current_system, cache_system)
+            message_params["system"] = formatted_system
+
+        try:
+            if streaming:
+                full_response = ""
+                with client.messages.stream(**message_params) as stream:
+                    for text in stream.text_stream:
+                        print(text, end="", flush=True)
+                        full_response += text
+                print()
+                return full_response
+            else:
+                message = client.messages.create(**message_params)
+                return message.content[0].text
+
+        except (anthropic.APIStatusError, anthropic.APIConnectionError, Exception) as e:
+            kind = _classify_error(e)
+            status = getattr(e, 'status_code', None)
+            msg = getattr(e, 'message', str(e))
+
+            last_error = ClaudeInvocationError(
+                f"API error (attempt {attempt + 1}/{max_retries + 1}): {msg}",
+                status_code=status,
+                details=getattr(e, 'response', type(e).__name__),
+                kind=kind
+            )
+
+            # No retries left
+            if attempt >= max_retries:
+                break
+
+            # Consult on_error callback if provided
+            action = None
+            if on_error:
+                try:
+                    action = on_error(last_error, attempt)
+                except Exception:
+                    break  # callback itself failed, give up
+
+            if isinstance(action, Fail):
+                raise ClaudeInvocationError(
+                    action.message or str(last_error),
+                    status_code=status,
+                    details=last_error.details,
+                    kind=kind
+                )
+            elif isinstance(action, Retry):
+                # Caller wants to retry with modified inputs
+                if action.prompt is not None:
+                    current_prompt = action.prompt
+                if action.system is not None:
+                    current_system = action.system
+                # Brief pause even for caller-directed retries
+                time.sleep(_backoff_delay(attempt, base=0.5, cap=5.0))
+                continue
+            else:
+                # Default: auto-retry transient errors, raise others
+                if kind in _TRANSIENT_ERRORS:
+                    delay = _backoff_delay(attempt)
+                    time.sleep(delay)
+                    continue
+                else:
+                    break  # non-transient, no custom recovery
+
+    # All retries exhausted or non-retryable
+    raise last_error
 
 
 def _build_messages(
@@ -1010,13 +1126,15 @@ def invoke_claude_json(
     cache_system: bool = False,
     cache_prompt: bool = False,
     messages: list[dict] | None = None,
+    max_parse_retries: int = 1,
     **kwargs
 ) -> dict:
     """
-    Invoke Claude and parse the response as JSON, stripping markdown fences if present.
+    Invoke Claude and parse the response as JSON, with automatic retry on parse failure.
 
-    Wrapper around invoke_claude() that automatically applies parse_json_response().
-    Use when Claude is expected to return structured JSON output.
+    On JSON parse failure, automatically retries by sending the malformed output back
+    to Claude with a repair prompt. This handles the common case where Claude wraps
+    JSON in prose or produces slightly malformed output.
 
     Args:
         prompt: The user message to send to Claude
@@ -1027,6 +1145,8 @@ def invoke_claude_json(
         cache_system: Add cache_control to system prompt
         cache_prompt: Add cache_control to user prompt
         messages: Optional pre-built messages list
+        max_parse_retries: Max retries on JSON parse failure (default: 1).
+            Set to 0 to disable parse recovery (old behavior).
         **kwargs: Additional API parameters
 
     Returns:
@@ -1034,8 +1154,9 @@ def invoke_claude_json(
 
     Raises:
         ClaudeInvocationError: If API call fails
-        json.JSONDecodeError: If response cannot be parsed as JSON
+        json.JSONDecodeError: If response cannot be parsed as JSON after retries
     """
+    # Pass through max_retries/on_error if caller provided them
     raw = invoke_claude(
         prompt=prompt,
         model=model,
@@ -1047,7 +1168,38 @@ def invoke_claude_json(
         messages=messages,
         **kwargs
     )
-    return parse_json_response(raw)
+
+    # Try parsing
+    try:
+        return parse_json_response(raw)
+    except json.JSONDecodeError as first_error:
+        if max_parse_retries < 1:
+            raise
+
+    # Parse failed — retry with repair prompt
+    for repair_attempt in range(max_parse_retries):
+        repair_prompt = (
+            "Your previous response could not be parsed as JSON. "
+            "Here is what you returned:\n\n"
+            f"```\n{raw[:2000]}\n```\n\n"
+            "Please respond with ONLY valid JSON, no markdown fences, "
+            "no prose before or after. Just the JSON object."
+        )
+        try:
+            raw = invoke_claude(
+                prompt=repair_prompt,
+                model=model,
+                system=system,
+                max_tokens=max_tokens,
+                temperature=max(0.0, temperature - 0.3),  # lower temp for repair
+                cache_system=cache_system,
+                **kwargs
+            )
+            return parse_json_response(raw)
+        except json.JSONDecodeError:
+            if repair_attempt >= max_parse_retries - 1:
+                raise
+            continue
 
 
 if __name__ == "__main__":
