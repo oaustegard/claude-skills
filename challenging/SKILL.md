@@ -1,19 +1,19 @@
 ---
 name: challenging
-description: Adversarial review of Muninn's own outputs before delivery. Use when producing deliverables that benefit from hostile second-pass review — blog posts, technical recommendations, analysis briefs, code, or any artifact where accuracy and rigor matter more than speed. Triggers on "challenge this", "review before shipping", "adversarial pass", "stress test", or when the task profile warrants automatic review.
+description: Cross-model adversarial review for deliverables before shipping. Use when producing blog posts, technical recommendations, analysis briefs, code, or any artifact where accuracy matters more than speed. Triggers on "challenge this", "review before shipping", "adversarial pass", "stress test this".
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # Challenging — Adversarial Review
 
-Cross-model adversarial review for deliverables. Different model reviews with fresh context — no shared blind spots, no accumulated goodwill.
+Cross-model adversarial review. A different model reviews your output with fresh context — no shared blind spots, no accumulated goodwill.
 
 Inspired by VDD (dollspace.gay) and Grainulation's anti-rationalization patterns.
 
 ## Profiles
 
-Pick the profile matching your artifact. **Read only the profile you need** — each is self-contained with its own persona, anti-rationalization table, evaluation criteria, and adversary system prompt.
+Pick the profile matching your artifact. **Read only the profile you need** — each is self-contained with persona, anti-rationalization table, evaluation criteria, and adversary system prompt.
 
 | Profile | Use For | File |
 |---------|---------|------|
@@ -32,7 +32,7 @@ from challenger import challenge
 result = challenge(
     artifact=open('/home/claude/draft.md').read(),
     profile='prose',
-    context='Blog post about RAG scaling laws for muninn.austegard.com'
+    context='Blog post about RAG scaling laws'
 )
 print(result['verdict'])    # SHIP | REVISE | RETHINK
 print(result['findings'])   # List of specific issues
@@ -56,6 +56,16 @@ Blocking exits when: (a) no genuine findings, (b) adversary FP rate > 75% (inven
 - **REVISE**: Real issues, sound core. Fix and deliver.
 - **RETHINK**: Structural problems. Reconsider approach.
 
-## Adversary
+## Adversary Selection
 
-Default: Gemini Pro (cross-model). Alternate: `adversary='claude'` (Opus sub-agent).
+Default: Gemini Pro (cross-model diversity). Alternate: `adversary='claude'` (Opus sub-agent).
+
+## Credentials
+
+The script loads credentials automatically from environment or project files:
+
+- **Gemini via Cloudflare Gateway** (preferred): `CF_ACCOUNT_ID`, `CF_GATEWAY_ID`, `CF_API_TOKEN` from env or `proxy.env`
+- **Gemini direct**: `GOOGLE_API_KEY` from env
+- **Claude sub-agent**: `ANTHROPIC_API_KEY` or `API_KEY` from env or `claude.env`
+
+No external skill dependencies. Uses `requests` (standard in most environments) for API calls.

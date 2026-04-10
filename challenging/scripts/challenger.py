@@ -1,30 +1,87 @@
 """
-Adversarial review engine for Muninn deliverables.
+Adversarial review engine for deliverables.
 
-Uses cross-model review (Gemini default, Claude Opus alternate) to challenge
-artifacts before delivery. Inspired by VDD (dollspace.gay) and Grainulation.
+Cross-model review using Gemini (default) or Claude Opus sub-agent.
+Self-contained — no dependencies on other skills. Uses requests for API calls.
+
+Inspired by VDD (dollspace.gay) and Grainulation.
 """
 
 import json
 import os
-import sys
+import subprocess
 from pathlib import Path
 
-sys.path.insert(0, '/mnt/skills/user/invoking-gemini/scripts')
-sys.path.insert(0, '/mnt/skills/user/orchestrating-agents/scripts')
+try:
+    import requests
+except ImportError:
+    subprocess.check_call(['pip', 'install', 'requests', '-q', '--break-system-packages'])
+    import requests
 
 REFERENCES = Path(__file__).parent.parent / 'references'
 VALID_PROFILES = ('prose', 'analysis', 'code', 'recommendation')
 
 
+# ---------------------------------------------------------------------------
+# Credential loading
+# ---------------------------------------------------------------------------
+
+def _load_env_file(name: str) -> dict:
+    """Try to load a .env file from common project locations."""
+    for base in ['/mnt/project', os.getcwd(), Path.home()]:
+        path = Path(base) / name
+        if path.exists():
+            env = {}
+            for line in path.read_text().splitlines():
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    k, v = line.split('=', 1)
+                    env[k.strip()] = v.strip()
+            return env
+    return {}
+
+
+def _get_gemini_config() -> tuple:
+    """Returns (url, headers) for Gemini API — gateway or direct."""
+    # Try Cloudflare AI Gateway first
+    proxy = _load_env_file('proxy.env')
+    acct = os.environ.get('CF_ACCOUNT_ID') or proxy.get('CF_ACCOUNT_ID')
+    gw = os.environ.get('CF_GATEWAY_ID') or proxy.get('CF_GATEWAY_ID')
+    token = os.environ.get('CF_API_TOKEN') or proxy.get('CF_API_TOKEN')
+    if acct and gw and token:
+        url = f'https://gateway.ai.cloudflare.com/v1/{acct}/{gw}/google-ai-studio/v1beta/models/gemini-2.5-pro:generateContent'
+        return url, {'Content-Type': 'application/json', 'cf-aig-authorization': f'Bearer {token}'}
+
+    # Direct Google API
+    key = os.environ.get('GOOGLE_API_KEY')
+    if key:
+        url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key={key}'
+        return url, {'Content-Type': 'application/json'}
+
+    raise ValueError('No Gemini credentials found. Set CF_ACCOUNT_ID/CF_GATEWAY_ID/CF_API_TOKEN or GOOGLE_API_KEY.')
+
+
+def _get_claude_config() -> tuple:
+    """Returns (api_key) for Claude API."""
+    key = os.environ.get('ANTHROPIC_API_KEY')
+    if key:
+        return key
+    claude_env = _load_env_file('claude.env')
+    key = claude_env.get('ANTHROPIC_API_KEY') or claude_env.get('API_KEY')
+    if key:
+        return key
+    raise ValueError('No Claude credentials found. Set ANTHROPIC_API_KEY or add claude.env.')
+
+
+# ---------------------------------------------------------------------------
+# Profile loading
+# ---------------------------------------------------------------------------
+
 def _load_system_prompt(profile: str) -> str:
     """Load the system prompt from a profile's own file."""
     if profile not in VALID_PROFILES:
         raise ValueError(f"Unknown profile: {profile}. Available: {', '.join(VALID_PROFILES)}")
-
     text = (REFERENCES / f'{profile}.md').read_text()
-
-    # Extract content between ``` fences after "## System Prompt"
     marker = '## System Prompt'
     idx = text.find(marker)
     if idx == -1:
@@ -35,27 +92,50 @@ def _load_system_prompt(profile: str) -> str:
     return section[start:end].strip()
 
 
+# ---------------------------------------------------------------------------
+# Adversary invocation
+# ---------------------------------------------------------------------------
+
+def _build_user_prompt(artifact: str, context: str) -> str:
+    return f"## Context\n{context}\n\n## Artifact to Review\n{artifact}\n\nRespond ONLY with the JSON object described in your instructions. No preamble, no markdown fences."
+
+
 def _invoke_gemini(artifact: str, context: str, system_prompt: str) -> dict:
-    from gemini_client import invoke_gemini
-    raw = invoke_gemini(
-        prompt=f"## Context\n{context}\n\n## Artifact to Review\n{artifact}\n\nRespond ONLY with the JSON object described in your instructions. No preamble, no markdown fences.",
-        system=system_prompt,
-        model='pro',
-        temperature=0.4,
-    )
-    return _parse(raw)
+    url, headers = _get_gemini_config()
+    body = {
+        'system_instruction': {'parts': [{'text': system_prompt}]},
+        'contents': [{'role': 'user', 'parts': [{'text': _build_user_prompt(artifact, context)}]}],
+        'generationConfig': {'temperature': 0.4, 'maxOutputTokens': 2048}
+    }
+    resp = requests.post(url, headers=headers, json=body, timeout=120)
+    resp.raise_for_status()
+    data = resp.json()
+    text = data['candidates'][0]['content']['parts'][0]['text']
+    return _parse(text)
 
 
 def _invoke_claude(artifact: str, context: str, system_prompt: str) -> dict:
-    from claude_client import invoke_claude
-    raw = invoke_claude(
-        prompt=f"## Context\n{context}\n\n## Artifact to Review\n{artifact}\n\nRespond ONLY with the JSON object described in your instructions. No preamble, no markdown fences.",
-        system=system_prompt,
-        model='claude-opus-4-6',
-        max_tokens=2048,
-        temperature=0.4,
+    api_key = _get_claude_config()
+    resp = requests.post(
+        'https://api.anthropic.com/v1/messages',
+        headers={
+            'x-api-key': api_key,
+            'anthropic-version': '2023-06-01',
+            'content-type': 'application/json',
+        },
+        json={
+            'model': 'claude-opus-4-6',
+            'max_tokens': 2048,
+            'temperature': 0.4,
+            'system': system_prompt,
+            'messages': [{'role': 'user', 'content': _build_user_prompt(artifact, context)}],
+        },
+        timeout=120,
     )
-    return _parse(raw)
+    resp.raise_for_status()
+    data = resp.json()
+    text = data['content'][0]['text']
+    return _parse(text)
 
 
 def _parse(raw: str) -> dict:
@@ -68,7 +148,6 @@ def _parse(raw: str) -> dict:
     try:
         return json.loads(s)
     except json.JSONDecodeError:
-        # Find outermost braces
         a, b = s.find('{'), s.rfind('}')
         if a >= 0 and b > a:
             try:
@@ -82,6 +161,10 @@ def _parse(raw: str) -> dict:
             'summary': 'Unparseable adversary output — manual review recommended'
         }
 
+
+# ---------------------------------------------------------------------------
+# Confabulation tracking (blocking mode)
+# ---------------------------------------------------------------------------
 
 class ConfabulationTracker:
     """Detects when adversary starts inventing problems (VDD pattern).
@@ -104,6 +187,10 @@ class ConfabulationTracker:
     def latest_rate(self) -> float:
         return self.history[-1] if self.history else 0.0
 
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
 
 def challenge(
     artifact: str,
@@ -149,12 +236,9 @@ def challenge(
         tracker.record(len(genuine), len(fp))
 
         iterations.append({
-            'iteration': i,
-            'verdict': result.get('verdict', 'REVISE'),
-            'genuine_count': len(genuine),
-            'fp_count': len(fp),
-            'fp_rate': tracker.latest_rate,
-            'findings': findings,
+            'iteration': i, 'verdict': result.get('verdict', 'REVISE'),
+            'genuine_count': len(genuine), 'fp_count': len(fp),
+            'fp_rate': tracker.latest_rate, 'findings': findings,
         })
 
         if len(genuine) == 0:
