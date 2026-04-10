@@ -7,6 +7,7 @@ Designed for claude.ai chat where native git access isn't available.
 """
 
 import json
+import os
 import sys
 import base64
 from pathlib import Path
@@ -32,11 +33,13 @@ class GitHubAPIError(Exception):
 
 def get_github_token() -> str:
     """
-    Get GitHub API token from project knowledge files.
+    Get GitHub API token from environment or project knowledge files.
 
     Priority order:
-    1. Individual file: /mnt/project/GITHUB_API_KEY.txt
-    2. Combined file: /mnt/project/API_CREDENTIALS.json
+    1. GH_TOKEN or GITHUB_TOKEN environment variable
+    2. GitHub.env project file (GH_TOKEN=...)
+    3. Individual file: /mnt/project/GITHUB_API_KEY.txt
+    4. Combined file: /mnt/project/API_CREDENTIALS.json
 
     Returns:
         str: GitHub Personal Access Token
@@ -44,6 +47,25 @@ def get_github_token() -> str:
     Raises:
         ValueError: If no token found in any source
     """
+    # Pattern 0: Environment variables (standard conventions)
+    for var in ("GH_TOKEN", "GITHUB_TOKEN", "GITHUB_API_KEY"):
+        token = os.environ.get(var, "").strip()
+        if token:
+            return token
+
+    # Pattern 0b: GitHub.env project file
+    gh_env = Path("/mnt/project/GitHub.env")
+    if gh_env.exists():
+        try:
+            for line in gh_env.read_text().splitlines():
+                line = line.strip()
+                if line.startswith("GH_TOKEN="):
+                    token = line[len("GH_TOKEN="):].strip().strip('"').strip("'")
+                    if token:
+                        return token
+        except (IOError, OSError):
+            pass  # Fall through to other methods
+
     # Pattern 1: Individual key file (recommended)
     key_file = Path("/mnt/project/GITHUB_API_KEY.txt")
     if key_file.exists():
@@ -75,18 +97,21 @@ def get_github_token() -> str:
     # No token found - provide helpful error message
     raise ValueError(
         "No GitHub API token found!\n\n"
-        "Add a project knowledge file using one of these methods:\n\n"
-        "Option 1 (recommended): Individual file\n"
+        "Provide a token using one of these methods:\n\n"
+        "Option 1: Environment variable\n"
+        "  export GH_TOKEN=ghp_...\n\n"
+        "Option 2: GitHub.env project file\n"
+        "  GH_TOKEN=ghp_...\n\n"
+        "Option 3: Individual file\n"
         "  File: GITHUB_API_KEY.txt\n"
         "  Content: ghp_...\n\n"
-        "Option 2: Combined file\n"
+        "Option 4: Combined file\n"
         "  File: API_CREDENTIALS.json\n"
         "  Content: {\"github_api_key\": \"ghp_...\"}\n\n"
         "Generate token at: https://github.com/settings/tokens\n"
         "Required scopes:\n"
         "  - Classic token: 'repo' scope\n"
-        "  - Fine-grained token: Repository permissions → Contents (read/write) + Pull requests (read/write)\n\n"
-        "Note: GitHub OAuth in claude.ai UI is not accessible to skills"
+        "  - Fine-grained token: Repository permissions → Contents (read/write) + Pull requests (read/write)"
     )
 
 
