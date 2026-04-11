@@ -2,6 +2,12 @@
 
 All notable changes to the `challenging` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.4.0] - 2026-04-11
+
+### Other
+
+- challenging v0.4.0: fix Gemini model, token budget, defensive parsing
+
 ## [0.4.0] - 2026-04-10
 
 ### Fixed
