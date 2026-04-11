@@ -4,6 +4,12 @@ All notable changes to the `challenging` skill are documented in this file. The 
 
 ## [0.6.0] - 2026-04-11
 
+### Other
+
+- challenging v0.6.0: self-review fixes (#540)
+
+## [0.6.0] - 2026-04-11
+
 ### Security
 - Auto-pip-install now gated to sandboxed containers only (CWE-94 mitigation for non-container environments)
 - Env file parser now strips surrounding quotes from values
