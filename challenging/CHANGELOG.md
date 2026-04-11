@@ -5,11 +5,11 @@ All notable changes to the `challenging` skill are documented in this file. The 
 ## [0.6.0] - 2026-04-11
 
 ### Security
-- Removed auto-pip-install at import time (CWE-94 supply chain risk) — raises ImportError with instructions instead
+- Auto-pip-install now gated to sandboxed containers only (CWE-94 mitigation for non-container environments)
 - Env file parser now strips surrounding quotes from values
 
 ### Fixed
-- Claude max_tokens increased 2048→8192 (self-review truncated its own output at 2048)
+- Claude max_tokens increased 2048→32768 (self-review truncated its own output at 2048)
 - Claude response parsing uses defensive `.get()` with diagnostic errors instead of bare indexing
 - Retry logic now covers `JSONDecodeError`, `ReadTimeout`, `KeyError`, `IndexError` — proxy HTML responses no longer crash
 

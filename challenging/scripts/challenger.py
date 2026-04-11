@@ -16,10 +16,17 @@ from pathlib import Path
 try:
     import requests
 except ImportError:
-    raise ImportError(
-        "The 'requests' library is required. Install it with: "
-        "pip install requests --break-system-packages"
-    )
+    import subprocess
+    # Auto-install only in sandboxed container environments (Claude.ai, Codex, etc.)
+    # In other environments, raise with install instructions
+    if os.path.exists('/mnt/user-data') or os.environ.get('SANDBOXED'):
+        subprocess.check_call(['pip', 'install', 'requests', '-q', '--break-system-packages'])
+        import requests
+    else:
+        raise ImportError(
+            "The 'requests' library is required. Install it with: "
+            "pip install requests"
+        )
 
 REFERENCES = Path(__file__).parent.parent / 'references'
 VALID_PROFILES = ('prose', 'analysis', 'code', 'recommendation')
@@ -188,7 +195,7 @@ def _invoke_claude(artifact: str, context: str, system_prompt: str) -> dict:
         },
         json={
             'model': 'claude-opus-4-6',
-            'max_tokens': 8192,
+            'max_tokens': 32768,
             'temperature': 0.4,
             'system': system_prompt,
             'messages': [{'role': 'user', 'content': _build_user_prompt(artifact, context)}],
