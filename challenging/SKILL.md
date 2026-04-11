@@ -2,7 +2,7 @@
 name: challenging
 description: Cross-model adversarial review for deliverables before shipping. Use when producing blog posts, technical recommendations, analysis briefs, code, or any artifact where accuracy matters more than speed. Triggers on "challenge this", "review before shipping", "adversarial pass", "stress test this".
 metadata:
-  version: 0.5.0
+  version: 0.6.0
 ---
 
 # Challenging — Adversarial Review
@@ -55,6 +55,11 @@ Blocking exits when: (a) no genuine findings, (b) adversary FP rate > 75% (inven
 - **SHIP**: Clean. Deliver.
 - **REVISE**: Real issues, sound core. Fix and deliver.
 - **RETHINK**: Structural problems. Reconsider approach.
+
+## Severity Levels
+
+- **critical/high/medium/low**: Standard severity — actionable findings that block in blocking mode.
+- **unverifiable**: Adversary flagged something it doesn't recognize (API, pattern, model name) but can't confirm is wrong. Surfaced for awareness but does not block SHIP. Use `context` to ground the adversary on APIs/patterns it may not know.
 
 ## Adversary Selection
 

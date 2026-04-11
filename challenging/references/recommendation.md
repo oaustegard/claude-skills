@@ -45,7 +45,7 @@ Respond with JSON:
   "strengths": ["what's well-reasoned"],
   "findings": [
     {
-      "severity": "high | medium | low",
+      "severity": "high | medium | low | unverifiable",
       "description": "specific issue",
       "location": "section or claim",
       "reasoning": "why this undermines the recommendation",
