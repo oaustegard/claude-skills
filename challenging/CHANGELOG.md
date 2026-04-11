@@ -2,6 +2,19 @@
 
 All notable changes to the `challenging` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.5.0] - 2026-04-11
+
+### Security
+- Prompt injection mitigation: artifact/context wrapped in XML tags with trust boundary instruction in all profile system prompts
+- Removed `os.getcwd()` from credential search path — prevents rogue env files from redirecting API calls
+
+### Added
+- Input size guard: rejects artifacts > 500k chars before sending to API
+- Retry with exponential backoff on transient API errors (429, 5xx, connection errors)
+
+### Fixed
+- System prompt extraction uses regex instead of fragile string slicing — handles code fences with language tags
+
 ## [0.4.0] - 2026-04-11
 
 ### Other
