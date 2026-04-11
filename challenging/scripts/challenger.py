@@ -49,13 +49,13 @@ def _get_gemini_config() -> tuple:
     gw = os.environ.get('CF_GATEWAY_ID') or proxy.get('CF_GATEWAY_ID')
     token = os.environ.get('CF_API_TOKEN') or proxy.get('CF_API_TOKEN')
     if acct and gw and token:
-        url = f'https://gateway.ai.cloudflare.com/v1/{acct}/{gw}/google-ai-studio/v1beta/models/gemini-2.5-pro:generateContent'
+        url = f'https://gateway.ai.cloudflare.com/v1/{acct}/{gw}/google-ai-studio/v1beta/models/gemini-3.1-pro-preview:generateContent'
         return url, {'Content-Type': 'application/json', 'cf-aig-authorization': f'Bearer {token}'}
 
     # Direct Google API
     key = os.environ.get('GOOGLE_API_KEY')
     if key:
-        url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro:generateContent?key={key}'
+        url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key={key}'
         return url, {'Content-Type': 'application/json'}
 
     raise ValueError('No Gemini credentials found. Set CF_ACCOUNT_ID/CF_GATEWAY_ID/CF_API_TOKEN or GOOGLE_API_KEY.')
@@ -105,12 +105,25 @@ def _invoke_gemini(artifact: str, context: str, system_prompt: str) -> dict:
     body = {
         'system_instruction': {'parts': [{'text': system_prompt}]},
         'contents': [{'role': 'user', 'parts': [{'text': _build_user_prompt(artifact, context)}]}],
-        'generationConfig': {'temperature': 0.4, 'maxOutputTokens': 2048}
+        'generationConfig': {'temperature': 0.4, 'maxOutputTokens': 16384}
     }
     resp = requests.post(url, headers=headers, json=body, timeout=120)
     resp.raise_for_status()
     data = resp.json()
-    text = data['candidates'][0]['content']['parts'][0]['text']
+    candidates = data.get('candidates', [])
+    if not candidates:
+        raise ValueError(f"Gemini returned no candidates: {json.dumps(data)[:500]}")
+    content = candidates[0].get('content', {})
+    parts = content.get('parts', [])
+    if not parts:
+        finish = candidates[0].get('finishReason', 'UNKNOWN')
+        usage = data.get('usageMetadata', {})
+        raise ValueError(
+            f"Gemini returned no output text (finishReason={finish}). "
+            f"Thinking tokens may have consumed the budget. "
+            f"Usage: {json.dumps(usage)}"
+        )
+    text = parts[0].get('text', '')
     return _parse(text)
 
 
@@ -213,6 +226,13 @@ def challenge(
     Returns:
         dict: verdict, findings, strengths, summary, [iterations, exit_reason]
     """
+    if mode not in ('advisory', 'blocking'):
+        raise ValueError(f"Unknown mode: {mode}. Use 'advisory' or 'blocking'.")
+    if adversary not in ('gemini', 'claude'):
+        raise ValueError(f"Unknown adversary: {adversary}. Use 'gemini' or 'claude'.")
+    if max_iterations < 1:
+        raise ValueError(f"max_iterations must be >= 1, got {max_iterations}")
+
     system_prompt = _load_system_prompt(profile)
     invoke = _invoke_gemini if adversary == 'gemini' else _invoke_claude
 

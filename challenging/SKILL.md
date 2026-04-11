@@ -2,7 +2,7 @@
 name: challenging
 description: Cross-model adversarial review for deliverables before shipping. Use when producing blog posts, technical recommendations, analysis briefs, code, or any artifact where accuracy matters more than speed. Triggers on "challenge this", "review before shipping", "adversarial pass", "stress test this".
 metadata:
-  version: 0.3.0
+  version: 0.4.0
 ---
 
 # Challenging — Adversarial Review
@@ -58,7 +58,7 @@ Blocking exits when: (a) no genuine findings, (b) adversary FP rate > 75% (inven
 
 ## Adversary Selection
 
-Default: Gemini Pro (cross-model diversity). Alternate: `adversary='claude'` (Opus sub-agent).
+Default: Gemini 3.1 Pro (cross-model diversity). Alternate: `adversary='claude'` (Opus sub-agent).
 
 ## Credentials
 
