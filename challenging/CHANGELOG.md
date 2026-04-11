@@ -4,6 +4,12 @@ All notable changes to the `challenging` skill are documented in this file. The 
 
 ## [0.5.0] - 2026-04-11
 
+### Other
+
+- challenging v0.5.0: prompt injection mitigation, credential path hardening, input size guard, retry logic, robust parsing
+
+## [0.5.0] - 2026-04-11
+
 ### Security
 - Prompt injection mitigation: artifact/context wrapped in XML tags with trust boundary instruction in all profile system prompts
 - Removed `os.getcwd()` from credential search path — prevents rogue env files from redirecting API calls
