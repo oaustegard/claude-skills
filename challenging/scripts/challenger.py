@@ -10,20 +10,31 @@ Inspired by VDD (dollspace.gay) and Grainulation.
 import json
 import os
 import re
-import subprocess
 import time
 from pathlib import Path
 
 try:
     import requests
 except ImportError:
-    subprocess.check_call(['pip', 'install', 'requests', '-q', '--break-system-packages'])
-    import requests
+    raise ImportError(
+        "The 'requests' library is required. Install it with: "
+        "pip install requests --break-system-packages"
+    )
 
 REFERENCES = Path(__file__).parent.parent / 'references'
 VALID_PROFILES = ('prose', 'analysis', 'code', 'recommendation')
 MAX_ARTIFACT_CHARS = 500_000  # ~125k tokens, well within model limits
 MAX_API_RETRIES = 3
+
+# Appended to every system prompt to mitigate knowledge-cutoff false positives
+KNOWLEDGE_CUTOFF_GUARDRAIL = (
+    "\n\nKNOWLEDGE CUTOFF DISCIPLINE: Your training data may predate the artifact. "
+    "If you encounter an API, library, model name, function signature, or pattern you do not recognize, "
+    "do NOT flag it as incorrect or non-existent. Instead, classify the finding severity as 'unverifiable' "
+    "and note that you may lack knowledge of this specific API or pattern. "
+    "The <context> section may contain grounding facts about APIs and patterns used — "
+    "treat those as authoritative for the purpose of this review."
+)
 
 
 def _retry_api(fn, *args, **kwargs):
@@ -37,11 +48,17 @@ def _retry_api(fn, *args, **kwargs):
                 time.sleep(2 ** attempt)
                 continue
             raise
-        except requests.exceptions.ConnectionError:
+        except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout):
             if attempt < MAX_API_RETRIES - 1:
                 time.sleep(2 ** attempt)
                 continue
             raise
+        except (json.JSONDecodeError, KeyError, IndexError) as e:
+            # Transient: proxy returning HTML instead of JSON, or unexpected response shape
+            if attempt < MAX_API_RETRIES - 1:
+                time.sleep(2 ** attempt)
+                continue
+            raise ValueError(f"API returned unparseable response after {MAX_API_RETRIES} attempts: {e}") from e
 
 
 # ---------------------------------------------------------------------------
@@ -58,7 +75,11 @@ def _load_env_file(name: str) -> dict:
                 line = line.strip()
                 if line and not line.startswith('#') and '=' in line:
                     k, v = line.split('=', 1)
-                    env[k.strip()] = v.strip()
+                    v = v.strip()
+                    # Strip surrounding quotes (single or double)
+                    if len(v) >= 2 and v[0] == v[-1] and v[0] in ('"', "'"):
+                        v = v[1:-1]
+                    env[k.strip()] = v
             return env
     return {}
 
@@ -167,16 +188,22 @@ def _invoke_claude(artifact: str, context: str, system_prompt: str) -> dict:
         },
         json={
             'model': 'claude-opus-4-6',
-            'max_tokens': 2048,
+            'max_tokens': 8192,
             'temperature': 0.4,
             'system': system_prompt,
             'messages': [{'role': 'user', 'content': _build_user_prompt(artifact, context)}],
         },
-        timeout=120,
+        timeout=180,
     )
     resp.raise_for_status()
     data = resp.json()
-    text = data['content'][0]['text']
+    content = data.get('content', [])
+    if not content:
+        stop = data.get('stop_reason', 'unknown')
+        raise ValueError(f"Claude returned no content (stop_reason={stop})")
+    text = content[0].get('text', '')
+    if not text:
+        raise ValueError(f"Claude content block has no text: {json.dumps(content[0])[:200]}")
     return _parse(text)
 
 
@@ -208,26 +235,50 @@ def _parse(raw: str) -> dict:
 # Confabulation tracking (blocking mode)
 # ---------------------------------------------------------------------------
 
+def _finding_signature(finding: dict) -> str:
+    """Extract a comparable signature from a finding for cross-iteration dedup."""
+    # Use location + first 80 chars of description as identity
+    loc = finding.get('location', finding.get('cwe', ''))
+    desc = finding.get('description', '')[:80].lower().strip()
+    return f"{loc}::{desc}"
+
+
 class ConfabulationTracker:
     """Detects when adversary starts inventing problems (VDD pattern).
 
-    When FP rate exceeds threshold after min_iterations, the artifact is clean.
+    Uses cross-iteration novelty: if an iteration's findings share no overlap
+    with prior iterations, the adversary is likely confabulating — real issues
+    persist across passes. When novelty rate exceeds threshold, the artifact
+    is probably clean and the adversary is grasping.
     """
-    def __init__(self, threshold: float = 0.75, min_iterations: int = 2):
-        self.threshold = threshold
+    def __init__(self, novelty_threshold: float = 0.75, min_iterations: int = 2):
+        self.novelty_threshold = novelty_threshold
         self.min_iterations = min_iterations
-        self.history: list[float] = []
+        self.seen_signatures: set[str] = set()
+        self.history: list[dict] = []
 
-    def record(self, genuine: int, false_positives: int):
-        total = genuine + false_positives
-        self.history.append(false_positives / total if total > 0 else 1.0)
+    def record(self, findings: list[dict]) -> dict:
+        sigs = {_finding_signature(f) for f in findings}
+        novel = sigs - self.seen_signatures
+        total = len(sigs)
+        novelty_rate = len(novel) / total if total > 0 else 1.0
+        self.seen_signatures.update(sigs)
+        record = {
+            'total': total, 'novel': len(novel), 'repeated': total - len(novel),
+            'novelty_rate': novelty_rate,
+        }
+        self.history.append(record)
+        return record
 
     def should_terminate(self) -> bool:
-        return len(self.history) >= self.min_iterations and self.history[-1] >= self.threshold
+        """Terminate if recent iteration is mostly novel findings (no persistence)."""
+        if len(self.history) < self.min_iterations:
+            return False
+        return self.history[-1]['novelty_rate'] >= self.novelty_threshold
 
     @property
-    def latest_rate(self) -> float:
-        return self.history[-1] if self.history else 0.0
+    def latest_novelty(self) -> float:
+        return self.history[-1]['novelty_rate'] if self.history else 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -264,7 +315,7 @@ def challenge(
     if len(artifact) > MAX_ARTIFACT_CHARS:
         raise ValueError(f"Artifact too large ({len(artifact):,} chars, max {MAX_ARTIFACT_CHARS:,}). Truncate or split.")
 
-    system_prompt = _load_system_prompt(profile)
+    system_prompt = _load_system_prompt(profile) + KNOWLEDGE_CUTOFF_GUARDRAIL
     invoke_fn = _invoke_gemini if adversary == 'gemini' else _invoke_claude
 
     def invoke(art, ctx, sp):
@@ -285,27 +336,36 @@ def challenge(
     for i in range(1, max_iterations + 1):
         result = invoke(artifact, context, system_prompt)
         findings = result.get('findings', [])
-        genuine = [f for f in findings if f.get('severity', 'medium') in ('critical', 'high', 'medium')]
-        fp = [f for f in findings if f.get('severity') == 'low']
-        tracker.record(len(genuine), len(fp))
+        actionable = [f for f in findings if f.get('severity') != 'unverifiable']
+        stats = tracker.record(actionable)  # only track actionable for confabulation
 
         iterations.append({
             'iteration': i, 'verdict': result.get('verdict', 'REVISE'),
-            'genuine_count': len(genuine), 'fp_count': len(fp),
-            'fp_rate': tracker.latest_rate, 'findings': findings,
+            'finding_count': len(findings), 'actionable_count': len(actionable),
+            'unverifiable_count': len(findings) - len(actionable),
+            'novel': stats['novel'], 'repeated': stats['repeated'],
+            'novelty_rate': stats['novelty_rate'], 'findings': findings,
         })
 
-        if len(genuine) == 0:
+        if len(actionable) == 0:
+            unverifiable = [f for f in findings if f.get('severity') == 'unverifiable']
             return {
-                'verdict': 'SHIP', 'findings': [], 'strengths': result.get('strengths', []),
-                'summary': 'Clean pass — no genuine issues.',
+                'verdict': 'SHIP', 'findings': unverifiable, 'strengths': result.get('strengths', []),
+                'summary': 'Clean pass — no actionable findings.' + (
+                    f' ({len(unverifiable)} unverifiable items surfaced for awareness.)'
+                    if unverifiable else ''
+                ),
                 'iterations': iterations, 'exit_reason': f'clean_pass_iteration_{i}',
             }
 
         if tracker.should_terminate():
             return {
-                'verdict': 'SHIP', 'findings': fp, 'strengths': result.get('strengths', []),
-                'summary': f'Confabulation threshold at iteration {i} ({tracker.latest_rate:.0%} FP). Artifact is clean.',
+                'verdict': 'SHIP', 'findings': findings, 'strengths': result.get('strengths', []),
+                'summary': (
+                    f'Confabulation detected at iteration {i} — '
+                    f'{stats["novelty_rate"]:.0%} of findings are novel (no persistence from prior passes). '
+                    f'Adversary is likely inventing issues.'
+                ),
                 'iterations': iterations, 'exit_reason': 'confabulation_threshold',
             }
 

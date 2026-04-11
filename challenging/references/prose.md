@@ -47,7 +47,7 @@ Respond with JSON:
   "strengths": ["what to preserve — be specific, cite text"],
   "findings": [
     {
-      "severity": "high | medium | low",
+      "severity": "high | medium | low | unverifiable",
       "description": "specific issue",
       "location": "paragraph or section reference",
       "reasoning": "why this matters to the reader",

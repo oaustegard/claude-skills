@@ -46,7 +46,7 @@ Respond with JSON:
   "strengths": ["what's well-done"],
   "findings": [
     {
-      "severity": "critical | high | medium | low",
+      "severity": "critical | high | medium | low | unverifiable",
       "cwe": "CWE-XXX if applicable, null otherwise",
       "description": "specific issue",
       "location": "file:line or function name",

@@ -45,7 +45,7 @@ Respond with JSON:
   "strengths": ["what to preserve"],
   "findings": [
     {
-      "severity": "high | medium | low",
+      "severity": "high | medium | low | unverifiable",
       "description": "specific issue",
       "location": "section or claim reference",
       "reasoning": "why this undermines the analysis",

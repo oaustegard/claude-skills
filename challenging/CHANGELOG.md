@@ -2,6 +2,23 @@
 
 All notable changes to the `challenging` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.6.0] - 2026-04-11
+
+### Security
+- Removed auto-pip-install at import time (CWE-94 supply chain risk) — raises ImportError with instructions instead
+- Env file parser now strips surrounding quotes from values
+
+### Fixed
+- Claude max_tokens increased 2048→8192 (self-review truncated its own output at 2048)
+- Claude response parsing uses defensive `.get()` with diagnostic errors instead of bare indexing
+- Retry logic now covers `JSONDecodeError`, `ReadTimeout`, `KeyError`, `IndexError` — proxy HTML responses no longer crash
+
+### Changed
+- **Confabulation heuristic rewritten**: no longer uses adversary's self-assigned severity labels (untrusted model output as security decision). Now tracks cross-iteration finding novelty — real issues persist across passes, confabulated ones don't.
+- `unverifiable` severity added to all profiles — adversary uses this when it doesn't recognize an API/pattern rather than flagging as incorrect
+- Knowledge cutoff guardrail appended to all system prompts — instructs adversary to classify unfamiliar patterns as unverifiable, not wrong
+- Blocking mode filters `unverifiable` findings from actionable count (they surface for awareness but don't block SHIP)
+
 ## [0.5.0] - 2026-04-11
 
 ### Other
