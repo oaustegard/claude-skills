@@ -295,10 +295,12 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
            since: str = None, until: str = None,
            tags_all: list = None, tags_any: list = None,
            episodic: bool = False,
+           exploration: bool = False,
            # Deprecated parameters (kept for backward compat)
            use_cache: bool = True) -> MemoryResultList:
     """Query memories with flexible filters.
 
+    v5.6.0: Added exploration mode for MIA-inspired diversity boost (#paper-MIA).
     v5.1.0: Added episodic relevance scoring (#296).
     v5.0.0: Primary search uses Turso FTS5 with automatic retry and LIKE fallback.
             Local cache removed from hot path. use_cache parameter is ignored.
@@ -337,6 +339,10 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
         episodic: If True, include access-pattern boosting in ranking (#296).
             Frequently accessed memories get a logarithmic boost, rewarding
             validated-useful memories over unaccessed ones.
+        exploration: If True, apply exploration boost favoring rarely-accessed
+            memories (#paper-MIA). Adds 1/(1+access_count) bonus to ranking,
+            preventing heavily-accessed memories from monopolizing results.
+            Mutually exclusive with episodic (exploration wins if both set).
         use_cache: Deprecated (v5.0.0). Ignored - all queries go to Turso.
 
     Returns:
@@ -521,6 +527,23 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
                           since=since, until=until),
             max_retries=3, base_delay=0.5
         )
+
+    # v5.6.0: Exploration boost — rerank to surface rarely-accessed memories (#paper-MIA)
+    # Inspired by MIA's frequency reward: 1/(usage_count+1) prevents monopolization.
+    # Applied client-side since it inverts the episodic signal.
+    if exploration and results and not strict:
+        import math
+        EXPLORATION_WEIGHT = 0.1
+        scored = []
+        for i, r in enumerate(results):
+            # Position score from server-side ranking (inverse rank as proxy)
+            pos = 1.0 / (1 + i)
+            # Exploration bonus: rarely-accessed memories get a lift
+            ac = int(r.get('access_count', 0) or 0)
+            expl = EXPLORATION_WEIGHT * (1.0 / (1 + ac))
+            scored.append((pos + expl, r))
+        scored.sort(key=lambda x: x[0], reverse=True)
+        results = [r for _, r in scored]
 
     # Track access in Turso (background, don't block)
     if results:
@@ -1215,13 +1238,14 @@ def recall_batch(queries: list, *, n: int = 10, type: str = None,
         where = " AND ".join(conditions)
         params.append(n)
 
-        # v5.1.0: tag weight increased from 0.5 to 1.0 (#309)
+        # v5.6.0: confidence quality signal added (#paper-MIA)
         sql = f"""
             SELECT m.*,
                    bm25(memory_fts, 0, 1.0, 1.0) AS bm25_score,
                    bm25(memory_fts, 0, 1.0, 1.0)
                      * (1.0 + COALESCE(m.priority, 0) * 0.3)
                      * (1.0 / (1.0 + (julianday('now') - julianday(m.t)) * 0.01))
+                     * (1.0 + COALESCE(m.confidence, 0.5) * 0.15)
                    AS composite_score
             FROM memory_fts f
             JOIN memories m ON f.id = m.id

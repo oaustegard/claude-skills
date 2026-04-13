@@ -330,20 +330,21 @@ def _fts5_search(search: str, *, n: int = 10, type: str = None,
                  conf: float = None, session_id: str = None,
                  since: str = None, until: str = None,
                  episodic: bool = False) -> list:
-    """Server-side FTS5 search via Turso with BM25 × recency × priority ranking.
+    """Server-side FTS5 search via Turso with BM25 × recency × priority × confidence ranking.
 
     Queries the memory_fts virtual table on Turso, joining with the memories
     table for filtering and composite scoring. Returns ranked results without
     needing the local SQLite cache.
 
-    Standard composite score formula:
-        bm25_score × (1 + priority × 0.3) × recency_decay
+    Standard composite score formula (v5.6.0):
+        bm25_score × (1 + priority × 0.3) × recency_decay × confidence_boost
 
-    Episodic composite score formula (v5.1.0, #296):
-        bm25_score × (1 + priority × 0.3) × recency_decay × access_boost
+    Episodic composite score formula (v5.6.0):
+        bm25_score × (1 + priority × 0.3) × recency_decay × confidence_boost × access_boost
 
     Where:
         recency_decay = 1 / (1 + age_in_days × 0.01)
+        confidence_boost = 1 + confidence × 0.15  (default confidence = 0.5)
         access_boost = 1 + ln(1 + access_count) × 0.2  (episodic mode only)
 
     BM25 column weights: id=0, summary=1.0, tags=1.0
@@ -368,6 +369,7 @@ def _fts5_search(search: str, *, n: int = 10, type: str = None,
     Raises:
         RuntimeError: If FTS5 table doesn't exist or query fails
 
+    v5.6.0: Added confidence quality signal to composite scoring (#paper-MIA).
     v5.1.0: Added episodic scoring mode (#296), increased tag weight (#309).
     v4.5.0: Initial implementation (#298).
     """
@@ -419,11 +421,17 @@ def _fts5_search(search: str, *, n: int = 10, type: str = None,
     bm25_expr = "bm25(memory_fts, 0, 1.0, 1.0)"
 
     # v5.1.0: Episodic scoring adds access-pattern boost (#296)
+    # v5.6.0: Confidence quality signal added to all modes (#paper-MIA)
+    #   Higher confidence memories rank higher. Default 0.5 for unset confidence.
+    #   Factor: (1 + conf * 0.15) — ranges from 1.0 (conf=0) to 1.15 (conf=1.0)
+    conf_factor = f"(1.0 + COALESCE(m.confidence, 0.5) * 0.15)"
+
     if episodic:
         composite_expr = (
             f"{bm25_expr}"
             f" * (1.0 + COALESCE(m.priority, 0) * 0.3)"
             f" * (1.0 / (1.0 + (julianday('now') - julianday(m.t)) * 0.01))"
+            f" * {conf_factor}"
             f" * (1.0 + ln(1.0 + COALESCE(m.access_count, 0)) * 0.2)"
         )
     else:
@@ -431,6 +439,7 @@ def _fts5_search(search: str, *, n: int = 10, type: str = None,
             f"{bm25_expr}"
             f" * (1.0 + COALESCE(m.priority, 0) * 0.3)"
             f" * (1.0 / (1.0 + (julianday('now') - julianday(m.t)) * 0.01))"
+            f" * {conf_factor}"
         )
 
     sql = f"""
