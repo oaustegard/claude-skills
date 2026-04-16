@@ -1,8 +1,16 @@
 """
 Adversarial review engine for deliverables.
 
-Cross-model review using Gemini (default) or Claude Opus sub-agent.
-Self-contained — no dependencies on other skills. Uses requests for API calls.
+Two execution paths:
+  1. Subagent path (Claude Code, primary) — `prepare()` builds a prompt,
+     the parent agent invokes the Task tool to spawn a sub-Claude as the
+     adversary, `parse_response()` decodes the JSON. No API key required.
+  2. API path (claude.ai, Codex, headless scripts) — `challenge()` calls
+     Gemini (default, cross-model) or the Claude API (claude.ai fallback,
+     since claude.ai cannot spawn subagents) and returns parsed JSON.
+
+Self-contained — no dependencies on other skills. `requests` is only needed
+for the API path; importing the subagent helpers does not require it.
 
 Inspired by VDD (dollspace.gay) and Grainulation.
 """
@@ -16,16 +24,25 @@ from pathlib import Path
 try:
     import requests
 except ImportError:
+    requests = None  # API path will raise on use; subagent path doesn't need it
+
+
+def _require_requests():
+    """Lazy-load requests for the API path; install in sandboxed containers."""
+    global requests
+    if requests is not None:
+        return
     import subprocess
-    # Auto-install only in sandboxed container environments (Claude.ai, Codex, etc.)
-    # In other environments, raise with install instructions
     if os.path.exists('/mnt/user-data') or os.environ.get('SANDBOXED'):
         subprocess.check_call(['pip', 'install', 'requests', '-q', '--break-system-packages'])
-        import requests
+        import requests as _r
+        requests = _r
     else:
         raise ImportError(
-            "The 'requests' library is required. Install it with: "
-            "pip install requests"
+            "The 'requests' library is required for the API path. "
+            "Install it with: pip install requests. "
+            "If you are in Claude Code, prefer the subagent path "
+            "(prepare() + Task tool + parse_response()) — no install needed."
         )
 
 REFERENCES = Path(__file__).parent.parent / 'references'
@@ -46,6 +63,7 @@ KNOWLEDGE_CUTOFF_GUARDRAIL = (
 
 def _retry_api(fn, *args, **kwargs):
     """Retry API calls with exponential backoff on transient errors."""
+    _require_requests()
     for attempt in range(MAX_API_RETRIES):
         try:
             return fn(*args, **kwargs)
@@ -167,6 +185,7 @@ def _build_user_prompt(artifact: str, context: str) -> str:
 
 
 def _gemini_raw(user_prompt: str, system_prompt: str) -> dict:
+    _require_requests()
     url, headers = _get_gemini_config()
     body = {
         'system_instruction': {'parts': [{'text': system_prompt}]},
@@ -194,6 +213,7 @@ def _gemini_raw(user_prompt: str, system_prompt: str) -> dict:
 
 
 def _claude_raw(user_prompt: str, system_prompt: str) -> dict:
+    _require_requests()
     api_key = _get_claude_config()
     resp = requests.post(
         'https://api.anthropic.com/v1/messages',
@@ -306,7 +326,101 @@ class ConfabulationTracker:
 
 
 # ---------------------------------------------------------------------------
-# Main entry point
+# Subagent path (Claude Code, primary)
+# ---------------------------------------------------------------------------
+# These helpers don't invoke any model — they build the prompt and parse the
+# response. The parent agent is responsible for spawning the subagent via the
+# Task tool with subagent_type='general-purpose' and prompt=job['prompt'].
+
+def _build_subagent_prompt(system: str, user: str) -> str:
+    """Wrap the system + user prompt for a single Task tool invocation."""
+    return (
+        "You have been spawned as an adversarial reviewer. Your context is "
+        "fresh — you have not seen the prior conversation. Follow these "
+        "operating instructions exactly, and emit ONLY the JSON described.\n\n"
+        "--- OPERATING INSTRUCTIONS ---\n\n"
+        f"{system}\n\n"
+        "--- REVIEW TARGET ---\n\n"
+        f"{user}\n\n"
+        "Do not call any tools. Do not write any files. Read the artifact, "
+        "apply the operating instructions, and respond with the JSON object "
+        "as your final message — no preamble, no markdown fences."
+    )
+
+
+def prepare(artifact: str, profile: str = 'prose', context: str = '') -> dict:
+    """Build a Task-tool prompt for an adversarial review subagent.
+
+    Use this in Claude Code: call prepare() to get the prompt, invoke the
+    Task tool with subagent_type='general-purpose' and prompt=job['prompt'],
+    then pass the subagent's text response to parse_response().
+
+    Args:
+        artifact: Content to review.
+        profile: 'prose' | 'analysis' | 'code' | 'recommendation'.
+        context: What the artifact is for (audience, purpose, target).
+
+    Returns:
+        dict with 'prompt' (str for Task tool) and 'profile' (echoed back).
+    """
+    if profile not in VALID_PROFILES:
+        raise ValueError(f"Unknown profile: {profile}. Available: {', '.join(VALID_PROFILES)}")
+    if len(artifact) > MAX_ARTIFACT_CHARS:
+        raise ValueError(f"Artifact too large ({len(artifact):,} chars, max {MAX_ARTIFACT_CHARS:,}). Truncate or split.")
+    system = _load_system_prompt(profile) + KNOWLEDGE_CUTOFF_GUARDRAIL
+    user = _build_user_prompt(artifact, context)
+    return {'prompt': _build_subagent_prompt(system, user), 'profile': profile}
+
+
+def parse_response(text: str) -> dict:
+    """Parse a subagent's text response into the standard challenge() result.
+
+    Returns a dict with verdict, findings, strengths, summary keys (defaults
+    filled). Tolerates markdown fences and surrounding chatter from the
+    subagent.
+    """
+    result = _parse(text)
+    result.setdefault('verdict', 'REVISE')
+    result.setdefault('findings', [])
+    result.setdefault('strengths', [])
+    result.setdefault('summary', '')
+    return result
+
+
+def prepare_drill(artifact: str, finding, context: str = '') -> dict:
+    """Build a Task-tool prompt for a 5 Whys drill subagent.
+
+    Use this in Claude Code: call prepare_drill() to get the prompt, invoke
+    the Task tool, then pass the subagent's text response to
+    parse_drill_response().
+
+    Args:
+        artifact: The original content the finding came from.
+        finding: A finding dict (from challenge()) or free-text description.
+        context: Same grounding context used for the original challenge.
+
+    Returns:
+        dict with 'prompt' (str for Task tool).
+    """
+    if len(artifact) > MAX_ARTIFACT_CHARS:
+        raise ValueError(f"Artifact too large ({len(artifact):,} chars, max {MAX_ARTIFACT_CHARS:,}).")
+    system = _load_drill_prompt() + KNOWLEDGE_CUTOFF_GUARDRAIL
+    user = _build_drill_prompt(artifact, finding, context)
+    return {'prompt': _build_subagent_prompt(system, user)}
+
+
+def parse_drill_response(text: str) -> dict:
+    """Parse a drill subagent's text response into the standard drill() result."""
+    result = _parse(text)
+    result.setdefault('chain', [])
+    result.setdefault('root_causes', [])
+    result.setdefault('direction', '')
+    result.setdefault('summary', '')
+    return result
+
+
+# ---------------------------------------------------------------------------
+# API path (claude.ai, Codex, headless scripts)
 # ---------------------------------------------------------------------------
 
 def challenge(
@@ -317,18 +431,24 @@ def challenge(
     adversary: str = 'gemini',
     max_iterations: int = 3,
 ) -> dict:
-    """Run adversarial review on an artifact.
+    """Run adversarial review on an artifact via direct API call.
+
+    In Claude Code, prefer prepare() + Task tool subagent + parse_response()
+    — that path needs no API key and uses a fresh-context sub-Claude as the
+    adversary. This function exists for claude.ai, Codex, and headless
+    scripts where subagents aren't available.
 
     Args:
-        artifact: Content to review
-        profile: 'prose' | 'analysis' | 'code' | 'recommendation'
-        context: What the artifact is for (audience, purpose, target)
-        mode: 'advisory' (single pass) | 'blocking' (loop until clean/confabulation)
-        adversary: 'gemini' (default, cross-model) | 'claude' (Opus sub-agent)
-        max_iterations: Max passes in blocking mode
+        artifact: Content to review.
+        profile: 'prose' | 'analysis' | 'code' | 'recommendation'.
+        context: What the artifact is for (audience, purpose, target).
+        mode: 'advisory' (single pass) | 'blocking' (loop until clean/confabulation).
+        adversary: 'gemini' (default, cross-model) | 'claude' (claude.ai fallback,
+                   uses the Anthropic API; do not use this in Claude Code).
+        max_iterations: Max passes in blocking mode.
 
     Returns:
-        dict: verdict, findings, strengths, summary, [iterations, exit_reason]
+        dict: verdict, findings, strengths, summary, [iterations, exit_reason].
     """
     if mode not in ('advisory', 'blocking'):
         raise ValueError(f"Unknown mode: {mode}. Use 'advisory' or 'blocking'.")
@@ -438,7 +558,11 @@ def drill(
     context: str = '',
     adversary: str = 'gemini',
 ) -> dict:
-    """Run 5 Whys on a single finding to expose systemic causes.
+    """Run 5 Whys on a single finding to expose systemic causes (API path).
+
+    In Claude Code, prefer prepare_drill() + Task tool subagent +
+    parse_drill_response() — no API key required. This function is the
+    claude.ai / Codex / headless equivalent.
 
     Patches address the one case; drills address the class. Kellogg's open-strix
     pattern: don't fix individual cold-path failures, stabilize the system.
@@ -448,7 +572,8 @@ def drill(
         finding: Either a finding dict from challenge() or a free-text description
                  of the surprising outcome / bad result.
         context: Additional grounding context (same as challenge()).
-        adversary: 'gemini' (default, cross-model) | 'claude' (Opus sub-agent).
+        adversary: 'gemini' (default, cross-model) | 'claude' (claude.ai fallback,
+                   uses the Anthropic API; do not use this in Claude Code).
 
     Returns:
         dict with:
