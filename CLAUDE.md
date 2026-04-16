@@ -162,19 +162,17 @@ When a background agent is still running and you need its results, WAIT for it t
 
 When a file is within the Read tool's default limit (2000 lines), read it in one call. Do not split into chunks preemptively. If the first read triggers a "too large" warning, then use offset/limit — not before.
 
-## Code Navigation: Use tree-sitting, Not Stored Maps
+## Code Navigation
 
-This repository does **not** ship pre-generated `_MAP.md` files. Those have been
-removed in favor of the `tree-sitting` skill, which produces the same AST-derived
-view on demand — always fresh, always scoped to the work at hand, never drifting
-from source.
+Use the `tree-sitting` skill to orient in unfamiliar parts of the repo. It
+produces an AST-derived view on demand, scoped to whatever subtree you point
+it at — no checked-in artifacts to maintain.
 
-### Orient Before You Read
+### Scope Your Scan
 
-**When exploring a skill or script directory, run `treesit.py` against just the
-subtree you need** — do not scan the whole repo unless you genuinely need a
-cross-cutting view. Each invocation auto-scans (~700ms for ~250 files) and
-prints a progressive-disclosure tree.
+This repo has 36+ skills. Scanning the whole tree when you only care about one
+skill wastes tokens. Use `--path=` to scope to the skill or directory you're
+working on, and only widen the scope if the work crosses boundaries.
 
 ```bash
 TREESIT=/mnt/skills/user/tree-sitting/scripts/treesit.py
@@ -196,9 +194,8 @@ $PY $TREESIT /home/user/claude-skills 'source:install_utilities'
 $PY $TREESIT /home/user/claude-skills 'refs:CodeCache'
 ```
 
-`--path=` is the key discipline: this repo has 36+ skills and scanning them all
-wastes tokens when you only care about one. Scope down to the skill(s) you're
-modifying, then expand only if the work crosses boundaries.
+Each invocation auto-scans (~700ms for ~250 files) and prints a
+progressive-disclosure tree before any query results.
 
 ### When to Use What
 
@@ -213,20 +210,9 @@ modifying, then expand only if the work crosses boundaries.
 | Regex/substring search across files | `Grep` |
 
 **Anti-pattern**: Running 3+ `Grep` calls to piece together a skill's structure.
-One scoped `treesit.py --path=<skill> --detail=full` call answers "what's here
-and what does it export" in a single read. Use Grep for string-level searches
-(comments, TODOs, specific phrasings), not for structural orientation.
-
-### No Pre-Commit Map Regeneration
-
-Previous versions of this file instructed agents to run `codemap.py` before
-every commit to refresh `_MAP.md` files. **Do not do this.** Maps drift the
-moment code changes, and the tree-sitting skill gives future sessions a fresh
-view with no on-disk artifact to maintain.
-
-The `mapping-codebases` skill still exists and is still a valid tool for
-codebases that want persistent, checked-in maps — but this repository is not
-one of them.
+One scoped `treesit.py --path=<skill> --detail=full` answers "what's here and
+what does it export" in a single read. Reserve Grep for string-level searches
+(comments, TODOs, specific phrasings), not structural orientation.
 
 ## Skill Development Workflow
 
