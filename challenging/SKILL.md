@@ -2,14 +2,14 @@
 name: challenging
 description: Cross-model adversarial review for deliverables before shipping. Use when producing blog posts, technical recommendations, analysis briefs, code, or any artifact where accuracy matters more than speed. Triggers on "challenge this", "review before shipping", "adversarial pass", "stress test this".
 metadata:
-  version: 0.6.0
+  version: 0.7.0
 ---
 
 # Challenging — Adversarial Review
 
 Cross-model adversarial review. A different model reviews your output with fresh context — no shared blind spots, no accumulated goodwill.
 
-Inspired by VDD (dollspace.gay) and Grainulation's anti-rationalization patterns.
+Inspired by VDD (dollspace.gay) and Grainulation's anti-rationalization patterns. The `drill` helper adopts the 5 Whys pattern from Tim Kellogg's [open-strix writeup](https://timkellogg.me/blog/2026/04/14/forgetting).
 
 ## Profiles
 
@@ -22,12 +22,14 @@ Pick the profile matching your artifact. **Read only the profile you need** — 
 | `code` | Scripts, implementations, PRs | `references/code.md` |
 | `recommendation` | Technical decisions, architecture choices | `references/recommendation.md` |
 
+`drill` is not a profile — it's a follow-up pass on a specific finding. See `references/drill.md`.
+
 ## Usage
 
 ```python
 import sys
 sys.path.insert(0, '/mnt/skills/user/challenging/scripts')
-from challenger import challenge
+from challenger import challenge, drill
 
 result = challenge(
     artifact=open('/home/claude/draft.md').read(),
@@ -38,6 +40,26 @@ print(result['verdict'])    # SHIP | REVISE | RETHINK
 print(result['findings'])   # List of specific issues
 print(result['strengths'])  # What to preserve
 ```
+
+### Drill — 5 Whys on a systemic finding
+
+Run after `challenge()` when a finding feels symptomatic — the class of failure matters more than the individual case.
+
+```python
+# Pick a finding that hints at a broader pattern
+suspect = next(f for f in result['findings'] if f['severity'] in ('high', 'critical'))
+
+diagnosis = drill(
+    artifact=open('/home/claude/draft.md').read(),
+    finding=suspect,
+    context='Blog post about RAG scaling laws',
+)
+print(diagnosis['chain'])        # [{why, because}, ...] up to 5 levels
+print(diagnosis['root_causes'])  # usually 3-4 distinct systemic issues
+print(diagnosis['direction'])    # compass heading for the process fix
+```
+
+`finding` accepts either a dict from `challenge()` or a free-text string describing the surprise. Patches fix the instance; drills fix the class. See `references/drill.md`.
 
 ## Modes
 
