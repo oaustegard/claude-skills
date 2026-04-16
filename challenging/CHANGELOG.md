@@ -2,6 +2,16 @@
 
 All notable changes to the `challenging` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.7.0] - 2026-04-16
+
+### Added
+- `drill()` — 5 Whys follow-up pass for a single finding. Returns chain, root_causes, direction, summary. Adapted from Tim Kellogg's open-strix pattern (timkellogg.me/blog/2026/04/14/forgetting).
+- `references/drill.md` — drill persona, anti-pattern table (surface-level "becauses" to reject), system prompt.
+
+### Changed
+- Internal: `_gemini_raw` / `_claude_raw` helpers extracted from `_invoke_gemini` / `_invoke_claude` so `challenge` and `drill` share invocation machinery. No behavior change for existing callers.
+- `_load_system_prompt` refactored around shared `_extract_system_prompt` helper for reuse by drill loader.
+
 ## [0.6.0] - 2026-04-11
 
 ### Other
