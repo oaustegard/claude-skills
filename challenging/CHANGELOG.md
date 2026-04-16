@@ -4,6 +4,12 @@ All notable changes to the `challenging` skill are documented in this file. The 
 
 ## [0.7.0] - 2026-04-16
 
+### Other
+
+- Add drill() — 5 Whys follow-up pass (#544)
+
+## [0.7.0] - 2026-04-16
+
 ### Added
 - `drill()` — 5 Whys follow-up pass for a single finding. Returns chain, root_causes, direction, summary. Adapted from Tim Kellogg's open-strix pattern (timkellogg.me/blog/2026/04/14/forgetting).
 - `references/drill.md` — drill persona, anti-pattern table (surface-level "becauses" to reject), system prompt.
