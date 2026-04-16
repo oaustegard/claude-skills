@@ -162,61 +162,71 @@ When a background agent is still running and you need its results, WAIT for it t
 
 When a file is within the Read tool's default limit (2000 lines), read it in one call. Do not split into chunks preemptively. If the first read triggers a "too large" warning, then use offset/limit — not before.
 
-## Code Maps
+## Code Navigation: Use tree-sitting, Not Stored Maps
 
-This repository has navigable code maps generated via the mapping-codebases skill.
+This repository does **not** ship pre-generated `_MAP.md` files. Those have been
+removed in favor of the `tree-sitting` skill, which produces the same AST-derived
+view on demand — always fresh, always scoped to the work at hand, never drifting
+from source.
 
-### Using the Maps
+### Orient Before You Read
 
-**When exploring this codebase, ALWAYS start with `_MAP.md` files** rather than directly reading source files:
-
-1. **Start at the root** - Read `/home/user/claude-skills/_MAP.md` for a high-level overview
-2. **Navigate hierarchically** - Each directory has its own `_MAP.md` with:
-   - Subdirectory links for drilling down
-   - File-level symbol exports (classes, functions, methods)
-   - Import previews showing dependencies
-   - Function signatures (Python, partial TypeScript)
-   - **Line number references** (`:42` format) for direct navigation
-   - **Markdown heading ToC** (h1/h2 only) for documentation files
-   - **Other Files** section for non-code files (JSON, YAML, configs)
-3. **Read source files only when necessary** - After identifying relevant files via maps
-
-**Best Practice**: Start with `_MAP.md` for orientation, then use targeted Grep/Read for specific details. The maps answer "what functions does this module expose and how do I call them?" in one read, but you still need direct tools for implementation details, line-specific searches, and non-Python files not covered by maps.
-
-**Why this matters**: This repository has 36 skills with scripts, references, and supporting files. Maps provide structure without overwhelming context windows.
-
-**Anti-pattern to avoid**: Running multiple grep calls to locate functions or understand a module's structure is a signal you should have read the `_MAP.md` first. If you find yourself issuing a second grep to explore the same skill or script directory, stop — read that directory's `_MAP.md` instead.
+**When exploring a skill or script directory, run `treesit.py` against just the
+subtree you need** — do not scan the whole repo unless you genuinely need a
+cross-cutting view. Each invocation auto-scans (~700ms for ~250 files) and
+prints a progressive-disclosure tree.
 
 ```bash
-# WRONG: multiple greps to understand a module
-grep -n "install_utilities" remembering/scripts/boot.py
-grep -n "PURPOSE\|USE WHEN\|DEPS" remembering/references/CLAUDE.md
-grep -n "utility-code\|muninn_utils" remembering/SKILL.md
+TREESIT=/mnt/skills/user/tree-sitting/scripts/treesit.py
+PY=/home/claude/.venv/bin/python
 
-# RIGHT: one read to orient, then targeted lookups
-Read remembering/scripts/_MAP.md   # shows install_utilities signature + line number
-Read remembering/references/_MAP.md  # shows what advanced-operations.md covers
+# Orient on a single skill (the common case)
+$PY $TREESIT /home/user/claude-skills --path=remembering --detail=full
+
+# Full shape of a subtree, minimal per-node detail
+$PY $TREESIT /home/user/claude-skills --path=remembering/scripts --depth=-1 --detail=sparse
+
+# Find a symbol anywhere in the repo
+$PY $TREESIT /home/user/claude-skills 'find:install_utilities'
+
+# Read the source of a specific symbol
+$PY $TREESIT /home/user/claude-skills 'source:install_utilities'
+
+# Find usages
+$PY $TREESIT /home/user/claude-skills 'refs:CodeCache'
 ```
 
-### Keeping Maps Fresh
+`--path=` is the key discipline: this repo has 36+ skills and scanning them all
+wastes tokens when you only care about one. Scope down to the skill(s) you're
+modifying, then expand only if the work crosses boundaries.
 
-**CRITICAL - Before ANY git commit:**
+### When to Use What
 
-```bash
-# Refresh all _MAP.md files to reflect code changes
-python /home/user/claude-skills/mapping-codebases/scripts/codemap.py /home/user/claude-skills --skip .uploads,assets
+| Need | Use |
+|------|-----|
+| "What does this skill expose?" | `treesit.py --path=<skill> --detail=full` |
+| "Where is symbol X defined?" | `treesit.py 'find:X'` |
+| "Show me the source of X" | `treesit.py 'source:X'` |
+| "Who calls X?" | `treesit.py 'refs:X'` |
+| "What files are in this dir?" | `treesit.py --path=<dir>` |
+| Line-specific lookup in a known file | `Read` |
+| Regex/substring search across files | `Grep` |
 
-# Then stage and commit
-git add .
-git commit -m "your commit message"
-```
+**Anti-pattern**: Running 3+ `Grep` calls to piece together a skill's structure.
+One scoped `treesit.py --path=<skill> --detail=full` call answers "what's here
+and what does it export" in a single read. Use Grep for string-level searches
+(comments, TODOs, specific phrasings), not for structural orientation.
 
-**Why**: _MAP.md files are generated from AST analysis and drift from source code as files change. Outdated maps mislead future Claude instances and developers.
+### No Pre-Commit Map Regeneration
 
-**Integration with commit workflow:**
-- Run mapping BEFORE staging files
-- Include updated _MAP.md files in your commit
-- This ensures maps always reflect the committed code state
+Previous versions of this file instructed agents to run `codemap.py` before
+every commit to refresh `_MAP.md` files. **Do not do this.** Maps drift the
+moment code changes, and the tree-sitting skill gives future sessions a fresh
+view with no on-disk artifact to maintain.
+
+The `mapping-codebases` skill still exists and is still a valid tool for
+codebases that want persistent, checked-in maps — but this repository is not
+one of them.
 
 ## Skill Development Workflow
 
