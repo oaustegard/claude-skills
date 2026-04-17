@@ -4,6 +4,12 @@ All notable changes to the `challenging` skill are documented in this file. The 
 
 ## [0.8.1] - 2026-04-17
 
+### Other
+
+- challenging v0.8.1: add README
+
+## [0.8.1] - 2026-04-17
+
 ### Added
 - `README.md` — quickstart overview with two-path table (subagent / API), profile table, verdicts, provenance (VDD, Grainulation, Tim Kellogg's 5 Whys), and complements (generative-thinking, convening-experts, tiling-tree). Points at `SKILL.md` for full protocol.
 
