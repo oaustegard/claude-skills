@@ -4,6 +4,12 @@ All notable changes to the `challenging` skill are documented in this file. The 
 
 ## [0.8.0] - 2026-04-17
 
+### Other
+
+- challenging v0.8.0: unify drill into challenge (sequential-deepen profile) (#547)
+
+## [0.8.0] - 2026-04-17
+
 ### Changed
 - **Subagent path is now the primary adversary in Claude Code.** `prepare()` + Task tool + `parse_response()` is the documented default; `challenge()` with `adversary='claude'` is reserved for claude.ai (which can't spawn subagents). Gemini remains the cross-model option.
 - **Drill is now a `challenge` profile, not a separate function.** One unified surface (`prepare` / `parse_response` / `challenge`) with two iteration strategies: review profiles run *parallel replay* (current blocking mode), drill runs *sequential deepen* (one why-level per pass, conditioned on the chain so far, until bedrock or max depth) followed by a synthesis pass.
