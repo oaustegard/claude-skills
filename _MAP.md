@@ -1,5 +1,5 @@
 # claude-skills/
-*Files: 1 | Subdirectories: 66*
+*Files: 1 | Subdirectories: 68*
 
 ## Subdirectories
 
@@ -10,6 +10,7 @@
 - [building-github-index/](./building-github-index/_MAP.md)
 - [building-github-index-v2/](./building-github-index-v2/_MAP.md)
 - [categorizing-bsky-accounts/](./categorizing-bsky-accounts/_MAP.md)
+- [challenging/](./challenging/_MAP.md)
 - [charting/](./charting/_MAP.md)
 - [charting-vega-lite/](./charting-vega-lite/_MAP.md)
 - [check-tools/](./check-tools/_MAP.md)
@@ -69,6 +70,7 @@
 - [updating-knowledge/](./updating-knowledge/_MAP.md)
 - [using-webctl/](./using-webctl/_MAP.md)
 - [versioning-skills/](./versioning-skills/_MAP.md)
+- [writing-instructions/](./writing-instructions/_MAP.md)
 
 ## Other Files
 

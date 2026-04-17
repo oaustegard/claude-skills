@@ -17,14 +17,15 @@ Inspired by VDD (dollspace.gay) and Grainulation's anti-rationalization patterns
 
 Pick the profile matching your artifact. **Read only the profile you need** — each is self-contained with persona, anti-rationalization table, evaluation criteria, and adversary system prompt.
 
-| Profile | Use For | File |
-|---------|---------|------|
-| `prose` | Blog posts, essays, articles | `references/prose.md` |
-| `analysis` | Research briefs, comparisons, synthesis | `references/analysis.md` |
-| `code` | Scripts, implementations, PRs | `references/code.md` |
-| `recommendation` | Technical decisions, architecture choices | `references/recommendation.md` |
+| Profile | Use For | Iteration strategy | File |
+|---------|---------|--------------------|------|
+| `prose` | Blog posts, essays, articles | parallel replay | `references/prose.md` |
+| `analysis` | Research briefs, comparisons, synthesis | parallel replay | `references/analysis.md` |
+| `code` | Scripts, implementations, PRs | parallel replay | `references/code.md` |
+| `recommendation` | Technical decisions, architecture choices | parallel replay | `references/recommendation.md` |
+| `drill` | 5 Whys on one finding from a review | sequential deepen | `references/drill.md` |
 
-`drill` is not a profile — it's a follow-up pass on a specific finding. See `references/drill.md`.
+One engine, one surface, two iteration strategies. Review profiles iterate in *parallel replay* — each pass independent, novelty tracked for confabulation. Drill iterates in *sequential deepen* — each pass takes the chain so far and produces one more why-level until bedrock or max depth, followed by a synthesis pass that extracts root causes.
 
 ## Usage — Claude Code (subagent path, primary)
 
@@ -55,31 +56,41 @@ print(result['strengths'])  # What to preserve
 
 ### Drill — 5 Whys on a systemic finding (subagent path)
 
+Drill uses the same `prepare()` / Task / `parse_response()` protocol as review profiles, but you run the loop yourself — each pass takes the chain so far and produces exactly ONE new `{why, because}`. When the adversary sets `bedrock=true` (or you hit max depth), run a final synthesis pass.
+
 ```python
-from challenger import prepare_drill, parse_drill_response
+from challenger import prepare, parse_response
 
 suspect = next(f for f in result['findings'] if f['severity'] in ('high', 'critical'))
+artifact = open('/home/claude/draft.md').read()
+ctx = 'Blog post about RAG scaling laws'
 
-job = prepare_drill(
-    artifact=open('/home/claude/draft.md').read(),
-    finding=suspect,
-    context='Blog post about RAG scaling laws',
-)
-# Invoke Task tool with prompt=job['prompt'], then:
-diagnosis = parse_drill_response(subagent_text)
-print(diagnosis['chain'])        # [{why, because}, ...] up to 5 levels
+chain = []
+for depth in range(1, 6):
+    job = prepare(artifact, 'drill', context=ctx, finding=suspect, chain=chain)
+    # Task tool: subagent_type='general-purpose', prompt=job['prompt']
+    step = parse_response(subagent_text)   # {why, because, bedrock, reasoning}
+    chain.append({'why': step['why'], 'because': step['because']})
+    if step.get('bedrock'):
+        break
+
+# Final synthesis pass over the completed chain
+job = prepare(artifact, 'drill', context=ctx, finding=suspect, chain=chain, synthesize=True)
+# Task tool again, then:
+diagnosis = parse_response(subagent_text)
+print(diagnosis['chain'])        # [{why, because}, ...]
 print(diagnosis['root_causes'])  # usually 3-4 distinct systemic issues
 print(diagnosis['direction'])    # compass heading for the process fix
 ```
 
-`finding` accepts either a dict from `parse_response()` or a free-text description. Patches fix the instance; drills fix the class. See `references/drill.md` for when to drill.
+`finding` accepts either a dict from `parse_response()` or a free-text description. Patches fix the instance; drills fix the class. Why sequential, not parallel? A single-shot drill lets the model shortcut the whole tree and produces renames instead of explanations; one level per pass forces each "because" to earn its depth. See `references/drill.md` for when to drill and the anti-patterns to reject.
 
 ## Usage — claude.ai, Codex, headless scripts (API path)
 
 Where subagents aren't available, call an external model directly.
 
 ```python
-from challenger import challenge, drill
+from challenger import challenge
 
 result = challenge(
     artifact=open('draft.md').read(),
@@ -93,15 +104,26 @@ result = challenge(
 - **`gemini`** (default) — Gemini 3.1 Pro. Genuine cross-model review.
 - **`claude`** — Anthropic API. Use only on claude.ai (which can't spawn subagents). **Do not use this in Claude Code** — use the subagent path instead.
 
-`drill()` mirrors `challenge()` and accepts the same `adversary` argument.
+Drill uses the same `challenge()` call with `profile='drill'`. `challenge()` runs the whole sequential-deepen loop internally and returns the synthesized diagnosis:
 
-### Blocking mode (API path only)
+```python
+diagnosis = challenge(
+    artifact,
+    profile='drill',
+    context=ctx,
+    finding=suspect,          # required for drill
+    max_iterations=5,         # optional — defaults to 5 for drill, 3 for review
+)
+print(diagnosis['chain'], diagnosis['root_causes'], diagnosis['direction'])
+```
+
+### Blocking mode (API path, review profiles only)
 
 ```python
 result = challenge(artifact, profile='analysis', mode='blocking', max_iterations=3)
 ```
 
-Loops the adversary until: (a) no actionable findings, (b) novelty rate > 75% (adversary inventing problems — artifact is clean), or (c) max iterations. Subagent-path callers can replicate this by looping `prepare()` / Task / `parse_response()` themselves and tracking findings across iterations.
+Loops the adversary until: (a) no actionable findings, (b) novelty rate > 75% (adversary inventing problems — artifact is clean), or (c) max iterations. `mode` is ignored when `profile='drill'` — drill always iterates until bedrock or max depth. Subagent-path callers can replicate blocking mode by looping `prepare()` / Task / `parse_response()` themselves and tracking findings across iterations.
 
 ## Verdicts
 
