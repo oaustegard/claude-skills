@@ -3,6 +3,12 @@
 ## [0.1.2] - 2026-04-17
 
 ### Added
+
+- Add/Update skill: mapping-documents (#551)
+
+## [0.1.2] - 2026-04-17
+
+### Added
 - README.md with consumption model, three-layer stack diagram, example output, quick start
 
 ### Changed
