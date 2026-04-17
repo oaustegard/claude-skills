@@ -1,11 +1,18 @@
 # mapping-documents - Changelog
 
+## [0.1.2] - 2026-04-17
+
+### Added
+- README.md with consumption model, three-layer stack diagram, example output, quick start
+
+### Changed
+- Version bump across SKILL.md, docmap.py usage snippet template
+
 ## [0.1.1] - 2026-04-17
 
 ### Added
 - `_USAGE.md` output: snippet for pasting into CLAUDE.md / AGENTS.md / project instructions
-- README.md with consumption model, example output, quick start
-- Three-layer progressive-disclosure stack documentation
+- Three-layer progressive-disclosure stack documentation in SKILL.md
 - JSON query examples for symbols and anchors
 - `--no-usage-snippet` CLI flag
 

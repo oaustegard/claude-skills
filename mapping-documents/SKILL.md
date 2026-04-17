@@ -2,7 +2,7 @@
 name: mapping-documents
 description: Generate navigable semantic maps from PDF documents. Extracts section structure via font analysis, then runs LLM extraction per section for claims, symbols, and dependencies — all page-anchored. Produces _MAP.md (progressive disclosure), .symbols.json (definition index), .anchors.json (claim references), and a _USAGE.md snippet for CLAUDE.md. Use when analyzing papers, specs, or legal docs; when asked to "map this document", "index this PDF", "what does this paper say"; or when a coding agent needs grounded reference material from a PDF source. Analogous to mapping-codebases but for prose documents.
 metadata:
-  version: 0.1.1
+  version: 0.1.2
 ---
 
 # Mapping Documents
