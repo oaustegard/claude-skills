@@ -2,6 +2,44 @@
 
 All notable changes to the `challenging` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.0] - 2026-04-17
+
+### Changed
+- **Subagent path is now the primary adversary in Claude Code.** `prepare()` + Task tool + `parse_response()` is the documented default; `challenge()` with `adversary='claude'` is reserved for claude.ai (which can't spawn subagents). Gemini remains the cross-model option.
+- **Drill is now a `challenge` profile, not a separate function.** One unified surface (`prepare` / `parse_response` / `challenge`) with two iteration strategies: review profiles run *parallel replay* (current blocking mode), drill runs *sequential deepen* (one why-level per pass, conditioned on the chain so far, until bedrock or max depth) followed by a synthesis pass.
+- `prepare()` now dispatches on profile and accepts `finding`, `chain`, `synthesize` for drill. Returns `stage` ('review' | 'deepen' | 'synthesize') and `depth` (drill only).
+- `parse_response()` auto-detects response shape (review / deepen / synthesize).
+- `challenge()` with `profile='drill'` runs the full deepen→synthesize loop internally. `max_iterations` defaults to 3 for review, 5 for drill.
+- `references/drill.md` system prompt split into `## System Prompt: Deepen` (one level per pass) and `## System Prompt: Synthesize` (root-cause extraction from the completed chain). The single-shot "whole tree in one call" prompt that shortcut into renames is gone.
+- CLI accepts `--profile=drill` with `--finding=<inline or @path>` and `--max-iterations`.
+
+### Removed
+- `prepare_drill()` / `parse_drill_response()` — folded into `prepare()` / `parse_response()`.
+- Standalone `drill()` function — use `challenge(..., profile='drill', finding=...)`.
+
+### Migration
+```python
+# Before
+from challenger import prepare_drill, parse_drill_response, drill
+job = prepare_drill(artifact, finding, context)
+diagnosis = parse_drill_response(subagent_text)
+# — or —
+diagnosis = drill(artifact, finding, context)
+
+# After
+from challenger import prepare, parse_response, challenge
+chain = []
+for depth in range(1, 6):
+    job = prepare(artifact, 'drill', context=context, finding=finding, chain=chain)
+    step = parse_response(subagent_text)     # {why, because, bedrock, reasoning}
+    chain.append({'why': step['why'], 'because': step['because']})
+    if step.get('bedrock'): break
+job = prepare(artifact, 'drill', context=context, finding=finding, chain=chain, synthesize=True)
+diagnosis = parse_response(subagent_text)    # {chain, root_causes, direction, summary}
+# — or, API path —
+diagnosis = challenge(artifact, 'drill', context=context, finding=finding)
+```
+
 ## [0.7.0] - 2026-04-16
 
 ### Other
