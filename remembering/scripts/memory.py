@@ -103,7 +103,7 @@ def _write_memory(mem_id: str, what: str, type: str, now: str, conf: float,
            session_id, created_at, updated_at, valid_from, access_count, last_accessed)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)""",
         [mem_id, type, now, what, conf,
-         json.dumps(tags or []), json.dumps(refs or []),
+         json.dumps(tags or []), json.dumps([r for r in (refs or []) if r is not None]),
          priority, session_id, now, now, valid_from]
     )
 
@@ -600,7 +600,7 @@ def _query(search: str = None, tags: list = None, type: str = None,
     conditions = [
         "deleted_at IS NULL",
         # Exclude memories that are superseded (appear in any other memory's refs field)
-        "id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)"
+        "id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL AND value IS NOT NULL)"
     ]
     params = []
 
@@ -689,7 +689,7 @@ def recall_since(after: str, *, search: str = None, n: int = 50,
     conditions = [
         "deleted_at IS NULL",
         "t > ?",
-        "id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)"
+        "id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL AND value IS NOT NULL)"
     ]
     params = [after]
 
@@ -764,7 +764,7 @@ def recall_between(after: str, before: str, *, search: str = None,
         "deleted_at IS NULL",
         "t > ?",
         "t < ?",
-        "id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)"
+        "id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL AND value IS NOT NULL)"
     ]
     params = [after, before]
 
@@ -954,7 +954,7 @@ def memory_histogram() -> dict:
         SELECT type, priority, created_at
         FROM memories
         WHERE deleted_at IS NULL
-          AND id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)
+          AND id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL AND value IS NOT NULL)
     """)
 
     if not results:
@@ -1021,7 +1021,7 @@ def prune_by_age(older_than_days: int, priority_floor: int = 0, dry_run: bool = 
         WHERE deleted_at IS NULL
           AND created_at < ?
           AND priority <= ?
-          AND id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)
+          AND id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL AND value IS NOT NULL)
     """, [cutoff_iso, priority_floor])
 
     ids = [m['id'] for m in results]
@@ -1059,7 +1059,7 @@ def prune_by_priority(max_priority: int = -1, dry_run: bool = True) -> dict:
         FROM memories
         WHERE deleted_at IS NULL
           AND priority <= ?
-          AND id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)
+          AND id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL AND value IS NOT NULL)
     """, [max_priority])
 
     ids = [m['id'] for m in results]
@@ -1207,7 +1207,7 @@ def recall_batch(queries: list, *, n: int = 10, type: str = None,
 
         conditions = [
             "m.deleted_at IS NULL",
-            "m.id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)"
+            "m.id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL AND value IS NOT NULL)"
         ]
         params = [fts_query]
 
@@ -1388,7 +1388,7 @@ def remember_batch(items: list, *, sync: bool = True) -> list:
                session_id, created_at, updated_at, valid_from, access_count, last_accessed)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)""",
             [mem_id, mem_type, now, what, conf,
-             json.dumps(item_tags or []), json.dumps(refs or []),
+             json.dumps(item_tags or []), json.dumps([r for r in (refs or []) if r is not None]),
              priority, session_id, now, now, valid_from]
         ))
         mem_ids.append(mem_id)
@@ -1581,7 +1581,7 @@ def consolidate(*, tags: list = None, min_cluster: int = 3, dry_run: bool = True
     # Fetch active memories
     conditions = [
         "deleted_at IS NULL",
-        "id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)"
+        "id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL AND value IS NOT NULL)"
     ]
     params = []
 
