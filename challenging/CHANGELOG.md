@@ -2,6 +2,24 @@
 
 All notable changes to the `challenging` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.9.0] - 2026-04-18
+
+### Added
+- **`prepare_self()`** — third adversary path. Returns `{system, user, profile, stage, mode: 'self'}` for the caller assistant to inhabit the adversary persona in a dedicated response. Symmetric with `prepare()` (subagent path) but returns raw system+user instead of a Task-tool-formatted prompt, since the caller is running the review inline rather than handing off.
+- **`SELF_MODE_PREAMBLE`** — prepended to self-path system prompts. Explicit persona-switch instruction plus framing of the trade-off: self-mode's advantage is retained subject-matter context (catches local-convention mismatches and factual errors the artifact omits); its disadvantage is same-session goodwill (caller may inherit confabulations). Preamble instructs the reviewer to commit to the adversarial lens and reject findings that could have been produced without it. Kin to generative-thinking's inversion move.
+- **`adversary='auto'`** resolution. Picks gemini > claude > self based on available credentials. Detection via new `_has_gemini_key()`, `_has_claude_key()`, `_resolve_auto_adversary()` helpers. Claude Code callers continue to use `prepare()` + Task tool explicitly; auto is for claude.ai / Codex / headless scripts.
+- **`adversary='self'` in `challenge()`** raises `ValueError` with a pointer to `prepare_self()` + `parse_response()`. Self-challenge requires the caller assistant to produce the response; a synchronous function cannot do that.
+
+### Changed
+- **Default `adversary` flipped from `'gemini'` to `'auto'`** in `challenge()`. Behavior unchanged for callers with Gemini credentials configured (auto resolves to gemini). Callers with only Claude credentials now route there automatically. Callers with no credentials get an actionable error instead of a credential-not-found exception.
+- `SKILL.md` reframed around three paths (subagent / external API / self) with explicit trade-off documentation. Honest about when each mode dominates: subagent for Claude Code; external for cross-context structural review; self for subject-aware review when context is load-bearing.
+- Error message for unknown adversary values now mentions `auto` and `self` alongside `gemini` and `claude`.
+
+### Rationale
+v0.8.2's `LOCAL_CONVENTIONS_GUARDRAIL` addressed the symptom (external adversaries issuing confident-but-wrong findings when generic priors contradict artifact-local conventions). v0.9.0 addresses the dual problem structurally: some reviews genuinely benefit from subject-matter context the external adversary lacks. Self-challenge isn't a strict downgrade from external — it has a different failure-mode profile. Externals catch structural flaws invisible from inside; self catches local-convention mismatches and factual errors from retained context. Making self a first-class path (not a fallback) acknowledges that.
+
+Triggered by a Claude.ai session (2026-04-18) where Gemini review of an EML↔mythology claim correctly killed the core parallel but issued a partially-wrong secondary finding that self-review would have caught — because Gemini couldn't see the referenced codebase's IEEE-754 conventions.
+
 ## [0.8.2] - 2026-04-18
 
 ### Other
