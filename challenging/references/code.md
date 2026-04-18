@@ -14,6 +14,7 @@
 | "I don't see security issues" | Did you trace every user-controlled input to its consumption? Did you check for path traversal, injection, SSRF, insecure deserialization? "I don't see" ≠ "none exist." |
 | "The tests cover the functionality" | Do the tests test the contract or the implementation? Would they catch a regression? Do they test failure modes or only success? |
 | "Performance seems reasonable" | For what scale? What's the O(n) for the expected data size? Are there hidden allocations in hot loops? |
+| "I know this language/library" | Do you know the conventions of **this specific** codebase? Generic language/library knowledge can contradict project-local invariants (e.g. `ln(0) = -∞` is a bug in pure Python, intentional under IEEE-754 / NumPy). Before flagging code as wrong, check whether the artifact or `<context>` establishes a local convention. If your critique depends on an unstated assumption, mark the finding `unverifiable` and state the assumption. |
 
 ## Evaluation Criteria
 
