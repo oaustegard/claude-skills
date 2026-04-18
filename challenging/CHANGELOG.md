@@ -4,6 +4,12 @@ All notable changes to the `challenging` skill are documented in this file. The 
 
 ## [0.8.2] - 2026-04-18
 
+### Other
+
+- challenging v0.8.2: add LOCAL_CONVENTIONS_GUARDRAIL (#553)
+
+## [0.8.2] - 2026-04-18
+
 ### Added
 - **`LOCAL_CONVENTIONS_GUARDRAIL`** — new constant appended to every system prompt (alongside `KNOWLEDGE_CUTOFF_GUARDRAIL`). Instructs the adversary to classify findings as `unverifiable` when the critique depends on generic domain priors that may conflict with artifact-local conventions, and to state the assumption in `reasoning`. Uses `ln(0) = -∞` (domain error under pure math vs. intentional IEEE-754 signed-infinity feature) as the anchoring example.
 - Anti-rationalization row in `references/analysis.md`, `references/code.md`, and `references/recommendation.md`: "I know this field / language / domain" — prompts the adversary to check whether generic knowledge contradicts local conventions before flagging.
