@@ -2,16 +2,20 @@
 name: challenging
 description: Cross-context adversarial review for deliverables before shipping. Use when producing blog posts, technical recommendations, analysis briefs, code, or any artifact where accuracy matters more than speed. Triggers on "challenge this", "review before shipping", "adversarial pass", "stress test this".
 metadata:
-  version: 0.8.2
+  version: 0.9.0
 ---
 
 # Challenging — Adversarial Review
 
-Adversarial review by an adversary with **fresh context** — no shared blind spots, no accumulated goodwill from your conversation.
+Adversarial review before shipping. Three paths, each with distinct trade-offs:
 
-In Claude Code (the primary path), the adversary is a native sub-Claude spawned via the Task tool: zero API keys, fresh context window, full Claude reasoning. The Gemini API path remains as an option for cross-model diversity, and the Claude API path exists only for claude.ai (which can't spawn subagents).
+- **Subagent path** (Claude Code, primary). Native sub-Claude via the Task tool — zero API keys, fresh context window, same model. Best when available.
+- **External API path** (claude.ai, Codex, headless). Gemini (cross-model + cross-context) or Anthropic API (cross-context). Costs an incremental API call but gives genuine outside perspective.
+- **Self path** (any environment). The caller assistant inhabits the adversary persona in a dedicated response. Zero cost, retains full subject-matter context from the conversation. Weaker at catching same-session confabulations than fresh-context adversaries, stronger at catching local-convention and factual errors the artifact glosses over. Not a strict downgrade — a different failure-mode profile.
 
-Inspired by VDD (dollspace.gay) and Grainulation's anti-rationalization patterns. The `drill` helper adopts the 5 Whys pattern from Tim Kellogg's [open-strix writeup](https://timkellogg.me/blog/2026/04/14/forgetting).
+The `adversary='auto'` resolution (default) picks gemini → claude → self based on available credentials. Callers in Claude Code still use `prepare()` + Task tool explicitly (subagent is strictly better than self in that environment, and auto-detection of Claude Code is brittle).
+
+Inspired by VDD (dollspace.gay) and Grainulation's anti-rationalization patterns. The `drill` helper adopts the 5 Whys pattern from Tim Kellogg's [open-strix writeup](https://timkellogg.me/blog/2026/04/14/forgetting). The self-path persona-inhabitation move is kin to generative-thinking's inversion — commit to the mode before evaluating.
 
 ## Profiles
 
@@ -101,8 +105,10 @@ result = challenge(
 ```
 
 `adversary` accepts:
-- **`gemini`** (default) — Gemini 3.1 Pro. Genuine cross-model review.
-- **`claude`** — Anthropic API. Use only on claude.ai (which can't spawn subagents). **Do not use this in Claude Code** — use the subagent path instead.
+- **`auto`** (default) — resolves to gemini > claude > self based on available credentials. Logs the choice.
+- **`gemini`** — Gemini 3.1 Pro. Cross-model + cross-context. Requires Gemini credentials.
+- **`claude`** — Anthropic API. Cross-context, same model family. **Do not use this in Claude Code** — use the subagent path instead.
+- **`self`** — NOT runnable via `challenge()` (raises with a pointer to `prepare_self()`). Self-challenge requires the caller assistant to produce the adversary response, which a synchronous function cannot do.
 
 Drill uses the same `challenge()` call with `profile='drill'`. `challenge()` runs the whole sequential-deepen loop internally and returns the synthesized diagnosis:
 
@@ -124,6 +130,40 @@ result = challenge(artifact, profile='analysis', mode='blocking', max_iterations
 ```
 
 Loops the adversary until: (a) no actionable findings, (b) novelty rate > 75% (adversary inventing problems — artifact is clean), or (c) max iterations. `mode` is ignored when `profile='drill'` — drill always iterates until bedrock or max depth. Subagent-path callers can replicate blocking mode by looping `prepare()` / Task / `parse_response()` themselves and tracking findings across iterations.
+
+## Usage — self path (same-context adversary)
+
+When neither subagents nor external API credentials are available — or when subject-matter context from the current conversation is load-bearing for the review — use `prepare_self()`. The caller assistant inhabits the adversary persona in a dedicated response.
+
+```python
+from challenger import prepare_self, parse_response
+
+job = prepare_self(
+    artifact=open('draft.md').read(),
+    profile='analysis',
+    context='Cross-domain claim that depends on codebase-specific IEEE-754 conventions',
+)
+# job is {'system': <adversary system prompt>, 'user': <artifact + context>, ...}
+```
+
+The caller then:
+1. Reads `job['system']` — the prompt opens with `SELF-INVOCATION MODE` instructing a full persona switch. Commit to it.
+2. In a dedicated response, produces JSON matching the schema described in the system prompt.
+3. Passes that JSON string to `parse_response()`.
+
+```python
+# After generating the adversary JSON in a dedicated response:
+result = parse_response(adversary_json_text)
+print(result['verdict'], result['findings'])
+```
+
+**When self beats external:** the artifact depends on conventions visible only from inside the conversation (codebase invariants, prior decisions, domain terminology established earlier). External adversaries with generic priors issue confident-but-wrong findings in these cases; self retains the context.
+
+**When external beats self:** the artifact contains confabulations or blind spots the caller already committed to. Fresh context catches these; self inherits them.
+
+**When possible, run both.** They have orthogonal failure modes.
+
+Drill via self path uses the same loop as the subagent drill: iterate `prepare_self(profile='drill', finding=..., chain=...)` — produce one `{why, because}` per dedicated response — append to chain — until bedrock or max depth — then a final synthesize pass.
 
 ## Verdicts
 
