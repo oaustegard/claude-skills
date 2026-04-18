@@ -14,6 +14,7 @@
 | "This is the industry standard approach" | Industry standard for which industry, which scale, which context? Are we in that context? |
 | "The risks are acceptable" | Acceptable to whom? What's the blast radius if the risk materializes? Is there a rollback path? |
 | "We should do this because X does it" | Survivorship bias. You're seeing the companies where it worked. How many tried and failed silently? |
+| "I know this domain" | Do you know the conventions of **this specific** org, stack, or problem context? Generic best-practice can contradict local reality (e.g. "always use transactions" assumes a relational store; "prefer microservices" assumes team independence that may not exist). If your critique depends on a context-specific assumption not stated in the artifact or `<context>`, mark the finding `unverifiable` and state the assumption. |
 
 ## Evaluation Criteria
 
