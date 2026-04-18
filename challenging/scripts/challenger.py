@@ -63,6 +63,25 @@ KNOWLEDGE_CUTOFF_GUARDRAIL = (
     "treat those as authoritative for the purpose of this review."
 )
 
+# Appended to every system prompt to mitigate generic-domain-knowledge overrides of local conventions.
+# Sibling to KNOWLEDGE_CUTOFF_GUARDRAIL: where that handles "I don't recognize this term," this handles
+# "I think I recognize this term, but my generic priors may disagree with the artifact's local convention."
+LOCAL_CONVENTIONS_GUARDRAIL = (
+    "\n\nLOCAL CONVENTIONS DISCIPLINE: Generic domain knowledge can contradict the "
+    "specific conventions of the artifact's codebase, paper, or field tradition. "
+    "Before flagging a technical claim as wrong based on what you know about the "
+    "subject in general, check whether the artifact or <context> suggests a local "
+    "convention that overrides the default. If your critique depends on an "
+    "assumption you cannot verify from what was provided, classify the finding "
+    "severity as 'unverifiable' and state in `reasoning` the assumption your "
+    "critique rests on. "
+    "Example: 'ln(0) = -∞' looks like a domain error by default, but is valid "
+    "under IEEE-754 signed-infinity semantics used in NumPy/PyTorch/C <math.h>. "
+    "If the artifact's context suggests that convention applies, flagging it as "
+    "a domain error is incorrect — mark it 'unverifiable' with the IEEE-754 "
+    "assumption noted instead."
+)
+
 
 def _retry_api(fn, *args, **kwargs):
     """Retry API calls with exponential backoff on transient errors."""
@@ -403,7 +422,7 @@ def prepare(
             raise ValueError(
                 "finding / chain / synthesize are only valid when profile='drill'."
             )
-        system = _load_system_prompt(profile) + KNOWLEDGE_CUTOFF_GUARDRAIL
+        system = _load_system_prompt(profile) + KNOWLEDGE_CUTOFF_GUARDRAIL + LOCAL_CONVENTIONS_GUARDRAIL
         user = _build_user_prompt(artifact, context)
         return {
             'prompt': _build_subagent_prompt(system, user),
@@ -416,7 +435,7 @@ def prepare(
         raise ValueError("profile='drill' requires finding=... (dict or str).")
     chain = chain or []
     stage = 'synthesize' if synthesize else 'deepen'
-    system = _load_drill_prompt(stage) + KNOWLEDGE_CUTOFF_GUARDRAIL
+    system = _load_drill_prompt(stage) + KNOWLEDGE_CUTOFF_GUARDRAIL + LOCAL_CONVENTIONS_GUARDRAIL
     if synthesize:
         user = _build_drill_synth_user_prompt(artifact, finding, chain, context)
     else:
@@ -533,7 +552,7 @@ def challenge(
     if max_iter < 1:
         raise ValueError(f"max_iterations must be >= 1, got {max_iter}")
 
-    system_prompt = _load_system_prompt(profile) + KNOWLEDGE_CUTOFF_GUARDRAIL
+    system_prompt = _load_system_prompt(profile) + KNOWLEDGE_CUTOFF_GUARDRAIL + LOCAL_CONVENTIONS_GUARDRAIL
     invoke_fn = _invoke_gemini if adversary == 'gemini' else _invoke_claude
 
     def invoke(art, ctx, sp):
@@ -648,8 +667,8 @@ def _build_drill_synth_user_prompt(artifact: str, finding, chain, context: str) 
 
 def _run_drill(artifact: str, finding, context: str, raw_invoker, max_depth: int) -> dict:
     """Sequential deepen loop followed by a synthesis pass (API path)."""
-    deepen_system = _load_drill_prompt('deepen') + KNOWLEDGE_CUTOFF_GUARDRAIL
-    synth_system = _load_drill_prompt('synthesize') + KNOWLEDGE_CUTOFF_GUARDRAIL
+    deepen_system = _load_drill_prompt('deepen') + KNOWLEDGE_CUTOFF_GUARDRAIL + LOCAL_CONVENTIONS_GUARDRAIL
+    synth_system = _load_drill_prompt('synthesize') + KNOWLEDGE_CUTOFF_GUARDRAIL + LOCAL_CONVENTIONS_GUARDRAIL
 
     chain: list = []
     iterations: list = []

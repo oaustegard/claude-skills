@@ -2,6 +2,15 @@
 
 All notable changes to the `challenging` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.2] - 2026-04-18
+
+### Added
+- **`LOCAL_CONVENTIONS_GUARDRAIL`** — new constant appended to every system prompt (alongside `KNOWLEDGE_CUTOFF_GUARDRAIL`). Instructs the adversary to classify findings as `unverifiable` when the critique depends on generic domain priors that may conflict with artifact-local conventions, and to state the assumption in `reasoning`. Uses `ln(0) = -∞` (domain error under pure math vs. intentional IEEE-754 signed-infinity feature) as the anchoring example.
+- Anti-rationalization row in `references/analysis.md`, `references/code.md`, and `references/recommendation.md`: "I know this field / language / domain" — prompts the adversary to check whether generic knowledge contradicts local conventions before flagging.
+
+### Rationale
+Observed failure mode (2026-04-18): Gemini review of an EML↔mythology claim correctly killed the core parallel (findings #1 and #3) but issued a partially-wrong finding #2 ("`ln` is a domain error on `y ≤ 0`") because it applied generic real-analysis priors without knowing the referenced codebase's CLAUDE.md invariant that `ln(0) = -∞` is intentional. The existing `KNOWLEDGE_CUTOFF_GUARDRAIL` handles "I don't recognize this API"; the new guardrail handles "I think I recognize this term but my default may disagree with local convention." Verdict was unaffected (the bad finding wasn't load-bearing), but the review was messier than it needed to be.
+
 ## [0.8.1] - 2026-04-17
 
 ### Other
