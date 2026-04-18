@@ -4,6 +4,12 @@ All notable changes to the `challenging` skill are documented in this file. The 
 
 ## [0.9.0] - 2026-04-18
 
+### Other
+
+- challenging v0.9.0: prepare_self() + adversary=auto default (#554)
+
+## [0.9.0] - 2026-04-18
+
 ### Added
 - **`prepare_self()`** — third adversary path. Returns `{system, user, profile, stage, mode: 'self'}` for the caller assistant to inhabit the adversary persona in a dedicated response. Symmetric with `prepare()` (subagent path) but returns raw system+user instead of a Task-tool-formatted prompt, since the caller is running the review inline rather than handing off.
 - **`SELF_MODE_PREAMBLE`** — prepended to self-path system prompts. Explicit persona-switch instruction plus framing of the trade-off: self-mode's advantage is retained subject-matter context (catches local-convention mismatches and factual errors the artifact omits); its disadvantage is same-session goodwill (caller may inherit confabulations). Preamble instructs the reviewer to commit to the adversarial lens and reject findings that could have been produced without it. Kin to generative-thinking's inversion move.
