@@ -14,6 +14,7 @@
 | "The sources are authoritative" | Authority is not independence. Are the sources citing each other circularly? Is there a primary source behind the secondary ones? |
 | "I can't find counterevidence" | Did you search with negative terms? "X fails," "X criticism," "X alternative to"? Absence of search ≠ absence of evidence. |
 | "The framework applied is sound" | Does the framework fit the problem, or was the problem reshaped to fit the framework? Hammer/nail test. |
+| "I know this field" | Do you know the conventions of **this artifact's specific** codebase, paper, or claim tradition? Generic field knowledge can contradict local conventions (e.g. `ln(0) = -∞` is a domain error in pure math, a feature under IEEE-754). If your critique depends on a convention not stated in the artifact or `<context>`, mark the finding `unverifiable` and state the assumption. |
 
 ## Evaluation Criteria
 
