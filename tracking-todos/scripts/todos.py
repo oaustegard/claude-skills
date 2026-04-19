@@ -5,6 +5,8 @@ Schema matches Claude Code exactly: {content, status, activeForm}.
 """
 
 import json
+import sys
+
 from scripts import config_get, config_set
 
 CONFIG_KEY = "active-todos"
@@ -12,21 +14,45 @@ VALID_STATUS = ("pending", "in_progress", "completed")
 
 
 def get_todos():
-    """Return current todo list (possibly empty)."""
+    """Return current todo list (possibly empty).
+
+    If the stored value is missing, empty, or structurally invalid, returns []
+    and prints a warning to stderr. Silent recovery is deliberate: callers
+    should be able to read todos without worrying about historical corruption
+    (e.g. a schema change). Inspect the raw config value directly if you
+    suspect data loss.
+    """
     raw = config_get(CONFIG_KEY)
     if not raw:
         return []
     try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as e:
+        print(
+            f"[tracking-todos] WARNING: stored todos are not valid JSON ({e}). "
+            f"Returning empty list. Raw value length: {len(raw)}",
+            file=sys.stderr,
+        )
         return []
+    try:
+        _validate(parsed)
+    except ValueError as e:
+        print(
+            f"[tracking-todos] WARNING: stored todos failed validation ({e}). "
+            f"Returning empty list.",
+            file=sys.stderr,
+        )
+        return []
+    return parsed
 
 
 def write_todos(todos):
     """Replace entire todo list.
 
     Matches Claude Code semantics: if every todo is 'completed', clears the
-    list instead of persisting an all-done state.
+    stored list instead of persisting an all-done state. Returns the
+    passed-in list regardless of storage clearing, so the caller can render
+    the final completed state before moving on.
 
     Raises ValueError on schema violations or >1 in_progress.
     """
@@ -34,7 +60,7 @@ def write_todos(todos):
     all_done = len(todos) > 0 and all(t["status"] == "completed" for t in todos)
     to_store = [] if all_done else todos
     config_set(CONFIG_KEY, json.dumps(to_store), category="ops")
-    return to_store
+    return todos
 
 
 def abandon():
