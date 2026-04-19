@@ -4,6 +4,12 @@ All notable changes to the `semantic-grep` skill are documented in this file. Th
 
 ## [0.1.1] - 2026-04-19
 
+### Other
+
+- Add semantic-grep skill (v0.1.0) (#558)
+
+## [0.1.1] - 2026-04-19
+
 ### Fixed
 
 - tighten char-per-token ratio (4 → 1.5) so non-ASCII text does not silently overflow Gemini's 2048-token input limit
