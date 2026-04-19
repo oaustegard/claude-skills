@@ -47,6 +47,44 @@ except ImportError:
     )
 
 
+# ---------------------------------------------------------------------------
+# Blocked kwargs — defensive filter against params that silently break
+# the response-reading assumptions of invoke_claude*. Inspired by Multica's
+# per-vendor BlockedArgs pattern (server/pkg/agent/*.go).
+#
+# Passing these through **kwargs would land them in the SDK call and either
+# change the response shape or duplicate a param the wrapper already owns.
+# Rather than let that fail silently (or at a confusing distance from the
+# caller), we strip them at the boundary and warn loudly.
+# ---------------------------------------------------------------------------
+
+_BLOCKED_KWARGS = {
+    "stream": "use invoke_claude_streaming() or the streaming=True kwarg instead",
+    "tools": "not supported — the wrapper reads content[0].text and assumes text",
+    "tool_choice": "requires tools; not supported by the text-only response reader",
+    "thinking": "extended thinking changes response shape; content[0] may be a thinking block",
+}
+
+
+def _filter_kwargs(kwargs: dict, fn_name: str) -> dict:
+    """Strip kwargs that would break invoke_claude*'s assumptions. Warn on drop.
+
+    Callers who genuinely need tools, thinking, or streaming should use the
+    anthropic SDK directly — the wrappers here own a narrower contract.
+    """
+    import warnings
+    safe = {}
+    for k, v in kwargs.items():
+        if k in _BLOCKED_KWARGS:
+            warnings.warn(
+                f"{fn_name}(): dropping kwarg {k!r} — {_BLOCKED_KWARGS[k]}",
+                RuntimeWarning, stacklevel=3,
+            )
+            continue
+        safe[k] = v
+    return safe
+
+
 def get_anthropic_api_key() -> str:
     """
     Get Anthropic API key from environment or project knowledge files.
@@ -372,13 +410,15 @@ def invoke_claude(
     current_system = system
     last_error = None
 
+    safe_kwargs = _filter_kwargs(kwargs, "invoke_claude")
+
     for attempt in range(max_retries + 1):
         # Build message parameters fresh each attempt (prompt/system may change)
         message_params = {
             "model": model,
             "max_tokens": max_tokens,
             "temperature": temperature,
-            **kwargs
+            **safe_kwargs
         }
 
         if messages:
@@ -518,7 +558,7 @@ def invoke_claude_streaming(
         max_tokens=max_tokens,
         temperature=temperature,
         messages=messages,
-        **kwargs
+        **_filter_kwargs(kwargs, "invoke_claude_streaming")
     )
     if system:
         stream_params["system"] = _format_system_with_cache(system, cache_system)
