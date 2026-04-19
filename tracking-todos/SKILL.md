@@ -79,6 +79,14 @@ Todos live in Muninn's config store under key `active-todos` (category=`ops`). T
 
 If you start a conversation and find stale todos that don't apply, call `abandon()` to clear them.
 
+## Known Limitations
+
+**Single writer assumed.** The storage uses read-modify-write without locking. If a scheduled CCotw task and a live conversation both call `write_todos()` concurrently, the second write wins. Muninn runs single-threaded within a conversation, and scheduled tasks (perch, zeitgeist) don't use this skill, so the assumption holds in practice. Don't use this skill from concurrent agents without adding a lock.
+
+**Global scope is intentional, not per-conversation.** Unfinished work leaks into the next conversation by design — it's a nudge that something was left open. If stale todos from prior work become noise, call `abandon()` to clear.
+
+**Replace-whole-list API vs delta updates.** Matches Claude Code's TodoWrite exactly. The LLM failure mode (forgetting items when rewriting the full list) is mitigated by the prompt, not by the API shape. If omissions become a pattern, re-render the current list before composing the new one.
+
 ## Display Pattern
 
 When the plan is substantive, show it to Oskar once after creating it, then rely on inline mentions rather than re-rendering the full list on every update. Noise defeats the signal.
