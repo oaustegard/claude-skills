@@ -2,6 +2,13 @@
 
 All notable changes to the `exploring-codebases` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.1.0] - 2026-04-20
+
+### Other
+
+- exploring-codebases: TODO-style workflow (tarball-first, batched treesit) (#560)
+- Remove _MAP.md files, direct agents to tree-sitting for code navigation (#545)
+
 ## [2.0.0] - 2026-04-08
 
 ### Added
