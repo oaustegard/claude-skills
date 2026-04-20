@@ -9,7 +9,7 @@ description: >-
   the divergent "what's here?" skill — for targeted "where is X?" queries,
   use searching-codebases instead.
 metadata:
-  version: 2.0.0
+  version: 2.1.0
 ---
 
 # Exploring Codebases
@@ -35,6 +35,28 @@ TREESIT=/mnt/skills/user/tree-sitting/scripts/treesit.py
 PYTHON=/home/claude/.venv/bin/python
 ```
 
+### Phase 0: Localize the Repo
+
+**If the input is a GitHub URL (or `owner/repo`), clone before anything else.**
+Every subsequent phase needs a local filesystem path — treesit scans directories,
+featuring reads files. You cannot `curl` your way through this workflow.
+
+```bash
+# Public repo
+git clone --depth=1 https://github.com/OWNER/REPO /tmp/REPO
+
+# Private repo (uses GH_TOKEN from env)
+git clone --depth=1 "https://x-access-token:${GH_TOKEN}@github.com/OWNER/REPO" /tmp/REPO
+```
+
+Then use `/tmp/REPO` as the `/path/to/repo` in every subsequent command.
+
+**Anti-pattern: API-fetching individual files before cloning.** If you find
+yourself running `curl .../contents/README.md` or `curl .../contents/src/foo.py`
+at the start of a review, stop. A shallow clone gets every file at once and
+unlocks treesit. Single-file API fetches are only appropriate for targeted
+lookups *after* the structural exploration has identified what to read.
+
 ### Phase 1: Structural Orientation
 
 Get oriented — what's here, how big, what languages?
@@ -50,6 +72,25 @@ with file counts, symbol counts, and languages. Takes ~700ms total
 ### Phase 2: Drill Into Structure
 
 Follow what looks interesting. Each call auto-scans — no state to manage.
+
+**Rule: batch queries on the same path into a single invocation.** Every
+treesit call pays a ~700ms scan cost. Multiple queries added to the same
+command share that scan and each additional query adds ~0ms. If you're
+about to make a second treesit call on the same path, fold it into the
+first one instead.
+
+```bash
+# GOOD — one scan, three answers
+$PYTHON $TREESIT /path/to/repo --path=src/core --detail=full \
+  'find:*Handler*:function' 'refs:AuthToken'
+
+# BAD — three scans, three answers (3x the cost for the same information)
+$PYTHON $TREESIT /path/to/repo --path=src/core --detail=full
+$PYTHON $TREESIT /path/to/repo 'find:*Handler*:function'
+$PYTHON $TREESIT /path/to/repo 'refs:AuthToken'
+```
+
+Individual commands as reference:
 
 ```bash
 # Drill into a directory with full detail (signatures, docs, children, imports)
@@ -90,7 +131,7 @@ where the feature narrative needs verification or behavior isn't clear:
 $PYTHON $TREESIT /path/to/repo --no-tree 'source:authenticate' 'refs:AuthToken'
 ```
 
-Multiple queries in one call — each adds ~0ms on top of the scan cost.
+Same batching rule applies: combine `source:` and `refs:` queries into one call.
 
 ## When to Use This vs Other Skills
 
