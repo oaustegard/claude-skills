@@ -29,7 +29,7 @@ The script lives at `/mnt/skills/user/uploading-files/scripts/upload.py` once in
 python3 /mnt/skills/user/uploading-files/scripts/upload.py init
 ```
 
-This creates `upload-<short-session-id>` on origin (from the default branch) and prints a GitHub upload URL. **Show that URL to the user verbatim** and tell them:
+This creates `upload-<short-session-id>` on origin (from the default branch) and prints a GitHub upload URL. **Show that URL to the user on its own line, with no surrounding markdown** — no `**bold**`, no `[link](...)`, no backticks. Some chat renderers concatenate trailing punctuation/markup onto the URL when the user clicks it, breaking the branch name. Bare URL only. Then tell them:
 
 > Open that link, drag the file(s) into the page, scroll to the bottom and click **Commit changes** (the default options are fine). Reply here when done.
 
