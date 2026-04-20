@@ -4,6 +4,13 @@ All notable changes to the `uploading-files` skill are documented in this file. 
 
 ## [0.1.1] - 2026-04-20
 
+### Other
+
+- uploading-files v0.1.1: add README (#566)
+- uploading-files: warn agent against wrapping the upload URL in markdown (#563)
+
+## [0.1.1] - 2026-04-20
+
 ### Added
 
 - README.md with skill description
