@@ -2,7 +2,7 @@
 name: tree-sitting
 description: AST-powered code navigation via tree-sitter. Auto-scans codebases and provides progressive-disclosure tree views with symbol search, source retrieval, and reference finding. Each invocation is self-contained — no cross-process state. Use when exploring unfamiliar repos, navigating code, or needing fast symbol lookup. Triggers on "map this codebase", "explore repo", "find symbol", "navigate code", "tree-sitter", or when starting work on an unfamiliar repository.
 metadata:
-  version: 0.3.0
+  version: 0.4.0
 ---
 
 # tree-sitting
@@ -56,11 +56,14 @@ TREESIT=/mnt/skills/user/tree-sitting/scripts/treesit.py
 
 ### Detail Levels
 
-| Level | Per-node output | Use case |
-|-------|----------------|----------|
-| `sparse` | `name (kind) :lines` | featuring: see the full shape |
-| `normal` | `name(kind_initial)` per file (compact) | exploring: quick orientation |
-| `full` | signature + doc + children + imports | exploring: deep dive into a directory |
+All levels include line ranges (`:start-end`) so you can feed the
+window straight into `Read --offset/--limit` without another scan.
+
+| Level | Tree-overview row (per file) | Use case |
+|-------|------------------------------|----------|
+| `sparse` | `file: name:1-10, Other:30-90 +3` | featuring: see the full shape |
+| `normal` | `file: name(f):1-10, Other(c):30-90 +3` | exploring: quick orientation |
+| `full` | full per-symbol formatter + children + imports | exploring: deep dive into a directory |
 
 ### Queries
 

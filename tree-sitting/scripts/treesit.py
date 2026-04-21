@@ -29,10 +29,10 @@ Queries:
 
 No queries = tree overview only.
 
-Detail levels:
-    sparse  — name (kind) :lines                    [featuring: complete shape]
-    normal  — name (kind) signature :lines — doc     [exploring: orientation]
-    full    — normal + children + imports per file    [exploring: deep dive]
+Detail levels (tree overview rows show per-file symbol lists with line ranges):
+    sparse  — name:start-end                         [featuring: complete shape]
+    normal  — name(kind_initial):start-end            [exploring: orientation]
+    full    — per-symbol formatter + children + imports [exploring: deep dive]
 """
 
 import sys
@@ -159,7 +159,7 @@ def tree_overview(cache, depth, detail, scope_path=''):
             for entry in info['files']:
                 fname = os.path.basename(entry.path)
                 sym_summary = ', '.join(
-                    f"{s.name}({s.kind[0]})" for s in entry.symbols[:6]
+                    f"{s.name}({s.kind[0]}):{s.line}-{s.end_line}" for s in entry.symbols[:6]
                 )
                 if len(entry.symbols) > 6:
                     sym_summary += f' +{len(entry.symbols) - 6}'
@@ -167,7 +167,7 @@ def tree_overview(cache, depth, detail, scope_path=''):
         else:  # sparse
             for entry in info['files']:
                 fname = os.path.basename(entry.path)
-                sym_names = ', '.join(s.name for s in entry.symbols[:8])
+                sym_names = ', '.join(f"{s.name}:{s.line}-{s.end_line}" for s in entry.symbols[:8])
                 if len(entry.symbols) > 8:
                     sym_names += f' +{len(entry.symbols) - 8}'
                 lines.append(f"{dir_indent}  {fname}: {sym_names}" if sym_names else f"{dir_indent}  {fname}")
