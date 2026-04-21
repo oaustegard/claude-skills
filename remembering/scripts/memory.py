@@ -51,6 +51,13 @@ def _auto_flush_on_exit():
         if completed > 0 or timed_out > 0:
             print(f"Muninn: Auto-flushed {completed} background writes on exit ({timed_out} timed out)")
 
+    # Drain buffered access_count increments (v5.x.0, #issue-batch-access)
+    try:
+        _flush_access_tracking()
+    except Exception as e:
+        # Access tracking is advisory; never block exit on its failure
+        print(f"Muninn: Access tracking flush on exit failed: {e}")
+
 
 
 def _resolve_memory_id(memory_id: str) -> str:
@@ -281,6 +288,14 @@ def flush(timeout: float = 5.0) -> dict:
             timed_out += 1
         else:
             completed += 1
+
+    # Drain buffered access_count increments (v5.x.0, #issue-batch-access).
+    # Explicit flush() callers expect all pending state persisted.
+    try:
+        _flush_access_tracking()
+    except Exception as e:
+        # Access tracking is advisory; do not fail the caller's flush.
+        print(f"Muninn: Access tracking flush failed: {e}")
 
     return {"completed": completed, "timed_out": timed_out}
 
@@ -564,21 +579,61 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
 
 
 def _update_access_tracking(memory_ids: list):
-    """Update access_count and last_accessed for memories in Turso.
+    """Buffer access_count increments; flush lazily.
+
+    v5.x.0 (#issue-batch-access): Previously this issued a synchronous UPDATE
+    on every recall with a variable-length IN clause, producing thousands of
+    low-value writes per week and thrashing Turso's prepared-statement cache
+    with a different statement per distinct result-set size. We now accumulate
+    increments in a module-level counter (state._access_buffer) and drain via
+    _flush_access_tracking() when:
+      - buffer size exceeds state._ACCESS_FLUSH_THRESHOLD (default 50), or
+      - flush() is called explicitly (conversation end), or
+      - the process exits (_auto_flush_on_exit atexit hook).
+
+    Semantic preservation: per-access counts are preserved. If a memory is
+    retrieved N times before flush, access_count is incremented by N.
+    last_accessed is set to flush time (within-session drift is negligible
+    for its purpose — MIA-style episodic recency scoring).
 
     v5.0.0: Turso-only. Removed local cache sync.
     """
     if not memory_ids:
         return
-    now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    with state._access_buffer_lock:
+        for mid in memory_ids:
+            state._access_buffer[mid] = state._access_buffer.get(mid, 0) + 1
+        should_flush = len(state._access_buffer) >= state._ACCESS_FLUSH_THRESHOLD
+    if should_flush:
+        _flush_access_tracking()
 
-    placeholders = ", ".join("?" * len(memory_ids))
-    _exec(f"""
-        UPDATE memories
-        SET access_count = COALESCE(access_count, 0) + 1,
-            last_accessed = ?
-        WHERE id IN ({placeholders})
-    """, [now] + memory_ids)
+
+def _flush_access_tracking():
+    """Drain buffered access_count increments to Turso.
+
+    Groups memory IDs by their accumulated increment count so that memories
+    accessed the same number of times can share a single UPDATE. In typical
+    usage nearly all entries have count=1, so this collapses to one statement.
+
+    Safe to call when buffer is empty (no-op).
+    """
+    with state._access_buffer_lock:
+        if not state._access_buffer:
+            return
+        by_count = {}
+        for mid, n in state._access_buffer.items():
+            by_count.setdefault(n, []).append(mid)
+        state._access_buffer.clear()
+
+    now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    for n, ids in by_count.items():
+        placeholders = ", ".join("?" * len(ids))
+        _exec(f"""
+            UPDATE memories
+            SET access_count = COALESCE(access_count, 0) + ?,
+                last_accessed = ?
+            WHERE id IN ({placeholders})
+        """, [n, now] + ids)
 
 
 def _query(search: str = None, tags: list = None, type: str = None,
