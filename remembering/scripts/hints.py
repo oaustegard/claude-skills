@@ -142,7 +142,7 @@ def _match_from_turso(terms: Set[str], *, include_tags: bool,
             rows = _exec(
                 """SELECT id, type, summary, priority, tags FROM memories
                    WHERE deleted_at IS NULL AND tags LIKE ?
-                   AND id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)
+                   AND is_superseded = 0
                    LIMIT 20""",
                 [f'%"{term}"%']
             )
@@ -158,7 +158,7 @@ def _match_from_turso(terms: Set[str], *, include_tags: bool,
             rows = _exec(
                 """SELECT id, type, summary, priority, tags FROM memories
                    WHERE deleted_at IS NULL AND LOWER(summary) LIKE ?
-                   AND id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)
+                   AND is_superseded = 0
                    LIMIT 20""",
                 [f'%{term}%']
             )
