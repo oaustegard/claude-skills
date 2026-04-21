@@ -28,6 +28,15 @@ TYPES = {"decision", "world", "anomaly", "experience", "interaction", "procedure
 _pending_writes = []
 _pending_writes_lock = threading.Lock()
 
+# Buffered access_count updates (v5.x.0, #issue-batch-access)
+# Maps memory_id -> pending increment count. Flushed via
+# memory._flush_access_tracking() at threshold, explicit flush(), or atexit.
+# Rationale: previously every recall fired a separate UPDATE per distinct
+# result-set size, producing thousands of low-value writes per week.
+_access_buffer = {}
+_access_buffer_lock = threading.Lock()
+_ACCESS_FLUSH_THRESHOLD = 50
+
 # Session tracking (v3.2.0)
 _session_id = None  # Lazy-initialized from env or default
 
