@@ -482,6 +482,42 @@ def _format_telemetry(marks: list) -> str:
 
 
 # @lat: [[memory#Boot Sequence]]
+def _ensure_is_superseded_schema():
+    """Idempotently ensure the is_superseded column, its index, and initial
+    backfill exist on the memories table.
+
+    Called from boot() so fresh databases and skill upgrades both work without
+    requiring Oskar to manually re-run bootstrap.py. All operations are safe to
+    repeat: ALTER fails silently when the column exists (caught), CREATE INDEX
+    is natively idempotent, and the backfill only runs when the ALTER just
+    succeeded (tracked via the try/except split).
+
+    Added in v5.x.0 (#issue-superseded-col). The column replaces a per-recall
+    json_each(refs) subquery that accounted for ~60% of Turso row-reads.
+    """
+    added = False
+    try:
+        _exec("ALTER TABLE memories ADD COLUMN is_superseded INTEGER NOT NULL DEFAULT 0")
+        added = True
+    except Exception:
+        pass  # Column already exists
+    try:
+        _exec("CREATE INDEX IF NOT EXISTS idx_memories_active ON memories(is_superseded, deleted_at)")
+    except Exception:
+        pass  # Index creation is best-effort
+    if added:
+        try:
+            _exec("""
+                UPDATE memories SET is_superseded = 1
+                WHERE id IN (
+                    SELECT DISTINCT value FROM memories, json_each(refs)
+                    WHERE deleted_at IS NULL AND value IS NOT NULL
+                )
+            """)
+        except Exception:
+            pass  # Backfill best-effort; flag is self-healing on next supersede
+
+
 def boot(mode: str = None, task: str = None, telemetry: bool = False) -> str:
     """Boot sequence: load profile + ops from Turso.
 
@@ -519,6 +555,17 @@ def boot(mode: str = None, task: str = None, telemetry: bool = False) -> str:
             _telemetry_marks.append((label, _time.monotonic()))
 
     _mark("start")
+
+    # v5.x.0 (#issue-superseded-col): Ensure is_superseded column + index exist
+    # before any query tries to read them. Cheap idempotent guard (~2 writes on
+    # fresh DBs, both no-op on subsequent boots). Backfill runs only if the
+    # column was just added. Never raises — stale schema only degrades recall,
+    # doesn't break it.
+    try:
+        _ensure_is_superseded_schema()
+    except Exception:
+        pass
+    _mark("schema_ensure")
 
     # Refresh OPS_TOPICS from config (v3.6.0: dynamic loading)
     global OPS_TOPICS, _OPS_KEY_TO_TOPIC
