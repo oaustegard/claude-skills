@@ -2,6 +2,12 @@
 
 All notable changes to the `exploring-codebases` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.2.1] - 2026-04-21
+
+### Other
+
+- exploring-codebases v2.2.1: good/bad batching examples (salvaged from #559) (#565)
+
 ## [2.2.0] - 2026-04-20
 
 ### Other
