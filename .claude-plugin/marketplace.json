@@ -32,7 +32,7 @@
       "name": "code-intelligence",
       "description": "Codebase exploration, navigation, mapping, and static analysis tools for understanding unfamiliar codebases.",
       "source": "./plugins/code-intelligence",
-      "version": "2.2.0",
+      "version": "2.2.1",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",
