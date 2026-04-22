@@ -22,6 +22,12 @@ It handles path resolution and module registration. [[inspecting-skills/scripts/
 
 [[scripts/frontmatter_utils.py#parse_skill_md]] separates YAML frontmatter from markdown body in SKILL.md files. [[scripts/frontmatter_utils.py#write_skill_md]] reassembles them. [[scripts/frontmatter_utils.py#extract_version]] finds the version from frontmatter or legacy version files. These utilities serve both the registry and the migration script [[scripts/migrate-version-to-frontmatter.py#migrate_skill]].
 
+## On-Demand Discovery
+
+[[finding-skills/scripts/skills.py#cmd_list]], [[finding-skills/scripts/skills.py#cmd_search]], and [[finding-skills/scripts/skills.py#cmd_show]] expose the skill catalog as a CLI so contexts that can't afford to preload every SKILL.md frontmatter can still find and load skills. [[finding-skills/scripts/skills.py#_parse_meta]] extracts name + description from the YAML frontmatter; [[finding-skills/scripts/skills.py#_iter_skills]] walks `/mnt/skills/user/`.
+
+The search ranker scores exact name matches highest (100), substring name matches next (10), and description substring hits last (1 per occurrence). Analogous to Anthropic's ToolSearch for MCP tools, one layer up. Enables CCotw boot to emit names-only instead of full descriptions and still preserve skill awareness.
+
 ## Knowledge Skills
 
 Seventeen of ~60 skills contain only a SKILL.md with no scripts — the markdown IS the implementation.
