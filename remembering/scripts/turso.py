@@ -378,7 +378,7 @@ def _fts5_search(search: str, *, n: int = 10, type: str = None,
     # Build WHERE conditions for the memories table (alias m)
     conditions = [
         "m.deleted_at IS NULL",
-        "m.id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL)"
+        "m.is_superseded = 0"
     ]
     params = [fts_query]  # First param is the MATCH query
 

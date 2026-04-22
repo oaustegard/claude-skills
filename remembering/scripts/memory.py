@@ -104,15 +104,26 @@ def _write_memory(mem_id: str, what: str, type: str, now: str, conf: float,
 
     v2.0.0: Simplified schema - removed entities, importance, salience, memory_class, embedding. Added priority field.
     v3.2.0: Re-enabled session_id tracking.
+    v5.x.0 (#issue-superseded-col): Maintain is_superseded flag on referenced memories.
     """
+    clean_refs = [r for r in (refs or []) if r is not None]
     _exec(
         """INSERT INTO memories (id, type, t, summary, confidence, tags, refs, priority,
            session_id, created_at, updated_at, valid_from, access_count, last_accessed)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)""",
         [mem_id, type, now, what, conf,
-         json.dumps(tags or []), json.dumps([r for r in (refs or []) if r is not None]),
+         json.dumps(tags or []), json.dumps(clean_refs),
          priority, session_id, now, now, valid_from]
     )
+
+    # Mark any referenced memories as superseded. Indexed recall path relies on
+    # this flag instead of a runtime json_each(refs) subquery (#issue-superseded-col).
+    if clean_refs:
+        placeholders = ", ".join("?" * len(clean_refs))
+        _exec(
+            f"UPDATE memories SET is_superseded = 1 WHERE id IN ({placeholders})",
+            clean_refs,
+        )
 
 
 # @lat: [[memory#Core Operations]]
@@ -655,7 +666,7 @@ def _query(search: str = None, tags: list = None, type: str = None,
     conditions = [
         "deleted_at IS NULL",
         # Exclude memories that are superseded (appear in any other memory's refs field)
-        "id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL AND value IS NOT NULL)"
+        "is_superseded = 0"
     ]
     params = []
 
@@ -744,7 +755,7 @@ def recall_since(after: str, *, search: str = None, n: int = 50,
     conditions = [
         "deleted_at IS NULL",
         "t > ?",
-        "id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL AND value IS NOT NULL)"
+        "is_superseded = 0"
     ]
     params = [after]
 
@@ -819,7 +830,7 @@ def recall_between(after: str, before: str, *, search: str = None,
         "deleted_at IS NULL",
         "t > ?",
         "t < ?",
-        "id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL AND value IS NOT NULL)"
+        "is_superseded = 0"
     ]
     params = [after, before]
 
@@ -887,20 +898,54 @@ def forget(memory_id: str) -> bool:
     resolved_id = _resolve_memory_id(memory_id)
 
     # v5.4.0: Fetch tags before deletion for co-occurrence update (#383)
+    # v5.x.0: Also fetch refs so we can recompute is_superseded on targets after delete.
     forgotten_tags = None
+    forgotten_refs = []
     try:
-        rows = _exec("SELECT tags FROM memories WHERE id = ? AND deleted_at IS NULL", [resolved_id])
+        rows = _exec(
+            "SELECT tags, refs FROM memories WHERE id = ? AND deleted_at IS NULL",
+            [resolved_id],
+        )
         if rows:
             raw_tags = rows[0].get('tags', [])
             if isinstance(raw_tags, str):
                 forgotten_tags = json.loads(raw_tags)
             elif isinstance(raw_tags, list):
                 forgotten_tags = raw_tags
+            raw_refs = rows[0].get('refs', [])
+            if isinstance(raw_refs, str):
+                try:
+                    forgotten_refs = [r for r in json.loads(raw_refs) if r]
+                except json.JSONDecodeError:
+                    forgotten_refs = []
+            elif isinstance(raw_refs, list):
+                forgotten_refs = [r for r in raw_refs if r]
     except Exception:
         pass  # Best-effort
 
     now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     _exec("UPDATE memories SET deleted_at = ? WHERE id = ?", [now, resolved_id])
+
+    # v5.x.0 (#issue-superseded-col): For each memory this one referenced,
+    # re-check whether any OTHER non-deleted memory still references it.
+    # If not, clear its is_superseded flag so it can resurface in recall.
+    # This path is cold (forget is rare); using a small-scope json_each lookup
+    # is acceptable and keeps the hot recall path subquery-free.
+    if forgotten_refs:
+        for ref_id in forgotten_refs:
+            try:
+                still_superseded = _exec(
+                    """SELECT 1 FROM memories, json_each(refs)
+                       WHERE deleted_at IS NULL AND value = ? LIMIT 1""",
+                    [ref_id],
+                )
+                if not still_superseded:
+                    _exec(
+                        "UPDATE memories SET is_superseded = 0 WHERE id = ?",
+                        [ref_id],
+                    )
+            except Exception:
+                pass  # Best-effort; flag staleness is self-healing on next touch
 
     # v5.4.0: Decrement co-occurrence counts (#383)
     if forgotten_tags and len(forgotten_tags) >= 2:
@@ -931,9 +976,11 @@ def supersede(original_id: str, summary: str, type: str, *,
     session_id = get_session_id()
 
     # Batch both operations in single HTTP request (v3.3.0)
+    # v5.x.0 (#issue-superseded-col): Also flag original as superseded so the
+    # recall hot path can prune via index instead of a json_each subquery.
     _exec_batch([
-        # Soft-delete original
-        ("UPDATE memories SET deleted_at = ? WHERE id = ?", [now, original_id]),
+        # Soft-delete original AND flag it superseded
+        ("UPDATE memories SET deleted_at = ?, is_superseded = 1 WHERE id = ?", [now, original_id]),
         # Insert new memory
         ("""INSERT INTO memories (id, type, t, summary, confidence, tags, refs, priority,
                session_id, created_at, updated_at, valid_from, access_count, last_accessed)
@@ -1009,7 +1056,7 @@ def memory_histogram() -> dict:
         SELECT type, priority, created_at
         FROM memories
         WHERE deleted_at IS NULL
-          AND id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL AND value IS NOT NULL)
+          AND is_superseded = 0
     """)
 
     if not results:
@@ -1076,7 +1123,7 @@ def prune_by_age(older_than_days: int, priority_floor: int = 0, dry_run: bool = 
         WHERE deleted_at IS NULL
           AND created_at < ?
           AND priority <= ?
-          AND id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL AND value IS NOT NULL)
+          AND is_superseded = 0
     """, [cutoff_iso, priority_floor])
 
     ids = [m['id'] for m in results]
@@ -1114,7 +1161,7 @@ def prune_by_priority(max_priority: int = -1, dry_run: bool = True) -> dict:
         FROM memories
         WHERE deleted_at IS NULL
           AND priority <= ?
-          AND id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL AND value IS NOT NULL)
+          AND is_superseded = 0
     """, [max_priority])
 
     ids = [m['id'] for m in results]
@@ -1262,7 +1309,7 @@ def recall_batch(queries: list, *, n: int = 10, type: str = None,
 
         conditions = [
             "m.deleted_at IS NULL",
-            "m.id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL AND value IS NOT NULL)"
+            "m.is_superseded = 0"
         ]
         params = [fts_query]
 
@@ -1636,7 +1683,7 @@ def consolidate(*, tags: list = None, min_cluster: int = 3, dry_run: bool = True
     # Fetch active memories
     conditions = [
         "deleted_at IS NULL",
-        "id NOT IN (SELECT value FROM memories, json_each(refs) WHERE deleted_at IS NULL AND value IS NOT NULL)"
+        "is_superseded = 0"
     ]
     params = []
 

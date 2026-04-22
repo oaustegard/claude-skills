@@ -39,7 +39,8 @@ def create_tables():
             deleted_at TEXT,
             valid_from TEXT,
             access_count INTEGER DEFAULT 0,
-            last_accessed TEXT
+            last_accessed TEXT,
+            is_superseded INTEGER NOT NULL DEFAULT 0
         )
     """)
 
@@ -47,6 +48,9 @@ def create_tables():
     _exec("CREATE INDEX IF NOT EXISTS idx_memories_t ON memories(t DESC)")
     _exec("CREATE INDEX IF NOT EXISTS idx_memories_priority ON memories(priority DESC, t DESC)")
     _exec("CREATE INDEX IF NOT EXISTS idx_memories_session_id ON memories(session_id)")
+    # v5.x.0 (#issue-superseded-col): Index to prune superseded/deleted memories
+    # at the start of every recall query, replacing a full json_each(refs) scan.
+    _exec("CREATE INDEX IF NOT EXISTS idx_memories_active ON memories(is_superseded, deleted_at)")
 
     _exec("""
         CREATE TABLE IF NOT EXISTS config (
@@ -153,6 +157,35 @@ def migrate_schema():
         print("Added tag_cooccurrence table")
     except:
         pass  # Table/indexes already exist
+
+    # v5.x.0 (#issue-superseded-col): is_superseded column + backfill + index.
+    # Replaces the `id NOT IN (SELECT value FROM memories, json_each(refs)...)`
+    # subquery in recall (~60% of Turso row-reads on the 7-day dashboard).
+    # Idempotent: ALTER fails silently if column exists, and we only backfill
+    # when we just added the column (tracked by the try/except split).
+    _is_superseded_added = False
+    try:
+        _exec("ALTER TABLE memories ADD COLUMN is_superseded INTEGER NOT NULL DEFAULT 0")
+        _is_superseded_added = True
+        print("Added is_superseded column to memories table")
+    except:
+        pass  # Column already exists
+    try:
+        _exec("CREATE INDEX IF NOT EXISTS idx_memories_active ON memories(is_superseded, deleted_at)")
+    except:
+        pass  # Index already exists
+    if _is_superseded_added:
+        try:
+            _exec("""
+                UPDATE memories SET is_superseded = 1
+                WHERE id IN (
+                    SELECT DISTINCT value FROM memories, json_each(refs)
+                    WHERE deleted_at IS NULL AND value IS NOT NULL
+                )
+            """)
+            print("Backfilled is_superseded flag from existing refs")
+        except Exception as e:
+            print(f"WARNING: is_superseded backfill failed: {e}")
 
     print("Schema migration complete")
 
