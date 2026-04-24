@@ -11,43 +11,53 @@ from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Optional
 
-# Lazy import — tree-sitter installed at skill activation time
+# Lazy load — parsers loaded on demand from bundled .so files.
+# We deliberately do NOT depend on tree-sitter-language-pack: its 1.6.x
+# wheel layout is broken in the Claude.ai container (installs into
+# _native/ with no top-level package dir) AND it tries to download
+# grammars at runtime from a domain that isn't in the network allowlist.
+# The bundled parsers/*.so files are loaded directly via ctypes against
+# the bare `tree-sitter` package, which does install cleanly.
 _parsers: dict = {}
-_bootstrapped = False
+_PARSERS_DIR = Path(__file__).parent.parent / 'parsers'
 
 
-def _bootstrap_parsers():
-    """Ensure tree-sitter parsers are available.
+def _so_path(lang: str) -> Optional[Path]:
+    """Resolve a language name to its bundled .so path, or None if not bundled."""
+    # Grammar filenames follow libtree_sitter_<lang>.so and export a
+    # matching tree_sitter_<lang> symbol.
+    p = _PARSERS_DIR / f'libtree_sitter_{lang}.so'
+    return p if p.is_file() else None
 
-    In proxied environments (Claude.ai), tree-sitter-language-pack can't download
-    parsers due to SSL certificate issues. This copies bundled .so files from
-    the skill's parsers/ directory to the cache location.
+
+def _load_language(lang: str):
+    """Load a tree_sitter.Language from a bundled .so via ctypes.
+
+    Returns None if the grammar isn't bundled or loading fails.
     """
-    global _bootstrapped
-    if _bootstrapped:
-        return
-    _bootstrapped = True
+    so = _so_path(lang)
+    if so is None:
+        return None
 
     try:
-        from tree_sitter_language_pack import get_parser
-        get_parser('python')
-        return  # Already available
-    except Exception as e:
-        if 'Download error' not in str(e) and 'DownloadError' not in type(e).__name__:
-            raise
+        from ctypes import CDLL, c_void_p, c_char_p, py_object, pythonapi
+        from tree_sitter import Language
+    except ImportError:
+        return None
 
-    # Copy bundled parsers to cache
-    import shutil
-    from tree_sitter_language_pack import cache_dir
-    cache_libs = Path(cache_dir())
-    cache_libs.mkdir(parents=True, exist_ok=True)
-
-    bundled = Path(__file__).parent.parent / 'parsers'
-    if bundled.is_dir():
-        for so in bundled.glob('*.so'):
-            dest = cache_libs / so.name
-            if not dest.exists():
-                shutil.copy2(so, dest)
+    try:
+        lib = CDLL(str(so))
+        fn = getattr(lib, f'tree_sitter_{lang}')
+        fn.restype = c_void_p
+        # Wrap the language function's return value in a PyCapsule, which is
+        # the forward-compatible API for tree_sitter.Language in 0.23+.
+        # (Passing the raw int still works but emits a DeprecationWarning.)
+        pythonapi.PyCapsule_New.restype = py_object
+        pythonapi.PyCapsule_New.argtypes = [c_void_p, c_char_p, c_void_p]
+        capsule = pythonapi.PyCapsule_New(fn(), b"tree_sitter.Language", None)
+        return Language(capsule)
+    except Exception:
+        return None
 
 EXT_TO_LANG = {
     '.py': 'python', '.pyi': 'python',
@@ -122,14 +132,27 @@ class Symbol:
 
 
 def _get_parser(lang: str):
-    """Get or create a cached parser for the given language. Returns None if unavailable."""
+    """Get or create a cached parser for the given language.
+
+    Returns None if the grammar isn't bundled (or fails to load). Callers
+    handle None by skipping the file — the same behaviour the scan loop
+    already expects.
+    """
     if lang not in _parsers:
-        _bootstrap_parsers()
         try:
-            from tree_sitter_language_pack import get_parser
-            _parsers[lang] = get_parser(lang)
-        except Exception:
+            from tree_sitter import Parser
+        except ImportError:
             _parsers[lang] = None
+            return None
+
+        language = _load_language(lang)
+        if language is None:
+            _parsers[lang] = None
+        else:
+            try:
+                _parsers[lang] = Parser(language)
+            except Exception:
+                _parsers[lang] = None
     return _parsers[lang]
 
 

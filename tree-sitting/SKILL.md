@@ -2,7 +2,7 @@
 name: tree-sitting
 description: AST-powered code navigation via tree-sitter. Auto-scans codebases and provides progressive-disclosure tree views with symbol search, source retrieval, and reference finding. Each invocation is self-contained — no cross-process state. Use when exploring unfamiliar repos, navigating code, or needing fast symbol lookup. Triggers on "map this codebase", "explore repo", "find symbol", "navigate code", "tree-sitter", or when starting work on an unfamiliar repository.
 metadata:
-  version: 0.4.0
+  version: 0.5.0
 ---
 
 # tree-sitting
@@ -13,11 +13,11 @@ the codebase (~700ms for 250 files), then runs queries at sub-millisecond speed.
 ## Setup
 
 ```bash
-uv venv /home/claude/.venv 2>/dev/null
-uv pip install tree-sitter-language-pack --python /home/claude/.venv/bin/python
+uv pip install --system --break-system-packages tree-sitter
 ```
 
-Total install: <2s cold cache, <400ms warm.
+Grammars are loaded from bundled `parsers/*.so` files — no network fetch,
+no `tree-sitter-language-pack` dependency. Install is <1s.
 
 ## Usage: CLI (treesit.py)
 
@@ -28,19 +28,19 @@ No state to manage between calls.
 TREESIT=/mnt/skills/user/tree-sitting/scripts/treesit.py
 
 # Orient: root-level overview (default depth=1)
-/home/claude/.venv/bin/python $TREESIT /path/to/repo
+python3 $TREESIT /path/to/repo
 
 # Featuring: complete tree, minimal detail
-/home/claude/.venv/bin/python $TREESIT /path/to/repo --depth=-1 --detail=sparse
+python3 $TREESIT /path/to/repo --depth=-1 --detail=sparse
 
 # Explore a subdirectory in full detail
-/home/claude/.venv/bin/python $TREESIT /path/to/repo --path=src/core --detail=full
+python3 $TREESIT /path/to/repo --path=src/core --detail=full
 
 # Run queries (tree overview + query results)
-/home/claude/.venv/bin/python $TREESIT /path/to/repo 'find:Parser*' 'source:parse_input'
+python3 $TREESIT /path/to/repo 'find:Parser*' 'source:parse_input'
 
 # Queries only, no tree
-/home/claude/.venv/bin/python $TREESIT /path/to/repo --no-tree 'refs:AuthToken'
+python3 $TREESIT /path/to/repo --no-tree 'refs:AuthToken'
 ```
 
 ### Options
@@ -113,13 +113,20 @@ invocations loses the cache — use `treesit.py` instead.
 
 ## Supported Languages
 
-Python, JavaScript, TypeScript, TSX, Go, Rust, Ruby, Java, C, C++, C#, Swift, Kotlin, Scala, HTML, CSS, Markdown, JSON, YAML, TOML, Lua, Bash, Elisp, Zig, Elixir.
+Bundled grammars (work out of the box):
+**Python, JavaScript, TypeScript, TSX, Go, Rust, Ruby, Java, C, HTML, Markdown.**
 
-Three-tier extraction:
+Three-tier extraction for bundled languages:
 
 1. **Custom extractors** (richest — signatures, hierarchy, docstrings): Python, C, Go, Rust, JavaScript, TypeScript, TSX, Ruby, Markdown (heading outline)
-2. **tags.scm queries** (community-maintained — kinds, docs where grammars support it): Java, C++, C#
-3. **Generic heuristic** (names + kinds + locations): all others
+2. **tags.scm queries** (community-maintained — kinds, docs): Java
+3. **Generic heuristic** (names + kinds + locations): HTML and any future bundled grammars
+
+### Adding a grammar
+
+Files with unsupported extensions are silently skipped (they show as `SKIP (no parser)` with `--stats`). To add a grammar, drop a compiled `libtree_sitter_<lang>.so` into `parsers/` — the engine picks it up automatically on the next run. Build from the grammar's repo (each `tree-sitter/tree-sitter-<lang>` repo has a `src/` directory you can compile with `cc -shared -fPIC -I src src/parser.c src/scanner.c -o libtree_sitter_<lang>.so`, or use `tree-sitter build`).
+
+If you need a language urgently and can't build the `.so`, you can try installing `tree-sitter-language-pack` as a fallback (`uv pip install --system --break-system-packages tree-sitter-language-pack`) — but note its 1.6.x wheels have a broken install layout in some containers and try to download grammars at runtime from a domain that may not be in your network allowlist. Bundling the `.so` is the reliable path.
 
 ## What It Extracts
 

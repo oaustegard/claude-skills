@@ -2,6 +2,17 @@
 
 All notable changes to the `tree-sitting` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.5.0] - 2026-04-23
+
+### Fixed
+
+- Drop `tree-sitter-language-pack` dependency (#572). The 1.6.x wheels install into `_native/` with no top-level package directory, making imports fail in Claude.ai containers. Even if the import is patched, the pack tries to download grammars at runtime from a domain outside the network allowlist. Grammars are now loaded directly from bundled `parsers/*.so` via `ctypes`, against the bare `tree-sitter` package (which installs cleanly). Setup is simpler (no venv) and install is ~1s.
+
+### Changed
+
+- Setup command is now `uv pip install --system --break-system-packages tree-sitter` — no venv required.
+- Supported-languages list narrowed to the 11 bundled grammars (Python, JavaScript, TypeScript, TSX, Go, Rust, Ruby, Java, C, HTML, Markdown). Previously advertised languages without bundled parsers silently returned empty before this change anyway; now they're documented honestly with instructions for adding a grammar.
+
 ## [0.4.0] - 2026-04-21
 
 ### Other
