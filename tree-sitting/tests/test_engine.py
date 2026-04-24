@@ -13,20 +13,6 @@ from pathlib import Path
 # Bootstrap parsers before importing engine
 sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 
-# If running in proxied environment, bootstrap from bundled parsers
-_parsers_dir = Path(__file__).parent.parent / 'parsers'
-if _parsers_dir.is_dir():
-    try:
-        from tree_sitter_language_pack import get_parser as _test, cache_dir
-        _test('python')
-    except Exception:
-        cache_libs = Path(cache_dir())
-        cache_libs.mkdir(parents=True, exist_ok=True)
-        for so in _parsers_dir.glob('*.so'):
-            dest = cache_libs / so.name
-            if not dest.exists():
-                shutil.copy2(so, dest)
-
 from engine import (
     Symbol, CodeCache, extract_symbols, extract_imports,
     _get_parser, _extract_via_tags, EXTRACTORS, TAGS_SCM,
