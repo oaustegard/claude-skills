@@ -1,8 +1,8 @@
 ---
 name: llm-as-computer
-description: Execute programs on a compiled transformer stack machine where every instruction fetch and memory read is a parabolic attention head. Demonstrates that transformer attention + FF layers can implement a working computer. Use when user mentions "llm-as-computer", "lac", "stack machine", "compiled transformer", "percepta", "parabolic attention", "execute program", or asks to run/trace programs on the transformer executor.
+description: Execute programs on a compiled transformer stack machine where every instruction fetch and memory read is a parabolic attention head. Demonstrates that transformer attention + FF layers can implement a working computer, including Percepta-style program specialization that bakes compiled programs into FFN coefficient tables. Use when user mentions "llm-as-computer", "lac", "stack machine", "compiled transformer", "percepta", "parabolic attention", "specialization", "partial evaluation", "execute program", or asks to run/trace programs on the transformer executor.
 metadata:
-  version: 1.0.1
+  version: 1.1.0
   repo: oaustegard/llm-as-computer
 ---
 
@@ -65,6 +65,7 @@ From `programs.py` — all return `(program, expected_result)`:
 | `make_compare_binary(op,a,b)` | eq/ne/lt_s/gt_s/le_s/ge_s | |
 | `make_bitwise_binary(op,a,b)` | and/or/xor/shl/shr_u/rotl/rotr | |
 | `make_select(a,b,c)` | Conditional select | |
+| `make_countdown(n)` | Simplest loop; decrements counter to 0 | specialization demo target |
 
 ## Writing Custom Programs
 
@@ -114,6 +115,38 @@ sharply at a target position. Same encoding addresses program memory, stack, loc
 and heap without interference. Each attention head is a compiled `W_Q @ state → query`,
 `W_K @ memory → keys`, `scores = K @ q`, `output = V[argmax(scores)]`.
 
+## Program Specialization (Partial Evaluation)
+
+Mirrors Percepta's partial-evaluation pass
+([blog](https://www.percepta.ai/blog/constructing-llm-computer)): for a program of N
+instructions, bake the program table into `2N` ReGLU step-function neurons plus
+per-field coefficient vectors. At deployment the prompt shrinks from
+`(program || input)` to `(input)` alone; fetched opcode/arg become a linear
+combination of the `1[cursor ≥ i]` indicators.
+
+```python
+from specialize import specialize, verify_fetch_parity
+from programs import make_countdown
+from runner import run
+
+prog, _ = make_countdown(5)
+
+# Partial-evaluate. 2N ReGLU neurons + coefficient tables per field.
+sp = specialize(prog)
+print(sp.n, sp.coefficients['op'], sp.token_savings())
+
+# Bit-exact with direct prefix indexing at every cursor position
+verify_fetch_parity(prog)
+
+# Run the specialized executor -- step-count and trace parity with universal
+print(run(prog, specialize=True))
+```
+
+`executor.mojo` already fetches instructions via direct `List[Int]` indexing, so
+specialization buys no Mojo-runtime speedup — its value here is architectural:
+the `2N` ReGLU neurons plus coefficient tables are what "programs live in
+weights" looks like concretely.
+
 ## Updating from Repo
 
 To pull latest source from the repository:
@@ -125,7 +158,7 @@ for f in executor.mojo; do
   curl -sL -H "Authorization: token $GH_TOKEN" -H "Accept: application/vnd.github.v3.raw" \
     "https://api.github.com/repos/oaustegard/llm-as-computer/contents/src/$f?ref=main" > $f
 done
-for f in isa_lite.py programs.py runner.py; do
+for f in isa_lite.py programs.py runner.py specialize.py; do
   curl -sL -H "Authorization: token $GH_TOKEN" -H "Accept: application/vnd.github.v3.raw" \
     "https://api.github.com/repos/oaustegard/llm-as-computer/contents/skill/src/$f?ref=main" > $f
 done

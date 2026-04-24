@@ -146,6 +146,23 @@ def make_fibonacci(n):
     return prog, fib(n)
 
 
+def make_countdown(n):
+    """Simplest possible loop: decrement a counter from n to 0. Terminates at 0.
+
+    Canonical specialization demo target -- small, clearly deterministic,
+    traces are easy to eyeball. Final stack top is always 0.
+    """
+    prog = [
+        Instruction(OP_PUSH, n),   # 0: counter = n
+        Instruction(OP_PUSH, 1),   # 1: decrement
+        Instruction(OP_SUB),       # 2: counter - 1
+        Instruction(OP_DUP),       # 3: copy for JNZ test
+        Instruction(OP_JNZ, 1),    # 4: loop if non-zero
+        Instruction(OP_HALT),      # 5: done
+    ]
+    return prog, 0
+
+
 def make_power_of_2(n):
     """Generate a program that computes 2^n via repeated doubling."""
     if n == 0:

@@ -125,20 +125,37 @@ def _run_mojo(prog, max_steps=5000000, repeat=0):
 
 
 def _run_python(prog, max_steps=5000000):
-    """Pure Python fallback executor (no deps beyond stdlib)."""
-    # Minimal stack machine - same semantics as Mojo executor
+    """Pure Python fallback executor (no deps beyond stdlib).
+
+    Uses direct prefix indexing for the universal-interpreter path.
+    """
+    from specialize import fetch_fn_from_program
+    return _run_python_core(len(prog), fetch_fn_from_program(prog), max_steps)
+
+
+def _run_python_specialized(specialized, max_steps=5000000):
+    """Specialized executor: fetches via FFN coefficient tables, no prefix.
+
+    Trace format and step semantics are identical to _run_python, so the
+    caller can assert step-count / trace parity.
+    """
+    return _run_python_core(specialized.n, specialized.fetch, max_steps)
+
+
+def _run_python_core(n_instrs, fetch, max_steps=5000000):
+    """Shared Python executor loop. `fetch(ip) -> (op, arg)` decouples the
+    prefix-indexed universal path from the FFN-specialized path."""
     from isa_lite import MASK32
-    
+
     stack = {}
     sp = 0
     ip = 0
     lines = []
-    
+
     for _step in range(max_steps):
-        if ip >= len(prog):
+        if ip >= n_instrs:
             break
-        instr = prog[ip]
-        op, arg = instr.op, instr.arg
+        op, arg = fetch(ip)
         next_ip = ip + 1
         top = 0
         
@@ -186,18 +203,38 @@ def _run_python(prog, max_steps=5000000):
     return lines, stack.get(sp, 0) if sp > 0 else 0
 
 
-def execute(prog, max_steps=5000000, verbose=True, benchmark_repeat=0):
+def execute(prog, max_steps=5000000, verbose=True, benchmark_repeat=0, specialize=False):
     """Execute a program. Returns (result, trace_lines, backend, timing_info).
-    
+
     Args:
         prog: List[Instruction] or (List[Instruction], expected) tuple
         max_steps: execution limit
         verbose: whether to collect trace
         benchmark_repeat: if >0, run N times and report median timing
+        specialize: if True, bake the program into FFN coefficient tables
+            (Percepta-style partial evaluation) and fetch from them instead
+            of a program prefix. Forces the Python backend; the Mojo executor
+            already uses direct prefix indexing, so specialization offers no
+            runtime speedup there -- the benefit is prompt-size, demonstrated
+            via SpecializedProgram.token_savings().
     """
     prog = _unpack(prog)
+
+    if specialize:
+        from specialize import specialize as _specialize
+        sp = _specialize(prog)
+        t0 = time.perf_counter_ns()
+        lines, result = _run_python_specialized(sp, max_steps)
+        elapsed = time.perf_counter_ns() - t0
+        savings = sp.token_savings()
+        return result, lines, "python-specialized", {
+            "wall_ns": elapsed,
+            "token_savings": savings,
+            "ffn_neurons": 2 * sp.n,
+        }
+
     backend = "mojo" if os.path.exists(MOJO_BIN) else "python"
-    
+
     if backend == "mojo":
         if benchmark_repeat > 0:
             lines, wall_ns = _run_mojo(prog, max_steps, repeat=benchmark_repeat)
@@ -279,7 +316,18 @@ def format_trace(prog, trace_lines, result, backend, timing):
     
     if "wall_ns" in timing:
         out.append(f"  Wall time: {timing['wall_ns']/1e6:.1f} ms")
-    
+
+    if "token_savings" in timing:
+        ts = timing["token_savings"]
+        out.append(
+            f"\nSpecialization: {timing['ffn_neurons']} ReGLU neurons baked "
+            f"({ts['program_tokens_saved']} program tokens -> FFN weights)"
+        )
+        out.append(
+            f"  Prompt tokens: {ts['universal_prompt_tokens']} (universal) "
+            f"-> {ts['specialized_prompt_tokens']} (specialized)"
+        )
+
     return "\n".join(out)
 
 
@@ -301,20 +349,25 @@ def _unpack(prog):
     return prog
 
 
-def run(prog, benchmark=False, repeat=200):
+def run(prog, benchmark=False, repeat=200, specialize=False):
     """Execute and format a program. Returns formatted string.
-    
+
     Args:
         prog: List[Instruction], or (List[Instruction], expected) tuple
         benchmark: if True, run timing benchmark
         repeat: number of benchmark iterations
+        specialize: if True, partial-evaluate the program into FFN
+            coefficient tables and run the specialized executor. Matches
+            the universal interpreter trace step-for-step; see specialize.py.
     """
     prog = _unpack(prog)
-    if benchmark:
+    if specialize:
+        result, lines, backend, timing = execute(prog, specialize=True)
+    elif benchmark:
         result, lines, backend, timing = execute(prog, benchmark_repeat=repeat)
     else:
         result, lines, backend, timing = execute(prog)
-    
+
     return format_trace(prog, lines, result, backend, timing)
 
 
