@@ -2,6 +2,12 @@
 
 All notable changes to the `tree-sitting` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.5.0] - 2026-04-24
+
+### Other
+
+- tree-sitting: drop tree_sitter_language_pack, load bundled .so directly (fixes #572) (#573)
+
 ## [0.5.0] - 2026-04-23
 
 ### Fixed
