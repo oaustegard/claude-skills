@@ -1,6 +1,6 @@
 # Code Intelligence
 
-Four skills form a dependency chain for understanding codebases: mapping-codebases extracts structure, exploring-codebases does semantic search, searching-codebases adds n-gram indexing, and generating-lattice produces cross-referenced documentation.
+Five skills form a dependency chain for understanding and assessing codebases: mapping-codebases extracts structure, exploring-codebases does semantic search, searching-codebases adds n-gram indexing, generating-lattice produces cross-referenced documentation, and assessing-impact reports pre-change blast radius.
 
 ## AST Mapping
 
@@ -39,3 +39,13 @@ The sparse ngram module provides [[searching-codebases/scripts/sparse_ngrams.py#
 ## Lattice Generation
 
 [[generating-lattice/scripts/suggest_backlinks.py#parse_source_refs]] extracts all `[[src/...#symbol]]` wiki links from lat.md/ files. [[generating-lattice/scripts/suggest_backlinks.py#find_symbol_line]] locates the referenced symbol in source using regex. [[generating-lattice/scripts/suggest_backlinks.py#suggest_backlinks]] combines these to produce `@lat:` comment suggestions. [[generating-lattice/scripts/suggest_backlinks.py#apply_backlinks]] writes them into source files.
+
+## Impact Assessment
+
+[[assessing-impact/scripts/impact.py#main]] is the pre-change blast-radius CLI: given a symbol or file in a local repo, it walks tree-sitting refs and reports the affected sites clustered by package, tests, docs, and (optionally) `_FEATURES.md` features.
+
+[[assessing-impact/scripts/impact.py#resolve_target]] disambiguates a target string into AST symbols and definition sites — file paths, exact symbol names, and substring fallback. [[assessing-impact/scripts/impact.py#find_ast_refs]] uses tree-sitting's `references()` method over the parsed corpus, excluding the definition lines so refs are USES not declarations. [[assessing-impact/scripts/impact.py#find_text_refs]] complements with a plain-text scan over file types tree-sitting doesn't parse — `Dockerfile`, `.ini`, `.env`, `.properties` — catching string-based dynamic dispatch and config references.
+
+[[assessing-impact/scripts/impact.py#cluster_refs]] partitions matches into code-by-package, tests, and docs buckets. [[assessing-impact/scripts/impact.py#parse_features_file]] and [[assessing-impact/scripts/impact.py#map_refs_to_features]] reuse the `_FEATURES.md` format from featuring to overlay a feature-area view on top of the package-directory view. [[assessing-impact/scripts/impact.py#find_test_files_for_target]] surfaces likely regression nets — tests that already reference the symbol plus tests neighboring the definition.
+
+The skill is deliberately a focused walk, not a graph database — for deep ongoing impact analysis on a daily codebase, GitNexus or SourceGraph remain the right tool. This skill targets the ad-hoc "I'm about to refactor X in a repo I don't own" case.
