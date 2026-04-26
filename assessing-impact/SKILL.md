@@ -11,7 +11,7 @@ description: >-
   CONVERGENT pre-change risk skill — for "what is this repo?" use
   exploring-codebases; for "where is X?" use searching-codebases.
 metadata:
-  version: 0.1.0
+  version: 0.1.1
 ---
 
 # Assessing Impact
