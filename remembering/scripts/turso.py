@@ -164,7 +164,9 @@ def _retry_with_backoff(fn, max_retries=3, base_delay=1.0):
             if attempt == max_retries - 1:
                 # Last attempt failed, re-raise
                 raise
-            # Check if it's a retriable error (503, 429, SSL handshake failures)
+            # Check if it's a retriable error (503, 429, SSL handshakes,
+            # egress-proxy DNS-cache-overflow 503s, and JSON decode failures
+            # which typically indicate a non-JSON proxy error body).
             error_str = str(e)
             is_retriable = (
                 '503' in error_str or
@@ -172,7 +174,10 @@ def _retry_with_backoff(fn, max_retries=3, base_delay=1.0):
                 'Service Unavailable' in error_str or
                 'SSL' in error_str or
                 'SSLError' in error_str or
-                'HANDSHAKE_FAILURE' in error_str
+                'HANDSHAKE_FAILURE' in error_str or
+                'DNS cache overflow' in error_str or
+                'Expecting value' in error_str or
+                'JSONDecodeError' in error_str
             )
             if is_retriable:
                 delay = base_delay * (2 ** attempt)
@@ -256,13 +261,33 @@ def _exec_batch(statements: list) -> list:
     # Add close request
     requests_list.append({"type": "close"})
 
-    try:
+    def _do_request():
         resp = requests.post(
             f"{state._URL}/v2/pipeline",
             headers=state._HEADERS,
             json={"requests": requests_list},
             timeout=30
-        ).json()
+        )
+        # Check status before .json() so proxy 5xx (e.g. "DNS cache overflow"
+        # from the egress proxy) raises a retriable RuntimeError containing
+        # "503" rather than a confusing JSONDecodeError.
+        if resp.status_code >= 500:
+            preview = (resp.text or '')[:200]
+            raise RuntimeError(
+                f"HTTP {resp.status_code} from Turso pipeline endpoint "
+                f"(likely egress proxy, not Turso): {preview!r}"
+            )
+        try:
+            return resp.json()
+        except ValueError as e:
+            preview = (resp.text or '')[:200]
+            raise RuntimeError(
+                f"Non-JSON response (status {resp.status_code}) from Turso: "
+                f"{preview!r}; original: {e}"
+            ) from e
+
+    try:
+        resp = _retry_with_backoff(_do_request)
     except requests.exceptions.SSLError as e:
         raise RuntimeError(
             f"SSL error connecting to Turso database. This often indicates missing or invalid credentials.\n"
@@ -782,13 +807,33 @@ def _exec(sql, args=None, parse_json: bool = True):
             for v in args
         ]
 
-    try:
+    def _do_request():
         resp = requests.post(
             f"{state._URL}/v2/pipeline",
             headers=state._HEADERS,
             json={"requests": [{"type": "execute", "stmt": stmt}]},
             timeout=30
-        ).json()
+        )
+        # Check status before .json() so proxy 5xx (e.g. "DNS cache overflow"
+        # from the egress proxy) raises a retriable RuntimeError containing
+        # "503" rather than a confusing JSONDecodeError.
+        if resp.status_code >= 500:
+            preview = (resp.text or '')[:200]
+            raise RuntimeError(
+                f"HTTP {resp.status_code} from Turso pipeline endpoint "
+                f"(likely egress proxy, not Turso): {preview!r}"
+            )
+        try:
+            return resp.json()
+        except ValueError as e:
+            preview = (resp.text or '')[:200]
+            raise RuntimeError(
+                f"Non-JSON response (status {resp.status_code}) from Turso: "
+                f"{preview!r}; original: {e}"
+            ) from e
+
+    try:
+        resp = _retry_with_backoff(_do_request)
     except requests.exceptions.SSLError as e:
         raise RuntimeError(
             f"SSL error connecting to Turso database. This often indicates missing or invalid credentials.\n"
