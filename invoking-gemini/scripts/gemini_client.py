@@ -246,9 +246,42 @@ def _cf_request(
         "cf-aig-authorization": f"Bearer {api_token}",
     }
 
-    response = requests.post(url, json=payload, headers=headers, timeout=120)
-    response.raise_for_status()
-    return response.json()
+    # Retry on 5xx / 429 / SSL / non-JSON proxy errors. The Claude.ai egress
+    # proxy can return HTTP 503 with body 'DNS cache overflow' (text/plain),
+    # most often on cold start; without this retry the caller sees an
+    # opaque JSONDecodeError or HTTPError on what is actually a transient
+    # proxy condition rather than a Gemini/CF-AI-Gateway failure.
+    max_retries = 3
+    base_delay = 0.5
+    for attempt in range(max_retries):
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=120)
+            if response.status_code >= 500:
+                preview = (response.text or '')[:200]
+                raise RuntimeError(
+                    f"HTTP {response.status_code} from CF AI Gateway "
+                    f"(likely egress proxy, not Gemini): {preview!r}"
+                )
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            if attempt == max_retries - 1:
+                raise
+            err = str(e)
+            retriable = (
+                '503' in err or '429' in err or 'Service Unavailable' in err
+                or 'DNS cache overflow' in err or 'Expecting value' in err
+                or 'JSONDecodeError' in err or 'SSL' in err or 'SSLError' in err
+                or 'HANDSHAKE_FAILURE' in err
+            )
+            if not retriable:
+                raise
+            delay = base_delay * (2 ** attempt)
+            print(
+                f"Warning: CF AI Gateway request failed "
+                f"(attempt {attempt + 1}/{max_retries}), retrying in {delay}s: {e}"
+            )
+            time.sleep(delay)
 
 
 def _extract_text(response: dict) -> Optional[str]:
