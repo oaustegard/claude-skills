@@ -2,6 +2,23 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [5.7.0] - 2026-04-26
+
+### Fixed
+
+- **`refs` no longer auto-supersedes referenced memories** (#issue-refs-no-auto-supersede): `_write_memory` previously ran `UPDATE memories SET is_superseded = 1 WHERE id IN (refs...)` after every insert, conflating two distinct semantics:
+  - **Supersede edges** — "this memory replaces the referenced ones" (handled by `supersede()`)
+  - **Citation/provenance edges** — "this memory was derived from / cites the referenced ones" (used by Phase 3 syntheses, `boot.py` reflection clusters, manual provenance refs)
+
+  The auto-flag silently corrupted the second pattern. On 2026-04-26 it took out an entire batch of 6 living-reference syntheses (the L5a retrieval layer) plus 5 prototype-log analyses and 34 cited source memories — all flagged `is_superseded=1` within seconds of creation, by the prototype-log writes that immediately followed each synthesis. Total contaminated flags: ~45.
+
+  **Behavior change:** `remember(refs=[...])` is now a pure citation expression. The referenced rows are unaffected. Use `supersede(original_id, ...)` when you actually mean replacement — that path remains the single source of truth for the `is_superseded` flag.
+
+### Notes for callers
+
+- `consolidate()` previously relied on the auto-flag side effect to hide cluster source memories from default recall. Its explicit code only demotes sources to `priority=-1` (background). After this fix, source memories remain technically active (not superseded) but stay deprioritized via `priority=-1`. Recall callers that already filter by priority are unaffected; callers that relied on the supersede flag to hide consolidated sources will now see them in low-priority results. If hard supersede semantics are wanted in `consolidate()`, prefer making it explicit there.
+- `boot.py` reflection clustering uses `refs` as citations and was previously corrupting its own source memories. This fix is the intended behavior.
+
 ## [5.5.0] - 2026-03-18
 
 ### Added
