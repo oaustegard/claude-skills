@@ -797,17 +797,34 @@ def _time_anchor() -> str:
     Emits local time (from profile 'timezone' config), UTC, offset, and DST status.
     Prevents timezone math errors when interpreting UTC memory timestamps.
 
+    Side effect: writes today's local YYYY-MM-DD to /tmp/LOCAL_DATE so
+    downstream tooling can `cat /tmp/LOCAL_DATE` for date grounding without
+    reimplementing the timezone math.
+
     v5.5.0: Added for temporal grounding (#time-anchor).
+    v5.7.x: Robust to multi-line `timezone` values (instructions appended to
+            the IANA name) by parsing only the first non-empty line. Also
+            writes /tmp/LOCAL_DATE.
     """
     from zoneinfo import ZoneInfo
+    from pathlib import Path
 
     now_utc = datetime.now(UTC)
 
-    # Load timezone from profile config, fall back to UTC
+    # Load timezone from profile config, fall back to UTC.
+    # The `timezone` profile entry sometimes carries instructional text after
+    # the IANA name (e.g. "America/New_York\n\nDATE GROUNDING..."). ZoneInfo
+    # rejects the multi-line string, so extract just the first non-empty line.
     tz_name = None
     try:
         from .config import config_get
-        tz_name = config_get('timezone')
+        raw = config_get('timezone')
+        if raw:
+            for line in raw.splitlines():
+                line = line.strip()
+                if line:
+                    tz_name = line
+                    break
     except Exception:
         pass
 
@@ -825,6 +842,12 @@ def _time_anchor() -> str:
     offset_fmt = f"{offset[:3]}:{offset[3:]}"  # e.g., '-05:00'
     tz_abbrev = now_local.strftime('%Z')  # e.g., 'EST' or 'EDT'
     dst_active = bool(now_local.dst())
+
+    # Write /tmp/LOCAL_DATE for shell tooling. Best-effort; never fail boot.
+    try:
+        Path('/tmp/LOCAL_DATE').write_text(now_local.strftime('%Y-%m-%d') + '\n')
+    except Exception:
+        pass
 
     return (
         f"⏰ {now_local.strftime('%Y-%m-%d %H:%M')} {tz_abbrev} "

@@ -2,6 +2,16 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [5.7.1] - 2026-04-26
+
+### Fixed
+
+- **`_time_anchor()` falls back to UTC silently when `timezone` profile value contains trailing instructional text** (#boot-tz-multiline): The `timezone` profile config sometimes carries date-grounding instructions appended after the IANA name (e.g. `"America/New_York\n\nDATE GROUNDING (added 2026-04-13)..."`). `ZoneInfo()` rejects the multi-line string and the existing exception handler silently falls back to UTC — so the boot header reads `UTC | DST: inactive` even when the user is in EDT, which is exactly the failure mode the time anchor was added to prevent. Boot now extracts the first non-empty line of the timezone value before passing it to `ZoneInfo`, so multi-line profile entries work as long as the IANA name comes first.
+
+### Added
+
+- **`/tmp/LOCAL_DATE` written at boot**: `_time_anchor()` now writes today's local date (`YYYY-MM-DD`) to `/tmp/LOCAL_DATE` as a side effect, matching the contract that several ops entries and skills already document (e.g. "cat /tmp/LOCAL_DATE for date grounding"). Best-effort — write failure does not break boot.
+
 ## [5.7.0] - 2026-04-26
 
 ### Fixed
