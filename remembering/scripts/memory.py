@@ -105,6 +105,12 @@ def _write_memory(mem_id: str, what: str, type: str, now: str, conf: float,
     v2.0.0: Simplified schema - removed entities, importance, salience, memory_class, embedding. Added priority field.
     v3.2.0: Re-enabled session_id tracking.
     v5.x.0 (#issue-superseded-col): Maintain is_superseded flag on referenced memories.
+    v5.7.0 (#issue-refs-no-auto-supersede): refs are citation/provenance edges, NOT supersede edges.
+        Removed the implicit UPDATE that flagged every referenced memory is_superseded=1
+        on insert. Two real-world callers (Phase 3 syntheses, boot.py reflection clusters)
+        used refs as provenance and were silently corrupting their citations. The supersede
+        flag now lives only on the explicit supersede() path; remember(refs=...) is
+        side-effect-free with respect to the referenced rows.
     """
     clean_refs = [r for r in (refs or []) if r is not None]
     _exec(
@@ -116,14 +122,12 @@ def _write_memory(mem_id: str, what: str, type: str, now: str, conf: float,
          priority, session_id, now, now, valid_from]
     )
 
-    # Mark any referenced memories as superseded. Indexed recall path relies on
-    # this flag instead of a runtime json_each(refs) subquery (#issue-superseded-col).
-    if clean_refs:
-        placeholders = ", ".join("?" * len(clean_refs))
-        _exec(
-            f"UPDATE memories SET is_superseded = 1 WHERE id IN ({placeholders})",
-            clean_refs,
-        )
+    # NOTE: previous versions auto-flagged referenced memories is_superseded=1 here.
+    # That conflated supersede semantics ("this replaces the referenced rows") with
+    # citation semantics ("this was derived from / cites the referenced rows"). Phase 3
+    # tag syntheses and reflection clustering used refs as citations and got their
+    # source memories silently flagged. Use supersede() when you want supersede
+    # semantics — it is the single explicit path that sets is_superseded=1.
 
 
 # @lat: [[memory#Core Operations]]
@@ -140,7 +144,9 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
         type: Memory type (decision, world, anomaly, experience)
         tags: Optional list of tags
         conf: Optional confidence score (0.0-1.0)
-        refs: Optional list of referenced memory IDs
+        refs: Optional list of referenced memory IDs. Citation/provenance only —
+            the referenced memories are NOT flagged superseded. Use supersede() if
+            you want to mark a memory as replaced. (v5.7.0 — see _write_memory.)
         priority: Priority level (-1=background, 0=normal, 1=important, 2=critical)
         valid_from: Optional timestamp when fact became true (defaults to creation time)
         sync: If True (default), block until write completes. If False, write in background.
@@ -163,6 +169,8 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
     v2.0.0: Simplified schema. Added priority. Removed entities, importance, memory_class.
     v3.2.0: Added session_id parameter for session scoping.
     v4.2.0: Added alternatives parameter for decision memories (#254).
+    v5.7.0 (#issue-refs-no-auto-supersede): refs is citation-only — referenced memories
+        are no longer auto-flagged is_superseded=1. Use supersede() for revision semantics.
     """
     if type not in TYPES:
         raise ValueError(f"Invalid type '{type}'. Must be one of: {', '.join(sorted(TYPES))}")
