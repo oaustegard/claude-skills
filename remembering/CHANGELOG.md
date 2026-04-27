@@ -2,6 +2,48 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [5.7.1] - 2026-04-27
+
+### Added
+
+- confidence-weighted scoring + exploration mode (#542)
+- add telemetry flag to boot() for performance instrumentation (#533)
+- add task parameter for perch task prompts (#528) (#529)
+- add mapping-features skill for behavioral web app documentation (#432)
+- surface due reminders in boot() output (#425)
+- enhanced recall() with tag co-occurrence expansion and boost-aware scoring (#383)
+- replace esm.sh CDN with vendored deps + container testing
+- add time anchor to boot output for temporal grounding
+- slim boot mode for perch + timeout bump (#353)
+
+### Changed
+
+- is_superseded column — kill the hot-path json_each subquery (#570)
+- batch access_count updates to cut Turso write volume (#569)
+
+### Fixed
+
+- boot _time_anchor robust to multi-line tz config + write /tmp/LOCAL_DATE (#584)
+- refs in remember() is citation-only, not supersede (#583)
+- retry on egress-proxy 503 ('DNS cache overflow') in remembering + invoking-gemini (#580)
+- guard NULL in refs array (closes #543) (#552)
+- use ~/muninn_utils instead of hardcoded /home/claude
+
+### Other
+
+- Remove _MAP.md files, direct agents to tree-sitting for code navigation (#545)
+- Add spoke discovery module to remembering skill
+- boot: progressive disclosure overhaul — 102K→16K chars
+- marketplace: restructure as category-based plugins for Claude Code discovery (#530)
+- Fix inter-zone tearing by unifying epsilon across zones (#512) (#513)
+- Regenerate _MAP.md files after @lat: backlink insertion (#504)
+- Lattice v2: bidirectional source-anchored knowledge graph (#503)
+- Normalize timezone-aware inputs to UTC for DB queries (#461)
+- Convert recall() valid_from timestamps from UTC to America/New_York
+- Boot: replace _load_due_reminders() with remind_due() from utility (#445)
+- Implement #414, #415, #416: perch findings digests, boot flight awareness, inline links
+- Update CHANGELOG.md — v5.5.0: TF-IDF similarity, flowing DAG, batched therapy
+
 ## [5.7.1] - 2026-04-26
 
 ### Fixed
