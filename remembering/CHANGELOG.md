@@ -2,6 +2,12 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- `config_set` now preserves `boot_load` on update. Previously, every update silently re-promoted reference-only entries to boot-loaded because `INSERT OR REPLACE` omitted the `boot_load` column. This was particularly painful for auto-maintained keys like `recall-triggers` (rewritten on every `remember()` call).
+
 ## [5.7.1] - 2026-04-27
 
 ### Added

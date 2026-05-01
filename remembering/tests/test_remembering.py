@@ -288,6 +288,52 @@ def test_config_crud():
     print("PASS: Config CRUD works")
 
 
+def test_config_set_preserves_boot_load():
+    """Test 16b: config_set preserves boot_load on update (regression test for #N).
+
+    Previously, INSERT OR REPLACE in config_set omitted boot_load, causing every
+    update to silently reset boot_load to the column default (1). This re-promoted
+    reference-only entries on every update — particularly painful for auto-maintained
+    keys like 'recall-triggers' that are rewritten on every remember() call.
+    """
+    from scripts import config_set, config_delete, config_set_boot_load
+    from scripts.turso import _exec
+
+    KEY = "test-boot-load-preservation"
+    try:
+        # New entry defaults to boot_load=1
+        config_set(KEY, "v1", "ops")
+        rows = _exec("SELECT boot_load FROM config WHERE key=?", [KEY])
+        assert rows[0]["boot_load"] in (1, "1"), \
+            f"new entry should default to boot_load=1, got {rows[0]['boot_load']}"
+
+        # Demote
+        config_set_boot_load(KEY, False)
+        rows = _exec("SELECT boot_load FROM config WHERE key=?", [KEY])
+        assert rows[0]["boot_load"] in (0, "0")
+
+        # Update value via config_set — boot_load must persist (the bug)
+        config_set(KEY, "v2", "ops")
+        rows = _exec("SELECT boot_load, value FROM config WHERE key=?", [KEY])
+        assert rows[0]["boot_load"] in (0, "0"), \
+            f"config_set must preserve boot_load=0 on update, got {rows[0]['boot_load']}"
+        assert rows[0]["value"] == "v2"
+
+        # Explicit boot_load=True overrides
+        config_set(KEY, "v3", "ops", boot_load=True)
+        rows = _exec("SELECT boot_load FROM config WHERE key=?", [KEY])
+        assert rows[0]["boot_load"] in (1, "1")
+
+        # Explicit boot_load=False overrides
+        config_set(KEY, "v4", "ops", boot_load=False)
+        rows = _exec("SELECT boot_load FROM config WHERE key=?", [KEY])
+        assert rows[0]["boot_load"] in (0, "0")
+
+        print("PASS: config_set preserves boot_load on update")
+    finally:
+        config_delete(KEY)
+
+
 def test_boot_returns_string():
     """Test 17: Boot function returns expected format"""
     from scripts import boot
