@@ -83,7 +83,17 @@ def config_set(key: str, value: str, category: str, *,
 
 
 def config_delete(key: str) -> bool:
-    """Delete a config entry."""
+    """Delete a config entry.
+
+    Raises:
+        ValueError: If key is marked read-only
+    """
+    existing = _exec("SELECT read_only FROM config WHERE key = ?", [key])
+    if existing:
+        is_readonly = existing[0].get("read_only")
+        if is_readonly not in (None, 0, '0', False, 'false', 'False'):
+            raise ValueError(f"Config key '{key}' is marked read-only and cannot be deleted")
+
     _exec("DELETE FROM config WHERE key = ?", [key])
     return True
 

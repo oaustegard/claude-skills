@@ -14,11 +14,16 @@ import importlib
 import importlib.util
 import json
 import os
+import re
+import threading
 import time
 import requests
 from pathlib import Path
 
 from . import state
+
+# Lock for thread-safe lazy initialization
+_init_lock = threading.Lock()
 
 
 # Well-known env file locations, searched in priority order (#263)
@@ -70,7 +75,12 @@ def _init():
     4. Legacy /mnt/project/turso-token.txt (token only)
     5. Default URL if no URL found
     """
-    if state._TOKEN is None:
+    if state._TOKEN is not None:
+        return  # Fast path: already initialized (no lock needed)
+
+    with _init_lock:
+        if state._TOKEN is not None:
+            return  # Double-check after acquiring lock
         # Try to load configuring skill (for Claude.ai environments)
         env_loader = None
         spec = importlib.util.find_spec("configuring")
@@ -143,6 +153,26 @@ def _init():
         state._HEADERS = {"Authorization": f"Bearer {state._TOKEN}", "Content-Type": "application/json"}
 
 
+def _sanitize_error(e: Exception) -> str:
+    """Sanitize exception message to prevent credential leakage.
+
+    Strips Authorization headers and Bearer tokens from error strings.
+
+    Args:
+        e: Exception to sanitize
+
+    Returns:
+        Sanitized error string
+    """
+    msg = str(e)
+    # Strip Bearer tokens
+    msg = re.sub(r'Bearer\s+\S+', 'Bearer [REDACTED]', msg)
+    # Strip Authorization headers
+    msg = re.sub(r"'Authorization':\s*'[^']*'", "'Authorization': '[REDACTED]'", msg)
+    msg = re.sub(r'"Authorization":\s*"[^"]*"', '"Authorization": "[REDACTED]"', msg)
+    return msg
+
+
 def _retry_with_backoff(fn, max_retries=3, base_delay=1.0):
     """Retry a function with exponential backoff on transient errors.
 
@@ -181,7 +211,7 @@ def _retry_with_backoff(fn, max_retries=3, base_delay=1.0):
             )
             if is_retriable:
                 delay = base_delay * (2 ** attempt)
-                print(f"Warning: API request failed (attempt {attempt + 1}/{max_retries}), retrying in {delay}s: {e}")
+                print(f"Warning: API request failed (attempt {attempt + 1}/{max_retries}), retrying in {delay}s: {_sanitize_error(e)}")
                 time.sleep(delay)
             else:
                 # Non-retriable error, fail immediately
@@ -326,11 +356,31 @@ def _exec_batch(statements: list) -> list:
     return results
 
 
+def _escape_like(value: str) -> str:
+    """Escape SQL LIKE wildcard characters in a value.
+
+    Escapes %, _, and \\ so they are treated as literals in LIKE patterns.
+    Use with: LIKE ? ESCAPE '\\\\'
+
+    Args:
+        value: Raw string to escape
+
+    Returns:
+        Escaped string safe for LIKE patterns
+    """
+    return value.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+
+
+# FTS5 keyword operators that must be stripped from user queries
+_FTS5_KEYWORDS = {'AND', 'OR', 'NOT', 'NEAR'}
+
+
 def _escape_fts5_server(query: str) -> str:
     """Escape special FTS5 characters for server-side search.
 
     FTS5 special chars: " * ( ) : ^
-    Strips them and joins words with OR + prefix matching.
+    Also strips FTS5 keyword operators (AND, OR, NOT, NEAR) to prevent
+    query manipulation.
 
     Args:
         query: Raw search string
@@ -343,7 +393,7 @@ def _escape_fts5_server(query: str) -> str:
     for char in special_chars:
         escaped = escaped.replace(char, ' ')
 
-    words = [w.strip() for w in escaped.split() if w.strip()]
+    words = [w.strip() for w in escaped.split() if w.strip() and w.upper() not in _FTS5_KEYWORDS]
     if not words:
         return '""'
 
@@ -414,13 +464,13 @@ def _fts5_search(search: str, *, n: int = 10, type: str = None,
     if tags:
         if tag_mode == "all":
             for t in tags:
-                conditions.append("m.tags LIKE ?")
-                params.append(f'%"{t}"%')
+                conditions.append("m.tags LIKE ? ESCAPE '\\'")
+                params.append(f'%"{_escape_like(t)}"%')
         else:
             tag_conds = []
             for t in tags:
-                tag_conds.append("m.tags LIKE ?")
-                params.append(f'%"{t}"%')
+                tag_conds.append("m.tags LIKE ? ESCAPE '\\'")
+                params.append(f'%"{_escape_like(t)}"%')
             conditions.append(f"({' OR '.join(tag_conds)})")
 
     if conf is not None:
@@ -719,12 +769,12 @@ def _recompute_pmi_for_tags(tags: list, total_memories: int) -> None:
 
             # Get individual tag frequencies
             f1_row = _exec(
-                "SELECT COUNT(*) as cnt FROM memories WHERE deleted_at IS NULL AND tags LIKE ?",
-                [f'%"{t1}"%']
+                "SELECT COUNT(*) as cnt FROM memories WHERE deleted_at IS NULL AND tags LIKE ? ESCAPE '\\'",
+                [f'%"{_escape_like(t1)}"%']
             )
             f2_row = _exec(
-                "SELECT COUNT(*) as cnt FROM memories WHERE deleted_at IS NULL AND tags LIKE ?",
-                [f'%"{t2}"%']
+                "SELECT COUNT(*) as cnt FROM memories WHERE deleted_at IS NULL AND tags LIKE ? ESCAPE '\\'",
+                [f'%"{_escape_like(t2)}"%']
             )
             f1 = int(f1_row[0]['cnt']) if f1_row else 1
             f2 = int(f2_row[0]['cnt']) if f2_row else 1

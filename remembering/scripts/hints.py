@@ -11,7 +11,7 @@ from typing import List, Dict, Optional, Set
 from collections import defaultdict
 
 from .config import config_get
-from .turso import _exec
+from .turso import _exec, _escape_like
 
 
 # @lat: [[memory#Recall Hints]]
@@ -141,10 +141,10 @@ def _match_from_turso(terms: Set[str], *, include_tags: bool,
         if include_tags:
             rows = _exec(
                 """SELECT id, type, summary, priority, tags FROM memories
-                   WHERE deleted_at IS NULL AND tags LIKE ?
+                   WHERE deleted_at IS NULL AND tags LIKE ? ESCAPE '\\'
                    AND is_superseded = 0
                    LIMIT 20""",
-                [f'%"{term}"%']
+                [f'%"{_escape_like(term)}"%']
             )
             for row in rows:
                 mem_id = row['id']
@@ -157,10 +157,10 @@ def _match_from_turso(terms: Set[str], *, include_tags: bool,
         if include_summaries:
             rows = _exec(
                 """SELECT id, type, summary, priority, tags FROM memories
-                   WHERE deleted_at IS NULL AND LOWER(summary) LIKE ?
+                   WHERE deleted_at IS NULL AND LOWER(summary) LIKE ? ESCAPE '\\'
                    AND is_superseded = 0
                    LIMIT 20""",
-                [f'%{term}%']
+                [f'%{_escape_like(term)}%']
             )
             for row in rows:
                 mem_id = row['id']

@@ -26,7 +26,7 @@ from .state import TYPES, get_session_id
 from .turso import (
     _exec, _exec_batch, _fts5_search, _retry_with_backoff,
     _build_cooccurrence, _update_cooccurrence_add, _update_cooccurrence_remove,
-    _cooccurrence_expand
+    _cooccurrence_expand, _escape_like
 )
 # Import config_get and config_set for recall-triggers management
 from .config import config_get, config_set
@@ -679,23 +679,23 @@ def _query(search: str = None, tags: list = None, type: str = None,
     params = []
 
     if search:
-        conditions.append("summary LIKE ?")
-        params.append(f"%{search}%")
+        conditions.append("summary LIKE ? ESCAPE '\\'")
+        params.append(f"%{_escape_like(search)}%")
 
     if tags:
         if tag_mode == "all":
             # Require all tags to be present
             tag_conds = []
             for t in tags:
-                tag_conds.append("tags LIKE ?")
-                params.append(f'%"{t}"%')
+                tag_conds.append("tags LIKE ? ESCAPE '\\'")
+                params.append(f'%"{_escape_like(t)}"%')
             conditions.append(f"({' AND '.join(tag_conds)})")
         else:  # "any"
             # Match any of the tags
             tag_conds = []
             for t in tags:
-                tag_conds.append("tags LIKE ?")
-                params.append(f'%"{t}"%')
+                tag_conds.append("tags LIKE ? ESCAPE '\\'")
+                params.append(f'%"{_escape_like(t)}"%')
             conditions.append(f"({' OR '.join(tag_conds)})")
 
     if type:
@@ -768,8 +768,8 @@ def recall_since(after: str, *, search: str = None, n: int = 50,
     params = [after]
 
     if search:
-        conditions.append("summary LIKE ?")
-        params.append(f"%{search}%")
+        conditions.append("summary LIKE ? ESCAPE '\\'")
+        params.append(f"%{_escape_like(search)}%")
 
     if type:
         conditions.append("type = ?")
@@ -779,14 +779,14 @@ def recall_since(after: str, *, search: str = None, n: int = 50,
         if tag_mode == "all":
             tag_conds = []
             for t in tags:
-                tag_conds.append("tags LIKE ?")
-                params.append(f'%"{t}"%')
+                tag_conds.append("tags LIKE ? ESCAPE '\\'")
+                params.append(f'%"{_escape_like(t)}"%')
             conditions.append(f"({' AND '.join(tag_conds)})")
         else:  # "any"
             tag_conds = []
             for t in tags:
-                tag_conds.append("tags LIKE ?")
-                params.append(f'%"{t}"%')
+                tag_conds.append("tags LIKE ? ESCAPE '\\'")
+                params.append(f'%"{_escape_like(t)}"%')
             conditions.append(f"({' OR '.join(tag_conds)})")
 
     if session_id is not None:
@@ -843,8 +843,8 @@ def recall_between(after: str, before: str, *, search: str = None,
     params = [after, before]
 
     if search:
-        conditions.append("summary LIKE ?")
-        params.append(f"%{search}%")
+        conditions.append("summary LIKE ? ESCAPE '\\'")
+        params.append(f"%{_escape_like(search)}%")
 
     if type:
         conditions.append("type = ?")
@@ -854,14 +854,14 @@ def recall_between(after: str, before: str, *, search: str = None,
         if tag_mode == "all":
             tag_conds = []
             for t in tags:
-                tag_conds.append("tags LIKE ?")
-                params.append(f'%"{t}"%')
+                tag_conds.append("tags LIKE ? ESCAPE '\\'")
+                params.append(f'%"{_escape_like(t)}"%')
             conditions.append(f"({' AND '.join(tag_conds)})")
         else:  # "any"
             tag_conds = []
             for t in tags:
-                tag_conds.append("tags LIKE ?")
-                params.append(f'%"{t}"%')
+                tag_conds.append("tags LIKE ? ESCAPE '\\'")
+                params.append(f'%"{_escape_like(t)}"%')
             conditions.append(f"({' OR '.join(tag_conds)})")
 
     if session_id is not None:
@@ -1328,13 +1328,13 @@ def recall_batch(queries: list, *, n: int = 10, type: str = None,
         if tags:
             if tag_mode == "all":
                 for t in tags:
-                    conditions.append("m.tags LIKE ?")
-                    params.append(f'%"{t}"%')
+                    conditions.append("m.tags LIKE ? ESCAPE '\\'")
+                    params.append(f'%"{_escape_like(t)}"%')
             else:
                 tag_conds = []
                 for t in tags:
-                    tag_conds.append("m.tags LIKE ?")
-                    params.append(f'%"{t}"%')
+                    tag_conds.append("m.tags LIKE ? ESCAPE '\\'")
+                    params.append(f'%"{_escape_like(t)}"%')
                 conditions.append(f"({' OR '.join(tag_conds)})")
 
         if conf is not None:
@@ -1698,8 +1698,8 @@ def consolidate(*, tags: list = None, min_cluster: int = 3, dry_run: bool = True
     if tags:
         tag_conds = []
         for t in tags:
-            tag_conds.append("tags LIKE ?")
-            params.append(f'%"{t}"%')
+            tag_conds.append("tags LIKE ? ESCAPE '\\'")
+            params.append(f'%"{_escape_like(t)}"%')
         conditions.append(f"({' OR '.join(tag_conds)})")
 
     if session_id:
