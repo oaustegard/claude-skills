@@ -126,7 +126,7 @@ Three-tier extraction for bundled languages:
 
 Files with unsupported extensions are silently skipped (they show as `SKIP (no parser)` with `--stats`). To add a grammar, drop a compiled `libtree_sitter_<lang>.so` into `parsers/` — the engine picks it up automatically on the next run. Build from the grammar's repo (each `tree-sitter/tree-sitter-<lang>` repo has a `src/` directory you can compile with `cc -shared -fPIC -I src src/parser.c src/scanner.c -o libtree_sitter_<lang>.so`, or use `tree-sitter build`).
 
-If you need a language urgently and can't build the `.so`, you can try installing `tree-sitter-language-pack` as a fallback (`uv pip install --system --break-system-packages tree-sitter-language-pack`) — but note its 1.6.x wheels have a broken install layout in some containers and try to download grammars at runtime from a domain that may not be in your network allowlist. Bundling the `.so` is the reliable path.
+If you need a language urgently and can't build the `.so`, you can try installing `tree-sitter-language-pack` as a fallback (`uv pip install --system --break-system-packages 'tree-sitter-language-pack<1.6.3'`) — but note 1.6.3 ships a broken wheel (only `_native/`, missing the `tree_sitter_language_pack/` python module → `ModuleNotFoundError` despite pip showing it installed); 1.6.2 and earlier work, hence the `<1.6.3` pin and try to download grammars at runtime from a domain that may not be in your network allowlist. Bundling the `.so` is the reliable path.
 
 ## What It Extracts
 
