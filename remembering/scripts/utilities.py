@@ -1,9 +1,13 @@
 import os
+import re
 import sys
 
 UTIL_DIR = os.environ.get("MUNINN_UTIL_DIR", os.path.join(os.path.expanduser("~"), "muninn_utils"))
 CODE_START = "<" + "<" + "<PYTHON>" + ">" + ">"
 CODE_END = "<" + "<" + "<END>" + ">" + ">"
+
+# Valid utility names: alphanumeric, underscore, hyphen only
+_VALID_NAME_RE = re.compile(r'^[a-zA-Z][a-zA-Z0-9_-]*$')
 
 # @lat: [[infrastructure#Utility Materialization]]
 def install_utilities() -> dict:
@@ -33,6 +37,12 @@ def install_utilities() -> dict:
         if not content.startswith("NAME:"):
             continue
         name = content.split("\n")[0].replace("NAME:", "").strip()
+
+        # Sanitize name: reject path separators, traversal, and invalid chars
+        if not _VALID_NAME_RE.match(name):
+            continue
+        name = os.path.basename(name)  # Belt-and-suspenders
+
         if CODE_START not in content:
             continue
         code = content.split(CODE_START, 1)[1].split(CODE_END, 1)[0].strip()
@@ -45,6 +55,10 @@ def install_utilities() -> dict:
                 break
 
         file_path = os.path.join(UTIL_DIR, f"{name}.py")
+        # Final check: resolved path must be within UTIL_DIR
+        resolved = os.path.realpath(file_path)
+        if not resolved.startswith(os.path.realpath(UTIL_DIR) + os.sep):
+            continue
         with open(file_path, 'w') as f:
             f.write(code + "\n")
         installed[name] = {"path": file_path, "use_when": use_when}
