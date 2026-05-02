@@ -125,19 +125,37 @@ def try_restore(repo: str, tag: str, token: str) -> bool:
     
     # Download the asset
     print("  Cache hit — downloading layer...")
-    
+
     tarball = "/tmp/_layer_restore.tar.gz"
-    
-    # Use curl for the download since it handles redirects well
-    cmd = (
-        f'curl -sL -H "Authorization: token {token}" '
-        f'-H "Accept: application/octet-stream" '
-        f'"{asset_url}" -o "{tarball}"'
-    )
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=120)
-    
-    if result.returncode != 0 or not os.path.exists(tarball):
-        print(f"  Download failed: {result.stderr.strip()}")
+
+    # Stream via urllib so the token stays in request headers, never in argv.
+    # The previous implementation shelled out to curl with the token interpolated
+    # into the command string; on TimeoutExpired, Python's exception __str__
+    # echoed the full cmd (including the token) into stderr/logs/transcripts.
+    # urllib keeps the secret in the Request object and out of any error message.
+    headers = {
+        "Authorization": f"token {token}",
+        "Accept": "application/octet-stream",
+    }
+    req = urllib.request.Request(asset_url, headers=headers)
+
+    try:
+        # Per-read timeout, not wall-clock — multi-hundred-MB layers on slow
+        # links won't trip the old hardcoded 120s ceiling.
+        with urllib.request.urlopen(req, timeout=60) as resp, open(tarball, "wb") as out:
+            while True:
+                chunk = resp.read(1024 * 1024)
+                if not chunk:
+                    break
+                out.write(chunk)
+    except (urllib.error.URLError, TimeoutError, OSError) as e:
+        print(f"  Download failed: {type(e).__name__}: {e}")
+        if os.path.exists(tarball):
+            os.remove(tarball)
+        return False
+
+    if not os.path.exists(tarball):
+        print("  Download failed: no file written")
         return False
     
     size_mb = os.path.getsize(tarball) / (1024 * 1024)
