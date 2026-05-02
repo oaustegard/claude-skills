@@ -471,6 +471,108 @@ def test_exec_batch_handles_non_json_response():
     print("PASS: _exec_batch handles non-JSON responses")
 
 
+# ── 8. Env fallback persistence (late-boot recovery) ──
+
+def test_persist_env_fallback_writes_when_missing():
+    """Writes ~/.muninn/.env from live state when no fallback file exists."""
+    from scripts import state
+    import importlib; boot_module = importlib.import_module("scripts.boot")
+    from pathlib import Path as RealPath
+
+    old_token, old_url = state._TOKEN, state._URL
+    with tempfile.TemporaryDirectory() as tmp:
+        with patch("scripts.boot.Path.home", return_value=RealPath(tmp)):
+            try:
+                state._TOKEN = "test-token-xyz"
+                state._URL = "test.turso.io"
+                wrote = boot_module._persist_env_fallback()
+                assert wrote is True
+                env_file = RealPath(tmp) / ".muninn" / ".env"
+                assert env_file.exists()
+                content = env_file.read_text()
+                assert "TURSO_TOKEN=test-token-xyz" in content
+                assert "TURSO_URL=test.turso.io" in content
+                # Permissions should be 0600
+                mode = env_file.stat().st_mode & 0o777
+                assert mode == 0o600, f"expected 0o600, got {oct(mode)}"
+            finally:
+                state._TOKEN, state._URL = old_token, old_url
+
+    print("PASS: _persist_env_fallback writes ~/.muninn/.env when missing")
+
+
+def test_persist_env_fallback_skips_when_file_exists():
+    """Does not clobber an existing ~/.muninn/.env (user-managed creds)."""
+    from scripts import state
+    import importlib; boot_module = importlib.import_module("scripts.boot")
+    from pathlib import Path as RealPath
+
+    old_token, old_url = state._TOKEN, state._URL
+    with tempfile.TemporaryDirectory() as tmp:
+        home = RealPath(tmp)
+        muninn_dir = home / ".muninn"
+        muninn_dir.mkdir()
+        existing = muninn_dir / ".env"
+        existing.write_text("TURSO_TOKEN=existing-do-not-touch\n")
+
+        with patch("scripts.boot.Path.home", return_value=home):
+            try:
+                state._TOKEN = "new-different-token"
+                state._URL = "different.turso.io"
+                wrote = boot_module._persist_env_fallback()
+                assert wrote is False
+                # File contents must be unchanged
+                assert existing.read_text() == "TURSO_TOKEN=existing-do-not-touch\n"
+            finally:
+                state._TOKEN, state._URL = old_token, old_url
+
+    print("PASS: _persist_env_fallback preserves existing ~/.muninn/.env")
+
+
+def test_persist_env_fallback_silent_when_no_creds():
+    """Returns False without raising when state has no live creds."""
+    from scripts import state
+    import importlib; boot_module = importlib.import_module("scripts.boot")
+
+    old_token, old_url = state._TOKEN, state._URL
+    try:
+        state._TOKEN = None
+        state._URL = None
+        wrote = boot_module._persist_env_fallback()
+        assert wrote is False
+    finally:
+        state._TOKEN, state._URL = old_token, old_url
+
+    print("PASS: _persist_env_fallback returns False when no creds")
+
+
+def test_persist_env_fallback_never_raises():
+    """Side-effect helper must swallow all errors; boot must not break on it."""
+    from scripts import state
+    import importlib; boot_module = importlib.import_module("scripts.boot")
+    from pathlib import Path as RealPath
+
+    old_token, old_url = state._TOKEN, state._URL
+    with tempfile.TemporaryDirectory() as tmp:
+        # Create a regular file at the path where ".muninn" should be a dir.
+        # mkdir(parents=True, exist_ok=True) will raise FileExistsError because
+        # the path exists but isn't a directory. This works regardless of UID.
+        home = RealPath(tmp)
+        bogus_muninn = home / ".muninn"
+        bogus_muninn.write_text("not a directory")
+
+        try:
+            with patch("scripts.boot.Path.home", return_value=home):
+                state._TOKEN = "t"
+                state._URL = "u"
+                wrote = boot_module._persist_env_fallback()
+                assert wrote is False  # Returned cleanly, no exception
+        finally:
+            state._TOKEN, state._URL = old_token, old_url
+
+    print("PASS: _persist_env_fallback never raises")
+
+
 # ── Run all tests ──
 
 if __name__ == "__main__":
@@ -503,6 +605,11 @@ if __name__ == "__main__":
         # 7. JSON decode
         test_exec_handles_non_json_response,
         test_exec_batch_handles_non_json_response,
+        # 8. Env fallback persistence
+        test_persist_env_fallback_writes_when_missing,
+        test_persist_env_fallback_skips_when_file_exists,
+        test_persist_env_fallback_silent_when_no_creds,
+        test_persist_env_fallback_never_raises,
     ]
 
     passed = 0
