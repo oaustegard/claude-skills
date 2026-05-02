@@ -518,6 +518,61 @@ def _ensure_is_superseded_schema():
             pass  # Backfill best-effort; flag is self-healing on next supersede
 
 
+def _persist_env_fallback() -> bool:
+    """Persist live Turso credentials to ``~/.muninn/.env`` for cross-shell reuse.
+
+    Called from ``boot()`` after Turso has confirmed working credentials.
+    Writes ``TURSO_TOKEN`` and ``TURSO_URL`` to ``~/.muninn/.env`` — one of the
+    well-known fallback paths that ``turso._init()`` already searches (#263).
+
+    Why this exists
+    ---------------
+    Each Claude tool call is a fresh shell — env vars set in one ``bash_tool``
+    call do NOT survive to the next. When ``/mnt/project/turso.env`` is missing
+    or transiently unavailable (e.g. boot ran in a project where the file
+    wasn't mounted, or the user moved a conversation mid-stream and the
+    project mount was rehydrated late), every subsequent shell invocation has
+    to re-export credentials by hand or sourcing breaks. Persisting to the
+    home-dir fallback makes the next ``bash_tool`` call's ``python3 -c "from
+    scripts import remember; ..."`` Just Work without any explicit env
+    plumbing — the remembering library finds the file via its existing
+    well-known-paths search and loads the creds itself.
+
+    Idempotent: skips if the fallback file already exists. Never overwrites
+    user-managed creds. Silent on failure — this is a convenience side effect,
+    not a boot precondition.
+
+    Returns
+    -------
+    bool
+        True if a new fallback file was written, False otherwise (already
+        existed, no live creds available, or write failed).
+    """
+    try:
+        token = state._TOKEN
+        url = state._URL
+        if not token or not url:
+            return False
+        fallback_dir = Path.home() / ".muninn"
+        fallback_path = fallback_dir / ".env"
+        if fallback_path.exists():
+            return False  # Don't clobber user-managed creds
+        fallback_dir.mkdir(parents=True, exist_ok=True)
+        # 0600: token is a credential. mkdir doesn't take a mode reliably
+        # across umasks, so chmod after write.
+        fallback_path.write_text(
+            f"TURSO_TOKEN={token}\n"
+            f"TURSO_URL={url}\n"
+        )
+        try:
+            os.chmod(fallback_path, 0o600)
+        except OSError:
+            pass  # Best-effort permission tightening
+        return True
+    except Exception:
+        return False  # Side-effect only; never break boot
+
+
 def boot(mode: str = None, task: str = None, telemetry: bool = False) -> str:
     """Boot sequence: load profile + ops from Turso.
 
@@ -595,6 +650,12 @@ def boot(mode: str = None, task: str = None, telemetry: bool = False) -> str:
         else:
             return f"ERROR: Unable to load config (remote failed: {e}, no defaults available)"
     _mark("config_fetch")
+
+    # Persist working creds to ~/.muninn/.env so subsequent fresh shells in the
+    # same container can find them via remembering's existing fallback paths.
+    # Side-effect only, never breaks boot. See _persist_env_fallback() docstring.
+    _persist_env_fallback()
+    _mark("env_persist")
 
     if mode == "perch":
         return _boot_perch(profile_data, ops_data, task=task)
