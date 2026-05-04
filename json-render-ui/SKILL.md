@@ -1,6 +1,6 @@
 ---
 name: json-render-ui
-description: Generate guardrailed UI from natural language. Claude emits constrained JSON, skill runtime renders via Preact. Use when user provides json and requests: Dashboards with metrics, charts, tables; Admin panels; Data visualization interfaces; Form-based applications
+description: "Generate guardrailed UI from natural language via constrained JSON rendered by Preact. Use when building dashboards with metrics and charts, admin panels, data visualization interfaces, or form-based applications from JSON specifications."
 metadata:
   version: 0.0.1
 ---
