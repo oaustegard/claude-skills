@@ -2,7 +2,7 @@
 name: using-webctl
 description: Browser automation via webctl CLI in Claude.ai containers with authenticated proxy support. Use when users mention webctl, browser automation, Playwright browsing, web scraping, or headless Chrome in container environments.
 metadata:
-  version: 0.0.1
+  version: 0.0.2
 ---
 
 # Using webctl in Claude.ai Containers
@@ -43,29 +43,47 @@ cp /mnt/skills/user/using-webctl/scripts/auth_proxy.py \
 
 ### 3. Patch Session Manager
 
-Apply this patch to `/usr/local/lib/python3.12/dist-packages/webctl/daemon/session_manager.py`:
+Apply this patch to `/usr/local/lib/python3.12/dist-packages/webctl/daemon/session_manager.py`.
 
-Find the context creation block (around line 104):
+Recent webctl versions split context creation into two branches (mobile emulation vs desktop). Both must receive the proxy config. Find the block (search for `cfg = WebctlConfig.load()` followed by the `if mode == "unattended" and cfg.mobile_emulation:` branch — around line 190):
+
 ```python
-# Create context
-context = await browser.new_context(
-    storage_state=storage_state, viewport={"width": 1280, "height": 720}
-)
+cfg = WebctlConfig.load()
+if mode == "unattended" and cfg.mobile_emulation:
+    # Mobile emulation: cleaner pages, fewer ads, simpler layouts
+    device = self._playwright.devices["Pixel 7"]
+    context = await browser.new_context(
+        storage_state=storage_state,
+        **device,
+    )
+else:
+    context = await browser.new_context(
+        storage_state=storage_state, viewport={"width": 1280, "height": 720}
+    )
 ```
 
 Replace with:
 ```python
-# Create context with proxy from env (with auth handling)
+cfg = WebctlConfig.load()
 from .auth_proxy import get_local_proxy_url
 proxy_url = get_local_proxy_url()
 proxy_config = {"server": proxy_url} if proxy_url else None
-
-context = await browser.new_context(
-    storage_state=storage_state, 
-    viewport={"width": 1280, "height": 720},
-    proxy=proxy_config
-)
+if mode == "unattended" and cfg.mobile_emulation:
+    # Mobile emulation: cleaner pages, fewer ads, simpler layouts
+    device = self._playwright.devices["Pixel 7"]
+    context = await browser.new_context(
+        storage_state=storage_state,
+        proxy=proxy_config,
+        **device,
+    )
+else:
+    context = await browser.new_context(
+        storage_state=storage_state, viewport={"width": 1280, "height": 720},
+        proxy=proxy_config
+    )
 ```
+
+If the file only has a single `new_context` call (older webctl), inject `proxy=proxy_config` into that one and place the three `proxy_url` lines just above it.
 
 ### 4. Verify
 
@@ -73,7 +91,7 @@ context = await browser.new_context(
 webctl start --mode unattended
 webctl --quiet navigate "https://github.com"
 webctl snapshot --interactive-only --limit 10
-webctl stop --daemon
+webctl stop
 ```
 
 ## Quick Reference
@@ -81,7 +99,7 @@ webctl stop --daemon
 ### Session Management
 ```bash
 webctl start --mode unattended    # Headless browser
-webctl stop --daemon              # Full shutdown
+webctl stop                       # Full shutdown (use --keep-daemon to leave daemon running)
 webctl status                     # Current state + console error counts
 ```
 
@@ -126,7 +144,7 @@ webctl wait 'url-contains:"/dashboard"'
 Auth proxy not loaded. Verify:
 1. `auth_proxy.py` exists in webctl daemon directory
 2. Session manager is patched
-3. Restart daemon: `webctl stop --daemon && webctl start --mode unattended`
+3. Restart daemon: `webctl stop && webctl start --mode unattended`
 
 ### Multiple matches error
 Add specificity or use `nth=0`:
