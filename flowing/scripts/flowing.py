@@ -75,6 +75,10 @@ class TaskDef:
     retry_max_backoff_ms: int = 30_000
     timeout_s: Optional[float] = None
     detached: bool = False
+    # v1.1 control-flow primitives
+    when: Optional[Callable] = None         # gate: receives gathered kwargs, returns bool. False -> SKIPPED
+    validate: Optional[Callable] = None     # edge contract: receives gathered kwargs, raises on bad inputs. Raise -> FAILED, no retry
+    retry_until: Optional[Callable] = None  # predicate loop: receives task return value, returns bool. False -> retry (uses retry= budget)
 
     def __call__(self, *args, **kwargs):
         return self.fn(*args, **kwargs)
@@ -97,6 +101,9 @@ def task(
     timeout_s: Optional[float] = None,
     name: Optional[str] = None,
     detached: bool = False,
+    when: Optional[Callable] = None,
+    validate: Optional[Callable] = None,
+    retry_until: Optional[Callable] = None,
 ) -> TaskDef:
     def wrap(f: Callable) -> TaskDef:
         td = TaskDef(
@@ -108,6 +115,9 @@ def task(
             retry_max_backoff_ms=retry_max_backoff_ms,
             timeout_s=timeout_s,
             detached=detached,
+            when=when,
+            validate=validate,
+            retry_until=retry_until,
         )
         return td
 
@@ -167,12 +177,32 @@ def _run_step(td: TaskDef, results: dict[str, StepResult]) -> StepResult:
     for dep in td.depends_on:
         r = results[dep.name]
         if r.state != StepState.SUCCEEDED:
-            _log(f"SKIP {td.name}", reason=f"dependency {dep.name} failed")
+            _log(f"SKIP {td.name}", reason=f"dependency {dep.name} did not succeed (state={r.state.value})")
             return StepResult(name=td.name, state=StepState.SKIPPED, attempts=0)
         kwargs[dep.name] = r.value
 
+    # GATE 1: when() — conditional skip. Truthy -> proceed; falsy -> SKIPPED (downstream cascades).
+    if td.when is not None:
+        try:
+            if not td.when(**kwargs):
+                _log(f"SKIP {td.name}", reason="when() returned False")
+                return StepResult(name=td.name, state=StepState.SKIPPED, attempts=0)
+        except Exception as e:
+            _log(f"FAIL {td.name}", reason=f"when() raised: {str(e)[:120]}")
+            return StepResult(name=td.name, state=StepState.FAILED, error=e, attempts=0)
+
+    # GATE 2: validate() — edge contract. Raise -> FAILED with NO retry (bad inputs won't fix themselves).
+    if td.validate is not None:
+        try:
+            td.validate(**kwargs)
+        except Exception as e:
+            _log(f"FAIL {td.name}", reason=f"validate() raised: {str(e)[:120]}")
+            return StepResult(name=td.name, state=StepState.FAILED, error=e, attempts=0)
+
     max_attempts = 1 + td.retry
     last_error = None
+    last_value = None
+    last_dur = 0.0
 
     for attempt in range(1, max_attempts + 1):
         _log(f"{'RUN' if attempt == 1 else 'RETRY'} {td.name}",
@@ -181,16 +211,47 @@ def _run_step(td: TaskDef, results: dict[str, StepResult]) -> StepResult:
         t0 = time.monotonic()
         try:
             value = td.fn(**kwargs)
-            dur = (time.monotonic() - t0) * 1000
-            _log(f"OK {td.name}", ms=f"{dur:.0f}")
+            last_dur = (time.monotonic() - t0) * 1000
+
+            # GATE 3: retry_until() — predicate-driven loop. True -> done; False -> retry (consumes retry budget).
+            if td.retry_until is not None:
+                try:
+                    ok = td.retry_until(value)
+                except Exception as e:
+                    _log(f"FAIL {td.name}", reason=f"retry_until() raised: {str(e)[:120]}")
+                    return StepResult(
+                        name=td.name, state=StepState.FAILED, error=e,
+                        value=value, duration_ms=last_dur, attempts=attempt,
+                    )
+                if not ok:
+                    last_value = value
+                    last_error = ValueError(
+                        f"retry_until predicate returned False (attempt {attempt}/{max_attempts})"
+                    )
+                    _log(f"PREDICATE_FAIL {td.name}", ms=f"{last_dur:.0f}",
+                         attempt=f"{attempt}/{max_attempts}")
+                    if attempt < max_attempts:
+                        delay_ms = min(
+                            td.retry_backoff_base_ms * (2 ** (attempt - 1)),
+                            td.retry_max_backoff_ms,
+                        )
+                        time.sleep(delay_ms / 1000)
+                        continue
+                    # Out of attempts; predicate still False -> FAILED with last value preserved
+                    return StepResult(
+                        name=td.name, state=StepState.FAILED, error=last_error,
+                        value=last_value, duration_ms=last_dur, attempts=attempt,
+                    )
+
+            _log(f"OK {td.name}", ms=f"{last_dur:.0f}")
             return StepResult(
                 name=td.name, state=StepState.SUCCEEDED,
-                value=value, duration_ms=dur, attempts=attempt,
+                value=value, duration_ms=last_dur, attempts=attempt,
             )
         except Exception as e:
-            dur = (time.monotonic() - t0) * 1000
+            last_dur = (time.monotonic() - t0) * 1000
             last_error = e
-            _log(f"FAIL {td.name}", ms=f"{dur:.0f}",
+            _log(f"FAIL {td.name}", ms=f"{last_dur:.0f}",
                  error=str(e)[:120], attempt=f"{attempt}/{max_attempts}")
             if attempt < max_attempts:
                 delay_ms = min(
@@ -201,8 +262,7 @@ def _run_step(td: TaskDef, results: dict[str, StepResult]) -> StepResult:
 
     return StepResult(
         name=td.name, state=StepState.FAILED, error=last_error,
-        duration_ms=(time.monotonic() - t0) * 1000 if 't0' in dir() else 0,
-        attempts=max_attempts,
+        duration_ms=last_dur, attempts=max_attempts,
     )
 
 
