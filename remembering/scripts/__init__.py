@@ -32,6 +32,7 @@ from .turso import (
 # Import memory layer
 from .memory import (
     _write_memory, _resolve_memory_id, remember, remember_bg, flush,
+    failed_writes, retry_failed_writes, clear_failed_writes,
     recall, _update_access_tracking, _query,
     recall_since, recall_between,
     forget, supersede, reprioritize,
@@ -95,6 +96,7 @@ j = journal
 
 __all__ = [
     "remember", "recall", "forget", "supersede", "remember_bg", "flush",  # memories
+    "failed_writes", "retry_failed_writes", "clear_failed_writes",  # bg-write hardening (#622)
     "recall_since", "recall_between",  # date-filtered queries
     "config_get", "config_set", "config_delete", "config_list", "config_set_boot_load", "config_set_priority",  # config
     "profile", "ops", "boot", "journal", "journal_recent", "journal_prune",  # boot & journal
