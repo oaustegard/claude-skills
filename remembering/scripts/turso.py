@@ -14,6 +14,7 @@ import importlib
 import importlib.util
 import json
 import os
+import random
 import re
 import threading
 import time
@@ -173,13 +174,21 @@ def _sanitize_error(e: Exception) -> str:
     return msg
 
 
-def _retry_with_backoff(fn, max_retries=3, base_delay=1.0):
+def _retry_with_backoff(fn, max_retries=5, base_delay=0.5, jitter=True):
     """Retry a function with exponential backoff on transient errors.
+
+    Default budget: 5 attempts at 0.5, 1, 2, 4 seconds (~7.5s no-jitter,
+    ~7.5-11s with jitter) — tuned for egress-proxy cold-start (which can
+    take 5-10s to recover from 'DNS cache overflow' 503s). Old defaults
+    (3 attempts @ 1s, ~3s total) were too tight; cold starts routinely
+    exhausted them.
 
     Args:
         fn: Callable that may raise exceptions
-        max_retries: Maximum number of retry attempts (default 3)
-        base_delay: Initial delay in seconds (default 1.0)
+        max_retries: Maximum number of retry attempts (default 5)
+        base_delay: Initial delay in seconds (default 0.5)
+        jitter: If True, multiply each delay by a random factor in [1.0, 1.5)
+            to prevent thundering-herd retries from concurrent callers.
 
     Returns:
         Result of fn() if successful
@@ -211,7 +220,9 @@ def _retry_with_backoff(fn, max_retries=3, base_delay=1.0):
             )
             if is_retriable:
                 delay = base_delay * (2 ** attempt)
-                print(f"Warning: API request failed (attempt {attempt + 1}/{max_retries}), retrying in {delay}s: {_sanitize_error(e)}")
+                if jitter:
+                    delay *= random.uniform(1.0, 1.5)
+                print(f"Warning: API request failed (attempt {attempt + 1}/{max_retries}), retrying in {delay:.2f}s: {_sanitize_error(e)}")
                 time.sleep(delay)
             else:
                 # Non-retriable error, fail immediately
