@@ -27,8 +27,9 @@ SKILLS_ROOT = PKG_DIR.parent
 import types
 
 bsky_card_stub = types.ModuleType("bsky_card")
+# Collapsed compose_link_post returns {record, post, og_tags, thumb_blob,
+# facets, detached_failures} — see #617.
 bsky_card_stub.compose_link_post = MagicMock()
-bsky_card_stub.create_post = MagicMock()
 sys.modules["bsky_card"] = bsky_card_stub
 
 # bsky_limit: prefer the real materialized one (correct grapheme counting),
@@ -74,13 +75,19 @@ def _reset(monkeypatch):
     monkeypatch.setattr(bp, "_probe_url", MagicMock(return_value=True))
 
     bsky_card_stub.compose_link_post.reset_mock()
-    bsky_card_stub.create_post.reset_mock()
-    bsky_card_stub.compose_link_post.return_value = {"$type": "app.bsky.feed.post"}
-    bsky_card_stub.create_post.return_value = {
-        "uri": "at://did:plc:x/app.bsky.feed.post/abc",
-        "cid": "cid1",
-        "url": "https://bsky.app/profile/h/post/abc",
-        "rkey": "abc",
+    bsky_card_stub.compose_link_post.side_effect = None
+    bsky_card_stub.compose_link_post.return_value = {
+        "record": {"$type": "app.bsky.feed.post"},
+        "post": {
+            "uri": "at://did:plc:x/app.bsky.feed.post/abc",
+            "cid": "cid1",
+            "url": "https://bsky.app/profile/h/post/abc",
+            "rkey": "abc",
+        },
+        "og_tags": {"url": "u"},
+        "thumb_blob": None,
+        "facets": [],
+        "detached_failures": [],
     }
     return bsky_card_stub
 
@@ -110,7 +117,6 @@ def test_happy_path_main_chain_and_detached(monkeypatch):
     assert bp.update_feed.call_count == 1
     assert bp.link_engagement.call_count == 1
     assert bc.compose_link_post.call_count == 1
-    assert bc.create_post.call_count == 1
 
 
 def test_when_skips_feed_update_without_feed_path(monkeypatch):
@@ -132,7 +138,7 @@ def test_when_skips_feed_update_without_feed_path(monkeypatch):
     assert result["feed_sha"] is None
     # Page commit and bsky chain still ran.
     assert bp.publish_page.call_count == 1
-    assert bc.create_post.call_count == 1
+    assert bc.compose_link_post.call_count == 1
     assert result["update_sha"] == "link9999"
 
 
@@ -154,7 +160,6 @@ def test_validate_blocks_oversize_bsky_text(monkeypatch):
     assert result["feed_sha"] == "feed5678"
     # bsky never composed/posted.
     assert bc.compose_link_post.call_count == 0
-    assert bc.create_post.call_count == 0
     assert result["bsky_post"] is None
     # link_engagement skipped (its dep failed).
     assert bp.link_engagement.call_count == 0
@@ -191,7 +196,7 @@ def test_retry_until_consumes_budget_when_deploy_slow(monkeypatch):
     assert bp._probe_url.call_count == 3
     # Downstream still happened.
     assert bp.update_feed.call_count == 1
-    assert bc.create_post.call_count == 1
+    assert bc.compose_link_post.call_count == 1
 
 
 def test_retry_until_exhausts_budget(monkeypatch):
@@ -217,7 +222,7 @@ def test_retry_until_exhausts_budget(monkeypatch):
     assert result["bsky_post"] is None
     assert result["update_sha"] is None
     assert bp.update_feed.call_count == 0
-    assert bc.create_post.call_count == 0
+    assert bc.compose_link_post.call_count == 0
 
 
 def test_skip_deploy_wait_short_circuits_probe(monkeypatch):
@@ -237,13 +242,13 @@ def test_skip_deploy_wait_short_circuits_probe(monkeypatch):
     assert result["deployed"] is True
     assert bp._probe_url.call_count == 0
     assert bp.update_feed.call_count == 1
-    assert bc.create_post.call_count == 1
+    assert bc.compose_link_post.call_count == 1
 
 
 def test_bsky_failure_does_not_block_main_return(monkeypatch):
-    """create_post raises → bsky_post is None, detached_failures populated, but feed/page ok."""
+    """compose_link_post raises → bsky_post is None, detached_failures populated, but feed/page ok."""
     bc = _reset(monkeypatch)
-    bc.create_post.side_effect = RuntimeError("AT Proto 503")
+    bc.compose_link_post.side_effect = RuntimeError("AT Proto 503")
 
     result = bp.publish_and_announce(
         path="blog/det.html",

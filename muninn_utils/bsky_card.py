@@ -1,36 +1,34 @@
 """
 bsky_card.py — Bluesky link card composition (flowing-graph orchestrator).
 
-Same low-level helpers as the prior version (fetch_og_tags, upload_blob,
-compute_facets, build_external_embed, create_post), now with a
-flowing-graph-based `compose_link_post` and a new `compose_and_post`
-that fuses compose+post into one DAG.
-
 Internal shape (issue oaustegard/claude-skills#617):
 
     fetch_og ──▶ upload_blob_node ──┐
         │                            │
         └──▶ embed_node ◀────────────┘
                   │
-    facets_node ──┼──▶ record_node  [terminal of compose_link_post]
-                  │         │
-                  │         └──▶ post_node  [terminal of compose_and_post]
+    facets_node ──┼──▶ record_node ──▶ post_node  [terminal]
 
 Wins over imperative:
 
   - `fetch_og` and `facets_node` parallelize (one network, one local).
-  - `validate=must_be_valid_record` enforces the AT Proto record shape
-    BEFORE the body of post_node ever fires — no wasted createRecord.
-  - `upload_blob_node` failure cleanly SKIPS embed and post — no partial
-    post. (Behavior change vs. the prior soft-fail; see #617 win 3.)
+  - `validate=must_have_valid_record_inputs` runs on `record_node` and
+    rejects malformed embed (no uri) BEFORE any post fires — catches the
+    "post a card with no target" trap structurally.
+  - `upload_blob_node` failure cleanly SKIPS embed, record, and post —
+    no half-baked post on the wire.
   - max_workers=3 on the Flow → the parallel legs run concurrently.
 
-Public API:
+Public API: `compose_link_post(text, url, auth, og_tags=None)` runs the
+full graph — compose AND post — and returns:
 
-    record = compose_link_post(text, url, auth)        # builds record only
-    result = compose_and_post(text, url, auth)         # builds AND posts
+    {record, post, og_tags, thumb_blob, facets, detached_failures}
 
-`result` keys: record, post, og_tags, thumb_blob, facets, detached_failures.
+Note: this is an internal Muninn utility, so the prior split of
+"compose_link_post returns a record / create_post submits it" was
+collapsed into a single flow. Lower-level helpers (fetch_og_tags,
+upload_blob, compute_facets, build_external_embed, create_post) remain
+exposed for callers that want to drive their own pipeline.
 """
 
 import json
@@ -265,41 +263,24 @@ def _build_compose_graph(text, url, auth, og_tags=None):
 
 
 def compose_link_post(text, url, auth, og_tags=None):
-    """Build a complete post record with link card.
+    """Compose a Bluesky link-card post AND submit it. Single flowing graph.
 
-    Runs a flowing graph internally:
-      fetch_og + facets_node (parallel) → upload_blob_node → embed_node → record_node
+    Runs the full pipeline:
+      fetch_og + facets_node (parallel) → upload_blob_node → embed_node
+        → record_node → post_node
 
-    Returns the assembled record (same shape as the prior imperative version).
-    Raises on graph failure with the originating error attached.
-    """
-    nodes = _build_compose_graph(text, url, auth, og_tags)
-    flow = Flow(nodes["record_node"], max_workers=3)
-    flow.run()
+    Returns a dict with:
+        record            — the assembled app.bsky.feed.post record
+        post              — the create_post response (uri/cid/url/rkey)
+        og_tags           — the OG tags used
+        thumb_blob        — the uploaded blob, or None if no image
+        facets            — the AT Proto facets list
+        detached_failures — always [] (included for API symmetry with
+                            publish_and_announce)
 
-    record_state = flow.results.get(nodes["record_node"].name)
-    if record_state is None or record_state.state != StepState.SUCCEEDED:
-        # Surface the originating failure rather than the SKIP cascade.
-        for r in flow.results.values():
-            if r.state == StepState.FAILED and r.error is not None:
-                raise RuntimeError(
-                    f"compose_link_post failed at {r.name}: {r.error}"
-                ) from r.error
-        raise RuntimeError(
-            f"compose_link_post: record_node ended in {record_state.state.value}"
-        )
-    return record_state.value
-
-
-def compose_and_post(text, url, auth, og_tags=None):
-    """Build the record AND post it on Bluesky in one flowing graph.
-
-    Returns:
-        dict with keys: record, post, og_tags, thumb_blob, facets,
-        detached_failures (always empty list — included for API symmetry
-        with publish_and_announce).
-
-    Raises on hard failure of the main chain.
+    Raises on any hard failure in the main chain (validate raised,
+    upload failed, network down). The originating error is attached
+    via `__cause__`.
     """
     nodes = _build_compose_graph(text, url, auth, og_tags)
 
@@ -315,10 +296,11 @@ def compose_and_post(text, url, auth, og_tags=None):
         for r in flow.results.values():
             if r.state == StepState.FAILED and r.error is not None:
                 raise RuntimeError(
-                    f"compose_and_post failed at {r.name}: {r.error}"
+                    f"compose_link_post failed at {r.name}: {r.error}"
                 ) from r.error
         raise RuntimeError(
-            f"compose_and_post: post_node ended in {post_state.state.value}"
+            f"compose_link_post: post_node ended in "
+            f"{post_state.state.value if post_state else 'missing'}"
         )
 
     def _val(td):

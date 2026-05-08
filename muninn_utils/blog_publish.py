@@ -50,7 +50,7 @@ import urllib.error
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 
-from bsky_card import compose_link_post, create_post
+from bsky_card import compose_link_post
 from bsky_limit import fits as _bsky_fits, BSKY_LIMIT
 from flowing import task, Flow, StepState
 
@@ -425,9 +425,10 @@ def publish_and_announce(path, content, bsky_text, auth,
         detached=True,
     )
     def announce_bsky(wait_for_deploy_node):
-        record = compose_link_post(bsky_text, url, auth)
-        post = create_post(record, auth)
-        return post
+        # compose_link_post runs its own internal flow (compose + post)
+        # and returns {record, post, og_tags, thumb_blob, facets, ...}.
+        result = compose_link_post(bsky_text, url, auth)
+        return result["post"]
 
     @task(
         name="link_engagement_node",
