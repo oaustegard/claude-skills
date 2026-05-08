@@ -436,6 +436,75 @@ def test_retry_exhaustion():
     print("PASS: Retry exhaustion raises last error")
 
 
+def test_retry_default_budget_is_five_attempts():
+    """Defaults bumped 3->5 attempts to handle egress-proxy cold start (~5-10s)."""
+    from scripts.turso import _retry_with_backoff
+    import time
+
+    call_count = 0
+
+    def always_fails():
+        nonlocal call_count
+        call_count += 1
+        raise RuntimeError("503 Service Unavailable")
+
+    # Patch sleep so the test stays fast; we only care about attempt count.
+    orig_sleep = time.sleep
+    time.sleep = lambda _: None
+    try:
+        try:
+            _retry_with_backoff(always_fails, jitter=False)  # use new defaults
+            assert False, "should have raised"
+        except RuntimeError:
+            pass
+    finally:
+        time.sleep = orig_sleep
+
+    assert call_count == 5, f"Default budget should be 5 attempts, got {call_count}"
+    print("PASS: Default retry budget is 5 attempts")
+
+
+def test_retry_jitter_perturbs_delay():
+    """Jitter is on by default and multiplies each delay by [1.0, 1.5)."""
+    from scripts.turso import _retry_with_backoff
+    import time
+
+    delays = []
+    orig_sleep = time.sleep
+    time.sleep = lambda d: delays.append(d)
+    try:
+        try:
+            _retry_with_backoff(
+                lambda: (_ for _ in ()).throw(RuntimeError("503 Service Unavailable")),
+                max_retries=4, base_delay=1.0, jitter=True,
+            )
+        except RuntimeError:
+            pass
+    finally:
+        time.sleep = orig_sleep
+
+    # 4 attempts -> 3 retries -> 3 sleeps; each in [base*2^i, base*2^i*1.5)
+    assert len(delays) == 3
+    for i, d in enumerate(delays):
+        base = 1.0 * (2 ** i)
+        assert base <= d < base * 1.5, f"delay[{i}]={d} not in [{base}, {base*1.5})"
+    # And jitter=False produces exact powers of two
+    delays.clear()
+    time.sleep = lambda d: delays.append(d)
+    try:
+        try:
+            _retry_with_backoff(
+                lambda: (_ for _ in ()).throw(RuntimeError("503")),
+                max_retries=4, base_delay=1.0, jitter=False,
+            )
+        except RuntimeError:
+            pass
+    finally:
+        time.sleep = orig_sleep
+    assert delays == [1.0, 2.0, 4.0], f"jitter=False should give exact: got {delays}"
+    print("PASS: Jitter perturbs delays in [1.0x, 1.5x)")
+
+
 def test_recall_fts5_fallback_to_like():
     """Test 23: recall() falls back to LIKE query if FTS5 table missing"""
     from scripts import remember, recall, forget
