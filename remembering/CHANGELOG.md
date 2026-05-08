@@ -2,6 +2,23 @@
 
 All notable changes to the `remembering` skill (Muninn) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [5.8.0] - 2026-05-08
+
+### Added
+
+- make background-write failures visible (#622) (#622)
+
+### Fixed
+
+- loosen retry budget for egress-proxy cold start (#621)
+- security hardening from adversarial review (#541)
+- config_set preserves boot_load on update (#591)
+
+### Other
+
+- remembering: pull canonical muninn_utils from public muninn-utilities repo (#625)
+- boot: persist Turso creds to ~/.muninn/.env after successful init (#599)
+
 ## [Unreleased]
 
 ### Added
