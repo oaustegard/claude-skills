@@ -27,7 +27,7 @@ from .state import get_session_id
 from .turso import _exec, _exec_batch
 from .memory import recall, recall_since, remember, supersede
 from .config import config_list, config_set, config_delete
-from .utilities import install_utilities
+from .utilities import UTIL_DIR, install_utilities, fetch_muninn_utils
 
 
 # --- Ops Topic Classification ---
@@ -669,6 +669,25 @@ def boot(mode: str = None, task: str = None, telemetry: bool = False) -> str:
     # Install utility code memories to disk
     installed_utils = install_utilities()
     _mark("utilities")
+
+    # Override Turso copies with canonical files from the public
+    # oaustegard/muninn-utilities repo for migrated utilities (memory
+    # 0d63ed4f). Best-effort — never blocks boot.
+    try:
+        repo_sync = fetch_muninn_utils()
+        for fname in repo_sync.get("fetched", []):
+            stem = fname[:-3] if fname.endswith(".py") else fname
+            if stem == "__init__":
+                continue
+            existing = installed_utils.get(stem) or {}
+            installed_utils[stem] = {
+                "path": os.path.join(UTIL_DIR, fname),
+                "use_when": existing.get("use_when"),
+                "source": "muninn-utilities",
+            }
+    except Exception:
+        pass  # Repo sync is best-effort; Turso materialization stands
+    _mark("muninn_utils_sync")
 
     # Surface incomplete cross-session tasks (#332)
     pending_tasks = _load_incomplete_tasks()

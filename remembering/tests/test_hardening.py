@@ -11,6 +11,7 @@ Validates both the vulnerability and the fix for each finding:
 7. JSON decode error handling in _exec/_exec_batch
 """
 
+import io
 import os
 import re
 import sys
@@ -110,6 +111,170 @@ def test_install_utilities_rejects_malicious_names():
                 utilities.UTIL_DIR = old_dir
 
     print("PASS: install_utilities rejects malicious names")
+
+
+# ── 1b. fetch_muninn_utils ──
+
+def _build_fake_tarball(files: dict, top_dir: str = "muninn-utilities-abc123"):
+    """Construct an in-memory tar.gz that mimics codeload.github.com output.
+
+    `files` maps relative paths (e.g. "muninn_utils/blog_publish.py") to bytes.
+    Returns the gzipped tar bytes, ready to feed urllib.request.urlopen mock.
+    """
+    import tarfile as _tarfile
+    buf = io.BytesIO()
+    with _tarfile.open(fileobj=buf, mode="w:gz") as tf:
+        for relpath, content in files.items():
+            data = content if isinstance(content, bytes) else content.encode("utf-8")
+            info = _tarfile.TarInfo(name=f"{top_dir}/{relpath}")
+            info.size = len(data)
+            tf.addfile(info, io.BytesIO(data))
+    return buf.getvalue()
+
+
+class _FakeUrlopen:
+    """Context-manager wrapper that yields a fake response with .read()."""
+    def __init__(self, data):
+        self._data = data
+    def __enter__(self):
+        return self
+    def __exit__(self, *args):
+        return False
+    def read(self):
+        return self._data
+
+
+def test_fetch_muninn_utils_writes_files():
+    """Tarball with .py files at the muninn_utils/ root extracts to UTIL_DIR."""
+    import io as _io
+    from scripts import utilities
+
+    tarball = _build_fake_tarball({
+        "muninn_utils/blog_publish.py": b"# blog_publish source\n",
+        "muninn_utils/bsky_card.py": b"# bsky_card source\n",
+        "muninn_utils/__init__.py": b"",
+        "muninn_utils/tests/test_blog_publish_flow.py": b"# test - should NOT land",
+        "README.md": b"# repo readme - should NOT land",
+    })
+
+    with patch("scripts.utilities.urllib.request.urlopen",
+               return_value=_FakeUrlopen(tarball)):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            old_dir = utilities.UTIL_DIR
+            utilities.UTIL_DIR = tmpdir
+            try:
+                result = utilities.fetch_muninn_utils()
+                # All three top-level .py files are landed (incl. __init__.py)
+                assert sorted(result["fetched"]) == ["__init__.py", "blog_publish.py", "bsky_card.py"]
+                assert result["failed"] == []
+                with open(os.path.join(tmpdir, "blog_publish.py")) as fh:
+                    assert fh.read() == "# blog_publish source\n"
+                with open(os.path.join(tmpdir, "bsky_card.py")) as fh:
+                    assert fh.read() == "# bsky_card source\n"
+                # tests/ subdir shouldn't have leaked into UTIL_DIR
+                assert not os.path.exists(os.path.join(tmpdir, "tests"))
+                assert not os.path.exists(os.path.join(tmpdir, "test_blog_publish_flow.py"))
+                assert not os.path.exists(os.path.join(tmpdir, "README.md"))
+            finally:
+                utilities.UTIL_DIR = old_dir
+
+    print("PASS: fetch_muninn_utils writes top-level .py files only")
+
+
+def test_fetch_muninn_utils_rejects_malicious_names():
+    """Skips entries whose stem fails the same name validation as install_utilities."""
+    from scripts import utilities
+
+    tarball = _build_fake_tarball({
+        "muninn_utils/.hidden.py": b"# starts with dot - reject",
+        "muninn_utils/good_one.py": b"# good\n",
+    })
+
+    with patch("scripts.utilities.urllib.request.urlopen",
+               return_value=_FakeUrlopen(tarball)):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            old_dir = utilities.UTIL_DIR
+            utilities.UTIL_DIR = tmpdir
+            try:
+                result = utilities.fetch_muninn_utils()
+                assert "good_one.py" in result["fetched"]
+                assert ".hidden.py" not in result["fetched"]
+                # Nothing escaped tmpdir
+                for root, dirs, files in os.walk(tmpdir):
+                    for f in files:
+                        path = os.path.join(root, f)
+                        assert os.path.realpath(path).startswith(os.path.realpath(tmpdir))
+            finally:
+                utilities.UTIL_DIR = old_dir
+
+    print("PASS: fetch_muninn_utils rejects malicious names")
+
+
+def test_fetch_muninn_utils_network_failure_is_safe():
+    """Network errors return cleanly without raising."""
+    from scripts import utilities
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("simulated network failure")
+
+    with patch("scripts.utilities.urllib.request.urlopen", side_effect=boom):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            old_dir = utilities.UTIL_DIR
+            utilities.UTIL_DIR = tmpdir
+            try:
+                result = utilities.fetch_muninn_utils()
+                assert result == {"fetched": [], "failed": []}
+            finally:
+                utilities.UTIL_DIR = old_dir
+
+    print("PASS: fetch_muninn_utils handles network failure")
+
+
+def test_fetch_muninn_utils_corrupt_tarball_is_safe():
+    """A non-tarball response returns cleanly without raising."""
+    from scripts import utilities
+
+    with patch("scripts.utilities.urllib.request.urlopen",
+               return_value=_FakeUrlopen(b"not a tarball")):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            old_dir = utilities.UTIL_DIR
+            utilities.UTIL_DIR = tmpdir
+            try:
+                result = utilities.fetch_muninn_utils()
+                assert result == {"fetched": [], "failed": []}
+            finally:
+                utilities.UTIL_DIR = old_dir
+
+    print("PASS: fetch_muninn_utils handles corrupt tarball")
+
+
+def test_fetch_muninn_utils_skips_non_py_and_subdirs():
+    """Skips non-.py files at root, and skips files in subdirs (tests/)."""
+    from scripts import utilities
+
+    tarball = _build_fake_tarball({
+        "muninn_utils/legit.py": b"# legit\n",
+        "muninn_utils/README.md": b"# wrong extension",
+        "muninn_utils/tests/inner.py": b"# in subdir - skip",
+        "other_dir/something.py": b"# wrong subdir",
+    })
+
+    with patch("scripts.utilities.urllib.request.urlopen",
+               return_value=_FakeUrlopen(tarball)):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            old_dir = utilities.UTIL_DIR
+            utilities.UTIL_DIR = tmpdir
+            try:
+                result = utilities.fetch_muninn_utils()
+                assert result["fetched"] == ["legit.py"]
+                assert os.path.exists(os.path.join(tmpdir, "legit.py"))
+                assert not os.path.exists(os.path.join(tmpdir, "README.md"))
+                assert not os.path.exists(os.path.join(tmpdir, "inner.py"))
+                assert not os.path.exists(os.path.join(tmpdir, "something.py"))
+            finally:
+                utilities.UTIL_DIR = old_dir
+
+    print("PASS: fetch_muninn_utils skips non-.py and subdir files")
 
 
 # ── 2. LIKE wildcard injection ──
@@ -581,6 +746,12 @@ if __name__ == "__main__":
         test_path_traversal_name_rejected,
         test_path_traversal_realpath_guard,
         test_install_utilities_rejects_malicious_names,
+        # 1b. fetch_muninn_utils
+        test_fetch_muninn_utils_writes_files,
+        test_fetch_muninn_utils_rejects_malicious_names,
+        test_fetch_muninn_utils_network_failure_is_safe,
+        test_fetch_muninn_utils_corrupt_tarball_is_safe,
+        test_fetch_muninn_utils_skips_non_py_and_subdirs,
         # 2. LIKE wildcards
         test_escape_like,
         test_like_escape_in_fts5_search,

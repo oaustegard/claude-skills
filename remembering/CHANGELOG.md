@@ -4,6 +4,17 @@ All notable changes to the `remembering` skill (Muninn) are documented in this f
 
 ## [Unreleased]
 
+### Added
+
+- `fetch_muninn_utils()` in `scripts/utilities.py`. Pulls canonical
+  `muninn_utils/*.py` from `oaustegard/muninn-utilities` (public) via a
+  single tarball fetch and writes them into `UTIL_DIR`, overriding any
+  Turso `utility-code` materialization for utilities already migrated.
+  `boot()` calls it after `install_utilities()` — non-migrated utilities
+  continue to work via the Turso fallback. No auth required (public repo),
+  no-ops cleanly on network failure. Continues the migration tracked in
+  memory `0d63ed4f`.
+
 ### Fixed
 
 - `config_set` now preserves `boot_load` on update. Previously, every update silently re-promoted reference-only entries to boot-loaded because `INSERT OR REPLACE` omitted the `boot_load` column. This was particularly painful for auto-maintained keys like `recall-triggers` (rewritten on every `remember()` call).
