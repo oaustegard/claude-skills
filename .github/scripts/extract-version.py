@@ -45,8 +45,9 @@ def extract_version(skill_dir: Path) -> str:
                     if isinstance(frontmatter, dict):
                         if "metadata" in frontmatter and "version" in frontmatter["metadata"]:
                             return frontmatter["metadata"]["version"]
-        except Exception:
-            pass  # Fall through to VERSION file
+        except Exception as e:
+            print(f"WARNING: YAML parse error in {skill_md}: {e}", file=sys.stderr)
+            # Fall through to VERSION file
 
     # Fall back to VERSION file (backward compatibility)
     version_file = skill_dir / "VERSION"
