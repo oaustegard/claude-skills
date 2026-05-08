@@ -48,8 +48,8 @@ def extract_version_from_commit(skill_md_path: str, commit: str) -> str | None:
                 if isinstance(frontmatter, dict):
                     if "metadata" in frontmatter and "version" in frontmatter["metadata"]:
                         return frontmatter["metadata"]["version"]
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"WARNING: YAML parse error in {skill_md_path} at {commit}: {e}", file=sys.stderr)
 
     return None
 
