@@ -543,6 +543,133 @@ def test_background_writes():
     print("PASS: Background writes work")
 
 
+def test_bg_write_failure_captured():
+    """Background write failures populate failed_writes() instead of dying silently."""
+    from scripts import remember, flush, failed_writes, clear_failed_writes
+    from scripts import memory as memory_mod
+
+    # Make sure we start clean
+    clear_failed_writes()
+
+    # Patch _write_memory to always raise — simulates exhausted retry budget
+    orig = memory_mod._write_memory
+    def failing(*args, **kwargs):
+        raise RuntimeError("503 Service Unavailable (test)")
+    memory_mod._write_memory = failing
+
+    try:
+        mem_id = remember("bg failure capture test", "experience",
+                          tags=["test-bg-failure"], sync=False)
+        # Wait for the bg thread to land in the failure path
+        flush(timeout=5.0)
+
+        failures = failed_writes()
+        matching = [f for f in failures if f['mem_id'] == mem_id]
+        assert len(matching) == 1, f"Expected 1 failure for {mem_id}, got {len(matching)}"
+        f = matching[0]
+        assert f['what'] == "bg failure capture test"
+        assert f['type'] == "experience"
+        assert f['tags'] == ["test-bg-failure"]
+        assert "503" in f['error']
+        assert f['failed_at']  # ISO timestamp present
+    finally:
+        memory_mod._write_memory = orig
+        clear_failed_writes()
+    print("PASS: BG-write failure captured in failed_writes()")
+
+
+def test_retry_failed_writes_recovers():
+    """retry_failed_writes() re-attempts captured failures and removes successes."""
+    from scripts import remember, flush, failed_writes, retry_failed_writes, forget, recall
+    from scripts import memory as memory_mod
+
+    # Patch _write_memory to fail first time, succeed second
+    orig = memory_mod._write_memory
+    call_state = {"first_call_done": False}
+    def flaky(*args, **kwargs):
+        if not call_state["first_call_done"]:
+            call_state["first_call_done"] = True
+            raise RuntimeError("503 Service Unavailable (test, transient)")
+        return orig(*args, **kwargs)
+    memory_mod._write_memory = flaky
+
+    try:
+        mem_id = remember("retry recovery test", "experience",
+                          tags=["test-bg-retry"], sync=False)
+        flush(timeout=5.0)
+
+        # Should be in failed list
+        assert any(f['mem_id'] == mem_id for f in failed_writes()), \
+            "expected failed write captured"
+
+        # Restore original to ensure retry can succeed
+        memory_mod._write_memory = orig
+        result = retry_failed_writes()
+        assert result['recovered'] >= 1
+        assert not any(f['mem_id'] == mem_id for f in failed_writes()), \
+            "successful retry should drop from list"
+
+        # Memory should now be queryable
+        time.sleep(0.3)
+        rs = recall(tags=["test-bg-retry"])
+        assert any(m["id"] == mem_id for m in rs), \
+            "memory should be retrievable after retry"
+        forget(mem_id)
+    finally:
+        memory_mod._write_memory = orig
+    print("PASS: retry_failed_writes() recovers transient failures")
+
+
+def test_retry_failed_writes_keeps_persistent_failures():
+    """retry_failed_writes() leaves entries that still fail in the failed list."""
+    from scripts import remember, flush, failed_writes, retry_failed_writes, clear_failed_writes
+    from scripts import memory as memory_mod
+
+    clear_failed_writes()
+    orig = memory_mod._write_memory
+    def always_fails(*args, **kwargs):
+        raise RuntimeError("503 Service Unavailable (test, persistent)")
+    memory_mod._write_memory = always_fails
+
+    try:
+        mem_id = remember("persistent failure test", "experience",
+                          tags=["test-bg-persistent"], sync=False)
+        flush(timeout=5.0)
+        assert any(f['mem_id'] == mem_id for f in failed_writes())
+
+        result = retry_failed_writes()
+        assert result['recovered'] == 0
+        assert result['still_failing'] >= 1
+        assert any(f['mem_id'] == mem_id for f in failed_writes()), \
+            "persistent failure should remain in list"
+    finally:
+        memory_mod._write_memory = orig
+        clear_failed_writes()
+    print("PASS: retry_failed_writes() preserves persistent failures")
+
+
+def test_clear_failed_writes_returns_count():
+    """clear_failed_writes() drops entries and returns the count dropped."""
+    from scripts import remember, flush, failed_writes, clear_failed_writes
+    from scripts import memory as memory_mod
+
+    clear_failed_writes()
+    orig = memory_mod._write_memory
+    memory_mod._write_memory = lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("503"))
+    try:
+        for i in range(3):
+            remember(f"clear test {i}", "experience",
+                     tags=[f"test-clear-{i}"], sync=False)
+        flush(timeout=5.0)
+        assert len(failed_writes()) >= 3
+        n = clear_failed_writes()
+        assert n >= 3
+        assert len(failed_writes()) == 0
+    finally:
+        memory_mod._write_memory = orig
+    print("PASS: clear_failed_writes() returns drop count")
+
+
 def test_result_types():
     """Test 30: MemoryResult wrapper works"""
     from scripts import remember, recall, forget, MemoryResult

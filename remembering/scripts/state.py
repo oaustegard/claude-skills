@@ -28,6 +28,14 @@ TYPES = {"decision", "world", "anomaly", "experience", "interaction", "procedure
 _pending_writes = []
 _pending_writes_lock = threading.Lock()
 
+# Track failed background writes for visibility & retry (#622).
+# When remember(sync=False) exhausts its retry budget, the payload is
+# captured here so callers can inspect, retry, or surface the failure.
+# Each entry: {'mem_id', 'what', 'type', 'tags', 'refs', 'priority',
+# 'valid_from', 'session_id', 'conf', 'error', 'failed_at'}.
+_failed_bg_writes = []
+_failed_bg_writes_lock = threading.Lock()
+
 # Buffered access_count updates (v5.x.0, #issue-batch-access)
 # Maps memory_id -> pending increment count. Flushed via
 # memory._flush_access_tracking() at threshold, explicit flush(), or atexit.

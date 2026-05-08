@@ -213,6 +213,27 @@ def remember(what: str, type: str, *, tags: list = None, conf: float = None,
         def _bg_write():
             try:
                 _write_memory(mem_id, what, type, now, conf, tags, refs, priority, valid_from, session_id)
+            except Exception as e:
+                # Retry budget exhausted in the bg thread. Capture the payload
+                # so the failure is visible to callers (failed_writes()) and
+                # can be retried later (retry_failed_writes()). Without this,
+                # background-write failures die silently with the thread.
+                with state._failed_bg_writes_lock:
+                    state._failed_bg_writes.append({
+                        'mem_id': mem_id,
+                        'what': what,
+                        'type': type,
+                        'tags': tags,
+                        'refs': refs,
+                        'priority': priority,
+                        'valid_from': valid_from,
+                        'session_id': session_id,
+                        'conf': conf,
+                        'error': str(e),
+                        'failed_at': datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                    })
+                print(f"Muninn: background write failed (id={mem_id[:8]}): {e}. "
+                      f"Payload captured; retry with retry_failed_writes() or inspect with failed_writes().")
             finally:
                 # Remove from pending list when done
                 with state._pending_writes_lock:
@@ -317,6 +338,95 @@ def flush(timeout: float = 5.0) -> dict:
         print(f"Muninn: Access tracking flush failed: {e}")
 
     return {"completed": completed, "timed_out": timed_out}
+
+
+# @lat: [[memory#Background Writes]]
+def failed_writes() -> list:
+    """Return list of background writes that exhausted retry budget.
+
+    Each entry is a dict with the original payload (mem_id, what, type, tags,
+    refs, priority, valid_from, session_id, conf), plus 'error' (last error
+    string) and 'failed_at' (ISO timestamp). Returns a copy — mutations to
+    the returned list don't affect internal state.
+
+    Use to surface silent background-write failures, e.g. at conversation
+    end or before exit. Empty list = nothing failed.
+
+    Example:
+        for fw in failed_writes():
+            print(f"failed: {fw['what'][:50]} -- {fw['error']}")
+    """
+    with state._failed_bg_writes_lock:
+        return list(state._failed_bg_writes)
+
+
+# @lat: [[memory#Background Writes]]
+def retry_failed_writes(timeout: float = 30.0) -> dict:
+    """Re-attempt all captured failed background writes synchronously.
+
+    Each retry uses the standard sync path (_write_memory with retry budget),
+    so transient 503s are absorbed by _retry_with_backoff. Successes drop out
+    of the failed list; failures stay (with updated error/failed_at).
+
+    Args:
+        timeout: Per-write timeout hint. Currently advisory (not strictly
+            enforced); the underlying retry budget caps total wait time.
+
+    Returns:
+        Dict with:
+            'recovered': int — count successfully written
+            'still_failing': int — count still in failed list
+            'remaining': list — failed-write entries that still aren't writing
+
+    Example:
+        result = retry_failed_writes()
+        if result['still_failing']:
+            print(f"{result['still_failing']} writes still failing")
+    """
+    with state._failed_bg_writes_lock:
+        items = list(state._failed_bg_writes)
+        state._failed_bg_writes.clear()
+
+    recovered = 0
+    still_failing = []
+    for item in items:
+        try:
+            _write_memory(
+                item['mem_id'], item['what'], item['type'],
+                item['failed_at'],  # use failed_at as 'now' so original ordering preserved
+                item['conf'], item['tags'], item['refs'],
+                item['priority'], item['valid_from'], item['session_id'],
+            )
+            recovered += 1
+        except Exception as e:
+            item['error'] = str(e)
+            item['failed_at'] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+            still_failing.append(item)
+
+    if still_failing:
+        with state._failed_bg_writes_lock:
+            # Re-queue at front to preserve oldest-first ordering across retries
+            state._failed_bg_writes = still_failing + state._failed_bg_writes
+
+    return {
+        'recovered': recovered,
+        'still_failing': len(still_failing),
+        'remaining': still_failing,
+    }
+
+
+# @lat: [[memory#Background Writes]]
+def clear_failed_writes() -> int:
+    """Drop accumulated failed writes without retrying. Returns count dropped.
+
+    Use after retry_failed_writes() reveals all failures are unrecoverable
+    (e.g. malformed payload, schema violation), or to reset state during
+    testing. Failures are otherwise harmless if left in place.
+    """
+    with state._failed_bg_writes_lock:
+        n = len(state._failed_bg_writes)
+        state._failed_bg_writes.clear()
+        return n
 
 
 # @lat: [[memory#Core Operations]]
