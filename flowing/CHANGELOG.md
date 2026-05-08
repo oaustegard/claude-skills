@@ -2,6 +2,24 @@
 
 All notable changes to the `flowing` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.2.0] - 2026-05-08
+
+### Added
+
+- add mapping-features skill for behavioral web app documentation (#432)
+- add deep_read sub-agent for context-lean page processing
+
+### Fixed
+
+- auto-discover detached tasks downstream of terminals (v1.2.0) (#613)
+
+### Other
+
+- flowing v1.1: add when=, validate=, retry_until= control-flow primitives (#611)
+- Remove _MAP.md files, direct agents to tree-sitting for code navigation (#545)
+- Regenerate _MAP.md files after @lat: backlink insertion (#504)
+- Lattice v2: bidirectional source-anchored knowledge graph (#503)
+
 ## [1.2.0] - 2026-05-07
 
 ### Fixed
