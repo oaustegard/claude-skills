@@ -2,6 +2,18 @@
 
 All notable changes to the `flowing` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.2.0] - 2026-05-07
+
+### Fixed
+
+- **Detached tasks downstream of terminals are now auto-discovered.** In v1.1.1, `Flow(main)` would silently skip a `@task(detached=True, depends_on=[main])` defined elsewhere; the task had to be passed as an additional terminal (`Flow(main, side_effect)`). The SKILL.md said "Run in a final layer after the main DAG" which implied auto-discovery. Now matches the docs: any detached task in the module registry whose `depends_on` are all reachable from declared terminals joins the run automatically. Detached tasks with unreachable deps are still ignored (they belong to a different graph).
+- **Detached-on-detached chains now layer correctly.** Previously `_execute_detached` ran all detached tasks in one parallel layer, so `detachB(depends_on=[detachA], detached=True)` would be SKIPPED because `detachA` hadn't completed yet. Detached execution now uses topological layering inside the detached subset.
+
+### Added
+
+- Module-level `_TASK_REGISTRY` populated by the `@task` decorator. Used by `Flow._collect_tasks` to find detached candidates for auto-discovery.
+- Test class `TestDetachedAutoDiscovery` (5 tests): direct downstream auto-discovery, backward-compat with explicit terminal, detached-on-detached chains, isolation of unrelated detached tasks, failure-isolation preservation. Total suite now 20 tests.
+
 ## [1.1.1] - 2026-05-07
 
 ### Documentation

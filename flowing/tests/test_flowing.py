@@ -291,5 +291,127 @@ class TestComposition(unittest.TestCase):
         self.assertEqual(flow.value(converging)["n"], 2)
 
 
+
+class TestDetachedAutoDiscovery(unittest.TestCase):
+    """v1.2: detached tasks whose deps are reachable from declared terminals
+    should be auto-discovered and run, without needing to be passed as terminals.
+
+    Regression: in v1.1.1, `Flow(assemble)` with a `store_memory(detached=True,
+    depends_on=[assemble])` defined elsewhere would silently NOT run store_memory.
+    The user had to know to pass it: `Flow(assemble, store_memory)`. The SKILL.md
+    "Run in a final layer after the main DAG" implied auto-discovery.
+    """
+
+    def test_detached_downstream_of_terminal_auto_discovered(self):
+        """Detached task whose dep IS the terminal should run automatically."""
+        side_effects = []
+
+        @task
+        def main_step():
+            return "result"
+
+        @task(depends_on=[main_step], detached=True)
+        def store(main_step):
+            side_effects.append(("stored", main_step))
+            return "stored"
+
+        flow = Flow(main_step)  # NOTE: store NOT passed as terminal
+        results = flow.run()
+
+        self.assertEqual(results["main_step"].state, StepState.SUCCEEDED)
+        self.assertIn("store", results)
+        self.assertEqual(results["store"].state, StepState.SUCCEEDED)
+        self.assertEqual(side_effects, [("stored", "result")])
+
+    def test_detached_passed_as_terminal_still_works(self):
+        """Backward compat: explicitly passing detached as terminal still works."""
+        side_effects = []
+
+        @task
+        def main_step():
+            return "result"
+
+        @task(depends_on=[main_step], detached=True)
+        def store(main_step):
+            side_effects.append(main_step)
+
+        flow = Flow(main_step, store)
+        flow.run()
+        self.assertEqual(side_effects, ["result"])
+
+    def test_detached_chain_auto_discovered(self):
+        """Detached-on-detached: if detachB depends on detachA depends on main,
+        both should be auto-discovered when only main is the terminal."""
+        order = []
+
+        @task
+        def main_step():
+            order.append("main")
+            return 1
+
+        @task(depends_on=[main_step], detached=True)
+        def detach_a(main_step):
+            order.append("a")
+            return main_step + 1
+
+        @task(depends_on=[detach_a], detached=True)
+        def detach_b(detach_a):
+            order.append("b")
+            return detach_a + 1
+
+        flow = Flow(main_step)
+        results = flow.run()
+
+        self.assertEqual(results["main_step"].state, StepState.SUCCEEDED)
+        self.assertEqual(results["detach_a"].state, StepState.SUCCEEDED)
+        self.assertEqual(results["detach_b"].state, StepState.SUCCEEDED)
+        self.assertEqual(order, ["main", "a", "b"])
+
+    def test_unrelated_detached_not_picked_up(self):
+        """Detached tasks whose deps are NOT reachable from terminals should
+        NOT run — they belong to a different graph."""
+        side_effects = []
+
+        @task
+        def graph_a_step():
+            return "a"
+
+        @task
+        def graph_b_step():
+            return "b"
+
+        @task(depends_on=[graph_b_step], detached=True)
+        def graph_b_side(graph_b_step):
+            side_effects.append(graph_b_step)
+
+        flow = Flow(graph_a_step)  # only graph A
+        results = flow.run()
+
+        self.assertEqual(results["graph_a_step"].state, StepState.SUCCEEDED)
+        self.assertNotIn("graph_b_step", results)
+        self.assertNotIn("graph_b_side", results)
+        self.assertEqual(side_effects, [])
+
+    def test_detached_failure_still_isolated(self):
+        """Auto-discovered detached failure must still NOT trigger fail_fast
+        and must land in flow.detached_failures (existing detached semantics)."""
+
+        @task
+        def main_step():
+            return "ok"
+
+        @task(depends_on=[main_step], detached=True)
+        def flaky_side(main_step):
+            raise RuntimeError("side-effect blew up")
+
+        flow = Flow(main_step)
+        results = flow.run()
+
+        self.assertEqual(results["main_step"].state, StepState.SUCCEEDED)
+        self.assertEqual(results["flaky_side"].state, StepState.FAILED)
+        self.assertEqual(len(flow.detached_failures), 1)
+        self.assertEqual(flow.detached_failures[0].name, "flaky_side")
+
+
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    unittest.main()

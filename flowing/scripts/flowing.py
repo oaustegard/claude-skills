@@ -90,6 +90,14 @@ class TaskDef:
         return self is other
 
 
+# Module-level registry of all TaskDefs created via the @task decorator.
+# Used by Flow._collect_tasks to auto-discover detached tasks whose dependencies
+# are reachable from declared terminals (v1.2.0). Without this, a detached task
+# downstream of a terminal would silently never run, since the dep walk only
+# traverses depends_on backward.
+_TASK_REGISTRY: list[TaskDef] = []
+
+
 # @lat: [[orchestration#DAG Workflow Runner]]
 def task(
     fn: Optional[Callable] = None,
@@ -119,6 +127,7 @@ def task(
             validate=validate,
             retry_until=retry_until,
         )
+        _TASK_REGISTRY.append(td)
         return td
 
     if fn is not None:
@@ -278,7 +287,14 @@ class Flow:
         self.detached_failures: list[StepResult] = []
 
     def _collect_tasks(self) -> tuple[set[TaskDef], set[TaskDef]]:
-        """Collect all tasks, separating main DAG from detached tasks."""
+        """Collect all tasks, separating main DAG from detached tasks.
+
+        v1.2.0: Auto-discovers detached tasks whose dependencies are all
+        reachable from declared terminals. Iterates to fixed point so that
+        chains of detached tasks (detachB -> detachA -> main) are picked up.
+        Detached tasks whose deps are NOT reachable are ignored — they belong
+        to a different graph.
+        """
         all_tasks: set[TaskDef] = set()
         stack = list(self.terminals)
         while stack:
@@ -286,6 +302,19 @@ class Flow:
             if t not in all_tasks:
                 all_tasks.add(t)
                 stack.extend(t.depends_on)
+
+        # Fixed-point pull-in of detached tasks from the module registry whose
+        # deps are all already reachable. Repeat until no new task is added so
+        # detached-on-detached chains resolve correctly.
+        while True:
+            added = False
+            for t in _TASK_REGISTRY:
+                if t.detached and t not in all_tasks:
+                    if t.depends_on and all(dep in all_tasks for dep in t.depends_on):
+                        all_tasks.add(t)
+                        added = True
+            if not added:
+                break
 
         main_tasks = {t for t in all_tasks if not t.detached}
         detached_tasks = {t for t in all_tasks if t.detached}
@@ -364,47 +393,56 @@ class Flow:
                     break
 
     def _execute_detached(self, detached_tasks: set[TaskDef]) -> None:
-        """Run detached tasks in one final parallel layer. Failures collected, not propagated."""
+        """Run detached tasks in topologically-sorted layers after the main DAG.
+        Failures collected in self.detached_failures, not propagated.
+
+        v1.2.0: Layered execution (was single-layer). A detached task may
+        depend on another detached task; layering ensures the dependency
+        runs first and its result is available.
+        """
         if not detached_tasks:
             return
 
-        # Only run detached tasks whose dependencies all succeeded
-        runnable = []
-        for t in detached_tasks:
-            deps_ok = all(
-                t_dep.name in self.results and
-                self.results[t_dep.name].state == StepState.SUCCEEDED
-                for t_dep in t.depends_on
-            )
-            if deps_ok:
-                runnable.append(t)
+        detached_layers = self._build_layers(detached_tasks)
+
+        for layer in detached_layers:
+            # Filter to tasks whose deps (main + earlier detached layers) all succeeded
+            runnable = []
+            for t in layer:
+                deps_ok = all(
+                    t_dep.name in self.results and
+                    self.results[t_dep.name].state == StepState.SUCCEEDED
+                    for t_dep in t.depends_on
+                )
+                if deps_ok:
+                    runnable.append(t)
+                else:
+                    skip_result = StepResult(
+                        name=t.name, state=StepState.SKIPPED, attempts=0)
+                    self.results[t.name] = skip_result
+
+            if not runnable:
+                continue
+
+            _log("DETACHED", tasks=",".join(t.name for t in runnable))
+
+            if len(runnable) > 1:
+                with ThreadPoolExecutor(max_workers=self.max_workers) as pool:
+                    futures = {
+                        pool.submit(_run_step, td, self.results): td
+                        for td in runnable
+                    }
+                    for future in as_completed(futures):
+                        result = future.result()
+                        self.results[result.name] = result
+                        if result.state == StepState.FAILED:
+                            self.detached_failures.append(result)
             else:
-                skip_result = StepResult(
-                    name=t.name, state=StepState.SKIPPED, attempts=0)
-                self.results[t.name] = skip_result
-
-        if not runnable:
-            return
-
-        _log("DETACHED", tasks=",".join(t.name for t in runnable))
-
-        if len(runnable) > 1:
-            with ThreadPoolExecutor(max_workers=self.max_workers) as pool:
-                futures = {
-                    pool.submit(_run_step, td, self.results): td
-                    for td in runnable
-                }
-                for future in as_completed(futures):
-                    result = future.result()
+                for td in runnable:
+                    result = _run_step(td, self.results)
                     self.results[result.name] = result
                     if result.state == StepState.FAILED:
                         self.detached_failures.append(result)
-        else:
-            for td in runnable:
-                result = _run_step(td, self.results)
-                self.results[result.name] = result
-                if result.state == StepState.FAILED:
-                    self.detached_failures.append(result)
 
     def run(self) -> dict[str, StepResult]:
         """Execute the full DAG from scratch."""

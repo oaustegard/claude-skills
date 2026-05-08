@@ -2,7 +2,7 @@
 name: flowing
 description: DAG workflow runner that encodes control flow in code, not prose. Use when a procedure has 3+ steps with branching, retries, or validation that must be enforced — gates as `when=`, edge contracts as `validate=`, predicate loops as `retry_until=`. The runner owns the graph; the LLM provides leaves. Also: parallel execution, checkpoint resume, detached side-effects.
 metadata:
-  version: 1.1.1
+  version: 1.2.0
 ---
 
 # Flowing — Control Flow in Code, Not Prose
@@ -158,7 +158,23 @@ def store_memory(create_issue):
     remember(create_issue["url"], ...)
 ```
 
-Run in a final layer after the main DAG. Failures collected in `flow.detached_failures`, never trigger `fail_fast`. Dependencies must all be SUCCEEDED.
+Run in topologically-sorted layers after the main DAG. Failures collected in `flow.detached_failures`, never trigger `fail_fast`. Dependencies must all be SUCCEEDED for a detached task to run.
+
+#### Auto-discovery (v1.2.0)
+
+A detached task whose `depends_on` are all reachable from the declared terminals is **auto-discovered** — you don't need to pass it as a terminal:
+
+```python
+@task
+def main_step(): ...
+
+@task(depends_on=[main_step], detached=True)
+def store(main_step): ...
+
+Flow(main_step).run()   # `store` runs automatically after main_step succeeds
+```
+
+Detached tasks may depend on other detached tasks; the chain is layered and runs in dependency order. Detached tasks whose deps are NOT reachable from any terminal are ignored — they belong to a different graph and should be terminals of their own `Flow`.
 
 ## When to use
 
