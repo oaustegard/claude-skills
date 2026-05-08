@@ -2,7 +2,7 @@
 name: flowing
 description: DAG workflow runner that encodes control flow in code, not prose. Use when a procedure has 3+ steps with branching, retries, or validation that must be enforced — gates as `when=`, edge contracts as `validate=`, predicate loops as `retry_until=`. The runner owns the graph; the LLM provides leaves. Also: parallel execution, checkpoint resume, detached side-effects.
 metadata:
-  version: 1.1.0
+  version: 1.1.1
 ---
 
 # Flowing — Control Flow in Code, Not Prose
@@ -60,6 +60,40 @@ def process(fetch):
 ```
 
 Use to make the contract between tasks explicit. The validator is the gate; without a passing validator, the body never runs. Compare to "remember to check inputs at the top of the task" — that's prose.
+
+#### Validator and predicate signatures
+
+`validate=` and `when=` callables receive gathered dep values as kwargs *by dep name*, the same way task bodies do. A validator written for a specific dep:
+
+```python
+def must_have_title(fetch_url_meta):
+    if not fetch_url_meta.get("title"):
+        raise ValueError("missing title")
+```
+
+works only on tasks whose dep is named `fetch_url_meta`. Reuse it on a task whose dep is named `fetch_bad_meta` and you get `TypeError: must_have_title() got an unexpected keyword argument 'fetch_bad_meta'` at validate time, surfacing as a confusing FAIL with the wrong reason.
+
+Two patterns to avoid the trap:
+
+```python
+# A) Reusable: take **kwargs, look up by expected key
+def must_have_title(**kwargs):
+    meta = next(iter(kwargs.values()))
+    if not meta.get("title"):
+        raise ValueError("missing title")
+
+# B) Factory: bind the dep name explicitly at task definition
+def must_have_title_of(dep_name):
+    def v(**kwargs):
+        if not kwargs[dep_name].get("title"):
+            raise ValueError(f"{dep_name}: missing title")
+    return v
+
+@task(depends_on=[fetch], validate=must_have_title_of("fetch"))
+def process(fetch): ...
+```
+
+Same applies to `when=` predicates.
 
 ### `retry_until=` — predicate-driven loop
 
