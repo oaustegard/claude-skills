@@ -2,19 +2,167 @@
 name: composing-html
 description: Composes single-file HTML artifacts (PR review writeups, status reports, incident postmortems, slide decks, design systems, prototypes, flowcharts, module maps, feature explainers, kanban boards, prompt tuners) from a small JSON spec instead of hand-written HTML/CSS/JS. Use when the user asks to "compare options side-by-side", requests an HTML version of a report or review or deck, asks for a flowchart, status update, postmortem, design system reference, interactive prototype, custom editor — or explicitly says "HTML artifact", "single HTML file", "self-contained HTML". Skip for ad-hoc HTML snippets (forms, emails, embedded widgets) where there's no template fit.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # composing-html
 
-Produce single-file HTML artifacts by composing a small JSON spec, not by
-hand-writing markup. Page chrome (head, design tokens, CSS, JS, masthead,
-footer) lives in Python. Write only the parameters and the inner content.
+Produce single-file HTML artifacts without hand-writing the page chrome. The
+composer supplies `<!DOCTYPE>`, `<head>`, inlined CSS, `base.js`, design
+tokens, masthead, and colophon. You supply a title and the body content.
 
-## Workflow
+The product is the **chrome and inventory below** — primitives you can drop
+into any artifact without re-deriving what a card, badge, or eyebrow looks
+like. Templates are shortcuts on top of this, useful when the same artifact
+shape repeats; see [Templates](#templates-shortcuts-for-repeat-structure)
+near the end.
+
+## Default workflow: freeform
 
 ```
-1. python scripts/build.py list                    # see all templates
+1. python scripts/build.py describe freeform     # see the body_html slot
+2. write spec.json with body_html: "<your HTML using the inventory below>"
+3. python scripts/build.py build freeform --spec spec.json --out artifact.html
+```
+
+`freeform` gives you the whole chrome with one slot — `body_html` — for the
+content you actually care about. Reach for it first. Reach for a template
+only when the structure repeats across artifacts (see below).
+
+## Inventory
+
+Everything in this section is loaded into every artifact via inlined CSS and
+`base.js`. Use these tokens and classes inside `body_html` (or any
+template's `*_html` field) without re-declaring them.
+
+### Color tokens
+
+| Token | Hex | Use |
+|---|---|---|
+| `--ivory` | `#FAF9F5` | Page background |
+| `--paper` | `#FFFFFF` | Card background |
+| `--slate` | `#141413` | Headings, inverted background |
+| `--clay` | `#D97757` | Brand accent (lines, primary actions) |
+| `--clay-d` | `#B85C3E` | Hover/dark variant |
+| `--oat` | `#E3DACC` | Soft contrast surface |
+| `--olive` | `#788C5D` | Success, secondary accent |
+| `--rust` | `#B04A3F` | Errors, destructive |
+| `--moss` | `#4A6B3A` | Success text |
+| `--g100` … `--g700` | grays | Surfaces, borders, body text |
+
+Semantic aliases: `--ok`, `--warn`, `--err`, `--info`.
+
+### Type stacks
+
+- `--serif` — display headings (h1, h2, big numerics).
+- `--sans` — body text (default).
+- `--mono` — code, eyebrows, badges, captions.
+
+### Geometry
+
+`--radius-sm` (6px) · `--radius` (10px) · `--radius-lg` (16px) ·
+`--border` · `--border-soft` · `--shadow-card` · `--shadow-pop`.
+
+### Layout primitives
+
+- `.page` — main column (1080px max). Variants: `.page--wide` (1280px),
+  `.page--narrow` (720px). Set via the `page_class` spec key.
+- `.masthead` — header strip with `.eyebrow` + `<h1>` + `.subtitle`
+  (auto-rendered from `title`/`subtitle`/`eyebrow` unless `show_masthead`
+  is false).
+- `.grid .grid--2|3|4|auto` — responsive CSS grid.
+- `.stack`, `.row` — vertical / horizontal flex.
+- `.card`, `.card--soft`, `.card--elev` — content containers.
+- `.rule` — `<hr>` underline below `<h2>`.
+- `.colophon` — footer strip (auto-added by composer).
+
+### Components
+
+- **Eyebrow**: `<div class="eyebrow">SECTION</div>` — small all-caps label
+  with a leading clay rule.
+- **Badge**: `<span class="badge badge--ok|warn|err|info|clay">v1.0</span>`.
+- **Kbd**: `<span class="kbd">⌘K</span>`.
+- **Bullets**: `<ul class="bullets"><li>…</li></ul>` — clay dots.
+- **Code**: inline `<code>` and block `<pre><code>`. Block code gets a
+  `copy` button automatically via `base.js`.
+- **Details**: native `<details><summary>…</summary>…</details>` styled.
+
+### Tabs
+
+```html
+<div class="tabgroup">
+  <div class="tabs">
+    <button data-target="a">Tab A</button>
+    <button data-target="b">Tab B</button>
+  </div>
+  <div class="tab-panel" data-id="a">…</div>
+  <div class="tab-panel" data-id="b">…</div>
+</div>
+```
+
+`base.js` wires this automatically and selects the first tab by default.
+
+### Drag-to-reorder
+
+```html
+<div data-sortable="true">
+  <div draggable="true">…</div>
+  <div draggable="true">…</div>
+</div>
+```
+
+Optional cross-zone drops: add `data-zone="<id>"` to each container.
+
+### Live parameter bindings
+
+```html
+<input type="range" data-bind="size" min="0" max="100" value="50" data-format="number" data-unit="px">
+<span data-out="size"></span>
+<style>.box { width: var(--bind-size, 50px); }</style>
+```
+
+The CSS custom property `--bind-<name>` is updated on every input event,
+and any `[data-out="<name>"]` element receives the formatted value.
+
+## Output rules
+
+Spend output tokens on **content**, not chrome:
+
+1. **Never write `<html>`, `<head>`, `<style>`, `<script>`, or `<link>`.** The
+   composer adds all of them. If you find yourself writing a complete page,
+   you missed the skill.
+2. **Don't restate design tokens.** Reuse the inventory above — `var(--clay)`,
+   `.card`, `.badge--warn`, `.bullets`, etc. are already loaded.
+3. **`body_html` is HTML, not a JSON dialect.** Write `<section>`, `<h2>`,
+   `<ul class="bullets">` directly. No translation layer.
+4. **Anything in an `_html` field is inserted verbatim** — escape any
+   user-supplied content yourself. All other string values are
+   HTML-escaped automatically.
+5. **One artifact per build.** Browser tabs are free.
+
+## Iteration
+
+Edit the spec, re-run `build`, open in a browser. If a layout pattern
+repeats across multiple artifacts, that's when a template earns its
+keep — otherwise stay in `freeform`.
+
+## Templates: shortcuts for repeat structure
+
+When the **same artifact shape** recurs (status reports week after week, PR
+reviews across many PRs, slide decks with consistent navigation), a
+template's fixed slot map is worth the translation cost. It enforces
+cross-artifact consistency and skips the layout decisions you'd otherwise
+re-derive each time.
+
+Use a template only when:
+1. You're producing the same artifact shape repeatedly.
+2. The repeat structure justifies a fixed slot map.
+3. Cross-artifact consistency matters more than per-artifact flexibility.
+
+Otherwise: `freeform`.
+
+```
+1. python scripts/build.py list                    # all templates, one-line summaries
 2. python scripts/build.py describe <template>     # required keys + JSON skeleton
 3. write spec.json                                  # only your content + parameters
 4. python scripts/build.py build <template> --spec spec.json --out artifact.html
@@ -24,53 +172,21 @@ footer) lives in Python. Write only the parameters and the inner content.
 worked examples, see `references/templates.md` — but only after picking a
 template; reading it cold wastes context.
 
-## Templates
+There are 21 templates, grouped into 9 categories plus `freeform`:
 
-Run `python scripts/build.py list` for the full list with one-line summaries.
-There are 21, grouped into 9 categories plus a `freeform` escape hatch:
-
+- `report.*` — status_report, incident_report
+- `review.*` — pr_review, code_walkthrough, module_map
+- `editor.*` — triage_board, flag_editor, prompt_tuner
+- `deck.*` — slide_deck (arrow-key + space navigation)
+- `design.*` — design_system, component_variants
 - `exploration.*` — comparison_grid, design_directions, implementation_plan
-- `review.*`      — pr_review, code_walkthrough, module_map
-- `design.*`      — design_system, component_variants
-- `prototype.*`   — animation_sandbox, click_flow
-- `diagram.*`     — svg_figure_sheet, flowchart
-- `deck.*`        — slide_deck (arrow-key + space navigation)
-- `research.*`    — feature_explainer, concept_explainer
-- `report.*`      — status_report, incident_report
-- `editor.*`      — triage_board, flag_editor, prompt_tuner
-- `freeform`      — anything else: page shell + caller-supplied inner HTML
+- `research.*` — feature_explainer, concept_explainer
+- `diagram.*` — svg_figure_sheet, flowchart
+- `prototype.*` — animation_sandbox, click_flow
 
-## Output rules
-
-These exist to keep your output tokens spent on **content**, not chrome:
-
-1. **Never write `<html>`, `<head>`, `<style>`, `<script>`, or `<link>`.** The
-   composer adds all of them. If you find yourself writing a complete page,
-   you missed the skill.
-2. **Don't restate design tokens.** `var(--clay)`, `var(--ivory)`, `.card`,
-   `.badge--warn`, `.bullets`, etc. are already loaded via inline CSS. Reuse
-   them — see `references/palette.md` for the full inventory.
-3. **For templated outputs, write only the parameters.** A `report.status_report`
-   spec is metrics + items; a `deck.slide_deck` spec is the slide list.
-4. **Reach for `freeform` only when no other template fits.** Templates encode
-   layout decisions you'd otherwise re-derive every time.
-5. **One artifact per build.** Don't fold ten unrelated views into one file —
-   browser tabs are free.
-
-## What you still write yourself
-
-For templates with prose-heavy slots, a few keys take raw HTML — they end with
-`_html` (e.g. `body_html`, `summary_html`, `intro_html`, `details_html`). For
-these, write `<p>`, `<ul class="bullets">`, `<h2>`, etc. directly. The chrome
-and design tokens are what's amortized; the prose is still yours. **Anything
-in an `_html` field is inserted verbatim — escape user-supplied content
-yourself.** All other string values are HTML-escaped automatically.
-
-## Iteration
-
-Edit the spec, re-run `build`, open in a browser. If a layout decision can't
-be expressed in the spec, the template needs a new parameter — grow the
-template, don't sprinkle inline CSS overrides into the artifact.
+Some templates with prose-heavy slots take raw HTML in keys ending with
+`_html` (e.g. `summary_html`, `intro_html`, `details_html`). Same rules as
+`freeform.body_html`: use the inventory above, escape user-supplied content.
 
 ## Tests
 
