@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.0509.1912"
+    "version": "2026.0509.1930"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -50,9 +50,9 @@
     },
     {
       "name": "data-and-visualization",
-      "description": "Data analysis, charting, forecasting, HTML composition, and interactive visualization tools.",
+      "description": "Data analysis, charting, forecasting, and interactive visualization tools.",
       "source": "./plugins/data-and-visualization",
-      "version": "1.1.0",
+      "version": "1.0.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",
@@ -60,7 +60,6 @@
       "keywords": [
         "charting",
         "charting-vega-lite",
-        "composing-html",
         "exploring-data",
         "extracting-keywords",
         "forecasting-reverso",
