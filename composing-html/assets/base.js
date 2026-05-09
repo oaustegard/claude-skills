@@ -77,36 +77,45 @@
 
   // Drag-to-reorder for editor-style triage boards.
   // Markup: a container with data-sortable="true" and direct children with [draggable="true"].
+  // Cross-zone moves work because `dragged` is module-scoped, not per-zone.
+  var dragged = null;
+
   function initSortable() {
     document.querySelectorAll('[data-sortable="true"]').forEach(function (zone) {
       if (zone.dataset.sortInit) return;
       zone.dataset.sortInit = '1';
-      var dragged = null;
+
       zone.addEventListener('dragstart', function (e) {
         var t = e.target.closest('[draggable="true"]');
         if (!t || t.parentElement !== zone) return;
         dragged = t;
         t.style.opacity = '0.4';
+        try { e.dataTransfer.effectAllowed = 'move'; } catch (_) {}
       });
+
       zone.addEventListener('dragend', function () {
         if (dragged) dragged.style.opacity = '';
         dragged = null;
       });
+
       zone.addEventListener('dragover', function (e) {
         if (!dragged) return;
         e.preventDefault();
+        try { e.dataTransfer.dropEffect = 'move'; } catch (_) {}
         var after = null;
-        var children = Array.prototype.slice.call(zone.children).filter(function (c) { return c !== dragged && c.draggable; });
+        var children = Array.prototype.slice.call(zone.children)
+          .filter(function (c) { return c !== dragged && c.draggable; });
         for (var i = 0; i < children.length; i++) {
           var box = children[i].getBoundingClientRect();
           if (e.clientY < box.top + box.height / 2) { after = children[i]; break; }
         }
-        if (after) zone.insertBefore(dragged, after); else zone.appendChild(dragged);
+        if (after) zone.insertBefore(dragged, after);
+        else if (dragged.parentElement !== zone || zone.lastElementChild !== dragged) zone.appendChild(dragged);
       });
-    });
-    // Cross-zone drops (e.g., kanban). Source zone fires dragstart, target zone receives drop.
-    document.querySelectorAll('[data-sortable="true"][data-zone]').forEach(function (zone) {
-      zone.addEventListener('drop', function () { /* DOM already moved during dragover */ });
+
+      zone.addEventListener('drop', function (e) {
+        if (dragged) e.preventDefault();
+      });
     });
   }
 

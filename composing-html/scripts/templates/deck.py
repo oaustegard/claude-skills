@@ -14,6 +14,11 @@ _SLIDE_KINDS = {"title", "section", "content", "quote", "code", "image"}
 
 def _render_slide(s: dict) -> str:
     kind = s.get("kind", "content")
+    if kind not in _SLIDE_KINDS:
+        raise ValueError(
+            f"deck.slide_deck: unknown slide kind {kind!r}. "
+            f"Valid kinds: {sorted(_SLIDE_KINDS)}."
+        )
     invert_class = " invert" if s.get("invert") else ""
     inner = ""
     if kind == "title":
@@ -57,7 +62,7 @@ def slide_deck(spec: dict) -> dict:
     # If no title-kind slide, prepend one from title/subtitle.
     if not any(s.get("kind") == "title" for s in slides):
         slides = [{"kind": "title", "title": spec.get("title", "Untitled"), "subtitle": spec.get("subtitle", "")}] + slides
-    body = "".join(_render_slide(s) for s in slides if s.get("kind") in _SLIDE_KINDS)
+    body = "".join(_render_slide(s) for s in slides)
     extra_css = """
     body { scroll-snap-type: y mandatory; overflow-x: hidden; }
     main.page { max-width: none; padding: 0; }

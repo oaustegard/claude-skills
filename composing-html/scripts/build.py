@@ -39,6 +39,38 @@ def cmd_list(_args) -> int:
     return 0
 
 
+def _infer_default(desc: str):
+    """Pick a JSON-valid placeholder value from a spec_keys description string.
+
+    Heuristic — looks for shape hints like 'List', 'Dict', 'Bool', 'List[{...}]'.
+    The output is always parseable JSON so the printed skeleton can be edited
+    in place rather than retyped.
+    """
+    d = desc.lower()
+    if d.startswith("list") or d.startswith("optional list") or "list[" in d:
+        import re as _re
+        m = _re.search(r"\{([^}]+)\}", desc)
+        if m:
+            keys = []
+            for raw_key in m.group(1).split(","):
+                # Each key looks like "name", "pros[]", "status?", "kind?: 'a|b'".
+                key = raw_key.strip().rstrip("?").split(":")[0].strip()
+                is_list_key = key.endswith("[]")
+                key = key.rstrip("[]").strip()
+                if not key or not key.isidentifier():
+                    continue
+                keys.append((key, is_list_key))
+            return [{k: ([] if is_l else "") for k, is_l in keys}] if keys else []
+        return []
+    if d.startswith("dict") or "dict[" in d:
+        return {}
+    if "bool" in d.split()[:3]:
+        return False
+    if d.startswith("optional"):
+        return None
+    return ""
+
+
 def cmd_describe(args) -> int:
     name = args.template
     if name not in REGISTRY:
@@ -49,12 +81,14 @@ def cmd_describe(args) -> int:
     print(f"# {name}\n\n{entry['summary']}\n")
     print("## Spec keys\n")
     for k, desc in entry["spec_keys"].items():
-        print(f"- `{k}`: {desc}")
-    print("\n## Spec shape (skeleton)\n")
-    skeleton = {k: f"<{desc.split('.')[0].lower()}>" for k, desc in entry["spec_keys"].items()}
+        required = "" if desc.lower().startswith("optional") else "  (required)"
+        print(f"- `{k}`{required}: {desc}")
+    print("\n## Starter spec (valid JSON — edit and pass to `build`)\n")
+    skeleton = {k: _infer_default(desc) for k, desc in entry["spec_keys"].items()}
     print("```json")
-    print(json.dumps(skeleton, indent=2))
+    print(json.dumps(skeleton, indent=2, ensure_ascii=False))
     print("```\n")
+    print(f"For richer worked examples, see references/templates.md → ## {name}\n")
     print("Build with:\n")
     print(f"  {sys.argv[0]} build {name} --spec spec.json --out out.html")
     return 0

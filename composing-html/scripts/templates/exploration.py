@@ -75,7 +75,7 @@ def design_directions(spec: dict) -> dict:
     for d in spec.get("directions", []):
         palette = d.get("palette") or []
         swatches = "".join(
-            f'<div style="background:{c.esc(hx)};height:48px;border-radius:6px;'
+            f'<div style="background:{c.css_color(hx, default="#ccc")};height:48px;border-radius:6px;'
             f'border:1px solid rgba(0,0,0,.06);" title="{c.esc(hx)}"></div>'
             for hx in palette
         )
@@ -123,17 +123,19 @@ def design_directions(spec: dict) -> dict:
 def implementation_plan(spec: dict) -> dict:
     # Milestones as a vertical timeline
     status_color = {"done": "var(--ok)", "active": "var(--clay)", "next": "var(--info)", "later": "var(--g500)"}
+    owner_style = "font-family:var(--mono);font-size:12px;color:var(--g500);margin-bottom:6px;"
     ms_rows = []
     for m in spec.get("milestones", []):
         sc = status_color.get(m.get("status", "next"), "var(--g500)")
         deliverables = c.bullets(m.get("deliverables") or [])
+        owner_html = f'<div style="{owner_style}">{c.esc(m.get("owner"))}</div>' if m.get("owner") else ""
         ms_rows.append(
             f'<div style="display:grid;grid-template-columns:140px 14px 1fr;gap:18px;padding:14px 0;border-bottom:1px solid var(--g150);">'
             f'<div><div style="font-family:var(--mono);font-size:12px;color:var(--g500);">{c.esc(m.get("when"))}</div>'
             f'{(c.badge(m.get("status","next").upper(), kind="info") if m.get("status") else "")}</div>'
             f'<div><div style="width:10px;height:10px;border-radius:50%;background:{sc};margin-top:6px;"></div></div>'
             f'<div><h3 style="margin-bottom:6px;">{c.esc(m.get("name"))}</h3>'
-            f'{("<div style=font-family:var(--mono);font-size:12px;color:var(--g500);margin-bottom:6px;>"+c.esc(m.get("owner"))+"</div>") if m.get("owner") else ""}'
+            f'{owner_html}'
             f'{deliverables}</div>'
             f'</div>'
         )
@@ -143,8 +145,9 @@ def implementation_plan(spec: dict) -> dict:
     risks = spec.get("risks") or []
     risks_html = ""
     if risks:
-        rows = [[r.get("risk"), c.badge((r.get("likelihood") or "med").upper(), "warn"),
-                 c.badge((r.get("impact") or "med").upper(), "err"),
+        rows = [[r.get("risk"),
+                 c.raw(c.badge((r.get("likelihood") or "med").upper(), "warn")),
+                 c.raw(c.badge((r.get("impact") or "med").upper(), "err")),
                  r.get("mitigation")] for r in risks]
         risks_html = c.section("Risks", body=c.table(["Risk", "Likelihood", "Impact", "Mitigation"], rows))
 

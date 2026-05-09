@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+import sys
+
 from . import register
 import composer as c
 
@@ -119,8 +121,12 @@ def flowchart(spec: dict) -> dict:
             nxt = pos[steps[i + 1].get("id", f"s{i+1}")]
             edges.append(f'<line x1="{cur[0]}" y1="{cur[1]}" x2="{nxt[0]}" y2="{nxt[1]}" stroke="#9A9890" stroke-width="1.4" marker-end="url(#a)"/>')
         for br in (s.get("branches") or []):
-            tgt = pos.get(br.get("to_id"))
-            if not tgt: continue
+            to_id = br.get("to_id")
+            tgt = pos.get(to_id)
+            if not tgt:
+                print(f"composing-html warning: flowchart branch references unknown step id {to_id!r}",
+                      file=sys.stderr)
+                continue
             edges.append(f'<line x1="{cur[0]}" y1="{cur[1]}" x2="{tgt[0]}" y2="{tgt[1]}" stroke="#9A9890" stroke-width="1.4" marker-end="url(#a)"/>')
             mx, my = (cur[0] + tgt[0]) / 2, (cur[1] + tgt[1]) / 2
             edges.append(f'<text x="{mx}" y="{my}" font-family="ui-monospace" font-size="11" fill="#3D3D3A" text-anchor="middle" paint-order="stroke" stroke="#FAF9F5" stroke-width="3">{c.esc(br.get("label",""))}</text>')

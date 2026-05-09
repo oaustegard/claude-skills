@@ -90,18 +90,20 @@ def flag_editor(spec: dict) -> dict:
     flags = spec.get("flags") or []
     rows = []
     for f in flags:
+        fid = f.get("id", "")
+        requires_json  = c.esc(json.dumps(f.get("requires") or []))
+        conflicts_json = c.esc(json.dumps(f.get("conflicts_with") or []))
+        checkbox = c.void("input", type="checkbox", checked=bool(f.get("default")))
         rows.append(
-            f'<div class="flag" data-id="{c.esc(f["id"])}" '
-            f'data-requires=\'{json.dumps(f.get("requires") or [])}\' '
-            f'data-conflicts=\'{json.dumps(f.get("conflicts_with") or [])}\'>'
+            f'<div class="flag" data-id="{c.esc(fid)}" '
+            f'data-requires="{requires_json}" '
+            f'data-conflicts="{conflicts_json}">'
             f'<div class="flag-meta">'
-            f'<div style="font-family:var(--mono);font-size:13px;">{c.esc(f["id"])}</div>'
+            f'<div style="font-family:var(--mono);font-size:13px;">{c.esc(fid)}</div>'
             f'<div style="font-weight:600;">{c.esc(f.get("label"))}</div>'
             + (f'<div style="font-size:13px;color:var(--g700);margin-top:2px;">{c.esc(f.get("description"))}</div>' if f.get("description") else "")
             + '</div>'
-            f'<label class="switch">'
-            f'<input type="checkbox" {"checked" if f.get("default") else ""}>'
-            f'<span class="slider"></span></label>'
+            f'<label class="switch">{checkbox}<span class="slider"></span></label>'
             f'<div class="flag-warn" hidden></div></div>'
         )
     body = c.section(body=f'<div class="flag-list">{"".join(rows)}</div>')
@@ -192,7 +194,8 @@ def prompt_tuner(spec: dict) -> dict:
         f'<pre id="rendered"></pre></div>'
         f'</div>'
     ))
-    template_json = json.dumps(template)
+    # Defend against </script> breakout in the template literal.
+    template_json = json.dumps(template).replace("</", "<\\/")
     extra_css = """
     .tuner { display: grid; grid-template-columns: 360px 1fr; gap: 24px; }
     @media (max-width: 880px) { .tuner { grid-template-columns: 1fr; } }
@@ -205,22 +208,25 @@ def prompt_tuner(spec: dict) -> dict:
     .tuner-out-label { font-family: var(--mono); font-size: 11px; color: var(--g500); letter-spacing: .06em; margin-bottom: 8px; }
     .tuner-out pre { white-space: pre-wrap; word-break: break-word; }
     """
-    extra_js = f"""
-    (function(){{
-      var tpl = {template_json};
-      function render(){{
-        var out = tpl;
-        document.querySelectorAll('[data-var]').forEach(function(el){{
-          var k = el.dataset.var;
-          var v = el.value;
-          out = out.replace(new RegExp('\\\\{{\\\\{{\\\\s*' + k.replace(/[.*+?^${{}}()|[\\]\\\\]/g, '\\\\$&') + '\\\\s*\\\\}}\\\\}}', 'g'), v);
-        }});
-        document.getElementById('rendered').textContent = out;
-      }}
-      document.querySelectorAll('[data-var]').forEach(function(el){{ el.addEventListener('input', render); }});
-      render();
-    }})();
-    """
+    # JS is deliberately not an f-string past the template literal — the only
+    # interpolation is `template_json`, which is JSON-safe and </-escaped above.
+    extra_js = (
+        "(function(){\n"
+        "  var tpl = " + template_json + ";\n"
+        "  function escapeRe(s){ return s.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&'); }\n"
+        "  function render(){\n"
+        "    var out = tpl;\n"
+        "    document.querySelectorAll('[data-var]').forEach(function(el){\n"
+        "      var re = new RegExp('\\\\{\\\\{\\\\s*' + escapeRe(el.dataset.var) + '\\\\s*\\\\}\\\\}', 'g');\n"
+        "      var v = el.value;\n"
+        "      out = out.replace(re, function(){ return v; });\n"
+        "    });\n"
+        "    document.getElementById('rendered').textContent = out;\n"
+        "  }\n"
+        "  document.querySelectorAll('[data-var]').forEach(function(el){ el.addEventListener('input', render); });\n"
+        "  render();\n"
+        "})();\n"
+    )
     return {
         "title": spec.get("title", "Prompt tuner"),
         "subtitle": spec.get("subtitle"),

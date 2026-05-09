@@ -35,12 +35,12 @@ def design_system(spec: dict) -> dict:
         for group, items in colors.items():
             chips = []
             for item in items:
-                hex_v = item.get("hex", "#000")
+                hex_v = c.css_color(item.get("hex"), default="#000")
                 chips.append(
-                    f'<div><div style="width:64px;height:64px;border-radius:8px;background:{c.esc(hex_v)};'
+                    f'<div><div style="width:64px;height:64px;border-radius:8px;background:{hex_v};'
                     f'border:1px solid var(--g200);margin-bottom:6px;"></div>'
                     f'<div style="font-family:var(--mono);font-size:11px;color:var(--g700);">{c.esc(item.get("name"))}</div>'
-                    f'<div style="font-family:var(--mono);font-size:11px;color:var(--g500);">{c.esc(hex_v)}</div>'
+                    f'<div style="font-family:var(--mono);font-size:11px;color:var(--g500);">{c.esc(hex_v)}</div>'  # display value (escaped)
                     + (f'<div style="font-family:var(--mono);font-size:11px;color:var(--g500);">{c.esc(item.get("token"))}</div>' if item.get("token") else "")
                     + '</div>'
                 )

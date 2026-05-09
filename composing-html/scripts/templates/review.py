@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+import sys
+
 from . import register
 import composer as c
 
@@ -139,26 +141,34 @@ def code_walkthrough(spec: dict) -> dict:
 def module_map(spec: dict) -> dict:
     nodes = spec.get("nodes") or []
     edges = spec.get("edges") or []
-    # Auto-layout: 3 cols if any node lacks coordinates
-    if any(n.get("x") is None or n.get("y") is None for n in nodes):
-        cols = 3
-        cw, ch = 220, 110
-        for i, n in enumerate(nodes):
-            n["x"] = (i % cols) * cw + 30
-            n["y"] = (i // cols) * ch + 30
     nw, nh = 180, 70
-    width  = max((n["x"] + nw + 30) for n in nodes) if nodes else 600
-    height = max((n["y"] + nh + 30) for n in nodes) if nodes else 400
+    cols, cw, ch = 3, 220, 110
+
+    # Compute coordinates locally — never mutate the caller's spec.
+    # Each node id falls back to its index if missing; nameless nodes are
+    # still drawable and addressable from edges by `n0`, `n1`, ...
+    pos: dict[str, tuple[float, float]] = {}
+    for i, n in enumerate(nodes):
+        nid = n.get("id") or f"n{i}"
+        x = n["x"] if n.get("x") is not None else (i % cols) * cw + 30
+        y = n["y"] if n.get("y") is not None else (i // cols) * ch + 30
+        pos[nid] = (x, y)
+
+    width  = max((x + nw + 30 for (x, _y) in pos.values()), default=600)
+    height = max((y + nh + 30 for (_x, y) in pos.values()), default=400)
     color = {"core": "#FCEEDE", "util": "#EAE8DF", "external": "#E0E7DA"}
     border = {"core": "var(--clay)", "util": "var(--g300)", "external": "var(--olive)"}
-    by_id = {n["id"]: n for n in nodes}
 
     edge_svg = []
     for e in edges:
-        a, b = by_id.get(e.get("from")), by_id.get(e.get("to"))
-        if not a or not b: continue
-        x1, y1 = a["x"] + nw / 2, a["y"] + nh / 2
-        x2, y2 = b["x"] + nw / 2, b["y"] + nh / 2
+        src_id, dst_id = e.get("from"), e.get("to")
+        if src_id not in pos or dst_id not in pos:
+            print(f"composing-html warning: module_map edge references unknown id "
+                  f"({src_id!r} -> {dst_id!r})", file=sys.stderr)
+            continue
+        ax, ay = pos[src_id]; bx, by = pos[dst_id]
+        x1, y1 = ax + nw / 2, ay + nh / 2
+        x2, y2 = bx + nw / 2, by + nh / 2
         edge_svg.append(
             f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="#9A9890" stroke-width="1.4" marker-end="url(#arrow)"/>'
         )
@@ -170,10 +180,12 @@ def module_map(spec: dict) -> dict:
             )
 
     node_svg = []
-    for n in nodes:
+    for i, n in enumerate(nodes):
+        nid = n.get("id") or f"n{i}"
+        x, y = pos[nid]
         kind = n.get("kind", "util")
         node_svg.append(
-            f'<g transform="translate({n["x"]},{n["y"]})">'
+            f'<g transform="translate({x},{y})">'
             f'<rect width="{nw}" height="{nh}" rx="8" fill="{color.get(kind, "#EAE8DF")}" '
             f'stroke="{border.get(kind, "var(--g300)")}" stroke-width="1.5"/>'
             f'<text x="14" y="26" font-family="ui-sans-serif" font-size="14" font-weight="600" fill="#141413">{c.esc(n.get("label"))}</text>'

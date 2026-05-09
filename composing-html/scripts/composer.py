@@ -138,10 +138,29 @@ def kv_list(pairs: dict[str, Any]) -> str:
     return f'<div>{rows}</div>'
 
 
+def raw(html_string: str) -> "_Raw":
+    """Wrap a string to opt out of HTML escaping in `table` and `callout` cells.
+
+    Use this when a cell genuinely needs to contain HTML markup the caller
+    constructed (e.g. a `badge()` result). Plain strings are always escaped.
+    """
+    return _Raw(html_string)
+
+
+class _Raw(str):
+    """Marker subclass for opt-in raw HTML in cells. Treated as str everywhere
+    except composer functions that switch on `isinstance(x, _Raw)`."""
+    __slots__ = ()
+
+
+def _cell(value: Any) -> str:
+    return str(value) if isinstance(value, _Raw) else esc(value)
+
+
 def table(columns: list[str], rows: list[list[Any]]) -> str:
     head = "<thead><tr>" + "".join(f"<th>{esc(c)}</th>" for c in columns) + "</tr></thead>"
     body = "<tbody>" + "".join(
-        "<tr>" + "".join(f"<td>{cell if _looks_like_html(cell) else esc(cell)}</td>" for cell in r) + "</tr>"
+        "<tr>" + "".join(f"<td>{_cell(cell)}</td>" for cell in r) + "</tr>"
         for r in rows
     ) + "</tbody>"
     return f"<table>{head}{body}</table>"
@@ -158,14 +177,14 @@ def tabs(panels: list[dict[str, Any]]) -> str:
     return f'<div class="tabgroup"><div class="tabs">{btns}</div>{body}</div>'
 
 
-def callout(text: str, kind: str = "info", icon: str | None = None) -> str:
-    """kind: info | ok | warn | err"""
+def callout(text: Any, kind: str = "info", icon: str | None = None) -> str:
+    """Render an info/ok/warn/err callout box. Pass `raw(html)` to opt out of escaping."""
     color = {"info": "var(--info)", "ok": "var(--ok)", "warn": "var(--warn)", "err": "var(--err)"}.get(kind, "var(--info)")
     bg    = {"info": "#DCE7EE", "ok": "#E8EFE0", "warn": "#F8ECCB", "err": "#F4DAD5"}.get(kind, "#DCE7EE")
     icon_html = f'<span style="font-weight:700;">{esc(icon)}</span>' if icon else ""
     return (f'<div style="border-left:3px solid {color};background:{bg};padding:12px 16px;'
             f'border-radius:0 var(--radius-sm) var(--radius-sm) 0;display:flex;gap:10px;align-items:flex-start;">'
-            f'{icon_html}<div>{esc(text) if isinstance(text, str) and not _looks_like_html(text) else text}</div></div>')
+            f'{icon_html}<div>{_cell(text)}</div></div>')
 
 
 # --------------------------------------------------------------------------- #
@@ -234,13 +253,24 @@ def page(*, title: str, body: str,
 # helpers                                                                     #
 # --------------------------------------------------------------------------- #
 
-_HTML_TAG_RE = re.compile(r"<[a-zA-Z][^>]*>")
+_CSS_COLOR_RE = re.compile(
+    r"^("
+    r"#[0-9a-fA-F]{3,8}"                  # hex
+    r"|rgba?\([^)]+\)"                    # rgb / rgba
+    r"|hsla?\([^)]+\)"                    # hsl / hsla
+    r"|var\(--[a-zA-Z0-9_-]+(?:\s*,\s*[#a-zA-Z0-9.,()% _-]+)?\)"  # var(--token[, fallback])
+    r"|[a-zA-Z]{3,30}"                    # named: 'red', 'transparent', 'currentColor'
+    r")$"
+)
 
-def _looks_like_html(value: Any) -> bool:
-    """Heuristic: treat strings containing balanced tags as raw HTML."""
+
+def css_color(value: Any, default: str = "var(--g500)") -> str:
+    """Whitelist a CSS color value. Anything that doesn't look like a color
+    falls back to `default`. Use this for any color taken from a spec field."""
     if not isinstance(value, str):
-        return False
-    return bool(_HTML_TAG_RE.search(value))
+        return default
+    v = value.strip()
+    return v if _CSS_COLOR_RE.match(v) else default
 
 
 def slug(text: str) -> str:

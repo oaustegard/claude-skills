@@ -129,7 +129,8 @@ def incident_report(spec: dict) -> dict:
         rows = [[fu.get("title"),
                  fu.get("owner") or "",
                  fu.get("due") or "",
-                 c.badge((fu.get("status","open")).upper(), "ok" if fu.get("status")=="done" else "warn")]
+                 c.raw(c.badge((fu.get("status","open")).upper(),
+                               "ok" if fu.get("status") == "done" else "warn"))]
                 for fu in spec["followups"]]
         followups = c.section("Follow-ups", body=c.table(["Action", "Owner", "Due", "Status"], rows))
 
