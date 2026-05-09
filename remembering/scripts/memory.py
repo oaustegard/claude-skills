@@ -430,7 +430,7 @@ def clear_failed_writes() -> int:
 
 
 # @lat: [[memory#Core Operations]]
-def recall(search: str = None, *, n: int = 10, tags: list = None,
+def recall(search: str = None, *, query: str = None, n: int = 10, tags: list = None,
            type: str = None, conf: float = None, tag_mode: str = "any",
            strict: bool = False, session_id: str = None,
            auto_strengthen: bool = False, raw: bool = False,
@@ -460,6 +460,8 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
         search: Text to search for in memory summaries (FTS5 ranked search).
             Note: Wildcards like '*' are treated as literal text, not patterns.
             Use fetch_all=True for comprehensive retrieval instead.
+        query: Alias for search. Both names accepted as first-class.
+            If both are provided, query wins.
         n: Max number of results
         tags: Filter by tags
         type: Filter by memory type
@@ -495,6 +497,11 @@ def recall(search: str = None, *, n: int = 10, tags: list = None,
     # v3.7.0: Accept limit= as deprecated alias for n=
     if limit is not None:
         n = limit
+
+    # Accept query= as alias for search= (Task.recall and many callers use 'query';
+    # the underlying FTS5 search uses 'search'. Both names are first-class.)
+    if query is not None:
+        search = query
 
     # v4.3.0: Resolve tags_all/tags_any convenience parameters (#282)
     if tags_all is not None and tags_any is not None:
@@ -845,7 +852,7 @@ def _query(search: str = None, tags: list = None, type: str = None,
 
 
 # @lat: [[memory#Temporal Queries]]
-def recall_since(after: str, *, search: str = None, n: int = 50,
+def recall_since(after: str, *, search: str = None, query: str = None, n: int = 50,
                  type: str = None, tags: list = None, tag_mode: str = "any",
                  session_id: str = None, raw: bool = False) -> MemoryResultList:
     """Query memories created after a given timestamp with parameterized queries.
@@ -853,6 +860,7 @@ def recall_since(after: str, *, search: str = None, n: int = 50,
     Args:
         after: ISO timestamp (e.g., '2025-12-26T00:00:00Z')
         search: Text to search for in memory summaries
+        query: Alias for search.
         n: Max number of results
         type: Filter by memory type
         tags: Filter by tags
@@ -869,6 +877,10 @@ def recall_since(after: str, *, search: str = None, n: int = 50,
     """
     # v5.5.0: Normalize input to UTC for DB comparison (#461)
     after = normalize_to_utc(after)
+
+    # Accept query= as alias for search= (consistent with recall())
+    if query is not None:
+        search = query
 
     conditions = [
         "deleted_at IS NULL",
@@ -917,7 +929,7 @@ def recall_since(after: str, *, search: str = None, n: int = 50,
 
 
 # @lat: [[memory#Temporal Queries]]
-def recall_between(after: str, before: str, *, search: str = None,
+def recall_between(after: str, before: str, *, search: str = None, query: str = None,
                    n: int = 100, type: str = None, tags: list = None,
                    tag_mode: str = "any", session_id: str = None, raw: bool = False) -> MemoryResultList:
     """Query memories within a time range with parameterized queries.
@@ -926,6 +938,7 @@ def recall_between(after: str, before: str, *, search: str = None,
         after: Start timestamp (exclusive)
         before: End timestamp (exclusive)
         search: Text to search for in memory summaries
+        query: Alias for search.
         n: Max number of results
         type: Filter by memory type
         tags: Filter by tags
@@ -943,6 +956,10 @@ def recall_between(after: str, before: str, *, search: str = None,
     # v5.5.0: Normalize inputs to UTC for DB comparison (#461)
     after = normalize_to_utc(after)
     before = normalize_to_utc(before)
+
+    # Accept query= as alias for search= (consistent with recall())
+    if query is not None:
+        search = query
 
     conditions = [
         "deleted_at IS NULL",

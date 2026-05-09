@@ -321,11 +321,13 @@ class _RecallGate:
         self._recalled = False
         self._result_count = 0
 
-    def recall(self, query: str = None, **kwargs) -> list:
+    def recall(self, query: str = None, *, search: str = None, **kwargs) -> list:
         """Perform recall and track invocation.
 
         Args:
-            query:    Recall query (defaults to gate topic)
+            query:    Recall query (defaults to gate topic). Alias for search.
+            search:   Alias for query — accepted for consistency with the
+                      underlying remembering.scripts.recall() function.
             **kwargs: Passed to remembering.scripts.recall()
 
         Returns:
@@ -333,7 +335,7 @@ class _RecallGate:
         """
         sys.path.insert(0, '/mnt/skills/user/remembering')
         from scripts import recall as _recall
-        results = _recall(query or self.topic, **kwargs)
+        results = _recall(query or search or self.topic, **kwargs)
         self._recalled = True
         self._result_count = len(results) if results else 0
         return results
