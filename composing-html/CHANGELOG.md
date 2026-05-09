@@ -4,6 +4,12 @@ All notable changes to the `composing-html` skill are documented in this file. T
 
 ## [0.2.0] - 2026-05-09
 
+### Other
+
+- composing-html: lead with chrome + freeform; demote templates (#636) (#637)
+
+## [0.2.0] - 2026-05-09
+
 ### Changed
 
 - Reframe SKILL.md around chrome + `freeform` as the default workflow; demote templates to a "shortcuts for repeat structure" section. Surface the `references/palette.md` inventory (color tokens, type stacks, layout primitives, components, tabs/sortables/live-binds) inline in SKILL.md so it reads as the primary product, not an appendix (#636).
