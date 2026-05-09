@@ -1,5 +1,0 @@
-# Remembering skill - files excluded from release packaging
-# Default exclusions (_MAP.md, CHANGELOG.md, README.md, CLAUDE.md, tests/, __pycache__) are automatic.
-
-# Architecture documentation (development reference only)
-_ARCH.md
