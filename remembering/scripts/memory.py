@@ -1,0 +1,2137 @@
+"""
+Memory CRUD and query operations for remembering skill.
+
+This module handles:
+- Memory creation (remember, remember_bg)
+- Memory querying (recall, recall_since, recall_between)
+- Memory updates (supersede, reprioritize)
+- Memory deletion (forget)
+- Access tracking
+
+Imports from: state, turso, config
+
+v5.4.0: Enhanced retrieval with tag co-occurrence expansion and boost-aware scoring (#383).
+v5.0.0: Removed local cache dependency. All queries go through Turso FTS5.
+"""
+
+import json
+import uuid
+import threading
+import time
+import atexit
+from datetime import datetime, UTC
+
+from . import state
+from .state import TYPES, get_session_id
+from .turso import (
+    _exec, _exec_batch, _fts5_search, _retry_with_backoff,
+    _build_cooccurrence, _update_cooccurrence_add, _update_cooccurrence_remove,
+    _cooccurrence_expand, _escape_like
+)
+# Import config_get and config_set for recall-triggers management
+from .config import config_get, config_set
+from .result import wrap_results, normalize_to_utc, MemoryResult, MemoryResultList
+
+# v3.2.0: Register automatic flush on exit to prevent data loss from background writes
+@atexit.register
+def _auto_flush_on_exit():
+    """Automatically flush pending background writes on process exit.
+
+    This prevents data loss when background writes are pending and the process terminates.
+    Registered with atexit to ensure it runs even on abnormal exits.
+    """
+    with state._pending_writes_lock:
+        pending_count = len(state._pending_writes)
+
+    if pending_count > 0:
+        # Only print if there are actually pending writes
+        result = flush(timeout=10.0)
+        completed = result.get('completed', 0)
+        timed_out = result.get('timed_out', 0)
+        if completed > 0 or timed_out > 0:
+            print(f"Muninn: Auto-flushed {completed} background writes on exit ({timed_out} timed out)")
+
+    # Drain buffered access_count increments (v5.x.0, #issue-batch-access)
+    try:
+        _flush_access_tracking()
+    except Exception as e:
+        # Access tracking is advisory; never block exit on its failure
+        print(f"Muninn: Access tracking flush on exit failed: {e}")
+
+
+
+def _resolve_memory_id(memory_id: str) -> str:
+    """Resolve a full or partial memory ID to a full UUID.
+
+    Supports both full UUIDs (36 chars with hyphens) and unique prefixes.
+    For full UUIDs, returns as-is without database lookup.
+    For partial IDs, queries for active memories matching the prefix.
+
+    Args:
+        memory_id: Full UUID or unique prefix of a memory ID.
+
+    Returns:
+        Full UUID string.
+
+    Raises:
+        ValueError: If partial ID matches zero or multiple memories.
+
+    v5.1.0: Added for partial ID support (#244).
+    """
+    # Full UUID — return as-is
+    if len(memory_id) == 36 and memory_id.count('-') == 4:
+        return memory_id
+
+    # Partial ID — resolve via prefix match
+    matches = _exec(
+        "SELECT id FROM memories WHERE id LIKE ? AND deleted_at IS NULL",
+        [f"{memory_id}%"]
+    )
+    if len(matches) == 0:
+        raise ValueError(f"No active memory found matching prefix '{memory_id}'")
+    if len(matches) > 1:
+        ids = [m['id'][:12] + '...' for m in matches[:5]]
+        raise ValueError(
+            f"Partial id '{memory_id}' matches {len(matches)} memories: {ids}. "
+            "Provide a longer prefix for a unique match."
+        )
+    return matches[0]['id']
+
+
+def _write_memory(mem_id: str, what: str, type: str, now: str, conf: float,
+                  tags: list, refs: list, priority: int, valid_from: str, session_id: str) -> None:
+    """Internal helper: write memory to Turso (blocking).
+
+    v2.0.0: Simplified schema - removed entities, importance, salience, memory_class, embedding. Added priority field.
+    v3.2.0: Re-enabled session_id tracking.
+    v5.x.0 (#issue-superseded-col): Maintain is_superseded flag on referenced memories.
+    v5.7.0 (#issue-refs-no-auto-supersede): refs are citation/provenance edges, NOT supersede edges.
+        Removed the implicit UPDATE that flagged every referenced memory is_superseded=1
+        on insert. Two real-world callers (Phase 3 syntheses, boot.py reflection clusters)
+        used refs as provenance and were silently corrupting their citations. The supersede
+        flag now lives only on the explicit supersede() path; remember(refs=...) is
+        side-effect-free with respect to the referenced rows.
+    """
+    clean_refs = [r for r in (refs or []) if r is not None]
+    _exec(
+        """INSERT INTO memories (id, type, t, summary, confidence, tags, refs, priority,
+           session_id, created_at, updated_at, valid_from, access_count, last_accessed)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)""",
+        [mem_id, type, now, what, conf,
+         json.dumps(tags or []), json.dumps(clean_refs),
+         priority, session_id, now, now, valid_from]
+    )
+
+    # NOTE: previous versions auto-flagged referenced memories is_superseded=1 here.
+    # That conflated supersede semantics ("this replaces the referenced rows") with
+    # citation semantics ("this was derived from / cites the referenced rows"). Phase 3
+    # tag syntheses and reflection clustering used refs as citations and got their
+    # source memories silently flagged. Use supersede() when you want supersede
+    # semantics — it is the single explicit path that sets is_superseded=1.
+
+
+# @lat: [[memory#Core Operations]]
+def remember(what: str, type: str, *, tags: list = None, conf: float = None,
+             refs: list = None, priority: int = 0, valid_from: str = None,
+             sync: bool = True, session_id: str = None,
+             alternatives: list = None,
+             # Deprecated parameters (ignored in v2.0.0, kept for backward compat)
+             entities: list = None, importance: float = None, memory_class: str = None) -> str:
+    """Store a memory. Type is required. Returns memory ID.
+
+    Args:
+        what: Memory content/summary
+        type: Memory type (decision, world, anomaly, experience)
+        tags: Optional list of tags
+        conf: Optional confidence score (0.0-1.0)
+        refs: Optional list of referenced memory IDs. Citation/provenance only —
+            the referenced memories are NOT flagged superseded. Use supersede() if
+            you want to mark a memory as replaced. (v5.7.0 — see _write_memory.)
+        priority: Priority level (-1=background, 0=normal, 1=important, 2=critical)
+        valid_from: Optional timestamp when fact became true (defaults to creation time)
+        sync: If True (default), block until write completes. If False, write in background.
+               Use sync=True for critical memories (handoffs, decisions). Use sync=False for
+               fast writes where eventual consistency is acceptable.
+        session_id: Optional session identifier. Defaults to MUNINN_SESSION_ID env var or 'default-session'.
+        alternatives: Optional list of rejected alternatives for decision memories.
+            Each item should be a dict with 'option' and 'rejected' keys.
+            Example: [{"option": "Redis", "rejected": "Too complex for our scale"}]
+            Stored in refs as a typed object alongside memory ID references.
+
+    Deprecated args (v2.0.0 - ignored but accepted for backward compat):
+        entities, importance, memory_class
+
+    Returns:
+        Memory ID (UUID)
+
+    v0.6.0: Added sync parameter for background writes. Use flush() to wait for all pending writes.
+    v0.13.0: Removed embedding generation (OpenAI dependency removed).
+    v2.0.0: Simplified schema. Added priority. Removed entities, importance, memory_class.
+    v3.2.0: Added session_id parameter for session scoping.
+    v4.2.0: Added alternatives parameter for decision memories (#254).
+    v5.7.0 (#issue-refs-no-auto-supersede): refs is citation-only — referenced memories
+        are no longer auto-flagged is_superseded=1. Use supersede() for revision semantics.
+    """
+    if type not in TYPES:
+        raise ValueError(f"Invalid type '{type}'. Must be one of: {', '.join(sorted(TYPES))}")
+
+    now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    mem_id = str(uuid.uuid4())
+
+    if type == "decision" and conf is None:
+        conf = 0.8
+    if type == "procedure" and conf is None:
+        conf = 0.9
+    if type == "procedure" and priority == 0:
+        priority = 1  # Procedural memories default to important to survive pruning
+
+    if valid_from is None:
+        valid_from = now
+
+    if session_id is None:
+        session_id = get_session_id()
+
+    # v4.2.0: Store alternatives as a typed object in refs (#254)
+    if alternatives:
+        if type != "decision":
+            raise ValueError("alternatives parameter is only valid for type='decision' memories")
+        # Validate alternatives structure
+        for alt in alternatives:
+            if not isinstance(alt, dict) or 'option' not in alt:
+                raise ValueError("Each alternative must be a dict with at least an 'option' key")
+        refs = list(refs or [])
+        refs.append({"_type": "alternatives", "items": alternatives})
+
+    # Clamp priority to valid range
+    priority = max(-1, min(2, priority))
+
+    if sync:
+        # Blocking write to Turso
+        _write_memory(mem_id, what, type, now, conf, tags, refs, priority, valid_from, session_id)
+    else:
+        # Background write to Turso
+        def _bg_write():
+            try:
+                _write_memory(mem_id, what, type, now, conf, tags, refs, priority, valid_from, session_id)
+            except Exception as e:
+                # Retry budget exhausted in the bg thread. Capture the payload
+                # so the failure is visible to callers (failed_writes()) and
+                # can be retried later (retry_failed_writes()). Without this,
+                # background-write failures die silently with the thread.
+                with state._failed_bg_writes_lock:
+                    state._failed_bg_writes.append({
+                        'mem_id': mem_id,
+                        'what': what,
+                        'type': type,
+                        'tags': tags,
+                        'refs': refs,
+                        'priority': priority,
+                        'valid_from': valid_from,
+                        'session_id': session_id,
+                        'conf': conf,
+                        'error': str(e),
+                        'failed_at': datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                    })
+                print(f"Muninn: background write failed (id={mem_id[:8]}): {e}. "
+                      f"Payload captured; retry with retry_failed_writes() or inspect with failed_writes().")
+            finally:
+                # Remove from pending list when done
+                with state._pending_writes_lock:
+                    if thread in state._pending_writes:
+                        state._pending_writes.remove(thread)
+
+        thread = threading.Thread(target=_bg_write, daemon=True)
+        with state._pending_writes_lock:
+            state._pending_writes.append(thread)
+        thread.start()
+
+    # v0.13.0: Auto-append novel tags to recall-triggers config
+    # This helps build up a vocabulary of searchable terms over time
+    if tags:
+        try:
+            # Get current recall-triggers list
+            current_triggers = config_get("recall-triggers")
+            if current_triggers:
+                try:
+                    trigger_list = json.loads(current_triggers) if isinstance(current_triggers, str) else current_triggers
+                except json.JSONDecodeError:
+                    trigger_list = []
+            else:
+                trigger_list = []
+
+            # Add novel tags
+            trigger_set = set(trigger_list)
+            new_tags = [t for t in tags if t not in trigger_set]
+            if new_tags:
+                trigger_set.update(new_tags)
+                config_set("recall-triggers", json.dumps(sorted(trigger_set)), "ops")
+        except Exception:
+            # Don't fail remember() if trigger update fails
+            pass
+
+    # v5.4.0: Incremental co-occurrence update (#383)
+    if tags and len(tags) >= 2:
+        def _bg_cooccurrence():
+            try:
+                _update_cooccurrence_add(tags)
+            except Exception:
+                pass  # Best-effort; don't fail remember()
+        threading.Thread(target=_bg_cooccurrence, daemon=True).start()
+
+    return mem_id
+
+
+# @lat: [[memory#Background Writes]]
+def remember_bg(what: str, type: str, *, tags: list = None, conf: float = None,
+                entities: list = None, refs: list = None,
+                importance: float = None, memory_class: str = None, valid_from: str = None) -> str:
+    """Deprecated: Use remember(..., sync=False) instead.
+
+    Fire-and-forget memory storage. Type required. Returns immediately, writes in background.
+
+    Args:
+        Same as remember(), including v0.4.0 parameters (importance, memory_class, valid_from).
+
+    Returns:
+        Memory ID (UUID)
+    """
+    return remember(what, type, tags=tags, conf=conf, entities=entities, refs=refs,
+                    importance=importance, memory_class=memory_class, valid_from=valid_from, sync=False)
+
+
+# @lat: [[memory#Background Writes]]
+def flush(timeout: float = 5.0) -> dict:
+    """Block until all pending background writes complete.
+
+    Call this before conversation end to ensure all memories are persisted.
+
+    Args:
+        timeout: Maximum seconds to wait per thread (default 5.0)
+
+    Returns:
+        Dict with 'completed' count and 'timed_out' count
+
+    Example:
+        remember("note 1", "world", sync=False)
+        remember("note 2", "world", sync=False)
+        flush()  # Wait for both writes to complete
+    """
+    with state._pending_writes_lock:
+        threads = list(state._pending_writes)  # Copy list
+
+    completed = 0
+    timed_out = 0
+
+    for thread in threads:
+        thread.join(timeout=timeout)
+        if thread.is_alive():
+            timed_out += 1
+        else:
+            completed += 1
+
+    # Drain buffered access_count increments (v5.x.0, #issue-batch-access).
+    # Explicit flush() callers expect all pending state persisted.
+    try:
+        _flush_access_tracking()
+    except Exception as e:
+        # Access tracking is advisory; do not fail the caller's flush.
+        print(f"Muninn: Access tracking flush failed: {e}")
+
+    return {"completed": completed, "timed_out": timed_out}
+
+
+# @lat: [[memory#Background Writes]]
+def failed_writes() -> list:
+    """Return list of background writes that exhausted retry budget.
+
+    Each entry is a dict with the original payload (mem_id, what, type, tags,
+    refs, priority, valid_from, session_id, conf), plus 'error' (last error
+    string) and 'failed_at' (ISO timestamp). Returns a copy — mutations to
+    the returned list don't affect internal state.
+
+    Use to surface silent background-write failures, e.g. at conversation
+    end or before exit. Empty list = nothing failed.
+
+    Example:
+        for fw in failed_writes():
+            print(f"failed: {fw['what'][:50]} -- {fw['error']}")
+    """
+    with state._failed_bg_writes_lock:
+        return list(state._failed_bg_writes)
+
+
+# @lat: [[memory#Background Writes]]
+def retry_failed_writes(timeout: float = 30.0) -> dict:
+    """Re-attempt all captured failed background writes synchronously.
+
+    Each retry uses the standard sync path (_write_memory with retry budget),
+    so transient 503s are absorbed by _retry_with_backoff. Successes drop out
+    of the failed list; failures stay (with updated error/failed_at).
+
+    Args:
+        timeout: Per-write timeout hint. Currently advisory (not strictly
+            enforced); the underlying retry budget caps total wait time.
+
+    Returns:
+        Dict with:
+            'recovered': int — count successfully written
+            'still_failing': int — count still in failed list
+            'remaining': list — failed-write entries that still aren't writing
+
+    Example:
+        result = retry_failed_writes()
+        if result['still_failing']:
+            print(f"{result['still_failing']} writes still failing")
+    """
+    with state._failed_bg_writes_lock:
+        items = list(state._failed_bg_writes)
+        state._failed_bg_writes.clear()
+
+    recovered = 0
+    still_failing = []
+    for item in items:
+        try:
+            _write_memory(
+                item['mem_id'], item['what'], item['type'],
+                item['failed_at'],  # use failed_at as 'now' so original ordering preserved
+                item['conf'], item['tags'], item['refs'],
+                item['priority'], item['valid_from'], item['session_id'],
+            )
+            recovered += 1
+        except Exception as e:
+            item['error'] = str(e)
+            item['failed_at'] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+            still_failing.append(item)
+
+    if still_failing:
+        with state._failed_bg_writes_lock:
+            # Re-queue at front to preserve oldest-first ordering across retries
+            state._failed_bg_writes = still_failing + state._failed_bg_writes
+
+    return {
+        'recovered': recovered,
+        'still_failing': len(still_failing),
+        'remaining': still_failing,
+    }
+
+
+# @lat: [[memory#Background Writes]]
+def clear_failed_writes() -> int:
+    """Drop accumulated failed writes without retrying. Returns count dropped.
+
+    Use after retry_failed_writes() reveals all failures are unrecoverable
+    (e.g. malformed payload, schema violation), or to reset state during
+    testing. Failures are otherwise harmless if left in place.
+    """
+    with state._failed_bg_writes_lock:
+        n = len(state._failed_bg_writes)
+        state._failed_bg_writes.clear()
+        return n
+
+
+# @lat: [[memory#Core Operations]]
+def recall(search: str = None, *, query: str = None, n: int = 10, tags: list = None,
+           type: str = None, conf: float = None, tag_mode: str = "any",
+           strict: bool = False, session_id: str = None,
+           auto_strengthen: bool = False, raw: bool = False,
+           expansion_threshold: int = 3,
+           limit: int = None, fetch_all: bool = False,
+           since: str = None, until: str = None,
+           tags_all: list = None, tags_any: list = None,
+           episodic: bool = False,
+           exploration: bool = False,
+           # Deprecated parameters (kept for backward compat)
+           use_cache: bool = True) -> MemoryResultList:
+    """Query memories with flexible filters.
+
+    v5.6.0: Added exploration mode for MIA-inspired diversity boost (#paper-MIA).
+    v5.1.0: Added episodic relevance scoring (#296).
+    v5.0.0: Primary search uses Turso FTS5 with automatic retry and LIKE fallback.
+            Local cache removed from hot path. use_cache parameter is ignored.
+    v4.3.0: Added since/until time window parameters (#281).
+    v4.3.0: Added tags_all/tags_any convenience parameters (#282).
+    v4.1.0: Added fetch_all parameter for comprehensive memory retrieval.
+    v3.7.0: Added expansion_threshold parameter. Added limit as alias for n.
+    v3.4.0: Returns MemoryResult objects that validate field access.
+    v3.3.0: Added auto_strengthen for biological memory consolidation pattern.
+    v3.2.0: Added session_id filter for session scoping.
+
+    Args:
+        search: Text to search for in memory summaries (FTS5 ranked search).
+            Note: Wildcards like '*' are treated as literal text, not patterns.
+            Use fetch_all=True for comprehensive retrieval instead.
+        query: Alias for search. Both names accepted as first-class.
+            If both are provided, query wins.
+        n: Max number of results
+        tags: Filter by tags
+        type: Filter by memory type
+        conf: Minimum confidence threshold
+        tag_mode: "any" (default) matches any tag, "all" requires all tags
+        strict: If True, skip FTS5/ranking and order by timestamp DESC
+        session_id: Filter by session identifier (optional)
+        auto_strengthen: If True, automatically strengthen top 3 results
+        raw: If True, return plain dicts instead of MemoryResult objects
+        expansion_threshold: Minimum results before triggering query expansion (default 3).
+            Set to 0 to disable expansion entirely.
+        limit: Deprecated alias for n. If provided, overrides n.
+        fetch_all: If True, retrieve all memories without search filtering.
+            When True, the search parameter is ignored.
+        since: Filter memories created at or after this ISO timestamp.
+        until: Filter memories created at or before this ISO timestamp.
+        tags_all: Convenience parameter requiring ALL specified tags.
+            Cannot be combined with tags_any.
+        tags_any: Convenience parameter requiring ANY of the specified tags.
+            Cannot be combined with tags_all.
+        episodic: If True, include access-pattern boosting in ranking (#296).
+            Frequently accessed memories get a logarithmic boost, rewarding
+            validated-useful memories over unaccessed ones.
+        exploration: If True, apply exploration boost favoring rarely-accessed
+            memories (#paper-MIA). Adds 1/(1+access_count) bonus to ranking,
+            preventing heavily-accessed memories from monopolizing results.
+            Mutually exclusive with episodic (exploration wins if both set).
+        use_cache: Deprecated (v5.0.0). Ignored - all queries go to Turso.
+
+    Returns:
+        MemoryResultList of MemoryResult objects (or list of dicts if raw=True).
+    """
+    # v3.7.0: Accept limit= as deprecated alias for n=
+    if limit is not None:
+        n = limit
+
+    # Accept query= as alias for search= (Task.recall and many callers use 'query';
+    # the underlying FTS5 search uses 'search'. Both names are first-class.)
+    if query is not None:
+        search = query
+
+    # v4.3.0: Resolve tags_all/tags_any convenience parameters (#282)
+    if tags_all is not None and tags_any is not None:
+        raise ValueError("Cannot specify both tags_all and tags_any. Use one or the other.")
+    if tags_all is not None:
+        tags = tags_all
+        tag_mode = "all"
+    elif tags_any is not None:
+        tags = tags_any
+        tag_mode = "any"
+
+    # v4.1.0: Validate wildcard patterns and guide users to fetch_all
+    if search and not fetch_all:
+        wildcard_patterns = ['*', '%', '?']
+        if any(pattern in search and search.strip() in wildcard_patterns for pattern in wildcard_patterns):
+            raise ValueError(
+                f"Wildcard pattern '{search}' is not supported. "
+                "Use fetch_all=True for comprehensive memory retrieval instead. "
+                f"Example: recall(fetch_all=True, n={n})"
+            )
+
+    # v4.1.0: Handle fetch_all mode - retrieve all memories without search filtering
+    if fetch_all:
+        search = None
+
+    # v5.5.0: Normalize time inputs to UTC for DB comparison (#461)
+    if since is not None:
+        since = normalize_to_utc(since)
+    if until is not None:
+        until = normalize_to_utc(until)
+
+    # Track timing
+    start_time = time.time()
+
+    if isinstance(search, int):
+        results = _query(limit=search)
+        return results if raw else wrap_results(results)
+
+    # v5.0.0: Primary search path is Turso FTS5 with retry + LIKE fallback
+    if search and not strict:
+        # Try FTS5 search with retry for network hiccups
+        try:
+            results = _retry_with_backoff(
+                lambda: _fts5_search(
+                    search, n=n, type=type, tags=tags, tag_mode=tag_mode,
+                    conf=conf, session_id=session_id, since=since, until=until,
+                    episodic=episodic
+                ),
+                max_retries=3, base_delay=0.5
+            )
+        except RuntimeError as e:
+            if 'memory_fts' in str(e) or 'no such table' in str(e):
+                # FTS5 table not available on server; fall back to LIKE query
+                results = _query(search=search, tags=tags, type=type, conf=conf,
+                               limit=n, tag_mode=tag_mode, session_id=session_id,
+                               since=since, until=until)
+            else:
+                raise
+
+        # v5.4.0: Multi-stage query expansion with co-occurrence and boost-aware scoring (#383)
+        #
+        # Boost weights for different match provenance:
+        BOOST_PRIMARY = 3.0     # original query terms
+        BOOST_STAGE1_TAG = 2.0  # tags from initial results
+        BOOST_COOCCUR = 1.5     # co-occurrence expanded terms
+        BOOST_HOP2 = 1.0        # second-hop discovered terms
+
+        if expansion_threshold > 0 and len(results) < expansion_threshold:
+            seen_ids = {r['id'] for r in results}
+            # Track boost scores per memory id
+            boost_scores = {}
+            for r in results:
+                # Primary results get highest boost
+                score = abs(float(r.get('bm25_score', 0) or 0))
+                boost_scores[r['id']] = score * BOOST_PRIMARY
+
+            # Stage 2: Extract tags from Stage 1 results
+            stage1_tags = set()
+            for r in results:
+                result_tags = r.get('tags', [])
+                if isinstance(result_tags, list):
+                    stage1_tags.update(result_tags)
+
+            # Stage 2b: Co-occurrence expansion — find related tags via PMI
+            cooccur_tags = set()
+            if stage1_tags:
+                try:
+                    expanded = _cooccurrence_expand(list(stage1_tags), n=10, min_pmi=0.5)
+                    cooccur_tags = {e['tag'] for e in expanded}
+                except Exception:
+                    pass  # Co-occurrence table may not exist yet
+
+            # Even with 0 Stage 1 results, try expanding query words via co-occurrence
+            if not stage1_tags:
+                query_words = [w.strip().lower() for w in search.split() if w.strip()]
+                try:
+                    expanded = _cooccurrence_expand(query_words, n=10, min_pmi=0.0)
+                    cooccur_tags = {e['tag'] for e in expanded}
+                except Exception:
+                    pass
+
+            # Stage 3: Search by Stage 1 tags (with BOOST_STAGE1_TAG)
+            expansion_results = []
+            for tag in stage1_tags:
+                if len(results) + len(expansion_results) >= n * 2:
+                    break
+                try:
+                    tag_results = _fts5_search(
+                        tag, n=5, type=type, tags=tags,
+                        tag_mode=tag_mode, conf=conf, since=since, until=until
+                    )
+                except RuntimeError:
+                    break
+                for tr in tag_results:
+                    if tr['id'] not in seen_ids:
+                        score = abs(float(tr.get('bm25_score', 0) or 0))
+                        boost_scores[tr['id']] = boost_scores.get(tr['id'], 0) + score * BOOST_STAGE1_TAG
+                        expansion_results.append(tr)
+                        seen_ids.add(tr['id'])
+
+            # Stage 3b: Search by co-occurrence expanded tags (with BOOST_COOCCUR)
+            for tag in cooccur_tags:
+                if len(results) + len(expansion_results) >= n * 2:
+                    break
+                try:
+                    tag_results = _fts5_search(
+                        tag, n=5, type=type, tags=tags,
+                        tag_mode=tag_mode, conf=conf, since=since, until=until
+                    )
+                except RuntimeError:
+                    break
+                for tr in tag_results:
+                    if tr['id'] not in seen_ids:
+                        score = abs(float(tr.get('bm25_score', 0) or 0))
+                        boost_scores[tr['id']] = boost_scores.get(tr['id'], 0) + score * BOOST_COOCCUR
+                        expansion_results.append(tr)
+                        seen_ids.add(tr['id'])
+
+            # Stage 4: Second-hop — extract tags from expansion results, search again
+            hop2_tags = set()
+            for r in expansion_results:
+                result_tags = r.get('tags', [])
+                if isinstance(result_tags, list):
+                    hop2_tags.update(result_tags)
+            hop2_tags -= stage1_tags
+            hop2_tags -= cooccur_tags
+
+            for tag in hop2_tags:
+                if len(results) + len(expansion_results) >= n * 2:
+                    break
+                try:
+                    tag_results = _fts5_search(
+                        tag, n=3, type=type, tags=tags,
+                        tag_mode=tag_mode, conf=conf, since=since, until=until
+                    )
+                except RuntimeError:
+                    break
+                for tr in tag_results:
+                    if tr['id'] not in seen_ids:
+                        score = abs(float(tr.get('bm25_score', 0) or 0))
+                        boost_scores[tr['id']] = boost_scores.get(tr['id'], 0) + score * BOOST_HOP2
+                        expansion_results.append(tr)
+                        seen_ids.add(tr['id'])
+
+            # Merge: combine primary + expansion, sort by boost score, take top n
+            all_results = results + expansion_results
+            all_results.sort(key=lambda r: boost_scores.get(r['id'], 0), reverse=True)
+            results = all_results[:n]
+    else:
+        # No search term or strict mode: use direct Turso query
+        results = _retry_with_backoff(
+            lambda: _query(search=search, tags=tags, type=type, conf=conf,
+                          limit=n, tag_mode=tag_mode, session_id=session_id,
+                          since=since, until=until),
+            max_retries=3, base_delay=0.5
+        )
+
+    # v5.6.0: Exploration boost — rerank to surface rarely-accessed memories (#paper-MIA)
+    # Inspired by MIA's frequency reward: 1/(usage_count+1) prevents monopolization.
+    # Applied client-side since it inverts the episodic signal.
+    if exploration and results and not strict:
+        import math
+        EXPLORATION_WEIGHT = 0.1
+        scored = []
+        for i, r in enumerate(results):
+            # Position score from server-side ranking (inverse rank as proxy)
+            pos = 1.0 / (1 + i)
+            # Exploration bonus: rarely-accessed memories get a lift
+            ac = int(r.get('access_count', 0) or 0)
+            expl = EXPLORATION_WEIGHT * (1.0 / (1 + ac))
+            scored.append((pos + expl, r))
+        scored.sort(key=lambda x: x[0], reverse=True)
+        results = [r for _, r in scored]
+
+    # Track access in Turso (background, don't block)
+    if results:
+        def _bg_track():
+            try:
+                _update_access_tracking([r['id'] for r in results])
+            except Exception:
+                pass  # Access tracking is best-effort
+        threading.Thread(target=_bg_track, daemon=True).start()
+
+    # Auto-strengthen returned memories if requested (v3.3.0)
+    if auto_strengthen and results:
+        for r in results[:3]:
+            if r.get('priority', 0) < 2:
+                strengthen(r['id'], boost=1)
+
+    return results if raw else wrap_results(results)
+
+
+def _update_access_tracking(memory_ids: list):
+    """Buffer access_count increments; flush lazily.
+
+    v5.x.0 (#issue-batch-access): Previously this issued a synchronous UPDATE
+    on every recall with a variable-length IN clause, producing thousands of
+    low-value writes per week and thrashing Turso's prepared-statement cache
+    with a different statement per distinct result-set size. We now accumulate
+    increments in a module-level counter (state._access_buffer) and drain via
+    _flush_access_tracking() when:
+      - buffer size exceeds state._ACCESS_FLUSH_THRESHOLD (default 50), or
+      - flush() is called explicitly (conversation end), or
+      - the process exits (_auto_flush_on_exit atexit hook).
+
+    Semantic preservation: per-access counts are preserved. If a memory is
+    retrieved N times before flush, access_count is incremented by N.
+    last_accessed is set to flush time (within-session drift is negligible
+    for its purpose — MIA-style episodic recency scoring).
+
+    v5.0.0: Turso-only. Removed local cache sync.
+    """
+    if not memory_ids:
+        return
+    with state._access_buffer_lock:
+        for mid in memory_ids:
+            state._access_buffer[mid] = state._access_buffer.get(mid, 0) + 1
+        should_flush = len(state._access_buffer) >= state._ACCESS_FLUSH_THRESHOLD
+    if should_flush:
+        _flush_access_tracking()
+
+
+def _flush_access_tracking():
+    """Drain buffered access_count increments to Turso.
+
+    Groups memory IDs by their accumulated increment count so that memories
+    accessed the same number of times can share a single UPDATE. In typical
+    usage nearly all entries have count=1, so this collapses to one statement.
+
+    Safe to call when buffer is empty (no-op).
+    """
+    with state._access_buffer_lock:
+        if not state._access_buffer:
+            return
+        by_count = {}
+        for mid, n in state._access_buffer.items():
+            by_count.setdefault(n, []).append(mid)
+        state._access_buffer.clear()
+
+    now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    for n, ids in by_count.items():
+        placeholders = ", ".join("?" * len(ids))
+        _exec(f"""
+            UPDATE memories
+            SET access_count = COALESCE(access_count, 0) + ?,
+                last_accessed = ?
+            WHERE id IN ({placeholders})
+        """, [n, now] + ids)
+
+
+def _query(search: str = None, tags: list = None, type: str = None,
+           conf: float = None, limit: int = 10, tag_mode: str = "any",
+           session_id: str = None, since: str = None, until: str = None) -> list:
+    """Internal query implementation with parameterized queries.
+
+    Args:
+        tag_mode: "any" (default) matches any tag, "all" requires all tags
+        session_id: Optional session filter (v3.2.0)
+        since: Optional inclusive lower bound on timestamp (v4.3.0, #281)
+        until: Optional inclusive upper bound on timestamp (v4.3.0, #281)
+
+    v0.4.0: Tracks access_count and last_accessed for retrieved memories.
+    v3.2.0: Added session_id filter. Converted to parameterized queries for SQL injection protection.
+    v4.3.0: Added since/until time window parameters (#281).
+    """
+    # Build parameterized WHERE clause
+    conditions = [
+        "deleted_at IS NULL",
+        # Exclude memories that are superseded (appear in any other memory's refs field)
+        "is_superseded = 0"
+    ]
+    params = []
+
+    if search:
+        conditions.append("summary LIKE ? ESCAPE '\\'")
+        params.append(f"%{_escape_like(search)}%")
+
+    if tags:
+        if tag_mode == "all":
+            # Require all tags to be present
+            tag_conds = []
+            for t in tags:
+                tag_conds.append("tags LIKE ? ESCAPE '\\'")
+                params.append(f'%"{_escape_like(t)}"%')
+            conditions.append(f"({' AND '.join(tag_conds)})")
+        else:  # "any"
+            # Match any of the tags
+            tag_conds = []
+            for t in tags:
+                tag_conds.append("tags LIKE ? ESCAPE '\\'")
+                params.append(f'%"{_escape_like(t)}"%')
+            conditions.append(f"({' OR '.join(tag_conds)})")
+
+    if type:
+        conditions.append("type = ?")
+        params.append(type)
+
+    if conf is not None:
+        conditions.append("confidence >= ?")
+        params.append(conf)
+
+    if session_id is not None:
+        conditions.append("session_id = ?")
+        params.append(session_id)
+
+    if since is not None:
+        conditions.append("t >= ?")
+        params.append(since)
+
+    if until is not None:
+        conditions.append("t <= ?")
+        params.append(until)
+
+    where = " AND ".join(conditions)
+    order = "confidence DESC" if conf else "t DESC"
+
+    # Add limit as parameter
+    query = f"SELECT * FROM memories WHERE {where} ORDER BY {order} LIMIT ?"
+    params.append(limit)
+
+    results = _exec(query, params)
+
+    # Track access for returned memories
+    if results:
+        _update_access_tracking([m["id"] for m in results])
+
+    return results
+
+
+# @lat: [[memory#Temporal Queries]]
+def recall_since(after: str, *, search: str = None, query: str = None, n: int = 50,
+                 type: str = None, tags: list = None, tag_mode: str = "any",
+                 session_id: str = None, raw: bool = False) -> MemoryResultList:
+    """Query memories created after a given timestamp with parameterized queries.
+
+    Args:
+        after: ISO timestamp (e.g., '2025-12-26T00:00:00Z')
+        search: Text to search for in memory summaries
+        query: Alias for search.
+        n: Max number of results
+        type: Filter by memory type
+        tags: Filter by tags
+        tag_mode: "any" (default) matches any tag, "all" requires all tags
+        session_id: Filter by session identifier (optional, v3.2.0)
+        raw: If True, return plain dicts instead of MemoryResult objects (v3.4.0)
+
+    Returns:
+        MemoryResultList of MemoryResult objects (or list of dicts if raw=True).
+
+    v3.2.0: Converted to parameterized queries for SQL injection protection.
+    v3.4.0: Returns MemoryResult objects that validate field access.
+    v5.5.0: Input timestamps normalized to UTC (#461).
+    """
+    # v5.5.0: Normalize input to UTC for DB comparison (#461)
+    after = normalize_to_utc(after)
+
+    # Accept query= as alias for search= (consistent with recall())
+    if query is not None:
+        search = query
+
+    conditions = [
+        "deleted_at IS NULL",
+        "t > ?",
+        "is_superseded = 0"
+    ]
+    params = [after]
+
+    if search:
+        conditions.append("summary LIKE ? ESCAPE '\\'")
+        params.append(f"%{_escape_like(search)}%")
+
+    if type:
+        conditions.append("type = ?")
+        params.append(type)
+
+    if tags:
+        if tag_mode == "all":
+            tag_conds = []
+            for t in tags:
+                tag_conds.append("tags LIKE ? ESCAPE '\\'")
+                params.append(f'%"{_escape_like(t)}"%')
+            conditions.append(f"({' AND '.join(tag_conds)})")
+        else:  # "any"
+            tag_conds = []
+            for t in tags:
+                tag_conds.append("tags LIKE ? ESCAPE '\\'")
+                params.append(f'%"{_escape_like(t)}"%')
+            conditions.append(f"({' OR '.join(tag_conds)})")
+
+    if session_id is not None:
+        conditions.append("session_id = ?")
+        params.append(session_id)
+
+    where = " AND ".join(conditions)
+    query = f"SELECT * FROM memories WHERE {where} ORDER BY t DESC LIMIT ?"
+    params.append(n)
+
+    results = _exec(query, params)
+
+    # Track access for returned memories
+    if results:
+        _update_access_tracking([m["id"] for m in results])
+
+    return results if raw else wrap_results(results)
+
+
+# @lat: [[memory#Temporal Queries]]
+def recall_between(after: str, before: str, *, search: str = None, query: str = None,
+                   n: int = 100, type: str = None, tags: list = None,
+                   tag_mode: str = "any", session_id: str = None, raw: bool = False) -> MemoryResultList:
+    """Query memories within a time range with parameterized queries.
+
+    Args:
+        after: Start timestamp (exclusive)
+        before: End timestamp (exclusive)
+        search: Text to search for in memory summaries
+        query: Alias for search.
+        n: Max number of results
+        type: Filter by memory type
+        tags: Filter by tags
+        tag_mode: "any" (default) matches any tag, "all" requires all tags
+        session_id: Filter by session identifier (optional, v3.2.0)
+        raw: If True, return plain dicts instead of MemoryResult objects (v3.4.0)
+
+    Returns:
+        MemoryResultList of MemoryResult objects (or list of dicts if raw=True).
+
+    v3.2.0: Converted to parameterized queries for SQL injection protection.
+    v3.4.0: Returns MemoryResult objects that validate field access.
+    v5.5.0: Input timestamps normalized to UTC (#461).
+    """
+    # v5.5.0: Normalize inputs to UTC for DB comparison (#461)
+    after = normalize_to_utc(after)
+    before = normalize_to_utc(before)
+
+    # Accept query= as alias for search= (consistent with recall())
+    if query is not None:
+        search = query
+
+    conditions = [
+        "deleted_at IS NULL",
+        "t > ?",
+        "t < ?",
+        "is_superseded = 0"
+    ]
+    params = [after, before]
+
+    if search:
+        conditions.append("summary LIKE ? ESCAPE '\\'")
+        params.append(f"%{_escape_like(search)}%")
+
+    if type:
+        conditions.append("type = ?")
+        params.append(type)
+
+    if tags:
+        if tag_mode == "all":
+            tag_conds = []
+            for t in tags:
+                tag_conds.append("tags LIKE ? ESCAPE '\\'")
+                params.append(f'%"{_escape_like(t)}"%')
+            conditions.append(f"({' AND '.join(tag_conds)})")
+        else:  # "any"
+            tag_conds = []
+            for t in tags:
+                tag_conds.append("tags LIKE ? ESCAPE '\\'")
+                params.append(f'%"{_escape_like(t)}"%')
+            conditions.append(f"({' OR '.join(tag_conds)})")
+
+    if session_id is not None:
+        conditions.append("session_id = ?")
+        params.append(session_id)
+
+    where = " AND ".join(conditions)
+    query = f"SELECT * FROM memories WHERE {where} ORDER BY t DESC LIMIT ?"
+    params.append(n)
+
+    results = _exec(query, params)
+
+    # Track access for returned memories
+    if results:
+        _update_access_tracking([m["id"] for m in results])
+
+    return results if raw else wrap_results(results)
+
+
+# @lat: [[memory#Core Operations]]
+def forget(memory_id: str) -> bool:
+    """Soft-delete a memory. Supports both full and partial UUIDs.
+
+    If a full UUID is provided, performs exact match deletion.
+    If a partial ID is provided (prefix), resolves to a single memory
+    via prefix matching. Raises ValueError if the prefix matches zero
+    or more than one active memory.
+
+    Args:
+        memory_id: Full UUID or unique prefix of a memory ID.
+
+    Returns:
+        True if the memory was successfully soft-deleted.
+
+    Raises:
+        ValueError: If partial ID matches zero or multiple memories.
+
+    v5.4.0: Added incremental co-occurrence update on forget (#383).
+    v5.1.0: Added partial ID support with prefix matching (#244).
+    v5.0.0: Turso-only. Removed local cache invalidation.
+    """
+    resolved_id = _resolve_memory_id(memory_id)
+
+    # v5.4.0: Fetch tags before deletion for co-occurrence update (#383)
+    # v5.x.0: Also fetch refs so we can recompute is_superseded on targets after delete.
+    forgotten_tags = None
+    forgotten_refs = []
+    try:
+        rows = _exec(
+            "SELECT tags, refs FROM memories WHERE id = ? AND deleted_at IS NULL",
+            [resolved_id],
+        )
+        if rows:
+            raw_tags = rows[0].get('tags', [])
+            if isinstance(raw_tags, str):
+                forgotten_tags = json.loads(raw_tags)
+            elif isinstance(raw_tags, list):
+                forgotten_tags = raw_tags
+            raw_refs = rows[0].get('refs', [])
+            if isinstance(raw_refs, str):
+                try:
+                    forgotten_refs = [r for r in json.loads(raw_refs) if r]
+                except json.JSONDecodeError:
+                    forgotten_refs = []
+            elif isinstance(raw_refs, list):
+                forgotten_refs = [r for r in raw_refs if r]
+    except Exception:
+        pass  # Best-effort
+
+    now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    _exec("UPDATE memories SET deleted_at = ? WHERE id = ?", [now, resolved_id])
+
+    # v5.x.0 (#issue-superseded-col): For each memory this one referenced,
+    # re-check whether any OTHER non-deleted memory still references it.
+    # If not, clear its is_superseded flag so it can resurface in recall.
+    # This path is cold (forget is rare); using a small-scope json_each lookup
+    # is acceptable and keeps the hot recall path subquery-free.
+    if forgotten_refs:
+        for ref_id in forgotten_refs:
+            try:
+                still_superseded = _exec(
+                    """SELECT 1 FROM memories, json_each(refs)
+                       WHERE deleted_at IS NULL AND value = ? LIMIT 1""",
+                    [ref_id],
+                )
+                if not still_superseded:
+                    _exec(
+                        "UPDATE memories SET is_superseded = 0 WHERE id = ?",
+                        [ref_id],
+                    )
+            except Exception:
+                pass  # Best-effort; flag staleness is self-healing on next touch
+
+    # v5.4.0: Decrement co-occurrence counts (#383)
+    if forgotten_tags and len(forgotten_tags) >= 2:
+        def _bg_cooccurrence():
+            try:
+                _update_cooccurrence_remove(forgotten_tags)
+            except Exception:
+                pass
+        threading.Thread(target=_bg_cooccurrence, daemon=True).start()
+
+    return True
+
+
+# @lat: [[memory#Core Operations]]
+def supersede(original_id: str, summary: str, type: str, *,
+              tags: list = None, conf: float = None) -> str:
+    """Create a patch that supersedes an existing memory. Type required. Returns new memory ID.
+
+    Supports partial IDs for original_id (v5.1.0, #244).
+
+    v5.1.0: Added partial ID support (#244).
+    v5.0.0: Removed local cache operations. Turso-only.
+    v3.3.0: Uses _exec_batch for single HTTP request (2x efficiency improvement).
+    """
+    original_id = _resolve_memory_id(original_id)
+    now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    new_id = str(uuid.uuid4())
+    session_id = get_session_id()
+
+    # Batch both operations in single HTTP request (v3.3.0)
+    # v5.x.0 (#issue-superseded-col): Also flag original as superseded so the
+    # recall hot path can prune via index instead of a json_each subquery.
+    _exec_batch([
+        # Soft-delete original AND flag it superseded
+        ("UPDATE memories SET deleted_at = ?, is_superseded = 1 WHERE id = ?", [now, original_id]),
+        # Insert new memory
+        ("""INSERT INTO memories (id, type, t, summary, confidence, tags, refs, priority,
+               session_id, created_at, updated_at, valid_from, access_count, last_accessed)
+               VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, 0, NULL)""",
+         [new_id, type, now, summary, conf or 0.8,
+          json.dumps(tags or []), json.dumps([original_id]),
+          session_id, now, now, now])
+    ])
+
+    # Update recall-triggers
+    if tags:
+        try:
+            current_triggers = config_get("recall-triggers")
+            if current_triggers:
+                try:
+                    trigger_list = json.loads(current_triggers) if isinstance(current_triggers, str) else current_triggers
+                except json.JSONDecodeError:
+                    trigger_list = []
+            else:
+                trigger_list = []
+
+            trigger_set = set(trigger_list)
+            new_tags = [t for t in tags if t not in trigger_set]
+            if new_tags:
+                trigger_set.update(new_tags)
+                config_set("recall-triggers", json.dumps(sorted(trigger_set)), "ops")
+        except Exception:
+            pass
+
+    return new_id
+
+
+# --- Priority adjustment functions (v2.0.0) ---
+
+def reprioritize(memory_id: str, priority: int) -> None:
+    """Adjust priority for a memory. Supports partial IDs.
+
+    Priority levels:
+        -1: Background (low-value, can age out first)
+         0: Normal (default)
+         1: Important (boost in ranking)
+         2: Critical (always surface, never auto-age)
+
+    v5.1.0: Added partial ID support (#244).
+    v5.0.0: Turso-only. Removed local cache update.
+    """
+    resolved_id = _resolve_memory_id(memory_id)
+    priority = max(-1, min(2, priority))
+
+    _exec("""
+        UPDATE memories
+        SET priority = ?
+        WHERE id = ?
+    """, [priority, resolved_id])
+
+
+# --- Retrieval observability and retention helpers (v3.2.0) ---
+
+def memory_histogram() -> dict:
+    """Get distribution of memories by type, priority, and age.
+
+    Returns:
+        Dict with memory count breakdowns
+
+    Example:
+        >>> hist = memory_histogram()
+        >>> print(f"Total memories: {hist['total']}")
+        >>> print(f"By type: {hist['by_type']}")
+        >>> print(f"By priority: {hist['by_priority']}")
+    """
+    # Get all active memories
+    results = _exec("""
+        SELECT type, priority, created_at
+        FROM memories
+        WHERE deleted_at IS NULL
+          AND is_superseded = 0
+    """)
+
+    if not results:
+        return {
+            "total": 0,
+            "by_type": {},
+            "by_priority": {},
+            "by_age_days": {}
+        }
+
+    from collections import Counter
+    now = datetime.now(UTC)
+
+    by_type = Counter(m['type'] for m in results)
+    by_priority = Counter(m.get('priority', 0) for m in results)
+
+    # Age buckets: 0-7 days, 8-30 days, 31-90 days, 90+ days
+    age_buckets = {"0-7d": 0, "8-30d": 0, "31-90d": 0, "90d+": 0}
+    for m in results:
+        created = datetime.fromisoformat(m['created_at'].replace('Z', '+00:00'))
+        age_days = (now - created).days
+        if age_days <= 7:
+            age_buckets["0-7d"] += 1
+        elif age_days <= 30:
+            age_buckets["8-30d"] += 1
+        elif age_days <= 90:
+            age_buckets["31-90d"] += 1
+        else:
+            age_buckets["90d+"] += 1
+
+    return {
+        "total": len(results),
+        "by_type": dict(by_type),
+        "by_priority": dict(by_priority),
+        "by_age_days": age_buckets
+    }
+
+
+def prune_by_age(older_than_days: int, priority_floor: int = 0, dry_run: bool = True) -> dict:
+    """Soft-delete old memories with priority at or below a threshold.
+
+    Args:
+        older_than_days: Delete memories older than this many days
+        priority_floor: Only delete memories with priority <= this (default 0)
+        dry_run: If True (default), return what would be deleted without deleting
+
+    Returns:
+        Dict with count and list of memory IDs that were (or would be) deleted
+
+    Example:
+        >>> # See what would be deleted
+        >>> result = prune_by_age(older_than_days=90, priority_floor=0)
+        >>> print(f"Would delete {result['count']} memories")
+        >>> # Actually delete
+        >>> result = prune_by_age(older_than_days=90, priority_floor=0, dry_run=False)
+    """
+    cutoff = datetime.now(UTC) - __import__('datetime').timedelta(days=older_than_days)
+    cutoff_iso = cutoff.isoformat().replace("+00:00", "Z")
+
+    # Find candidates
+    results = _exec("""
+        SELECT id, summary, type, priority, created_at
+        FROM memories
+        WHERE deleted_at IS NULL
+          AND created_at < ?
+          AND priority <= ?
+          AND is_superseded = 0
+    """, [cutoff_iso, priority_floor])
+
+    ids = [m['id'] for m in results]
+
+    if not dry_run and ids:
+        # Actually delete
+        for memory_id in ids:
+            forget(memory_id)
+
+    return {
+        "count": len(ids),
+        "ids": ids,
+        "dry_run": dry_run,
+        "criteria": f"older_than={older_than_days}d, priority<={priority_floor}"
+    }
+
+
+def prune_by_priority(max_priority: int = -1, dry_run: bool = True) -> dict:
+    """Soft-delete memories with priority at or below a threshold.
+
+    Args:
+        max_priority: Delete memories with priority <= this (default -1, background only)
+        dry_run: If True (default), return what would be deleted without deleting
+
+    Returns:
+        Dict with count and list of memory IDs that were (or would be) deleted
+
+    Example:
+        >>> # Delete all background priority memories
+        >>> result = prune_by_priority(max_priority=-1, dry_run=False)
+    """
+    # Find candidates
+    results = _exec("""
+        SELECT id, summary, type, priority
+        FROM memories
+        WHERE deleted_at IS NULL
+          AND priority <= ?
+          AND is_superseded = 0
+    """, [max_priority])
+
+    ids = [m['id'] for m in results]
+
+    if not dry_run and ids:
+        # Actually delete
+        for memory_id in ids:
+            forget(memory_id)
+
+    return {
+        "count": len(ids),
+        "ids": ids,
+        "dry_run": dry_run,
+        "criteria": f"priority<={max_priority}"
+    }
+
+
+# Priority adjustment with biological memory consolidation pattern (v3.3.0)
+# @lat: [[memory#Core Operations]]
+def strengthen(memory_id: str, boost: int = 1) -> dict:
+    """Strengthen a memory by incrementing its priority. Supports partial IDs.
+
+    Based on biological memory consolidation: memories that participate
+    in active cognition should consolidate more strongly.
+
+    Args:
+        memory_id: Full UUID or unique prefix of a memory ID.
+        boost: Priority increment (default 1, max result is 2)
+
+    Returns:
+        dict with memory_id, old_priority, new_priority, changed
+
+    v5.1.0: Added partial ID support (#244).
+    """
+    memory_id = _resolve_memory_id(memory_id)
+    # Get current state
+    result = _exec(
+        "SELECT priority, access_count FROM memories WHERE id = ? AND deleted_at IS NULL",
+        [memory_id]
+    )
+
+    if not result:
+        return {"error": f"Memory {memory_id} not found"}
+
+    old_priority = int(result[0]['priority'] or 0)
+    access_count = int(result[0]['access_count'] or 0)
+
+    # Cap at priority=2
+    new_priority = min(2, old_priority + boost)
+
+    if new_priority != old_priority:
+        reprioritize(memory_id, new_priority)
+
+    return {
+        "memory_id": memory_id,
+        "old_priority": old_priority,
+        "new_priority": new_priority,
+        "access_count": access_count,
+        "changed": new_priority != old_priority
+    }
+
+
+# @lat: [[memory#Core Operations]]
+def weaken(memory_id: str, drop: int = 1) -> dict:
+    """Weaken a memory by decrementing its priority. Supports partial IDs.
+
+    Args:
+        memory_id: Full UUID or unique prefix of a memory ID.
+        drop: Priority decrement (default 1, min result is -1)
+
+    Returns:
+        dict with memory_id, old_priority, new_priority, changed
+
+    v5.1.0: Added partial ID support (#244).
+    """
+    memory_id = _resolve_memory_id(memory_id)
+    result = _exec(
+        "SELECT priority FROM memories WHERE id = ? AND deleted_at IS NULL",
+        [memory_id]
+    )
+
+    if not result:
+        return {"error": f"Memory {memory_id} not found"}
+
+    old_priority = int(result[0]['priority'] or 0)
+    new_priority = max(-1, old_priority - drop)
+
+    if new_priority != old_priority:
+        reprioritize(memory_id, new_priority)
+
+    return {
+        "memory_id": memory_id,
+        "old_priority": old_priority,
+        "new_priority": new_priority,
+        "changed": new_priority != old_priority
+    }
+
+
+# --- Batch APIs (v4.5.0, #299) ---
+
+# @lat: [[memory#Batch Operations]]
+def recall_batch(queries: list, *, n: int = 10, type: str = None,
+                 tags: list = None, tag_mode: str = "any",
+                 conf: float = None, session_id: str = None,
+                 raw: bool = False) -> list:
+    """Execute multiple search queries in a single HTTP round-trip.
+
+    Uses server-side FTS5 (memory_fts table) for BM25-ranked results with
+    composite scoring (BM25 × recency × priority). Falls back to sequential
+    recall() calls if server-side FTS5 is unavailable.
+
+    Args:
+        queries: List of search strings. Each produces an independent result set.
+        n: Max results per query (default 10)
+        type: Filter by memory type (applied to all queries)
+        tags: Filter by tags (applied to all queries)
+        tag_mode: "any" or "all" for tag matching
+        conf: Minimum confidence threshold
+        session_id: Filter by session identifier
+        raw: If True, return plain dicts instead of MemoryResult objects
+
+    Returns:
+        List of result lists, one per query, in the same order as input.
+        Each inner list contains MemoryResult objects (or dicts if raw=True).
+        On per-item errors, the corresponding entry is {"error": str}.
+
+    Example:
+        >>> results = recall_batch(["architecture", "turso", "FTS5"])
+        >>> for i, result_set in enumerate(results):
+        ...     print(f"Query {i}: {len(result_set)} results")
+
+    v4.5.0: Initial implementation (#299).
+    """
+    if not queries:
+        return []
+
+    # Build N FTS5 search statements for a single _exec_batch call
+    statements = []
+    fts5_available = True
+
+    for search in queries:
+        from .turso import _escape_fts5_server
+
+        fts_query = _escape_fts5_server(search)
+
+        conditions = [
+            "m.deleted_at IS NULL",
+            "m.is_superseded = 0"
+        ]
+        params = [fts_query]
+
+        if type:
+            conditions.append("m.type = ?")
+            params.append(type)
+
+        if tags:
+            if tag_mode == "all":
+                for t in tags:
+                    conditions.append("m.tags LIKE ? ESCAPE '\\'")
+                    params.append(f'%"{_escape_like(t)}"%')
+            else:
+                tag_conds = []
+                for t in tags:
+                    tag_conds.append("m.tags LIKE ? ESCAPE '\\'")
+                    params.append(f'%"{_escape_like(t)}"%')
+                conditions.append(f"({' OR '.join(tag_conds)})")
+
+        if conf is not None:
+            conditions.append("m.confidence >= ?")
+            params.append(conf)
+
+        if session_id is not None:
+            conditions.append("m.session_id = ?")
+            params.append(session_id)
+
+        where = " AND ".join(conditions)
+        params.append(n)
+
+        # v5.6.0: confidence quality signal added (#paper-MIA)
+        sql = f"""
+            SELECT m.*,
+                   bm25(memory_fts, 0, 1.0, 1.0) AS bm25_score,
+                   bm25(memory_fts, 0, 1.0, 1.0)
+                     * (1.0 + COALESCE(m.priority, 0) * 0.3)
+                     * (1.0 / (1.0 + (julianday('now') - julianday(m.t)) * 0.01))
+                     * (1.0 + COALESCE(m.confidence, 0.5) * 0.15)
+                   AS composite_score
+            FROM memory_fts f
+            JOIN memories m ON f.id = m.id
+            WHERE memory_fts MATCH ?
+              AND {where}
+            ORDER BY composite_score ASC
+            LIMIT ?
+        """
+        statements.append((sql, params))
+
+    # Execute all queries in a single HTTP round-trip
+    try:
+        batch_results = _exec_batch(statements)
+    except RuntimeError as e:
+        if 'memory_fts' in str(e) or 'no such table' in str(e):
+            # FTS5 table not available; fall back to sequential recall()
+            fts5_available = False
+        else:
+            raise
+
+    if not fts5_available:
+        # Fallback: sequential recall() calls
+        results = []
+        for search in queries:
+            try:
+                r = recall(search, n=n, type=type, tags=tags, tag_mode=tag_mode,
+                          conf=conf, session_id=session_id, raw=raw)
+                results.append(r)
+            except Exception as ex:
+                results.append({"error": str(ex)})
+        return results
+
+    # Wrap results
+    output = []
+    for result_set in batch_results:
+        if isinstance(result_set, dict) and 'error' in result_set:
+            output.append(result_set)
+        elif raw:
+            output.append(result_set)
+        else:
+            output.append(wrap_results(result_set))
+
+    return output
+
+
+# @lat: [[memory#Batch Operations]]
+def remember_batch(items: list, *, sync: bool = True) -> list:
+    """Store multiple memories in a single HTTP round-trip.
+
+    Each item in the list specifies a memory to store. UUIDs and timestamps
+    are generated for all items. All INSERTs are sent via _exec_batch().
+
+    Args:
+        items: List of dicts, each with:
+            - what (str): Memory content (required)
+            - type (str): Memory type (required)
+            - tags (list): Optional tags
+            - conf (float): Optional confidence
+            - refs (list): Optional references
+            - priority (int): Priority level (default 0)
+            - session_id (str): Optional session identifier
+            - alternatives (list): Optional alternatives (decision type only)
+        sync: If True (default), block until all writes complete.
+            If False, writes execute in a background thread.
+
+    Returns:
+        List of memory IDs in the same order as input items.
+        On per-item validation errors, the corresponding entry is {"error": str}.
+
+    Example:
+        >>> ids = remember_batch([
+        ...     {"what": "User prefers dark mode", "type": "decision", "tags": ["ui"]},
+        ...     {"what": "Project uses React", "type": "world", "tags": ["tech"]},
+        ...     {"what": "Found bug in auth", "type": "anomaly", "conf": 0.7},
+        ... ])
+        >>> print(f"Stored {len(ids)} memories")
+
+    v4.5.0: Initial implementation (#299).
+    """
+    if not items:
+        return []
+
+    now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    default_session = get_session_id()
+
+    # Validate all items and prepare SQL statements
+    mem_ids = []
+    statements = []
+    all_tags = []  # Collect tags for recall-triggers update
+
+    for i, item in enumerate(items):
+        what = item.get('what')
+        mem_type = item.get('type')
+
+        # Validate required fields
+        if not what or not mem_type:
+            mem_ids.append({"error": f"Item {i}: 'what' and 'type' are required"})
+            continue
+
+        if mem_type not in TYPES:
+            mem_ids.append({"error": f"Item {i}: Invalid type '{mem_type}'. Must be one of: {', '.join(sorted(TYPES))}"})
+            continue
+
+        mem_id = str(uuid.uuid4())
+        conf = item.get('conf')
+        item_tags = item.get('tags')
+        refs = item.get('refs')
+        priority = item.get('priority', 0)
+        session_id = item.get('session_id', default_session)
+        alternatives = item.get('alternatives')
+        valid_from = now
+
+        # Apply type defaults
+        if mem_type == "decision" and conf is None:
+            conf = 0.8
+        if mem_type == "procedure" and conf is None:
+            conf = 0.9
+        if mem_type == "procedure" and priority == 0:
+            priority = 1
+
+        # Handle alternatives
+        if alternatives:
+            if mem_type != "decision":
+                mem_ids.append({"error": f"Item {i}: alternatives only valid for type='decision'"})
+                continue
+            for alt in alternatives:
+                if not isinstance(alt, dict) or 'option' not in alt:
+                    mem_ids.append({"error": f"Item {i}: Each alternative must be a dict with 'option' key"})
+                    break
+            else:
+                refs = list(refs or [])
+                refs.append({"_type": "alternatives", "items": alternatives})
+            if isinstance(mem_ids[-1] if mem_ids else None, dict):
+                continue  # Skip if validation error was added
+
+        priority = max(-1, min(2, priority))
+
+        statements.append((
+            """INSERT INTO memories (id, type, t, summary, confidence, tags, refs, priority,
+               session_id, created_at, updated_at, valid_from, access_count, last_accessed)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL)""",
+            [mem_id, mem_type, now, what, conf,
+             json.dumps(item_tags or []), json.dumps([r for r in (refs or []) if r is not None]),
+             priority, session_id, now, now, valid_from]
+        ))
+        mem_ids.append(mem_id)
+
+        if item_tags:
+            all_tags.extend(item_tags)
+
+    # Execute all INSERTs in a single round-trip
+    if statements:
+        def _do_batch():
+            _exec_batch(statements)
+
+        if sync:
+            _do_batch()
+        else:
+            thread = threading.Thread(target=_do_batch, daemon=True)
+            with state._pending_writes_lock:
+                state._pending_writes.append(thread)
+            thread.start()
+
+    # Update recall-triggers with novel tags (best-effort)
+    if all_tags:
+        try:
+            current_triggers = config_get("recall-triggers")
+            if current_triggers:
+                try:
+                    trigger_list = json.loads(current_triggers) if isinstance(current_triggers, str) else current_triggers
+                except json.JSONDecodeError:
+                    trigger_list = []
+            else:
+                trigger_list = []
+
+            trigger_set = set(trigger_list)
+            new_tags = [t for t in all_tags if t not in trigger_set]
+            if new_tags:
+                trigger_set.update(new_tags)
+                config_set("recall-triggers", json.dumps(sorted(trigger_set)), "ops")
+        except Exception:
+            pass
+
+    return mem_ids
+
+
+# --- Decision alternatives helpers (v4.2.0, #254) ---
+
+def get_alternatives(memory_id: str) -> list:
+    """Extract alternatives from a decision memory's refs field.
+
+    Args:
+        memory_id: UUID of the memory to check
+
+    Returns:
+        List of alternative dicts, or empty list if none found.
+        Each dict has at least 'option' and optionally 'rejected'.
+
+    Example:
+        >>> alts = get_alternatives("abc-123")
+        >>> for alt in alts:
+        ...     print(f"Rejected {alt['option']}: {alt.get('rejected', 'no reason given')}")
+    """
+    result = _exec(
+        "SELECT refs FROM memories WHERE id = ? AND deleted_at IS NULL",
+        [memory_id]
+    )
+
+    if not result:
+        return []
+
+    refs_raw = result[0].get('refs')
+    if not refs_raw:
+        return []
+
+    try:
+        refs = json.loads(refs_raw) if isinstance(refs_raw, str) else refs_raw
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+    for entry in refs:
+        if isinstance(entry, dict) and entry.get('_type') == 'alternatives':
+            return entry.get('items', [])
+
+    return []
+
+
+def get_chain(memory_id: str, depth: int = 3) -> list:
+    """Follow reference chains to build a context graph around a memory.
+
+    Traverses the refs field of memories to discover connected memories,
+    building a subgraph of related context. Handles cycles via a visited set.
+
+    Args:
+        memory_id: UUID of the starting memory
+        depth: Maximum traversal depth (default 3, max 10)
+
+    Returns:
+        List of memory dicts in the chain, starting with the root memory.
+        Each memory includes a '_chain_depth' field indicating its distance
+        from the root (0 = root, 1 = direct reference, etc.).
+
+    Example:
+        >>> chain = get_chain("abc-123", depth=2)
+        >>> for m in chain:
+        ...     print(f"[depth={m['_chain_depth']}] {m['summary'][:80]}")
+
+    v4.3.0: Elevated from muninn_utils to core API (#283).
+    """
+    depth = min(depth, 10)  # Cap at 10 to prevent runaway traversal
+
+    visited = set()
+    result = []
+
+    def _traverse(mid: str, current_depth: int):
+        if mid in visited or current_depth > depth:
+            return
+        visited.add(mid)
+
+        # Fetch the memory
+        rows = _exec(
+            "SELECT * FROM memories WHERE id = ? AND deleted_at IS NULL",
+            [mid]
+        )
+        if not rows:
+            return
+
+        memory = rows[0]
+        memory['_chain_depth'] = current_depth
+        result.append(memory)
+
+        # Parse refs and follow references
+        refs_raw = memory.get('refs')
+        if not refs_raw:
+            return
+
+        try:
+            refs = json.loads(refs_raw) if isinstance(refs_raw, str) else refs_raw
+        except (json.JSONDecodeError, TypeError):
+            return
+
+        for ref in refs:
+            if isinstance(ref, str):
+                # Direct memory ID reference
+                _traverse(ref, current_depth + 1)
+            elif isinstance(ref, dict) and ref.get('_type') != 'alternatives':
+                # Skip alternatives objects, follow other dict refs if they have an id
+                ref_id = ref.get('id')
+                if ref_id:
+                    _traverse(ref_id, current_depth + 1)
+
+    _traverse(memory_id, 0)
+    return result
+
+
+# --- Memory consolidation (v4.2.0, #253) ---
+
+# @lat: [[memory#Consolidation & Curation]]
+def consolidate(*, tags: list = None, min_cluster: int = 3, dry_run: bool = True,
+                session_id: str = None) -> dict:
+    """Consolidate clusters of related memories into summary memories.
+
+    Identifies groups of memories sharing common tags, synthesizes a summary
+    memory for each cluster, and demotes the originals to background priority.
+    The summary preserves refs to all originals for traceability.
+
+    Inspired by biological memory consolidation (episodic -> semantic conversion).
+
+    Args:
+        tags: Optional tag filter. If provided, only consolidate memories matching these tags.
+            If None, discovers clusters across all active memories.
+        min_cluster: Minimum memories sharing a tag to form a cluster (default 3).
+        dry_run: If True (default), return what would be consolidated without acting.
+        session_id: Optional session filter for scoping consolidation.
+
+    Returns:
+        Dict with:
+            - clusters: list of cluster dicts, each with tag, count, memory_ids, preview
+            - consolidated: number of clusters actually consolidated (0 if dry_run)
+            - demoted: number of original memories demoted to background priority
+            - dry_run: whether this was a dry run
+
+    Example:
+        >>> # Preview what would be consolidated
+        >>> result = consolidate(dry_run=True)
+        >>> for c in result['clusters']:
+        ...     print(f"Tag '{c['tag']}': {c['count']} memories")
+        >>> # Actually consolidate
+        >>> result = consolidate(dry_run=False, min_cluster=3)
+    """
+    from collections import Counter
+
+    # Fetch active memories
+    conditions = [
+        "deleted_at IS NULL",
+        "is_superseded = 0"
+    ]
+    params = []
+
+    if tags:
+        tag_conds = []
+        for t in tags:
+            tag_conds.append("tags LIKE ? ESCAPE '\\'")
+            params.append(f'%"{_escape_like(t)}"%')
+        conditions.append(f"({' OR '.join(tag_conds)})")
+
+    if session_id:
+        conditions.append("session_id = ?")
+        params.append(session_id)
+
+    # Exclude already-consolidated summaries
+    conditions.append("tags NOT LIKE '%\"consolidated\"%'")
+
+    where = " AND ".join(conditions)
+    results = _exec(f"SELECT id, summary, type, tags, priority FROM memories WHERE {where}", params)
+
+    if not results:
+        return {"clusters": [], "consolidated": 0, "demoted": 0, "dry_run": dry_run}
+
+    # Parse tags and build tag -> memory mapping
+    tag_to_memories = {}
+    for m in results:
+        try:
+            mem_tags = json.loads(m['tags']) if isinstance(m['tags'], str) else (m['tags'] or [])
+        except (json.JSONDecodeError, TypeError):
+            mem_tags = []
+        for tag in mem_tags:
+            if tag not in tag_to_memories:
+                tag_to_memories[tag] = []
+            tag_to_memories[tag].append(m)
+
+    # Find clusters meeting minimum size, sorted by size descending
+    clusters = []
+    consolidated_ids = set()  # Track already-assigned memories
+
+    for tag, memories in sorted(tag_to_memories.items(), key=lambda x: -len(x[1])):
+        # Filter out memories already assigned to a cluster
+        available = [m for m in memories if m['id'] not in consolidated_ids]
+        if len(available) < min_cluster:
+            continue
+
+        cluster_ids = [m['id'] for m in available]
+        summaries = [m['summary'] for m in available]
+        preview = "; ".join(s[:80] for s in summaries[:5])
+        if len(summaries) > 5:
+            preview += f" ... (+{len(summaries) - 5} more)"
+
+        clusters.append({
+            "tag": tag,
+            "count": len(available),
+            "memory_ids": cluster_ids,
+            "preview": preview,
+            "types": dict(Counter(m['type'] for m in available))
+        })
+
+        consolidated_ids.update(cluster_ids)
+
+    if not clusters:
+        return {"clusters": clusters, "consolidated": 0, "demoted": 0, "dry_run": dry_run}
+
+    consolidated_count = 0
+    demoted_count = 0
+
+    if not dry_run:
+        for cluster in clusters:
+            # Build synthesis summary from cluster contents
+            member_summaries = []
+            for mid in cluster['memory_ids']:
+                for m in results:
+                    if m['id'] == mid:
+                        member_summaries.append(m['summary'])
+                        break
+
+            synthesis = f"[Consolidated from {cluster['count']} memories tagged '{cluster['tag']}']\n"
+            synthesis += "\n".join(f"- {s}" for s in member_summaries)
+
+            # Create consolidated summary memory
+            remember(
+                synthesis,
+                "world",
+                tags=[cluster['tag'], "consolidated"],
+                refs=cluster['memory_ids'],
+                priority=1,
+                sync=True,
+                session_id=session_id or get_session_id()
+            )
+            consolidated_count += 1
+
+            # Demote originals to background priority
+            for mid in cluster['memory_ids']:
+                reprioritize(mid, -1)
+                demoted_count += 1
+
+    return {
+        "clusters": clusters,
+        "consolidated": consolidated_count,
+        "demoted": demoted_count,
+        "dry_run": dry_run
+    }
+
+
+# --- Autonomous memory management (v5.1.0, #295) ---
+
+# @lat: [[memory#Consolidation & Curation]]
+def curate(*, dry_run: bool = True, consolidation_threshold: int = 3,
+           stale_days: int = 90, low_priority_cap: int = -1,
+           max_actions: int = 20) -> dict:
+    """Autonomous memory curation: detect duplicates, stale memories, and consolidation opportunities.
+
+    Implements three curation strategies as flexible guidelines:
+    1. **Consolidation detection**: Groups of memories sharing tags that could be synthesized.
+    2. **Stale memory identification**: Old, unaccessed memories below priority threshold.
+    3. **Duplicate detection**: Memories with high textual overlap.
+
+    When dry_run=False, applies actions: consolidates clusters and demotes stale memories.
+    When dry_run=True (default), returns analysis without modifications.
+
+    Args:
+        dry_run: If True (default), analyze without applying changes.
+        consolidation_threshold: Min memories per tag to suggest consolidation (default 3).
+        stale_days: Days since last access to consider a memory stale (default 90).
+        low_priority_cap: Max priority level for stale pruning candidates (default -1).
+        max_actions: Maximum total actions to take per invocation (default 20).
+
+    Returns:
+        Dict with:
+            - consolidation: clusters found (same as consolidate(dry_run=True))
+            - stale: list of stale memory summaries with IDs
+            - actions_taken: number of actions applied (0 if dry_run)
+            - recommendations: human-readable suggestions
+
+    v5.1.0: Initial implementation (#295).
+    """
+    result = {
+        "consolidation": {"clusters": []},
+        "stale": [],
+        "actions_taken": 0,
+        "recommendations": []
+    }
+    actions_remaining = max_actions
+
+    # 1. Consolidation detection
+    try:
+        consol = consolidate(min_cluster=consolidation_threshold, dry_run=True)
+        result["consolidation"] = consol
+        if consol["clusters"]:
+            cluster_tags = [c["tag"] for c in consol["clusters"][:5]]
+            result["recommendations"].append(
+                f"Found {len(consol['clusters'])} consolidation candidates: "
+                f"{', '.join(cluster_tags)}. "
+                "Run consolidate(dry_run=False) to merge."
+            )
+    except Exception as e:
+        result["recommendations"].append(f"Consolidation scan failed: {e}")
+
+    # 2. Stale memory identification
+    try:
+        stale_cutoff = datetime.now(UTC)
+        from datetime import timedelta
+        stale_cutoff = (stale_cutoff - timedelta(days=stale_days)).isoformat().replace("+00:00", "Z")
+
+        stale_memories = _exec(
+            """SELECT id, summary, type, priority, last_accessed, access_count, t
+               FROM memories
+               WHERE deleted_at IS NULL
+                 AND priority <= ?
+                 AND (last_accessed IS NULL OR last_accessed < ?)
+                 AND t < ?
+               ORDER BY t ASC
+               LIMIT ?""",
+            [low_priority_cap, stale_cutoff, stale_cutoff, max_actions]
+        )
+
+        for m in stale_memories:
+            result["stale"].append({
+                "id": m["id"],
+                "summary_preview": (m.get("summary") or "")[:100],
+                "type": m.get("type"),
+                "priority": m.get("priority"),
+                "created": m.get("t"),
+                "access_count": m.get("access_count", 0)
+            })
+
+        if stale_memories:
+            result["recommendations"].append(
+                f"Found {len(stale_memories)} stale memories (>{stale_days} days, priority<={low_priority_cap}). "
+                "Review and forget() those no longer relevant."
+            )
+    except Exception as e:
+        result["recommendations"].append(f"Stale memory scan failed: {e}")
+
+    # 3. Apply actions if not dry_run
+    if not dry_run:
+        # Auto-consolidate clusters
+        if result["consolidation"]["clusters"] and actions_remaining > 0:
+            try:
+                applied = consolidate(
+                    min_cluster=consolidation_threshold,
+                    dry_run=False
+                )
+                result["actions_taken"] += applied.get("consolidated", 0)
+                actions_remaining -= applied.get("consolidated", 0)
+                result["consolidation"] = applied
+            except Exception as e:
+                result["recommendations"].append(f"Auto-consolidation failed: {e}")
+
+        # Auto-demote stale memories (don't delete — just weaken)
+        if result["stale"] and actions_remaining > 0:
+            demoted = 0
+            for m in result["stale"][:actions_remaining]:
+                try:
+                    current_priority = int(m.get("priority") or 0)
+                    if current_priority > -1:
+                        reprioritize(m["id"], -1)
+                        demoted += 1
+                except Exception:
+                    pass
+            if demoted:
+                result["actions_taken"] += demoted
+                result["recommendations"].append(f"Demoted {demoted} stale memories to background priority.")
+
+    if not result["recommendations"]:
+        result["recommendations"].append("Memory store is healthy — no curation needed.")
+
+    return result
+
+
+# --- Systematized decision trace storage (v5.1.0, #297) ---
+
+# @lat: [[memory#Decision Traces]]
+def decision_trace(choice: str, context: str, rationale: str, *,
+                   alternatives: list = None, tradeoffs: str = None,
+                   contraindications: str = None, tags: list = None,
+                   refs: list = None, conf: float = 0.9,
+                   priority: int = 1) -> str:
+    """Store a structured decision trace with standardized format.
+
+    Creates a decision memory with a structured body that captures not just
+    what was decided but why, what was rejected, and what to watch out for.
+    Decision traces are automatically tagged with "decision-trace" for retrieval.
+
+    Args:
+        choice: What was decided (the outcome).
+        context: What problem was being solved (the trigger).
+        rationale: Why this choice was made (the reasoning).
+        alternatives: Optional list of rejected alternatives.
+            Each item: dict with 'option' and 'rejected' keys.
+            Example: [{"option": "Redis", "rejected": "Over-engineered for our scale"}]
+        tradeoffs: Optional description of known tradeoffs accepted.
+        contraindications: Optional conditions where this decision should be revisited.
+        tags: Additional tags (auto-includes "decision-trace").
+        refs: Optional list of referenced memory IDs.
+        conf: Confidence in the decision (default 0.9).
+        priority: Priority level (default 1 = important).
+
+    Returns:
+        Memory ID (UUID).
+
+    Example:
+        >>> decision_trace(
+        ...     choice="Chose Turso FTS5 over local SQLite cache",
+        ...     context="Need to simplify architecture after cache sync bugs",
+        ...     rationale="Cache latency savings (~145ms) negligible vs tool overhead (~3-4s). "
+        ...               "Eliminating sync eliminates a whole class of bugs.",
+        ...     alternatives=[
+        ...         {"option": "Keep local cache", "rejected": "Ongoing sync bugs"},
+        ...         {"option": "Redis", "rejected": "External dependency, overkill"}
+        ...     ],
+        ...     tradeoffs="Slightly higher latency per query, network dependency",
+        ...     contraindications="If tool call overhead drops below 500ms, reconsider caching",
+        ...     tags=["architecture", "turso"]
+        ... )
+
+    v5.1.0: Initial implementation (#297).
+    """
+    # Build structured summary
+    parts = [
+        f"DECISION: {choice}",
+        f"CONTEXT: {context}",
+        f"RATIONALE: {rationale}",
+    ]
+
+    if tradeoffs:
+        parts.append(f"TRADEOFFS: {tradeoffs}")
+
+    if contraindications:
+        parts.append(f"CONTRAINDICATIONS: {contraindications}")
+
+    if alternatives:
+        alt_lines = []
+        for alt in alternatives:
+            opt = alt.get("option", "?")
+            rej = alt.get("rejected", "no reason given")
+            alt_lines.append(f"  - {opt}: rejected because {rej}")
+        parts.append("ALTERNATIVES CONSIDERED:\n" + "\n".join(alt_lines))
+
+    summary = "\n".join(parts)
+
+    # Build tags (always include "decision-trace")
+    all_tags = list(tags or [])
+    if "decision-trace" not in all_tags:
+        all_tags.insert(0, "decision-trace")
+
+    return remember(
+        summary,
+        "decision",
+        tags=all_tags,
+        conf=conf,
+        refs=refs,
+        priority=priority,
+        alternatives=alternatives
+    )
