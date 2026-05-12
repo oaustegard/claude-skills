@@ -5,24 +5,25 @@ description: >-
   exploring-codebases (which builds Claude's understanding); this skill
   builds the user's understanding through guided exercises grounded in
   learning science. Uses the same tree-sitting + featuring pipeline but
-  synthesizes into interactive teaching rather than analysis documents.
-  Triggers on "orient me to this repo", "teach me this codebase",
-  "help me understand this code", "learning orientation", or when the
-  user wants to build genuine comprehension of an unfamiliar codebase
-  rather than just getting work done in it.
+  synthesizes into interactive teaching via HTML artifacts rather than
+  analysis documents. Triggers on "orient me to this repo", "teach me
+  this codebase", "help me understand this code", "learning orientation",
+  or when the user wants to build genuine comprehension of an unfamiliar
+  codebase rather than just getting work done in it.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
   license: CC-BY-4.0
   lineage: >-
     Pedagogical design adapted from DrCatHicks/learning-opportunities
     (orient skill + PRINCIPLES.md). Pipeline from exploring-codebases.
+    Presentation via composing-html.
 ---
 
 # Orienting Codebases
 
 Interactive codebase orientation for the human, not the agent. Uses the
 same structural pipeline as exploring-codebases (tree-sitting + featuring)
-but synthesizes into guided exercises that build the user's mental model.
+but synthesizes into guided HTML exercises that build the user's mental model.
 
 ## Why this exists
 
@@ -36,7 +37,24 @@ Passive reading of generated analysis creates fluency illusion: it *feels*
 understood but isn't retained. (See: Bjork & Bjork on desirable difficulties;
 Tankelevitch et al. CHI 2024 on metacognitive demands of generative AI.)
 
-## Pipeline (same as exploring-codebases)
+## Why HTML
+
+HTML makes the hardest pedagogical enforcement structural rather than
+behavioral:
+
+- **Pause protocol via `<details>`**: answers are physically hidden until
+  the user clicks to reveal. No LLM drift can expose them prematurely.
+  The generation effect is enforced by the DOM, not by prompt discipline.
+- **Code-in-context**: the pipeline already has the source — treesit
+  extracts specific functions with line ranges. Instead of "open this
+  file yourself", the artifact shows syntax-highlighted code alongside
+  the question. The user still does the cognitive work; they don't waste
+  orientation time on file navigation.
+- **Standalone reuse**: an `orientation.html` anyone on the team can open
+  in a browser. No tooling, no live AI session needed. Collapsible
+  exercises, architecture context, progress tracking.
+
+## Pipeline
 
 ### 0. Setup (once per session)
 
@@ -46,6 +64,7 @@ uv pip install tree-sitter-language-pack --python /home/claude/.venv/bin/python
 export PYTHON=/home/claude/.venv/bin/python
 export TREESIT=/mnt/skills/user/tree-sitting/scripts/treesit.py
 export GATHER=/mnt/skills/user/featuring/scripts/gather.py
+export COMPOSE=/mnt/skills/user/composing-html/scripts/build.py
 ```
 
 ### 1. Get the repo
@@ -72,16 +91,35 @@ $PYTHON $GATHER /tmp/$REPO \
   --skip tests,.github,node_modules --source-budget 8000
 ```
 
-**Do not show pipeline output to the user.** It's raw material for
-exercise design, not a deliverable. The user sees exercises, not dumps.
+### 4. Targeted source extraction
+
+For each exercise target identified from gather output, extract the
+actual source using treesit queries:
+
+```bash
+# Entry point source
+$PYTHON $TREESIT /tmp/$REPO --no-tree 'source:main'
+
+# Specific function for an exercise
+$PYTHON $TREESIT /tmp/$REPO --no-tree 'source:validate_token'
+
+# Imports for a hub file
+$PYTHON $TREESIT /tmp/$REPO --no-tree 'imports:src/api.py'
+```
+
+This source feeds directly into the HTML artifact — the user sees
+real code, syntax-highlighted, without having to navigate the repo.
+
+**Do not show raw pipeline output to the user.** It's material for
+exercise design. The user sees HTML artifacts and conversation.
 
 
 ## Orientation session
 
-After steps 0–3, synthesize the pipeline output into an interactive
-orientation. The session has three phases.
+After the pipeline steps, synthesize into an interactive orientation.
+Three phases.
 
-### Phase A: Framing (1 message)
+### Phase A: Framing (1 message, no artifact)
 
 Summarize the repo in ONE sentence (what it does, who it's for). Then:
 
@@ -93,101 +131,171 @@ Do not start exercises without confirmation.
 
 ### Phase B: Exercises (2 exercises, interactive)
 
-Design exactly 2 exercises from the pipeline output. Each exercise follows
-the read-then-synthesize pattern:
+For each exercise, generate an HTML artifact using composing-html's
+`freeform` template, then continue the conversation around it.
 
-1. Direct the user to a specific, short artifact (file, function, config)
-2. Ask them to synthesize or explain what they read
-3. Wait for their response (HARD STOP — see Pause Protocol below)
-4. Provide feedback connecting their understanding to actual behavior
-5. If wrong, say so clearly — then explore the gap
+#### Artifact structure per exercise
 
-#### Exercise design constraints
+Build a spec with `body_html` containing:
 
-**DO** design exercises that:
-- Point to specific files the pipeline identified as high-value (entry
-  points, high-density directories, hub files with many imports)
-- Ask comprehension/synthesis questions ("what does this tell you about
-  how the system works?")
-- Build from concrete to abstract ("now that you've seen the auth flow,
-  what's the general pattern here?")
-- Use the gather output's "candidate areas" ranking to pick targets
+```html
+<section class="stack">
+  <div class="eyebrow">EXERCISE 1 OF 2</div>
+  <h2>[Exercise title]</h2>
 
-**DO NOT** design exercises that:
-- Ask users to predict things they couldn't know without reading
-- Require implementation-level detail (line-by-line tracing)
-- Cover more than one concept per exercise
-- Require reading files longer than ~100 lines without narrowing scope
+  <div class="card">
+    <div class="eyebrow">CONTEXT</div>
+    <p>[Brief explanation of what this code does in the system
+       and why it matters for orientation.]</p>
+  </div>
 
-#### Exercise type selection
+  <div class="card">
+    <div class="eyebrow">CODE</div>
+    <pre><code>[Actual source extracted by treesit — entry point,
+function, config, imports, or test names. Escaped properly.]</code></pre>
+  </div>
 
-Choose from these types based on what the pipeline revealed:
+  <details class="card">
+    <summary>
+      <span class="badge badge--clay">Your turn</span>
+      [Specific comprehension/synthesis question]
+    </summary>
+    <div style="margin-top:1rem">
+      <div class="eyebrow">KEY POINTS</div>
+      <p>[Pre-generated feedback covering what the code reveals about
+         the system's architecture, design decisions, or workflow.
+         This is the "answer key" — hidden until clicked.]</p>
+    </div>
+  </details>
+</section>
+```
 
-**Entry-point walkthrough** (best when gather found clear entry points):
-> Open `[entry file]` and read the main function/handler. What are the
-> 2-3 things this program does when it starts up?
+Build and present the artifact:
 
-**Architecture synthesis** (best when treesit --stats shows clear structure):
-> Look at the directory structure. `src/` has [N] files across [dirs].
-> Based on the directory names alone, what do you think this system's
-> main components are?
+```bash
+python3 $COMPOSE build freeform --spec /tmp/exercise_N.json --out /tmp/exercise_N.html
+```
 
-**Dependency detective** (best when gather found import clusters):
-> Open `[hub file]` and look at its imports. What does the import list
-> tell you about this file's role in the system?
+#### Two interaction modes
 
-**Config reader** (best when manifest/config files are rich):
-> Open `[config file]`. What are the 2-3 settings you'd most likely
-> need to change for a new project, and why?
+After presenting the artifact, tell the user:
 
-**Test-as-spec** (best when test files are present and readable):
-> Read the test names in `[test file]` (just the names, not the bodies).
-> What do they tell you about what `[module]` is supposed to do?
+> Take a look at the code and the question. You can either:
+> - **Tell me your answer** in chat and I'll give you specific feedback
+> - **Click to reveal** the key points in the artifact when you're ready
+
+If they respond in chat: give personalized feedback based on what they
+actually said — confirm what's right, be specific about gaps, explore
+misconceptions. This is pedagogically richer than pre-canned feedback.
+
+If they click through: that's fine too — the artifact's hidden feedback
+covers the essential points. Move to the next exercise.
+
+#### Exercise design from pipeline signals
+
+Each exercise type maps to specific pipeline output:
+
+**Entry-point walkthrough** — gather found clear entry points:
+Show the main function/handler source. Ask what the program does on
+startup and what the 2-3 most important operations are.
+
+**Architecture synthesis** — treesit --stats shows clear directory structure:
+Show the directory tree with file counts and symbol density. Ask what
+the system's main components are and how they relate.
+
+**Dependency detective** — gather found import clusters:
+Show a hub file's imports. Ask what the import list reveals about the
+file's role — integration point, orchestrator, leaf node?
+
+**Config reader** — manifest/config files are rich:
+Show the config file. Ask which 2-3 settings they'd change first for
+a new project and why.
+
+**Test-as-spec** — test files present and readable:
+Show test names (not bodies). Ask what the tests tell them about what
+the module is supposed to do.
 
 ### Phase C: Synthesis (1 message after exercises)
 
-After both exercises, ask:
+After both exercises, ask in chat (no artifact needed):
 
 > What's one thing about this codebase that surprised you, or that you
 > want to dig into further?
 
 Use their answer to either:
 - Point them to a specific file or symbol for independent exploration
-- Offer a targeted follow-up (a "debug this" or "trace the path" exercise
-  from the learning-opportunities repertoire — but only if they want more)
+- Offer a targeted follow-up exercise — but only if they want more
 
 
-## Pause Protocol
+## Producing orientation.html (optional)
 
-This is the hardest enforcement in the skill. LLMs default to answering
-their own questions. Every exercise question is a HARD STOP.
+If the user asks for a persistent orientation document, or if the session
+produced insights worth preserving, generate a standalone HTML artifact
+that any teammate can open in a browser without tooling.
 
-**End your message immediately after the question.** Do not generate
-any further content after the pause point.
+Build via composing-html `freeform` with this body structure:
 
-After the question, do not generate:
-- Suggested or example responses
-- Hints disguised as encouragement ("Think about...", "Consider...")
-- Multiple questions in sequence
-- Italicized or parenthetical clues
-- Any teaching content
+```html
+<section class="stack">
+  <div class="card">
+    <div class="eyebrow">PURPOSE</div>
+    <p>[One-line: what this repo does and why it exists.]</p>
+  </div>
 
-Allowed after the question:
-- Content-free reassurance: "(Take your best guess — wrong answers are
-  useful data.)"
-- An escape hatch: "(Or we can skip this one.)"
+  <div class="card">
+    <div class="eyebrow">LANGUAGES</div>
+    <p>[From treesit --stats.]</p>
+  </div>
 
-Use explicit markers:
+  <h2 class="rule">Key files</h2>
+  <div class="grid grid--2">
+    [For each of 6-10 key files from gather's density ranking:]
+    <div class="card card--soft">
+      <code>[path/to/file]</code>
+      <p>[What it does — why a new developer should read it.]</p>
+    </div>
+  </div>
 
-> **Your turn:** [specific question about what they just read]
->
-> (Take your best guess — wrong answers are useful data.)
+  <h2 class="rule">Core concepts</h2>
+  [For each of 3-5 concepts:]
+  <details class="card">
+    <summary><strong>[Concept name]</strong> — [one-line summary]</summary>
+    <p>[Where it lives in the code. Why it matters.]</p>
+  </details>
 
-Wait for their response before continuing.
+  <h2 class="rule">Orientation exercises</h2>
+  <p>Two exercises to build a working mental model. Read the code,
+  answer the question, then click to check your understanding.</p>
 
-### Feedback after responses
+  [Exercise 1 — same card+details structure as Phase B artifacts]
+  [Exercise 2 — same structure]
+</section>
+```
 
-When the user responds:
+Spec keys:
+```json
+{
+  "title": "Orientation: [repo name]",
+  "eyebrow": "CODEBASE ORIENTATION",
+  "subtitle": "[one-line purpose]",
+  "show_masthead": true,
+  "page_class": "page page--narrow",
+  "body_html": "..."
+}
+```
+
+Build and present:
+```bash
+python3 $COMPOSE build freeform --spec /tmp/orientation_spec.json \
+  --out /mnt/user-data/outputs/orientation.html
+```
+
+
+## Feedback and scaffolding
+
+### Feedback after chat responses
+
+When the user responds in chat (rather than clicking the reveal):
 - If correct: confirm briefly, then extend ("Right — and that connects
   to [next concept] because...")
 - If partially correct: acknowledge what's right, be specific about
@@ -198,23 +306,23 @@ When the user responds:
   described *what* happens but not *why*, acknowledge the what without
   crediting causal understanding.
 
+### Fading scaffolding
 
-## Fading scaffolding
+Adjust the amount of code shown and question specificity based on
+demonstrated familiarity — but always keep the *answer* as the user's
+responsibility.
 
-Adjust question specificity based on demonstrated familiarity — but
-always keep the *answer* as the user's responsibility.
+| Level | Artifact shows | Question asks | Use when |
+|-------|---------------|---------------|----------|
+| High | Full function source, line numbers, file path | "What does this function check?" | First exercise, unfamiliar language |
+| Medium | Function signature + key lines only | "What's the validation logic here?" | Second exercise, or user nailed the first |
+| Low | File path only, no source in artifact | "Where would you look to change how auth works?" | Follow-up if user wants more |
 
-| Level | Question style | Use when |
-|-------|---------------|----------|
-| High scaffold | "Open `src/auth.py`, find the `validate` function around line 45. What does it check?" | First exercise, unfamiliar language |
-| Medium | "Find where authentication happens. What's the validation logic?" | Second exercise, or user nailed the first |
-| Low | "Where would you look to change how auth works?" | Follow-up after both exercises |
+Fading adjusts the difficulty of *finding and reading* the code, not
+*explaining* it. At every level the user still produces the synthesis.
 
-Fading adjusts the difficulty of *finding* the answer, not *generating*
-it. At every level the user still produces the explanation themselves.
-
-If the user struggles, move UP the ladder (more specific), not sideways
-(hint at the answer).
+If the user struggles, move UP the ladder (show more code, be more
+specific), not sideways (hint at the answer).
 
 
 ## When to use this vs. other skills
@@ -231,39 +339,6 @@ This skill is the **orientation** layer — first-encounter mental model
 building. For ongoing learning during development (exercises after
 commits, retrieval check-ins, prediction drills), pair with
 learning-opportunities from DrCatHicks/learning-opportunities.
-
-
-## Producing orientation.md (optional)
-
-If the user asks for a persistent orientation document, or if the session
-produces insights worth preserving, write an `orientation.md` to the
-repo. Use this structure:
-
-```markdown
-# Repo Orientation: [name]
-
-> Generated by orienting-codebases. Re-run to update.
-
-## One-line purpose
-[Single sentence.]
-
-## Primary language(s)
-[From treesit --stats.]
-
-## Key files
-[6-10 entries from gather's density ranking + entry point detection:]
-- `path/to/file` — [what it does] | [why a new developer should read it]
-
-## Core concepts
-[3-5 domain/architectural concepts essential to working here.]
-
-## Suggested exercises
-[The 2 exercises from this session, written as standalone prompts
- another developer could follow without the skill installed.]
-```
-
-This is compatible with DrCatHicks' orient format — a user with
-learning-opportunities installed can consume it via `/learning-opportunities orient`.
 
 
 ## Principles reference
