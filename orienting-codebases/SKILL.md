@@ -11,7 +11,7 @@ description: >-
   or when the user wants to build genuine comprehension of an unfamiliar
   codebase rather than just getting work done in it.
 metadata:
-  version: 0.2.0
+  version: 0.3.0
   license: CC-BY-4.0
   lineage: >-
     Pedagogical design adapted from DrCatHicks/learning-opportunities
@@ -21,38 +21,10 @@ metadata:
 
 # Orienting Codebases
 
-Interactive codebase orientation for the human, not the agent. Uses the
-same structural pipeline as exploring-codebases (tree-sitting + featuring)
-but synthesizes into guided HTML exercises that build the user's mental model.
-
-## Why this exists
-
-exploring-codebases answers "what is this repo?" for Claude.
-This skill answers "what is this repo?" for the person sitting at the keyboard.
-
-The difference matters. Claude can ingest a gather.py dump and reason about
-it immediately. A human needs to actively engage — predict, synthesize,
-explain, get things wrong, correct — to build durable understanding.
-Passive reading of generated analysis creates fluency illusion: it *feels*
-understood but isn't retained. (See: Bjork & Bjork on desirable difficulties;
-Tankelevitch et al. CHI 2024 on metacognitive demands of generative AI.)
-
-## Why HTML
-
-HTML makes the hardest pedagogical enforcement structural rather than
-behavioral:
-
-- **Pause protocol via `<details>`**: answers are physically hidden until
-  the user clicks to reveal. No LLM drift can expose them prematurely.
-  The generation effect is enforced by the DOM, not by prompt discipline.
-- **Code-in-context**: the pipeline already has the source — treesit
-  extracts specific functions with line ranges. Instead of "open this
-  file yourself", the artifact shows syntax-highlighted code alongside
-  the question. The user still does the cognitive work; they don't waste
-  orientation time on file navigation.
-- **Standalone reuse**: an `orientation.html` anyone on the team can open
-  in a browser. No tooling, no live AI session needed. Collapsible
-  exercises, architecture context, progress tracking.
+Interactive codebase orientation for the human, not the agent. Same
+tree-sitting + featuring pipeline as exploring-codebases, but synthesizes
+into guided HTML exercises via composing-html instead of analysis
+documents. See README.md for design rationale.
 
 ## Pipeline
 
@@ -169,6 +141,10 @@ function, config, imports, or test names. Escaped properly.]</code></pre>
   </details>
 </section>
 ```
+
+Answers live inside `<details>` — the DOM hides them until the user
+clicks. Do not preview or summarize the key points in chat after
+presenting the artifact; that defeats the exercise.
 
 Build and present the artifact:
 
@@ -339,23 +315,3 @@ This skill is the **orientation** layer — first-encounter mental model
 building. For ongoing learning during development (exercises after
 commits, retrieval check-ins, prediction drills), pair with
 learning-opportunities from DrCatHicks/learning-opportunities.
-
-
-## Principles reference
-
-Exercise design draws from established learning science:
-
-- **Generation effect**: producing answers builds stronger memory than
-  reading them (Roediger & Karpicke, 2006)
-- **Pre-testing**: attempting before knowing primes encoding, even when
-  the attempt is wrong (Giebl et al., 2021)
-- **Desirable difficulty**: effort during learning = stronger retention
-  (Bjork & Bjork, 2013)
-- **Fluency illusion**: easy processing ≠ durable knowledge; exercises
-  counter this by requiring active engagement (Soderstrom & Bjork, 2015)
-- **Expertise reversal**: worked examples help novices but hinder experts;
-  fading scaffolding addresses this transition (Kalyuga, 2007)
-- **Program comprehension**: experts sample strategically, not exhaustively
-  (Hermans 2021, Storey et al. 2006, Spinellis 2003)
-
-Full reference: DrCatHicks/learning-opportunities PRINCIPLES.md
