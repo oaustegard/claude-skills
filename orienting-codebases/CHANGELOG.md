@@ -4,6 +4,12 @@ All notable changes to the `orienting-codebases` skill are documented in this fi
 
 ## [0.3.0] - 2026-05-12
 
+### Other
+
+- orienting-codebases: extract human-facing rationale to README (#642)
+
+## [0.3.0] - 2026-05-12
+
 ### Changed
 
 - Cut human-facing rationale from SKILL.md (`Why this exists`, `Why HTML`,
