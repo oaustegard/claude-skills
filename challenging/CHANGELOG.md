@@ -4,6 +4,12 @@ All notable changes to the `challenging` skill are documented in this file. The 
 
 ## [0.10.0] - 2026-05-13
 
+### Other
+
+- challenging v0.10.0: add prose-register profile with voice signature parameter (#645)
+
+## [0.10.0] - 2026-05-13
+
 ### Added
 - **`prose-register` profile** — sibling to `prose`, targets register fidelity instead of generic prose competence. Takes a required `voice=...` parameter: free-text signature with positive markers (what the voice does) and anti-patterns (what the voice rejects). The adversary evaluates the artifact against the signature paragraph by paragraph (positive-marker audit, anti-pattern scan, drift check across the piece, imposter test on each paragraph, single-marker over-reliance check). Reference: `references/prose-register.md`.
 - **`voice` parameter** threaded through `prepare()`, `prepare_self()`, `challenge()`, and the CLI (`--voice "..."` or `--voice @path/to/file`). Injected as a `<voice>` block in the user prompt alongside `<context>` and `<artifact>`; trust-boundary line updated to include the new tag.
