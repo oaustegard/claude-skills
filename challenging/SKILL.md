@@ -2,7 +2,7 @@
 name: challenging
 description: Cross-context adversarial review for deliverables before shipping. Use when producing blog posts, technical recommendations, analysis briefs, code, or any artifact where accuracy matters more than speed. Triggers on "challenge this", "review before shipping", "adversarial pass", "stress test this".
 metadata:
-  version: 0.9.0
+  version: 0.10.0
 ---
 
 # Challenging — Adversarial Review
@@ -23,13 +23,16 @@ Pick the profile matching your artifact. **Read only the profile you need** — 
 
 | Profile | Use For | Iteration strategy | File |
 |---------|---------|--------------------|------|
-| `prose` | Blog posts, essays, articles | parallel replay | `references/prose.md` |
+| `prose` | Blog posts, essays, articles — generic prose competence | parallel replay | `references/prose.md` |
+| `prose-register` | Prose with a *named voice signature* — fidelity check | parallel replay | `references/prose-register.md` |
 | `analysis` | Research briefs, comparisons, synthesis | parallel replay | `references/analysis.md` |
 | `code` | Scripts, implementations, PRs | parallel replay | `references/code.md` |
 | `recommendation` | Technical decisions, architecture choices | parallel replay | `references/recommendation.md` |
 | `drill` | 5 Whys on one finding from a review | sequential deepen | `references/drill.md` |
 
 One engine, one surface, two iteration strategies. Review profiles iterate in *parallel replay* — each pass independent, novelty tracked for confabulation. Drill iterates in *sequential deepen* — each pass takes the chain so far and produces one more why-level until bedrock or max depth, followed by a synthesis pass that extracts root causes.
+
+`prose` and `prose-register` are siblings, not redundant. `prose` evaluates generic prose competence (claims, logic, structure, performed insight) and is explicitly told not to comment on style. `prose-register` evaluates fidelity to a named voice signature passed via `voice=...` (positive markers + anti-patterns) and ignores generic competence. Run both passes on voiced prose — they catch different failure modes.
 
 ## Usage — Claude Code (subagent path, primary)
 
@@ -57,6 +60,33 @@ print(result['strengths'])  # What to preserve
 ```
 
 **Why subagents (not the API):** no key, no network dependency, fresh context, and the same Claude that's reviewing your work is reviewing it again with no prior bias — but in a clean window. For cross-model diversity (genuinely different blind spots), use Gemini below.
+
+### Voiced prose — `prose-register` (subagent path)
+
+For prose written in a named voice, `prose` will miss register-specific failure modes by design (its persona is instructed not to comment on style). Use the `prose-register` profile with a `voice=...` signature instead — or in addition, since the two profiles target orthogonal failure modes.
+
+```python
+voice = """
+Corvid voice signature.
+Positive markers: short sentences when certainty is high, dry observations,
+lead with the answer then context, no throat-clearing.
+Anti-patterns: heroic-narrator framing, drama-line-breaks ("Then the part that
+almost killed it." floating alone), cliche tells ("shot itself in the foot",
+"footgun"), time-scale inflation ("a month ago" when it was yesterday),
+performed-significance setups ("What's interesting about this is..."),
+RTFM-performed-as-revelation, precious sentimentality in closings.
+"""
+
+job = prepare(
+    artifact=open('/home/claude/draft.md').read(),
+    profile='prose-register',
+    context='Blog post for muninn.austegard.com',
+    voice=voice,
+)
+# Task tool → parse_response() as usual.
+```
+
+`voice` is required for `prose-register` and rejected for every other profile — pass the signature once, fail loud if it leaks to the wrong call. The richer the signature (with both positive markers and explicit anti-patterns), the more precise the review. A thin signature returns `verdict: RETHINK` with a finding describing what to sharpen rather than a confident review against an ambiguous spec.
 
 ### Drill — 5 Whys on a systemic finding (subagent path)
 

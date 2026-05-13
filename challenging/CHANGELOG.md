@@ -2,6 +2,23 @@
 
 All notable changes to the `challenging` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.10.0] - 2026-05-13
+
+### Added
+- **`prose-register` profile** — sibling to `prose`, targets register fidelity instead of generic prose competence. Takes a required `voice=...` parameter: free-text signature with positive markers (what the voice does) and anti-patterns (what the voice rejects). The adversary evaluates the artifact against the signature paragraph by paragraph (positive-marker audit, anti-pattern scan, drift check across the piece, imposter test on each paragraph, single-marker over-reliance check). Reference: `references/prose-register.md`.
+- **`voice` parameter** threaded through `prepare()`, `prepare_self()`, `challenge()`, and the CLI (`--voice "..."` or `--voice @path/to/file`). Injected as a `<voice>` block in the user prompt alongside `<context>` and `<artifact>`; trust-boundary line updated to include the new tag.
+- **`VOICE_PROFILES`** module-level tuple. Listed profiles require a non-empty `voice` argument; all other profiles reject it. Fail-loud rather than silently ignored — silent acceptance on the wrong profile lets a caller believe they ran a voiced review when the adversary saw no voice block.
+- **`_validate_voice()`** helper centralizing the contract.
+
+### Rationale
+A `prose` review of a Muninn-voice blog post on 2026-05-13 returned `verdict: REVISE`, all findings were patched, and the post still got killed on first read because the register was wrong from the first sentence (heroic-narrator opening, drama-line-breaks, cliche tells, time-scale inflation, performed-significance setups). None of those showed up in the `prose` pass — by design. `prose`'s persona is explicitly told *not* to comment on tone, formatting, or style, which is correct for generic prose competence and creates a systematic blind spot for register-specific failure modes when the writer has a named voice.
+
+Two paths considered ([#644](https://github.com/oaustegard/claude-skills/issues/644)):
+1. A `voice` parameter on `prose` itself.
+2. A separate `prose-register` profile.
+
+Option 2 wins: `prose`'s persona ("style is not your job") and `prose-register`'s persona ("register fidelity is the only job") are not just different — they actively contradict. Cramming both into one prompt produces a confused reviewer that under-flags both. Two profiles with disjoint mandates, both runnable in parallel, give orthogonal coverage with no register-vs-competence tradeoff. The voice signature lives in the caller's domain (callers know their own voice); the skill stays generic.
+
 ## [0.9.0] - 2026-04-18
 
 ### Other
