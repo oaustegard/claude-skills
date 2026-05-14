@@ -2,6 +2,27 @@
 
 All notable changes to the `flowing` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.0] - 2026-05-14
+
+### Added
+
+- **`timeout_s` is now enforced.** It was declared on `TaskDef` and accepted by `@task` but never read — the body ran unbounded. A task with `timeout_s` set now runs in a one-shot worker; overrunning the limit aborts the attempt as a retryable `TimeoutError` that consumes the `retry=` budget. Python can't kill the orphaned thread, so it runs until the container exits (acceptable for run-once use).
+- **Graph-build-time signature validation.** `flow.run()` now checks that every task body has a parameter for each of its dependencies (or `**kwargs`). A mismatch raises a clear `ValueError` naming both tasks, instead of failing mid-run with a confusing `TypeError`.
+- **`clear_registry()`** — module-level helper to empty `_TASK_REGISTRY`. Lets tests and long-lived REPLs run independent flows without stale detached tasks leaking across them via auto-discovery.
+- 8 new tests (timeout enforcement + retry interaction, signature validation, registry clearing). Suite now 28 tests.
+
+### Fixed
+
+- **`fail_fast` parallel cancellation** now uses `pool.shutdown(wait=False, cancel_futures=True)`, which cancels queued-but-unstarted siblings. Siblings already running still can't be killed; the guarantee is "the next layer won't start," now stated explicitly in code and SKILL.md.
+- **`summary()` was O(n²)** — it rebuilt the task-def set on every row. Built once now, and it also picks up auto-discovered detached tasks that the old terminal-only walk missed.
+
+### Removed
+
+- Dead `traceback` import and unused `functools.wraps` import.
+- `StepState.PENDING`, `RUNNING`, `RETRYING` — defined but never assignable, since `_run_step` is synchronous and only ever returns a terminal state.
+- Dead `_topo_sort()` function — superseded by `Flow._build_layers` and never called.
+- `Flow._all_task_defs()` — folded into `summary()`'s single call to `_collect_tasks()`.
+
 ## [1.2.1] - 2026-05-08
 
 ### Other

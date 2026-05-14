@@ -35,22 +35,25 @@ Detached side-effects:
 
 from __future__ import annotations
 
+import inspect
 import sys
 import time
-import traceback
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import (
+    ThreadPoolExecutor,
+    TimeoutError as FuturesTimeoutError,
+    as_completed,
+)
 from dataclasses import dataclass, field
 from enum import Enum
-from functools import wraps
 from typing import Any, Callable, Optional
 
 
 class StepState(Enum):
-    PENDING = "pending"
-    RUNNING = "running"
+    # _run_step is synchronous and only ever returns a terminal state, so
+    # PENDING/RUNNING/RETRYING would never be observable — they are omitted
+    # rather than defined-but-never-assigned.
     SUCCEEDED = "succeeded"
     FAILED = "failed"
-    RETRYING = "retrying"
     SKIPPED = "skipped"
 
 
@@ -98,6 +101,17 @@ class TaskDef:
 _TASK_REGISTRY: list[TaskDef] = []
 
 
+def clear_registry() -> None:
+    """Empty the module-level task registry.
+
+    The registry accumulates every TaskDef created via @task for the life of
+    the process. For run-once container use that is fine. Call this between
+    independent flows in the same process (tests, REPLs) so detached
+    auto-discovery can't pull a stale task into an unrelated graph.
+    """
+    _TASK_REGISTRY.clear()
+
+
 # @lat: [[orchestration#DAG Workflow Runner]]
 def task(
     fn: Optional[Callable] = None,
@@ -133,45 +147,6 @@ def task(
     if fn is not None:
         return wrap(fn)
     return wrap
-
-
-def _topo_sort(terminal: TaskDef) -> list[list[TaskDef]]:
-    all_tasks: set[TaskDef] = set()
-    stack = [terminal]
-    while stack:
-        t = stack.pop()
-        if t not in all_tasks:
-            all_tasks.add(t)
-            stack.extend(t.depends_on)
-
-    in_degree: dict[TaskDef, int] = {t: 0 for t in all_tasks}
-    dependents: dict[TaskDef, list[TaskDef]] = {t: [] for t in all_tasks}
-    for t in all_tasks:
-        for dep in t.depends_on:
-            in_degree[t] += 1
-            dependents[dep].append(t)
-
-    layers: list[list[TaskDef]] = []
-    current = [t for t, d in in_degree.items() if d == 0]
-    visited = 0
-
-    while current:
-        layers.append(current)
-        visited += len(current)
-        next_layer = []
-        for t in current:
-            for dep in dependents[t]:
-                in_degree[dep] -= 1
-                if in_degree[dep] == 0:
-                    next_layer.append(dep)
-        current = next_layer
-
-    if visited != len(all_tasks):
-        raise ValueError(
-            f"Cycle detected in task graph. "
-            f"Visited {visited}/{len(all_tasks)} tasks."
-        )
-    return layers
 
 
 def _log(msg: str, **kw):
@@ -219,7 +194,24 @@ def _run_step(td: TaskDef, results: dict[str, StepResult]) -> StepResult:
 
         t0 = time.monotonic()
         try:
-            value = td.fn(**kwargs)
+            if td.timeout_s is not None:
+                # Run the body in a one-shot worker so a hung call can't stall
+                # the whole flow. Python can't kill a running thread, so on
+                # timeout the orphaned worker keeps going until the container
+                # exits — acceptable for run-once ephemeral use. shutdown is
+                # wait=False precisely so we don't re-block on that orphan.
+                one_shot = ThreadPoolExecutor(max_workers=1)
+                fut = one_shot.submit(td.fn, **kwargs)
+                try:
+                    value = fut.result(timeout=td.timeout_s)
+                except FuturesTimeoutError:
+                    raise TimeoutError(
+                        f"{td.name} exceeded timeout_s={td.timeout_s}"
+                    ) from None
+                finally:
+                    one_shot.shutdown(wait=False)
+            else:
+                value = td.fn(**kwargs)
             last_dur = (time.monotonic() - t0) * 1000
 
             # GATE 3: retry_until() — predicate-driven loop. True -> done; False -> retry (consumes retry budget).
@@ -348,6 +340,38 @@ class Flow:
             raise ValueError("Cycle detected in task graph")
         return layers
 
+    def _validate_signatures(self, tasks: set[TaskDef]) -> None:
+        """Fail at graph-build time if a task body can't receive a dep by name.
+
+        Deps are passed to the body as kwargs keyed by the producer's TaskDef
+        name. If the consumer's signature has no matching parameter (and no
+        **kwargs), the run would otherwise die mid-flight with a confusing
+        TypeError. Catch it here with a message that names both ends.
+        """
+        for t in tasks:
+            if not t.depends_on:
+                continue
+            try:
+                params = inspect.signature(t.fn).parameters
+            except (ValueError, TypeError):
+                continue  # builtins / C functions — can't introspect, skip
+            if any(p.kind == inspect.Parameter.VAR_KEYWORD
+                   for p in params.values()):
+                continue  # **kwargs absorbs anything
+            accepted = {
+                name for name, p in params.items()
+                if p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                              inspect.Parameter.KEYWORD_ONLY)
+            }
+            for dep in t.depends_on:
+                if dep.name not in accepted:
+                    raise ValueError(
+                        f"Task '{t.name}' depends on '{dep.name}', but its "
+                        f"function has no parameter named '{dep.name}'. "
+                        f"Rename the parameter to match, add **kwargs, or set "
+                        f"@task(name=...) on the dependency."
+                    )
+
     def _execute(self, layers: list[list[TaskDef]], skip_succeeded: bool = False) -> None:
         """Execute layers. If skip_succeeded=True, skip tasks already SUCCEEDED in self.results."""
         for layer_idx, layer in enumerate(layers):
@@ -375,8 +399,11 @@ class Flow:
                         self.results[result.name] = result
                         if self.fail_fast and result.state == StepState.FAILED:
                             _log(f"FAIL_FAST triggered by {result.name}")
-                            for f in futures:
-                                f.cancel()
+                            # Cancels queued-but-unstarted siblings. Siblings
+                            # already running can't be killed — they finish on
+                            # their pool threads — but fail_fast's real job is
+                            # done: the next layer won't start.
+                            pool.shutdown(wait=False, cancel_futures=True)
                             break
             else:
                 for td in layer:
@@ -450,6 +477,7 @@ class Flow:
         self.detached_failures = []
 
         main_tasks, detached_tasks = self._collect_tasks()
+        self._validate_signatures(main_tasks | detached_tasks)
         main_layers = self._build_layers(main_tasks)
 
         total_tasks = sum(len(l) for l in main_layers) + len(detached_tasks)
@@ -476,7 +504,7 @@ class Flow:
 
     def resume(self) -> dict[str, StepResult]:
         """Re-run from failure point. SUCCEEDED tasks keep their cached values.
-        FAILED and SKIPPED tasks reset to PENDING and re-execute."""
+        FAILED and SKIPPED tasks are cleared from results and re-execute."""
         self.detached_failures = []
 
         # Reset FAILED and SKIPPED tasks
@@ -525,26 +553,16 @@ class Flow:
         return r.value
 
     def summary(self) -> str:
+        # Build the detached-name set once — including auto-discovered
+        # detached tasks, which a terminal-only walk would miss.
+        _, detached_tasks = self._collect_tasks()
+        detached_names = {t.name for t in detached_tasks}
         lines = []
         for name, r in self.results.items():
             status = r.state.value.upper()
             dur = f"{r.duration_ms:.0f}ms"
             att = f"x{r.attempts}" if r.attempts > 1 else ""
             err = f" err={r.error}" if r.error else ""
-            det = " [detached]" if any(
-                t.name == name and t.detached
-                for t in self._all_task_defs()
-            ) else ""
+            det = " [detached]" if name in detached_names else ""
             lines.append(f"  {status:9s} {name} ({dur}{att}){det}{err}")
         return "\n".join(lines)
-
-    def _all_task_defs(self) -> set[TaskDef]:
-        """Collect all TaskDef objects in the graph."""
-        all_tasks: set[TaskDef] = set()
-        stack = list(self.terminals)
-        while stack:
-            t = stack.pop()
-            if t not in all_tasks:
-                all_tasks.add(t)
-                stack.extend(t.depends_on)
-        return all_tasks
