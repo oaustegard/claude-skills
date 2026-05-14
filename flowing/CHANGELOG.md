@@ -2,6 +2,12 @@
 
 All notable changes to the `flowing` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.1] - 2026-05-14
+
+### Changed
+
+- **SKILL.md trimmed to imperative instructions.** The exhaustive API reference — full `@task` signature, `Flow` methods, resume/override, detached auto-discovery, and the `validate=`/`when=` signature gotcha — was reference material *about* the skill, not instructions *to* the agent. Moved it to `references/reference.md` (progressive disclosure); SKILL.md now keeps the trigger, mental model, quick start, the three control-flow primitives, when/when-not-to-use, and a pointer to the reference. Dropped inline version-annotation cruft (`v1.1`, `v1.2.0`, `v1.3`) that belongs in this changelog.
+
 ## [1.3.0] - 2026-05-14
 
 ### Other
