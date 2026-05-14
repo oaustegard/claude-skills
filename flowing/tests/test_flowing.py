@@ -1,4 +1,4 @@
-"""Tests for flowing v1.1 control-flow primitives.
+"""Tests for flowing control-flow primitives.
 
 Coverage:
 - v1.0 backward compat (existing DAG, retry, override, resume, detached)
@@ -6,15 +6,17 @@ Coverage:
 - v1.1: validate= edge contract
 - v1.1: retry_until= predicate loop
 - Composition of new primitives
+- v1.3: timeout_s enforcement, signature validation, clear_registry
 """
 
 import sys
 import os
+import time
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
-from flowing import task, Flow, StepState  # noqa: E402
+from flowing import task, Flow, StepState, clear_registry  # noqa: E402
 
 
 class TestBackwardCompat(unittest.TestCase):
@@ -411,6 +413,126 @@ class TestDetachedAutoDiscovery(unittest.TestCase):
         self.assertEqual(results["flaky_side"].state, StepState.FAILED)
         self.assertEqual(len(flow.detached_failures), 1)
         self.assertEqual(flow.detached_failures[0].name, "flaky_side")
+
+
+class TestTimeout(unittest.TestCase):
+    """timeout_s aborts a hung body and is retryable (v1.3)."""
+
+    def test_timeout_fails_slow_task(self):
+        @task(timeout_s=0.05)
+        def slow():
+            time.sleep(0.5)
+            return "done"
+
+        flow = Flow(slow, fail_fast=False)
+        flow.run()
+        r = flow.results["slow"]
+        self.assertEqual(r.state, StepState.FAILED)
+        self.assertIsInstance(r.error, TimeoutError)
+
+    def test_timeout_consumes_retry_then_succeeds(self):
+        calls = {"n": 0}
+
+        @task(timeout_s=0.05, retry=2, retry_backoff_base_ms=1)
+        def sometimes_slow():
+            calls["n"] += 1
+            if calls["n"] == 1:
+                time.sleep(0.5)  # first attempt times out
+            return calls["n"]
+
+        flow = Flow(sometimes_slow)
+        flow.run()
+        self.assertEqual(flow.results["sometimes_slow"].state, StepState.SUCCEEDED)
+        self.assertEqual(flow.value(sometimes_slow), 2)
+
+    def test_no_timeout_runs_normally(self):
+        @task
+        def quick():
+            return "ok"
+
+        flow = Flow(quick)
+        flow.run()
+        self.assertEqual(flow.value(quick), "ok")
+
+
+class TestSignatureValidation(unittest.TestCase):
+    """Mismatched dep/parameter names are caught at graph-build time (v1.3)."""
+
+    def test_mismatched_param_raises(self):
+        @task
+        def producer():
+            return 1
+
+        @task(depends_on=[producer])
+        def consumer(wrong_name):
+            return wrong_name + 1
+
+        flow = Flow(consumer)
+        with self.assertRaises(ValueError) as ctx:
+            flow.run()
+        msg = str(ctx.exception)
+        self.assertIn("producer", msg)
+        self.assertIn("consumer", msg)
+
+    def test_kwargs_absorbs_any_dep(self):
+        @task
+        def producer():
+            return 7
+
+        @task(depends_on=[producer])
+        def consumer(**kwargs):
+            return kwargs["producer"]
+
+        flow = Flow(consumer)
+        flow.run()
+        self.assertEqual(flow.value(consumer), 7)
+
+    def test_name_override_matches_param(self):
+        @task(name="aliased")
+        def producer():
+            return 3
+
+        @task(depends_on=[producer])
+        def consumer(aliased):
+            return aliased * 2
+
+        flow = Flow(consumer)
+        flow.run()
+        self.assertEqual(flow.value(consumer), 6)
+
+
+class TestClearRegistry(unittest.TestCase):
+    """clear_registry empties the module-level task registry (v1.3)."""
+
+    def test_clear_registry_drops_detached_candidates(self):
+        side_effects = []
+
+        @task
+        def shared():
+            return 1
+
+        @task(depends_on=[shared], detached=True)
+        def stale_side(shared):
+            side_effects.append("ran")
+
+        # Without clearing, stale_side would auto-discover onto any later
+        # flow built on `shared`. Clear it first.
+        clear_registry()
+
+        flow = Flow(shared)
+        results = flow.run()
+        self.assertEqual(results["shared"].state, StepState.SUCCEEDED)
+        self.assertNotIn("stale_side", results)
+        self.assertEqual(side_effects, [])
+
+    def test_registry_empty_after_clear(self):
+        @task
+        def throwaway():
+            return None
+
+        clear_registry()
+        from flowing import _TASK_REGISTRY
+        self.assertEqual(_TASK_REGISTRY, [])
 
 
 if __name__ == "__main__":
