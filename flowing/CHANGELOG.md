@@ -4,6 +4,12 @@ All notable changes to the `flowing` skill are documented in this file. The form
 
 ## [1.3.0] - 2026-05-14
 
+### Other
+
+- flowing v1.3.0: enforce timeout_s, validate signatures, prune dead code (#646)
+
+## [1.3.0] - 2026-05-14
+
 ### Added
 
 - **`timeout_s` is now enforced.** It was declared on `TaskDef` and accepted by `@task` but never read — the body ran unbounded. A task with `timeout_s` set now runs in a one-shot worker; overrunning the limit aborts the attempt as a retryable `TimeoutError` that consumes the `retry=` budget. Python can't kill the orphaned thread, so it runs until the container exits (acceptable for run-once use).
