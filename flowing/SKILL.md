@@ -2,7 +2,7 @@
 name: flowing
 description: DAG workflow runner that encodes control flow in code, not prose. Use when a procedure has 3+ steps with branching, retries, or validation that must be enforced — gates as `when=`, edge contracts as `validate=`, predicate loops as `retry_until=`. The runner owns the graph; the LLM provides leaves. Also covers parallel execution, checkpoint resume, detached side-effects.
 metadata:
-  version: 1.3.1
+  version: 1.3.2
 ---
 
 # Flowing — Control Flow in Code, Not Prose

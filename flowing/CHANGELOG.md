@@ -2,6 +2,12 @@
 
 All notable changes to the `flowing` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.2] - 2026-05-14
+
+### Added
+
+- **`README.md`** — human-facing overview for browsing the skill on GitHub, missing until now. Frames the problem (prose imperatives get generated past; a `@task` graph is structural), summarizes the three control-flow primitives, maps the file layout by audience, and points to sibling orchestration skills. Complements `SKILL.md` (agent instructions) and `references/reference.md` (agent reference).
+
 ## [1.3.1] - 2026-05-14
 
 ### Other
