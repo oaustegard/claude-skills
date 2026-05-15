@@ -2,6 +2,12 @@
 
 All notable changes to the `flowing` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.2] - 2026-05-15
+
+### Other
+
+- flowing v1.3.2: add human-facing README.md (#648)
+
 ## [1.3.2] - 2026-05-14
 
 ### Added
