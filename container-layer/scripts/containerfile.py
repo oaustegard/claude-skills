@@ -27,20 +27,34 @@ IGNORED_INSTRUCTIONS = {
     "STOPSIGNAL", "ONBUILD",
 }
 
-# Well-known paths that pip/uv install into.
-# Lists all common Python versions so the diff-vs-baseline logic correctly
-# identifies new files in dist-packages regardless of which interpreter is
-# active. The previous single-entry list hardcoded python3.12, so containers
-# on python3.11 fell through to the "explicit SNAPSHOT, capture whole tree"
-# code path — every layer ended up snapshotting all of dist-packages instead
-# of just the files it installed. Verified empirically against the python3.11
-# container in oaustegard/claude-workspace-fuse.
+# Well-known paths that pip/uv/apt install into.
+# `_dedup_paths` uses these as baseline keys so that auto-tracked snapshot
+# paths (from RUN commands) get the diff-vs-baseline treatment instead of
+# whole-tree capture.
+#
+# Lists all common Python versions so the diff logic works regardless of
+# which interpreter is active. The single-entry list pre-0.2.1 hardcoded
+# python3.12, so containers on python3.11 captured all of dist-packages
+# instead of just newly-installed files.
+#
+# /usr/{bin,lib,share} are here so `apt-get install` layers diff correctly
+# — `_exec_run` auto-adds these to snapshot_paths on any apt invocation
+# (one .deb pulls in shared libs / headers / docs sprawled across all
+# three). Pre-0.2.2 they fell into the whole-tree path: adding `zstd`
+# to a layer captured ~3GB raw → ~600MB compressed.
+#
+# Despite the name, this list is no longer Python-only. Kept the name for
+# backwards-compat with any external importer; consider renaming to
+# BASELINED_PATHS in a future major bump.
 PYTHON_INSTALL_PATHS = [
     "/usr/local/lib/python3.10/dist-packages",
     "/usr/local/lib/python3.11/dist-packages",
     "/usr/local/lib/python3.12/dist-packages",
     "/usr/local/lib/python3.13/dist-packages",
     "/usr/local/bin",
+    "/usr/bin",
+    "/usr/lib",
+    "/usr/share",
     "/home/claude/.local/lib",
     "/home/claude/.local/bin",
 ]
