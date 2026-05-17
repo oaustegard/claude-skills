@@ -27,9 +27,19 @@ IGNORED_INSTRUCTIONS = {
     "STOPSIGNAL", "ONBUILD",
 }
 
-# Well-known paths that pip/uv install into
+# Well-known paths that pip/uv install into.
+# Lists all common Python versions so the diff-vs-baseline logic correctly
+# identifies new files in dist-packages regardless of which interpreter is
+# active. The previous single-entry list hardcoded python3.12, so containers
+# on python3.11 fell through to the "explicit SNAPSHOT, capture whole tree"
+# code path — every layer ended up snapshotting all of dist-packages instead
+# of just the files it installed. Verified empirically against the python3.11
+# container in oaustegard/claude-workspace-fuse.
 PYTHON_INSTALL_PATHS = [
+    "/usr/local/lib/python3.10/dist-packages",
+    "/usr/local/lib/python3.11/dist-packages",
     "/usr/local/lib/python3.12/dist-packages",
+    "/usr/local/lib/python3.13/dist-packages",
     "/usr/local/bin",
     "/home/claude/.local/lib",
     "/home/claude/.local/bin",
