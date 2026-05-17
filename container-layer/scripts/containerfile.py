@@ -99,6 +99,30 @@ def content_hash(path: str, extra_salt: str = "") -> str:
     return hashlib.sha256(content.encode()).hexdigest()[:16]
 
 
+def default_layer_name(containerfile_path: str) -> str:
+    """Derive a default layer name from a Containerfile path.
+
+    `Containerfile`         -> 'base'
+    `Containerfile.mojo`    -> 'mojo'
+    `layers/Containerfile.scientific` -> 'scientific'
+    `foo/bar.txt`           -> 'bar' (fallback: file stem)
+
+    Names are lowercased and stripped of non-[a-z0-9-_] characters so they're
+    safe to embed in GitHub Release tags (`layer-<name>-<hash>`).
+    """
+    basename = os.path.basename(containerfile_path)
+    if basename == "Containerfile":
+        raw = "base"
+    elif basename.startswith("Containerfile."):
+        raw = basename[len("Containerfile."):]
+    else:
+        # Fallback: stem of whatever path was passed
+        raw = os.path.splitext(basename)[0]
+    # Sanitize: keep alphanumerics, hyphen, underscore, period -> hyphen
+    safe = re.sub(r"[^a-z0-9_-]", "-", raw.lower()).strip("-")
+    return safe or "layer"
+
+
 def github_head_sha(repo: str, ref: str = "main", token: str = "") -> str:
     """Fetch the HEAD SHA of a GitHub repo ref. Returns empty string on failure."""
     try:
@@ -361,22 +385,34 @@ class ContainerfileExecutor:
 class ContainerLayer:
     """
     High-level interface: parse a Containerfile, execute or restore from cache.
+
+    A layer can optionally have a `layer_name`. When set, the cache release
+    tag becomes `layer-<name>-<hash>` instead of `layer-<hash>`. This enables
+    composing multiple named layers (each cached independently) into a single
+    container, and lets cache-retention policies operate per-name.
+
+    Back-compat: if `layer_name` is None, the tag stays `layer-<hash>` so
+    existing single-Containerfile callers don't see their cache invalidate.
     """
-    
+
     def __init__(
         self,
         containerfile_path: str,
         cache_repo: str = "oaustegard/claude-container-layers",
         gh_token: Optional[str] = None,
         salt: str = "",
+        layer_name: Optional[str] = None,
     ):
         self.containerfile_path = containerfile_path
         self.cache_repo = cache_repo
         self.gh_token = gh_token or os.environ.get("GH_TOKEN", "")
+        self.layer_name = layer_name
         self._hash = content_hash(containerfile_path, extra_salt=salt)
-    
+
     @property
     def tag(self) -> str:
+        if self.layer_name:
+            return f"layer-{self.layer_name}-{self._hash}"
         return f"layer-{self._hash}"
     
     def restore_or_build(self) -> BuildResult:
@@ -425,3 +461,62 @@ class ContainerLayer:
         result = executor.execute(instructions)
         result.content_hash = self._hash
         return result
+
+
+def compose(
+    containerfile_paths: list[str],
+    cache_repo: str = "oaustegard/claude-container-layers",
+    gh_token: Optional[str] = None,
+    salt: str = "",
+    names: Optional[list[Optional[str]]] = None,
+) -> list[BuildResult]:
+    """Restore (or build+push, on miss) a sequence of named layers in order.
+
+    Each Containerfile becomes a named ContainerLayer with its own cache
+    key and GitHub Release. Layers are restored sequentially — later layers'
+    file modifications can overwrite earlier ones, mirroring Docker's
+    additive-overlay semantics.
+
+    Args:
+        containerfile_paths: Ordered list of Containerfile paths.
+        cache_repo: Single cache repo for all layers (each gets its own
+            release within it, tagged `layer-<name>-<hash>`).
+        gh_token: GitHub token; falls back to $GH_TOKEN.
+        salt: Optional salt applied to every layer's hash (typically a
+            git HEAD SHA so the whole composition invalidates together
+            when the source repo advances).
+        names: Optional per-layer name overrides. None entries fall back
+            to `default_layer_name()`. List length must match
+            `containerfile_paths` if provided.
+
+    Returns:
+        List of BuildResult, one per layer, in the same order as input.
+        Stops on first failure (later layers in the list aren't attempted).
+    """
+    if names is not None and len(names) != len(containerfile_paths):
+        raise ValueError(
+            f"names length ({len(names)}) must match containerfile_paths "
+            f"length ({len(containerfile_paths)})"
+        )
+
+    results: list[BuildResult] = []
+    for i, cf_path in enumerate(containerfile_paths):
+        explicit_name = names[i] if names else None
+        name = explicit_name or default_layer_name(cf_path)
+        print(f"\n=== Composing layer [{i + 1}/{len(containerfile_paths)}]: {name} ({cf_path}) ===")
+
+        layer = ContainerLayer(
+            containerfile_path=cf_path,
+            cache_repo=cache_repo,
+            gh_token=gh_token,
+            salt=salt,
+            layer_name=name,
+        )
+        result = layer.restore_or_build()
+        results.append(result)
+
+        if not result.success:
+            print(f"\n✗ Compose halted at layer '{name}' (errors above)")
+            break
+
+    return results

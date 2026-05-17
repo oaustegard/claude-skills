@@ -1,8 +1,8 @@
 ---
 name: container-layer
-description: Build and cache a personalized container environment from a Dockerfile-like spec. Use when the user mentions "container layer", "Containerfile", "custom container", "environment setup", "cache my installs", "uv shim", or wants to persist package installations, skills, or environment config across ephemeral sessions. Also triggers when the user asks to snapshot, restore, or rebuild their environment, or wants to capture ad-hoc package installs into a reproducible spec.
+description: Build and cache a personalized container environment from a Dockerfile-like spec. Supports both single-layer (one Containerfile -> one cached tarball) and multi-layer composition (compose [base, scientific, mojo, ...] into one container with each layer cached independently). Use when the user mentions "container layer", "Containerfile", "custom container", "environment setup", "cache my installs", "uv shim", "composable layers", or wants to persist package installations, skills, or environment config across ephemeral sessions. Also triggers when the user asks to snapshot, restore, or rebuild their environment, or wants to capture ad-hoc package installs into a reproducible spec.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Container Layer
@@ -46,7 +46,7 @@ SNAPSHOT /additional/path/to/capture
 
 ## Usage
 
-### Building / Restoring
+### Single layer — build / restore
 
 ```python
 from scripts.containerfile import ContainerLayer
@@ -59,6 +59,67 @@ layer = ContainerLayer(
 
 # Try cache first, fall back to full build
 layer.restore_or_build()
+```
+
+Or via CLI:
+
+```bash
+python -m scripts.cli restore /path/to/Containerfile --repo user/cache-repo
+```
+
+### Multi-layer composition (v0.2.0+)
+
+Decompose a heavy environment into named layers, each cached independently. Compose them in order on session start so most-changed bits don't invalidate stable bits.
+
+```python
+from scripts.containerfile import compose
+
+compose(
+    containerfile_paths=[
+        "layers/Containerfile",            # name='base'  (always-on)
+        "layers/Containerfile.scientific", # name='scientific'
+        "layers/Containerfile.mojo",       # name='mojo'
+    ],
+    cache_repo="user/cache-repo",
+)
+```
+
+Each layer gets its own cache release tag `layer-<name>-<hash>` so retention policies (keep last N) and cache invalidation operate per-name.
+
+Default layer names are derived from the Containerfile path:
+- `Containerfile`            → `base`
+- `Containerfile.scientific` → `scientific`
+- `layers/Containerfile.X`   → `X`
+
+CLI equivalent:
+
+```bash
+python -m scripts.cli compose \
+    layers/Containerfile \
+    layers/Containerfile.scientific \
+    layers/Containerfile.mojo \
+    --repo user/cache-repo
+```
+
+### Per-layer name override
+
+If filename doesn't derive cleanly, pass `--name NAME:PATH` per layer:
+
+```bash
+python -m scripts.cli compose \
+    --name base:weird-named-file.txt \
+    --name mojo:other-file.txt \
+    weird-named-file.txt other-file.txt
+```
+
+### Single-layer naming (back-compat)
+
+`build` / `restore` / `hash` / `inspect` accept `--name`:
+
+```bash
+python -m scripts.cli restore Containerfile.mojo --name mojo
+# Cache tag becomes 'layer-mojo-<hash>' instead of 'layer-<hash>'.
+# Omit --name to keep the old back-compat tag for existing callers.
 ```
 
 ### The uv Shim
