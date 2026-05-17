@@ -4,6 +4,12 @@ All notable changes to the `container-layer` skill are documented in this file. 
 
 ## [0.2.1] - 2026-05-17
 
+### Other
+
+- container-layer v0.2.1: cover python3.10-3.13 dist-packages in baseline (#651)
+
+## [0.2.1] - 2026-05-17
+
 ### Fixed
 
 - `PYTHON_INSTALL_PATHS` now lists python3.10 through python3.13 dist-packages
