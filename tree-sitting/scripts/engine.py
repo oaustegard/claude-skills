@@ -84,6 +84,7 @@ EXT_TO_LANG = {
     '.el': 'elisp',
     '.zig': 'zig',
     '.ex': 'elixir', '.exs': 'elixir',
+    '.mojo': 'mojo', '.🔥': 'mojo',
 }
 
 DEFAULT_SKIP = {
@@ -1050,6 +1051,18 @@ TAGS_SCM: dict[str, str] = {
 (interface_declaration name: (identifier) @name) @definition.interface
 (method_declaration name: (identifier) @name) @definition.method
 (namespace_declaration name: (identifier) @name) @definition.module
+''',
+    # tree-sitter-mojo ships its own queries/tags.scm; this mirrors it
+    # exactly (plus a method capture for fn defs nested in a class/struct/trait
+    # body, matching how the JS/TS extractor distinguishes function vs method).
+    'mojo': '''
+(class_definition name: (identifier) @name) @definition.class
+(struct_definition name: (identifier) @name) @definition.class
+(trait_definition name: (identifier) @name) @definition.interface
+(function_definition name: (identifier) @name) @definition.function
+(block (function_definition name: (identifier) @name) @definition.method)
+(alias_declaration name: (identifier) @name) @definition.constant
+(variable_declaration name: (identifier) @name) @definition.variable
 ''',
 }
 

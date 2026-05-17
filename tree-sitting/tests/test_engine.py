@@ -52,7 +52,7 @@ class AssertionError(AssertionError if False else AssertionError):
 
 def test_parser_available():
     """Parsers for bundled languages are available."""
-    for lang in ('python', 'javascript', 'go', 'rust', 'ruby', 'java', 'c', 'markdown'):
+    for lang in ('python', 'javascript', 'go', 'rust', 'ruby', 'java', 'c', 'markdown', 'mojo'):
         parser = _get_parser(lang)
         assert parser is not None, f"Parser for {lang} should be available"
 
@@ -73,7 +73,7 @@ def test_routing_custom():
 
 def test_routing_tags_scm():
     """Languages without custom extractors but with tags.scm use those."""
-    for lang in ('java', 'cpp', 'c_sharp'):
+    for lang in ('java', 'cpp', 'c_sharp', 'mojo'):
         assert lang not in EXTRACTORS, f"{lang} should NOT have a custom extractor"
         assert lang in TAGS_SCM, f"{lang} should have tags.scm"
 
@@ -363,6 +363,46 @@ public interface Repository {
     assert svc.kind == 'class'
     repo = find(syms, 'Repository')
     assert repo.kind == 'interface'
+
+
+def test_tags_scm_mojo():
+    """Mojo uses tags.scm (no custom extractor) — retires the rename-to-.py
+    workaround documented in Muninn memory 77cf6b41."""
+    syms = parse_and_extract('mojo', b'''
+struct Point:
+    var x: Float64
+    var y: Float64
+
+    fn __init__(out self, x: Float64, y: Float64):
+        self.x = x
+        self.y = y
+
+    fn distance(self) -> Float64:
+        return (self.x * self.x + self.y * self.y) ** 0.5
+
+trait Drawable:
+    fn draw(self): ...
+
+alias PI: Float64 = 3.14159
+
+fn polynomial(x: Float64) -> Float64:
+    return x * x + 2 * x + 1
+''')
+    # struct captured as a class-like definition
+    pt = find(syms, 'Point')
+    assert pt.kind == 'class'
+    # trait captured as interface
+    drw = find(syms, 'Drawable')
+    assert drw.kind == 'interface'
+    # alias declaration captured as constant
+    pi = find(syms, 'PI')
+    assert pi.kind == 'constant'
+    # top-level fn captured as function
+    poly = find(syms, 'polynomial')
+    assert poly.kind == 'function'
+    # nested fn captured as method (distinct from top-level function)
+    dist = find(syms, 'distance')
+    assert dist.kind == 'method'
 
 
 # ── CodeCache ────────────────────────────────────────────────────────────

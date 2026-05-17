@@ -2,7 +2,7 @@
 name: tree-sitting
 description: AST-powered code navigation via tree-sitter. Auto-scans codebases and provides progressive-disclosure tree views with symbol search, source retrieval, and reference finding. Each invocation is self-contained — no cross-process state. Use when exploring unfamiliar repos, navigating code, or needing fast symbol lookup. Triggers on "map this codebase", "explore repo", "find symbol", "navigate code", "tree-sitter", or when starting work on an unfamiliar repository.
 metadata:
-  version: 0.5.0
+  version: 0.6.0
 ---
 
 # tree-sitting
@@ -114,12 +114,12 @@ invocations loses the cache — use `treesit.py` instead.
 ## Supported Languages
 
 Bundled grammars (work out of the box):
-**Python, JavaScript, TypeScript, TSX, Go, Rust, Ruby, Java, C, HTML, Markdown.**
+**Python, JavaScript, TypeScript, TSX, Go, Rust, Ruby, Java, C, HTML, Markdown, Mojo.**
 
 Three-tier extraction for bundled languages:
 
 1. **Custom extractors** (richest — signatures, hierarchy, docstrings): Python, C, Go, Rust, JavaScript, TypeScript, TSX, Ruby, Markdown (heading outline)
-2. **tags.scm queries** (community-maintained — kinds, docs): Java
+2. **tags.scm queries** (community-maintained — kinds, docs): Java, Mojo
 3. **Generic heuristic** (names + kinds + locations): HTML and any future bundled grammars
 
 ### Adding a grammar
