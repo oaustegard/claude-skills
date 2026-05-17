@@ -6,6 +6,25 @@ All notable changes to the `container-layer` skill are documented in this file. 
 
 ### Added
 
+- add ISO date prefix to layer release names for sortability (#535)
+
+### Other
+
+- container-layer v0.2.0: named layers + compose (#650)
+- container-layer: stop leaking GH_TOKEN via subprocess TimeoutExpired (#596)
+- Remove _MAP.md files, direct agents to tree-sitting for code navigation (#545)
+- marketplace: restructure as category-based plugins for Claude Code discovery (#530)
+- container-layer: add README
+- container-layer: update boot-ccotw.sh (fix function ordering, abs paths)
+- container-layer: update scripts/cli.py
+- container-layer: update scripts/containerfile.py
+- container-layer: add boot.sh
+- container-layer: add Containerfile
+
+## [0.2.0] - 2026-05-17
+
+### Added
+
 - Named layers: `ContainerLayer(..., layer_name="X")` produces cache release tag
   `layer-X-<hash>` instead of `layer-<hash>`. Enables per-name cache retention
   policies and multi-layer composition without collisions.
