@@ -39,6 +39,23 @@ class TestPythonInstallPathsCoverage(unittest.TestCase):
     def test_local_bin_still_listed(self):
         self.assertIn("/usr/local/bin", PYTHON_INSTALL_PATHS)
 
+    def test_system_apt_target_dirs_present(self):
+        """`_exec_run` auto-snapshots /usr/{bin,lib,share} on apt installs.
+        These must be in PYTHON_INSTALL_PATHS too, else the apt-install path
+        falls back to whole-tree capture (regression: 678MB layer ballooned
+        to 1625MB when a single libfuse2 apt-install fired the auto-snapshot
+        before these entries were added)."""
+        for p in ("/usr/bin", "/usr/lib", "/usr/share"):
+            self.assertIn(
+                p, PYTHON_INSTALL_PATHS,
+                f"missing {p} — apt-install layers will whole-tree-capture this dir",
+            )
+
+    def test_user_local_bin_present(self):
+        """Sanity: dot-local paths for non-root installs still listed."""
+        self.assertIn("/home/claude/.local/lib", PYTHON_INSTALL_PATHS)
+        self.assertIn("/home/claude/.local/bin", PYTHON_INSTALL_PATHS)
+
 
 class TestBaselineCapturesNonExistentPaths(unittest.TestCase):
     """snapshot_baseline returns an entry for every requested path, even

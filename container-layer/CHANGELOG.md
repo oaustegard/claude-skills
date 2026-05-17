@@ -2,6 +2,28 @@
 
 All notable changes to the `container-layer` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.2.2] - 2026-05-17
+
+### Fixed
+
+- `PYTHON_INSTALL_PATHS` now includes `/usr/bin`, `/usr/lib`, `/usr/share` so
+  apt-install layers get the diff-vs-baseline treatment instead of whole-tree
+  capture. `_exec_run` already auto-adds these three paths to `snapshot_paths`
+  when it sees `apt-get install`, but before this fix they weren't baselined,
+  so any layer with `apt-get install <one tiny package>` ballooned by ~600MB
+  compressed (the full `/usr/{bin,lib,share}` trees). Verified empirically
+  against the libfuse2 install in oaustegard/claude-workspace-fuse: layer
+  jumped from 940MB → 1625MB compressed. Closes oaustegard/claude-skills#652.
+
+### Notes
+
+- Despite the name, `PYTHON_INSTALL_PATHS` is no longer python-only. Kept the
+  name for backwards compatibility with any external importer; consider
+  renaming to `BASELINED_PATHS` in a future major bump.
+- `snapshot_baseline()` walks these dirs at build-time. `/usr/lib` is the
+  largest (~2GB raw) — adds a few seconds to baseline capture. Acceptable
+  for build-time; negligible vs. the layer-restore time it saves.
+
 ## [0.2.1] - 2026-05-17
 
 ### Other
