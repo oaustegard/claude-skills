@@ -2,6 +2,24 @@
 
 All notable changes to the `container-layer` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.2.1] - 2026-05-17
+
+### Fixed
+
+- `PYTHON_INSTALL_PATHS` now lists python3.10 through python3.13 dist-packages
+  instead of only python3.12. The previous single entry missed containers using
+  3.11 (which is most of them), causing the diff-vs-baseline logic in
+  `_dedup_paths` to silently fall through to whole-tree snapshot — every layer
+  captured all of dist-packages instead of just newly-installed files.
+  Empirically verified against oaustegard/claude-workspace-fuse: cached "slim"
+  layer was 678MB compressed with 712M torch + 944M modular still embedded.
+
+### Added
+
+- Regression tests in `scripts/test_baseline_paths.py` lock in the new coverage
+  and assert the diff path is taken when a SNAPSHOT directive references a
+  baselined dir.
+
 ## [0.2.0] - 2026-05-17
 
 ### Added
