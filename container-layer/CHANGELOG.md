@@ -4,6 +4,12 @@ All notable changes to the `container-layer` skill are documented in this file. 
 
 ## [0.2.2] - 2026-05-17
 
+### Other
+
+- container-layer v0.2.2: baseline /usr/{bin,lib,share} for apt-install layers (#653)
+
+## [0.2.2] - 2026-05-17
+
 ### Fixed
 
 - `PYTHON_INSTALL_PATHS` now includes `/usr/bin`, `/usr/lib`, `/usr/share` so
