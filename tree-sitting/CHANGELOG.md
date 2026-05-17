@@ -2,6 +2,12 @@
 
 All notable changes to the `tree-sitting` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.6.0] - 2026-05-17
+
+### Added
+
+- Bundled Mojo grammar (`parsers/libtree_sitter_mojo.so`) built from [`oaustegard/tree-sitter-mojo`](https://github.com/oaustegard/tree-sitter-mojo) @ `1fe537c` (post-v1.0, 78/78 corpus + 29/29 acceptance suite passing). Registers `.mojo` and `.🔥` in `EXT_TO_LANG` and adds a tags.scm entry mirroring the grammar's own `queries/tags.scm` (structs/classes → class, traits → interface, `fn` → function or method depending on nesting, alias → constant, var → variable). Retires the rename-to-`.py` workaround documented in Muninn memory `77cf6b41`. Smoke-tested on a 31-file Mojo corpus: 982 symbols in 54ms.
+
 ## [0.5.0] - 2026-04-24
 
 ### Other
