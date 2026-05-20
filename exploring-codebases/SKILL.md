@@ -9,7 +9,7 @@ description: >-
   the divergent "what's here?" skill — for targeted "where is X?" queries,
   use searching-codebases instead.
 metadata:
-  version: 2.2.1
+  version: 2.3.0
 ---
 
 # Exploring Codebases
@@ -111,10 +111,41 @@ LLM step; everything before was mechanical.
 | "Where is the retry logic?" | searching-codebases |
 | "Find all files matching `class.*Error`" | searching-codebases |
 | "Show me the symbols in auth.py" | tree-sitting directly |
+| "Which files are most about CSRF / sessions / queryset filtering?" | bm25 |
+| "Rank these docs by relevance to a multi-word concept" | bm25 |
 | "Document what this codebase does" | featuring directly |
 
 Exploring is the **divergent** skill — you don't know what you're looking
 for yet. Searching is the **convergent** skill — you know what you want.
+
+### Pairing bm25 with this workflow
+
+Once steps 2–3 have surfaced the rough shape of the repo, `bm25` is the
+natural complement when you want **ranked content search** beyond grep
+and beyond exact-symbol lookup. It ranks files by lexical relevance to a
+multi-word query, which is useful for "what's this codebase actually
+*about* when I search for X?" — particularly when you don't yet know the
+symbol name to feed to `tree-sitting`.
+
+```bash
+BM25=/mnt/skills/user/bm25/scripts/bm25.py
+
+# Pass multiple queries — index builds once, all queries reuse it
+python3 $BM25 /tmp/$REPO 'auth flow' 'session backend' 'middleware pipeline' \
+  --exclude 'tests/*' --exclude '*/tests/*' --top-k 5
+```
+
+Two patterns that pair especially well:
+
+1. **bm25 → tree-sitting.** Use bm25 to find the top-ranked files for a
+   concept; then `tree-sitting source:Symbol:path/to/file.py` to read
+   the actual implementation.
+2. **bm25 with `--exclude 'tests/*'`.** Test directories tend to dominate
+   keyword queries because test names redundantly mention domain terms.
+   Excluding them up front lands you on implementation files.
+
+bm25 is corpus-agnostic — it'll also work on `project` knowledge stores
+or `uploads/` if your exploration spans docs, transcripts, or PDFs.
 
 ## Notes
 

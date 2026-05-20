@@ -2,6 +2,12 @@
 
 All notable changes to the `exploring-codebases` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.3.0] - 2026-05-18
+
+### Added
+
+- bm25 skill pairing — routing table entries for "which files are most about X?" / "rank by concept" queries, plus a "Pairing bm25 with this workflow" subsection covering the bm25→tree-sitting follow-through pattern and the `--exclude tests/*` lesson from fly #656.
+
 ## [2.2.1] - 2026-04-21
 
 ### Other
