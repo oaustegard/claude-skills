@@ -17,13 +17,17 @@ python3 $BM25 'github.com/django/django' 'atomic transaction'
 python3 $BM25 project 'RAG scaling laws'
 ```
 
-## Why stateless
+## Caching
 
-Index builds are fast — Django (2,909 .py files) indexes in ~8 seconds,
-small repos in well under a second. Caching the index would cost more in
-invalidation logic than it saves. Within a single invocation, the index
-is held in memory, so passing multiple queries on the command line (or
-using `--interactive`) amortizes the build cost across queries.
+The skill maintains a session-local cache at `/home/claude/.bm25-cache/<key>/`.
+The key hashes the inputs that determine the index (resolved corpus path,
+include/exclude globs, max file size), so any change naturally invalidates.
+First invocation against a corpus builds and saves; subsequent invocations
+load in ~50ms instead of rebuilding in seconds.
+
+`/home/claude/` is ephemeral, so the cache and the rest of the session
+state expire together — no cross-session invalidation problem. Use
+`--no-cache` to bypass if you've mutated the corpus mid-session.
 
 ## Pairing with other skills
 

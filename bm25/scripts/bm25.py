@@ -22,14 +22,17 @@ Examples:
 """
 import argparse
 import fnmatch
+import hashlib
 import json
 import os
+import pickle
 import re
 import sys
 import tarfile
 import tempfile
 import time
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 try:
@@ -131,28 +134,112 @@ def resolve_corpus(spec: str) -> Path:
 
 # ---------- index ----------
 
-class CorpusIndex:
-    """In-memory BM25 index over a corpus. Stateless across invocations."""
+CACHE_ROOT = Path('/home/claude/.bm25-cache')
 
-    def __init__(self, corpus_root: Path, include, exclude, max_bytes=2_000_000):
-        self.root = corpus_root
-        self.paths = []      # parallel to docs
-        self.docs = []
+
+def cache_key(corpus_root: Path, include, exclude, max_bytes: int) -> str:
+    """Stable 16-hex hash of the inputs that fully determine an index.
+
+    Same key → identical index. Changing any of: corpus root path,
+    include/exclude globs, or max_bytes → new key → cache miss → rebuild.
+    """
+    h = hashlib.sha256()
+    h.update(str(corpus_root.resolve()).encode())
+    h.update(b'|')
+    h.update(','.join(sorted(include)).encode())
+    h.update(b'|')
+    h.update(','.join(sorted(exclude)).encode())
+    h.update(b'|')
+    h.update(str(max_bytes).encode())
+    return h.hexdigest()[:16]
+
+
+class CorpusIndex:
+    """In-memory BM25 index over a corpus. Optional session-local disk cache.
+
+    The cache lives at /home/claude/.bm25-cache/<key>/ which is ephemeral
+    (dies with the container session). The key is a hash of the index-
+    determining inputs (corpus path + filters + size cap), so changing any
+    of those naturally invalidates. Same key + same session → load in
+    ~100–300ms instead of rebuilding in seconds.
+    """
+
+    def __init__(self, root: Path, paths, docs, retriever, build_s: float, source: str):
+        self.root = root
+        self.paths = paths
+        self.docs = docs
+        self.retriever = retriever
+        self.build_s = build_s
+        self.source = source  # 'built' or 'cache'
+
+    @classmethod
+    def build(cls, corpus_root: Path, include, exclude, max_bytes: int):
+        """Walk the corpus, tokenize, index. Returns a new CorpusIndex."""
         t0 = time.time()
+        paths, docs = [], []
         for rel, text in discover_files(corpus_root, include, exclude, max_bytes):
-            self.paths.append(rel)
-            self.docs.append(text)
-        self.discover_s = time.time() - t0
-        t0 = time.time()
-        tokens = bm25s.tokenize(self.docs, stopwords=None, show_progress=False)
-        self.retriever = bm25s.BM25()
-        self.retriever.index(tokens, show_progress=False)
-        self.index_s = time.time() - t0
+            paths.append(rel)
+            docs.append(text)
+        tokens = bm25s.tokenize(docs, stopwords=None, show_progress=False)
+        retriever = bm25s.BM25()
+        retriever.index(tokens, show_progress=False)
+        return cls(corpus_root, paths, docs, retriever, time.time() - t0, source='built')
+
+    def save(self, cache_dir: Path):
+        """Persist to disk so the next invocation can load instead of rebuild."""
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        self.retriever.save(str(cache_dir / 'bm25'))
+        with open(cache_dir / 'corpus.pkl', 'wb') as f:
+            pickle.dump({'paths': self.paths, 'docs': self.docs}, f)
+        with open(cache_dir / 'manifest.json', 'w') as f:
+            json.dump({
+                'corpus_root': str(self.root),
+                'files_count': len(self.paths),
+                'built_at': datetime.now(timezone.utc).isoformat(),
+                'build_s': round(self.build_s, 3),
+            }, f, indent=2)
+
+    @classmethod
+    def load(cls, cache_dir: Path, corpus_root: Path):
+        """Try to load a cached index. Returns CorpusIndex on success, None on any failure."""
+        try:
+            mf_path = cache_dir / 'manifest.json'
+            if not mf_path.exists():
+                return None
+            t0 = time.time()
+            retriever = bm25s.BM25.load(str(cache_dir / 'bm25'))
+            with open(cache_dir / 'corpus.pkl', 'rb') as f:
+                corp = pickle.load(f)
+            with open(mf_path) as f:
+                manifest = json.load(f)
+            idx = cls(corpus_root, corp['paths'], corp['docs'], retriever,
+                      time.time() - t0, source='cache')
+            idx.manifest = manifest
+            return idx
+        except Exception:
+            return None
 
     def query(self, q: str, k: int = 10):
         tokens = bm25s.tokenize([q], stopwords=None, show_progress=False)
         idxs, scores = self.retriever.retrieve(tokens, k=min(k, len(self.docs)), show_progress=False)
         return [(int(i), float(s)) for i, s in zip(idxs[0], scores[0])]
+
+
+def get_or_build_index(corpus_root: Path, include, exclude, max_bytes: int, use_cache: bool):
+    """Cache-aware index lookup. Returns (CorpusIndex, cache_dir_or_None, key)."""
+    key = cache_key(corpus_root, include, exclude, max_bytes)
+    cache_dir = CACHE_ROOT / key
+    if use_cache:
+        loaded = CorpusIndex.load(cache_dir, corpus_root)
+        if loaded is not None:
+            return loaded, cache_dir, key
+    idx = CorpusIndex.build(corpus_root, include, exclude, max_bytes)
+    if use_cache:
+        try:
+            idx.save(cache_dir)
+        except Exception as e:
+            sys.stderr.write(f"[bm25] warn: failed to write cache ({e}); continuing\n")
+    return idx, (cache_dir if use_cache else None), key
 
 
 # ---------- snippet extraction ----------
@@ -213,19 +300,34 @@ def main():
     ap.add_argument('--json', action='store_true', help='machine-readable output')
     ap.add_argument('--interactive', '-i', action='store_true', help='REPL: query, q, query, q, ... (one corpus, many queries)')
     ap.add_argument('--stats', action='store_true', help='print discover/index timings')
+    ap.add_argument('--no-cache', action='store_true',
+                    help='bypass the session-local index cache at /home/claude/.bm25-cache/')
     args = ap.parse_args()
 
     if not args.queries and not args.interactive:
         ap.error('provide queries as positional args, or use --interactive')
 
     root = resolve_corpus(args.corpus)
-    sys.stderr.write(f"[bm25] indexing {root} ...\n")
-    idx = CorpusIndex(root, args.include, args.exclude, args.max_file_bytes)
-    sys.stderr.write(f"[bm25] indexed {len(idx.docs)} files in {idx.discover_s + idx.index_s:.2f}s "
-                     f"(walk {idx.discover_s:.2f}s, index {idx.index_s:.2f}s)\n")
+    idx, cache_dir, key = get_or_build_index(
+        root, args.include, args.exclude, args.max_file_bytes,
+        use_cache=not args.no_cache,
+    )
+    if idx.source == 'cache':
+        manifest = getattr(idx, 'manifest', {})
+        built_at = manifest.get('built_at', '?')
+        sys.stderr.write(f"[bm25] cache HIT  {key} ({len(idx.docs)} files, "
+                         f"loaded in {idx.build_s:.2f}s, built {built_at})\n")
+    else:
+        if cache_dir is not None:
+            sys.stderr.write(f"[bm25] cache MISS {key} → built {len(idx.docs)} files in {idx.build_s:.2f}s, saved to {cache_dir}\n")
+        else:
+            sys.stderr.write(f"[bm25] no-cache: built {len(idx.docs)} files in {idx.build_s:.2f}s\n")
     if args.stats:
-        print(json.dumps({'files': len(idx.docs), 'walk_s': round(idx.discover_s, 3),
-                          'index_s': round(idx.index_s, 3)}, indent=2))
+        print(json.dumps({
+            'files': len(idx.docs), 'source': idx.source,
+            'build_or_load_s': round(idx.build_s, 3),
+            'cache_key': key, 'cache_dir': str(cache_dir) if cache_dir else None,
+        }, indent=2))
 
     for q in args.queries:
         hits = idx.query(q, k=args.top_k)
