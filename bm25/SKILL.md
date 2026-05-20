@@ -10,13 +10,14 @@ description: >-
   "search this corpus", "find content about X", "which files are most about
   Y", or multi-word concept queries against a known body of text.
 metadata:
-  version: 0.1.1
+  version: 0.1.2
 ---
 
 # bm25
 
-Ranked content search over any text corpus. One CLI, one in-memory index per
-invocation, no persistence.
+Ranked content search over any text corpus. One CLI, in-memory BM25 index
+per process, with a session-local disk cache so repeat invocations against
+the same corpus load in tens of milliseconds instead of rebuilding.
 
 ## Setup
 
@@ -77,6 +78,7 @@ python3 $BM25 ./repo 'auth flow' --json
 | `--json` | | Machine-readable output |
 | `--interactive` / `-i` | | REPL mode for ad-hoc querying within one session |
 | `--stats` | | Print discover + index timings as JSON |
+| `--no-cache` | | Bypass the session-local index cache; build in-memory only |
 
 With no `--include`, a default set of text/code extensions is indexed (Python,
 JS/TS, Go, Rust, Markdown, JSON, YAML, etc.). Standard noise dirs are skipped
@@ -102,12 +104,19 @@ you specifically want BM25's length-normalized scoring.
 
 ## Design notes
 
-- **Stateless by design.** Every call rebuilds. Build is fast enough
-  (Django, 2,909 files: ~8s; bm25s itself, 85 files: <1s) that caching
-  costs more in invalidation tax than it saves.
-- **Reuse within a session.** The retriever stays in memory between queries
-  in one invocation. Pass multiple queries positionally, or use
-  `--interactive`, to amortize the index build across queries.
+- **Session-local disk cache** at `/home/claude/.bm25-cache/<key>/`. The
+  key is a hash of `(resolved_corpus_path, include_globs, exclude_globs,
+  max_file_bytes)` — any change invalidates naturally. First invocation
+  builds and saves; subsequent invocations against the same corpus and
+  filters load in tens of milliseconds. The cache lives in `/home/claude`,
+  which is ephemeral, so it expires at the session boundary — same
+  lifetime as the corpus state itself, no cross-session staleness.
+  ~5–35MB per cached index, depending on corpus size.
+- **`--no-cache`** bypasses both load and save — useful only if you've
+  mutated the corpus mid-session (rare) or want to confirm a rebuild matches.
+- **Reuse within a single invocation.** The retriever stays in memory
+  between queries in one process. Passing multiple queries positionally,
+  or using `--interactive`, amortizes any rebuild cost across queries.
 - **No AST awareness.** Chunking is per-file. For symbol-level results in
   code, combine with `tree-sitting` queries on the same paths.
 - **Tokenizer.** Default `bm25s.tokenize` with stopwords disabled — over a
@@ -135,11 +144,19 @@ QUERY: csrf middleware
 ```
 bm25.py CLI
   ├── resolve_corpus(spec)         → local Path (downloads tarball if github.com/...)
-  ├── discover_files(root, filters) → iterates (relpath, text)
-  ├── CorpusIndex                  → bm25s.BM25.index() over docs
+  ├── cache_key(...)               → 16-hex sha256 of inputs that determine the index
+  ├── CorpusIndex.load(cache_dir)  → returns cached index if present, else None
+  ├── CorpusIndex.build(...)       → walks files, tokenizes, indexes with bm25s
+  ├── CorpusIndex.save(cache_dir)  → persists to /home/claude/.bm25-cache/<key>/
   ├── query(q, k)                  → ranked (doc_idx, score) pairs
   └── best_snippet(doc, q, lines)  → pick line w/ most query-term hits + context
 ```
 
-No state outside the process. No files written. No network beyond optional
-tarball fetch on `github.com/...` corpora.
+Cache contents per directory:
+- `bm25/` — bm25s.BM25.save() output (NumPy arrays + vocab)
+- `corpus.pkl` — pickled `{paths, docs}` so we can render snippets without
+  re-reading the source files
+- `manifest.json` — corpus root, files count, built_at timestamp
+
+No network beyond optional tarball fetch on `github.com/...` corpora. No
+state outside `/home/claude/`, which is ephemeral.
