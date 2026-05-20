@@ -10,7 +10,7 @@ description: >-
   "search this corpus", "find content about X", "which files are most about
   Y", or multi-word concept queries against a known body of text.
 metadata:
-  version: 0.1.0
+  version: 0.1.1
 ---
 
 # bm25
@@ -21,10 +21,10 @@ invocation, no persistence.
 ## Setup
 
 ```bash
-pip install bm25s --break-system-packages
+uv pip install --system --break-system-packages bm25s
 ```
 
-That's the entire dependency.
+Install is sub-second on a warm uv cache. That's the entire dependency.
 
 ## Usage
 
