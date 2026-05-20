@@ -5,12 +5,20 @@ Usage
 -----
   build.py list                                     # all templates, one line each
   build.py describe <template>                      # parameter reference for one template
-  build.py build <template> [--spec FILE|-] [--out FILE]
-                                                    # render HTML; spec from FILE or stdin
+  build.py build <template> [--spec FILE|-] [--set K=V ...] [--out FILE]
+                                                    # render HTML; spec from FILE, stdin,
+                                                    # and/or --set overrides
 
 The "build" command reads a JSON spec, runs it through the named template's
 builder, and emits a single self-contained HTML document. With no --out, the
 result is written to stdout.
+
+--set lets you supply or override a spec field from the command line, including
+loading the value from a file via the @PATH suffix:
+
+  build.py build freeform --set title='My Page' --set body_html=@body.html --out out.html
+
+This sidesteps JSON-string escaping for multi-line HTML/CSS/JS bodies.
 
 Templates live in scripts/templates/. Each module registers via the @register
 decorator. See SKILL.md for the workflow.
@@ -94,23 +102,75 @@ def cmd_describe(args) -> int:
     return 0
 
 
+def _apply_set(spec: dict, set_args: list[str]) -> int:
+    """Mutate spec from --set KEY=VALUE / KEY=@FILE entries.
+
+    Escape hatch for fields whose content fights JSON-string escaping
+    (multi-line HTML, CSS, JS). Lets the caller keep the spec lean and
+    point at raw files for the heavy bits.
+
+    Syntax:
+      --set body_html=@body.html        # spec['body_html'] = file contents
+      --set title='My Page'             # spec['title']     = 'My Page'
+
+    Returns 0 on success, 2 on error.
+    """
+    for entry in set_args or []:
+        if "=" not in entry:
+            print(f"--set expects KEY=VALUE or KEY=@FILE, got: {entry!r}", file=sys.stderr)
+            return 2
+        key, _, val = entry.partition("=")
+        key = key.strip()
+        if not key:
+            print(f"--set missing key in: {entry!r}", file=sys.stderr)
+            return 2
+        if val.startswith("@"):
+            path = val[1:]
+            if not path:
+                print(f"--set {key}=@ requires a file path", file=sys.stderr)
+                return 2
+            try:
+                spec[key] = Path(path).read_text(encoding="utf-8")
+            except OSError as e:
+                print(f"--set {key}=@{path}: {e}", file=sys.stderr)
+                return 2
+        else:
+            spec[key] = val
+    return 0
+
+
 def cmd_build(args) -> int:
     name = args.template
     if name not in REGISTRY:
         print(f"unknown template: {name}", file=sys.stderr)
         return 2
 
-    if args.spec == "-" or not args.spec:
-        raw = sys.stdin.read()
+    # Spec is optional when every required field can be supplied via --set.
+    if args.spec == "-":
+        raw_text = sys.stdin.read()
+    elif args.spec:
+        raw_text = Path(args.spec).read_text(encoding="utf-8")
     else:
-        raw = Path(args.spec).read_text(encoding="utf-8")
-    if not raw.strip():
-        print("empty spec", file=sys.stderr)
-        return 2
-    try:
-        spec = json.loads(raw)
-    except json.JSONDecodeError as e:
-        print(f"spec is not valid JSON: {e}", file=sys.stderr)
+        raw_text = ""
+
+    if raw_text.strip():
+        try:
+            spec = json.loads(raw_text)
+        except json.JSONDecodeError as e:
+            print(f"spec is not valid JSON: {e}", file=sys.stderr)
+            return 2
+        if not isinstance(spec, dict):
+            print("spec must be a JSON object (dict)", file=sys.stderr)
+            return 2
+    else:
+        spec = {}
+
+    rc = _apply_set(spec, args.set or [])
+    if rc != 0:
+        return rc
+
+    if not spec:
+        print("empty spec (no --spec content and no --set entries)", file=sys.stderr)
         return 2
 
     builder = REGISTRY[name]["build"]
@@ -140,7 +200,15 @@ def main(argv: list[str] | None = None) -> int:
 
     pb = sub.add_parser("build", help="Render a template using the given spec.")
     pb.add_argument("template")
-    pb.add_argument("--spec", "-s", default="-", help="Path to JSON spec, or '-' for stdin (default).")
+    pb.add_argument("--spec", "-s", default=None,
+                    help="Path to JSON spec, or '-' for stdin. Optional if every "
+                         "required field is supplied via --set.")
+    pb.add_argument("--set", action="append", default=[],
+                    metavar="KEY=VALUE",
+                    help="Set or override a spec field. 'KEY=VALUE' assigns the "
+                         "literal string; 'KEY=@FILE' loads the file contents. "
+                         "Repeatable. Avoids JSON-string escaping for multi-line "
+                         "HTML/CSS/JS (e.g. --set body_html=@body.html).")
     pb.add_argument("--out", "-o", default=None, help="Write HTML to this file (default: stdout).")
     pb.set_defaults(fn=cmd_build)
 
