@@ -2,7 +2,7 @@
 name: composing-html
 description: Composes single-file HTML artifacts (PR review writeups, status reports, incident postmortems, slide decks, design systems, prototypes, flowcharts, module maps, feature explainers, kanban boards, prompt tuners) from a small JSON spec instead of hand-written HTML/CSS/JS. Use when the user asks to "compare options side-by-side", requests an HTML version of a report or review or deck, asks for a flowchart, status update, postmortem, design system reference, interactive prototype, custom editor — or explicitly says "HTML artifact", "single HTML file", "self-contained HTML". Skip for ad-hoc HTML snippets (forms, emails, embedded widgets) where there's no template fit.
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # composing-html
@@ -19,15 +19,57 @@ near the end.
 
 ## Default workflow: freeform
 
+`freeform` gives you the whole chrome with one content slot — `body_html` —
+for the page body. Reach for it first. Reach for a template only when the
+structure repeats across artifacts (see [Templates](#templates-shortcuts-for-repeat-structure)
+near the end).
+
+There are two ways to invoke it. **Use the `--set` flow for anything with a
+substantial body** — it sidesteps the JSON-string escaping that bites
+heredoc-style spec writing (newlines, quotes, `<`/`&` inside multi-line
+HTML).
+
+### Recommended: HTML in a file, metadata via `--set`
+
 ```
-1. python scripts/build.py describe freeform     # see the body_html slot
-2. write spec.json with body_html: "<your HTML using the inventory below>"
-3. python scripts/build.py build freeform --spec spec.json --out artifact.html
+1. Write the body to a .html file directly (no JSON, no escaping).
+2. python scripts/build.py build freeform \
+       --set title='My Page' \
+       --set subtitle='Optional subhead' \
+       --set body_html=@body.html \
+       --out artifact.html
 ```
 
-`freeform` gives you the whole chrome with one slot — `body_html` — for the
-content you actually care about. Reach for it first. Reach for a template
-only when the structure repeats across artifacts (see below).
+`--set KEY=VALUE` assigns a literal string; `--set KEY=@FILE` loads the file
+contents verbatim into that spec field. Repeat for any field. Works for
+`body_html`, `extra_css`, `extra_js`, `eyebrow`, `page_class`, and the same
+`*_html` fields in any other template (`summary_html`, `intro_html`,
+`details_html`, …).
+
+### Spec-file workflow (best for structured templates)
+
+```
+1. python scripts/build.py describe <template>     # required keys + skeleton
+2. write spec.json
+3. python scripts/build.py build <template> --spec spec.json --out artifact.html
+```
+
+For templates with typed slots (`pr_review.findings[]`, `slide_deck.slides[]`,
+`status_report.metrics[]`), the spec file is the right shape — the template
+reasons over the structure. For `freeform`, the spec is mostly a thin config
+wrapper around one HTML string; the `--set` flow above is usually less
+friction.
+
+You can mix both: small `spec.json` for metadata, `--set body_html=@body.html`
+for the heavy bit. `--set` overrides any matching field from `--spec`.
+
+### Pitfall: don't inline multi-line HTML into a JSON heredoc
+
+`cat > spec.json <<EOF { "body_html": "<multi\nline>\n..." } EOF` does not
+produce valid JSON — JSON strings can't contain raw newlines or unescaped
+quotes. Either:
+- use `--set body_html=@body.html` (recommended), or
+- assemble the spec in Python with `json.dump(spec, f)` so escaping is automatic.
 
 ## Inventory
 
@@ -171,6 +213,11 @@ Otherwise: `freeform`.
 `describe` prints a valid-JSON starter skeleton you can edit in place. For
 worked examples, see `references/templates.md` — but only after picking a
 template; reading it cold wastes context.
+
+For templates with prose-heavy `*_html` slots (e.g. `summary_html`,
+`intro_html`, `details_html`), the same `--set KEY=@FILE` mechanism from the
+freeform workflow applies — load the prose from a `.html` file rather than
+escaping it into the JSON spec.
 
 There are 21 templates, grouped into 9 categories plus `freeform`:
 
