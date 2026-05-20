@@ -12,3 +12,9 @@ Initial release. Stateless BM25 search wrapper around xhluca/bm25s.
 - No persistence — every invocation rebuilds. See README for rationale.
 
 Empirical basis: [Fly 2026-05-18 — Where AST Helps BM25 (and Where It Doesn't)](https://muninn.austegard.com/perch/fly-2026-05-18-where-ast-helps-bm25-and-where-it-doesnt.html). Token-stream filtering was tested on a Django sample and gave near-identical rankings to plain text indexing, so it isn't worth the complexity in v0.1.
+
+## [0.1.0] - 2026-05-20
+
+### Other
+
+- Add bm25 skill: stateless BM25 search over any corpus
