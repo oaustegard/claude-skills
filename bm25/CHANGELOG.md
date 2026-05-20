@@ -23,6 +23,12 @@ Initial release. Stateless BM25 search wrapper around xhluca/bm25s.
 
 Empirical basis: [Fly 2026-05-18 — Where AST Helps BM25 (and Where It Doesn't)](https://muninn.austegard.com/perch/fly-2026-05-18-where-ast-helps-bm25-and-where-it-doesnt.html). Token-stream filtering was tested on a Django sample and gave near-identical rankings to plain text indexing, so it isn't worth the complexity in v0.1.
 
+## [0.1.2] - 2026-05-20
+
+### Other
+
+- bm25 v0.1.2: session-local disk cache at /home/claude/.bm25-cache/ (#660)
+
 ## [0.1.1] - 2026-05-20
 
 ### Other
