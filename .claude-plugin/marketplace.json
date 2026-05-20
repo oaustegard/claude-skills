@@ -13,7 +13,7 @@
       "name": "ai-and-reasoning",
       "description": "AI model invocation, multi-agent orchestration, prompt distillation, and structured reasoning frameworks.",
       "source": "./plugins/ai-and-reasoning",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",
@@ -23,6 +23,7 @@
         "convening-experts",
         "down-skilling",
         "invoking-gemini",
+        "invoking-antigravity",
         "llm-as-computer",
         "reviewing-ai-papers",
         "tiling-tree"

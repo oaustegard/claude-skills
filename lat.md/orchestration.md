@@ -51,3 +51,7 @@ It uses orchestrating-agents for parallel subagent invocation, recursively parti
 ## Gemini Client
 
 [[invoking-gemini/scripts/gemini_client.py#invoke_gemini]] wraps the Google Generative AI API with Cloudflare gateway routing via [[invoking-gemini/scripts/gemini_client.py#get_cf_credentials]]. [[invoking-gemini/scripts/gemini_client.py#invoke_with_structured_output]] adds Pydantic schema enforcement. [[invoking-gemini/scripts/gemini_client.py#invoke_parallel]] mirrors the Claude parallel pattern for Gemini calls. [[invoking-gemini/scripts/gemini_client.py#generate_image]] handles image generation via Gemini's multimodal API.
+
+## Antigravity CLI
+
+[[invoking-antigravity/scripts/agy_auth_broker.py#main]] drives Google's Antigravity CLI (`agy`) through headless OAuth — it spawns `agy -i` under a pseudo-terminal, scrapes the login URL, and feeds back an authorization code. [[invoking-antigravity/scripts/agy_auth_broker.py#extract_oauth_url]] recovers the OAuth URL from escape-code-laden TUI output, and [[invoking-antigravity/scripts/agy_auth_broker.py#capability_replies]] answers the terminal capability queries that would otherwise stall the TUI. Once authenticated, `agy -p "<task>"` runs as a non-interactive sub-agent on Google's agent harness (Gemini 3.5 Flash) — the heavier-weight counterpart to a single-model [[invoking-gemini/scripts/gemini_client.py#invoke_gemini]] call.
