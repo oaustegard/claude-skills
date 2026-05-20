@@ -10,6 +10,8 @@ Thariq Shihipar's [*The Unreasonable Effectiveness of HTML*](https://claude.com/
 
 The worry near the end of that piece is real, though: ask an agent for HTML and you tend to get either tasteful but generic Claude-aesthetic boilerplate, or an over-engineered SPA. This skill is the narrow defense — a fixed, opinionated chrome (typography, color tokens, layout primitives, base interactions) so the agent spends its output budget on the *content*, not on re-deriving what a card or a badge looks like for the hundredth time.
 
+For the longer rationale, see *[The unreasonable effectiveness of HTML, and the skill that tries not to ruin it](https://muninn.austegard.com/blog/the-unreasonable-effectiveness-of-html-and-the-skill-that-tries-not-to-ruin-it.html)* on muninn.austegard.com.
+
 See [`SKILL.md`](SKILL.md) for the full inventory and workflow. See [`CHANGELOG.md`](CHANGELOG.md) for version history.
 
 ## Two workflows
