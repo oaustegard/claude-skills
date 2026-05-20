@@ -324,6 +324,124 @@ def test_describe_emits_valid_json():
 
 
 # --------------------------------------------------------------------------- #
+# --set CLI override behavior                                                 #
+# --------------------------------------------------------------------------- #
+
+def test_apply_set_inline_value():
+    from build import _apply_set
+    spec = {}
+    rc = _apply_set(spec, ["title=Hello", "subtitle=World"])
+    assert rc == 0
+    assert spec == {"title": "Hello", "subtitle": "World"}
+
+
+def test_apply_set_preserves_equals_in_value():
+    """KEY=VALUE uses str.partition('='), so '=' inside the value survives."""
+    from build import _apply_set
+    spec = {}
+    rc = _apply_set(spec, ["extra_css=.x { content: 'a=b'; }"])
+    assert rc == 0
+    assert spec["extra_css"] == ".x { content: 'a=b'; }"
+
+
+def test_apply_set_loads_file_with_at_prefix():
+    """KEY=@FILE loads the file's raw contents — newlines, quotes, all OK."""
+    import tempfile
+    from build import _apply_set
+    with tempfile.TemporaryDirectory() as td:
+        p = Path(td) / "body.html"
+        body = '<section>\n  "multi-line" & <em>special</em> content\n</section>'
+        p.write_text(body, encoding="utf-8")
+        spec = {}
+        rc = _apply_set(spec, [f"body_html=@{p}"])
+        assert rc == 0
+        assert spec["body_html"] == body
+        # The whole point: content can include newlines and quotes that
+        # would otherwise need careful JSON-string escaping.
+        assert "\n" in spec["body_html"]
+        assert '"' in spec["body_html"]
+
+
+def test_apply_set_overrides_existing_field():
+    from build import _apply_set
+    spec = {"title": "from-json", "extra_css": "/* old */"}
+    rc = _apply_set(spec, ["title=from-set"])
+    assert rc == 0
+    assert spec == {"title": "from-set", "extra_css": "/* old */"}
+
+
+def test_apply_set_rejects_bad_syntax():
+    from build import _apply_set
+    spec = {}
+    rc = _apply_set(spec, ["no_equals_sign"])
+    assert rc == 2
+    rc = _apply_set({}, ["=missing-key"])
+    assert rc == 2
+
+
+def test_apply_set_rejects_missing_file():
+    from build import _apply_set
+    spec = {}
+    rc = _apply_set(spec, ["body_html=@/tmp/definitely-does-not-exist-xyz.html"])
+    assert rc == 2
+
+
+def test_cli_build_with_only_set_and_no_spec():
+    """End-to-end: --set alone (no --spec) renders a valid page."""
+    import subprocess
+    import tempfile
+    cli = ROOT / "scripts" / "build.py"
+    with tempfile.TemporaryDirectory() as td:
+        body = Path(td) / "body.html"
+        body.write_text(
+            '<section><h2>Multi-line</h2>\n<p>Has "quotes" & <em>tags</em>.</p></section>',
+            encoding="utf-8",
+        )
+        out = Path(td) / "out.html"
+        result = subprocess.run(
+            [sys.executable, str(cli), "build", "freeform",
+             "--set", "title=No-spec demo",
+             "--set", f"body_html=@{body}",
+             "--out", str(out)],
+            capture_output=True, text=True,
+        )
+        assert result.returncode == 0, f"CLI failed: {result.stderr}"
+        rendered = out.read_text(encoding="utf-8")
+        assert "<!doctype html>" in rendered.lower()
+        assert "Multi-line" in rendered
+        assert '"quotes"' in rendered
+        assert "No-spec demo" in rendered  # title made it through
+
+
+def test_cli_build_set_overrides_spec_file():
+    """When --spec and --set both supply the same key, --set wins."""
+    import subprocess
+    import tempfile
+    cli = ROOT / "scripts" / "build.py"
+    with tempfile.TemporaryDirectory() as td:
+        spec = Path(td) / "spec.json"
+        spec.write_text(
+            json.dumps({"title": "from-spec", "body_html": "<p>spec body</p>"}),
+            encoding="utf-8",
+        )
+        body = Path(td) / "body.html"
+        body.write_text("<p>set body wins</p>", encoding="utf-8")
+        out = Path(td) / "out.html"
+        result = subprocess.run(
+            [sys.executable, str(cli), "build", "freeform",
+             "--spec", str(spec),
+             "--set", f"body_html=@{body}",
+             "--out", str(out)],
+            capture_output=True, text=True,
+        )
+        assert result.returncode == 0, f"CLI failed: {result.stderr}"
+        rendered = out.read_text(encoding="utf-8")
+        assert "set body wins" in rendered
+        assert "spec body" not in rendered
+        assert "from-spec" in rendered  # title from spec was kept
+
+
+# --------------------------------------------------------------------------- #
 # direct entrypoint                                                           #
 # --------------------------------------------------------------------------- #
 
