@@ -2,6 +2,12 @@
 
 All notable changes to the `exploring-codebases` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.3.0] - 2026-05-20
+
+### Other
+
+- exploring-codebases v2.3.0: add bm25 pairing
+
 ## [2.3.0] - 2026-05-18
 
 ### Added
