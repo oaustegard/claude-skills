@@ -1,52 +1,39 @@
 ---
 name: invoking-antigravity
-description: Installs and drives Google's Antigravity CLI (`agy`) as a non-interactive sub-agent — headless OAuth via a pty broker, then `agy -p` for orchestration. Use when orchestrating agy, running Antigravity agents from a script or sandbox, or wanting a Gemini-3-backed peer agent alongside Claude.
+description: Install and drive Google's Antigravity CLI (`agy`) as a non-interactive sub-agent. Use when orchestrating agy, running Antigravity agents from a script or sandbox, delegating a task to Google's agent harness, or wanting a Gemini-backed peer agent alongside Claude.
 metadata:
-  version: 0.1.0
+  version: 0.1.1
 ---
 
 # Invoking Antigravity
 
-Run Google's **Antigravity CLI** (`agy`) headless and use `agy -p "<task>"`
-as an orchestrated sub-agent — a second opinion on Google's agent harness
-(Gemini 3.5 Flash) alongside Claude.
+Run Google's Antigravity CLI (`agy`) headless, then call `agy -p "<task>"`
+as an orchestrated sub-agent on Google's harness (Gemini 3.5 Flash).
 
-`agy` is built for interactive terminal use and gates every call behind a
-Google OAuth login with no API-key path. This skill covers the two things
-that make it work unattended: driving the login through a pseudo-terminal,
-and getting the token to persist without an OS keyring.
+Install, authenticate once, orchestrate. For the *why* behind any step —
+the 30 s timeout, the keyring fallback, the token format, network hosts,
+troubleshooting — read [references/auth-internals.md](references/auth-internals.md).
 
 ## When to use
 
-- Orchestrating `agy` as a sub-agent (shell out, capture stdout, fold back).
-- Running Antigravity agents from a script, CI, or a sandboxed container.
-- Wanting a Gemini-backed peer agent for a second opinion.
+- Orchestrating `agy` as a sub-agent: shell out, capture stdout, fold back.
+- Running Antigravity agents from a script, CI, or sandboxed container.
+- Wanting a second opinion from Google's harness alongside Claude.
 
-Not needed for interactive local use — there `agy` just opens your browser.
+For interactive local use, skip this — run `agy` directly and it opens a browser.
 
-## Install agy (~3 s)
+## 1. Install
 
 ```bash
 curl -fsSL https://antigravity.google/cli/install.sh | bash
 ```
 
-Clean installer: SHA-512-verified, ~52 MB download, expands to a ~183 MB
-Go binary at `~/.local/bin/agy`. Idempotent — no-ops if `agy` exists, and
-`agy` self-updates after that. Not on npm (the `antigravity-cli` npm
-package is an unrelated squatter).
+Idempotent, ~3 s, installs `~/.local/bin/agy`.
 
-## Authenticate headless
+## 2. Authenticate — once, human-in-the-loop
 
-Two problems block unattended auth; both are solved below.
-
-**1. The prompt blocks.** `agy -p` gives the OAuth prompt a hardcoded 30 s
-— too short for a human round trip. The interactive TUI (`agy -i`) has *no*
-auth timeout but must be driven through a pty.
-
-**2. Token storage needs a keyring.** `agy` saves the token to the OS
-keyring (needs D-Bus). Where D-Bus is absent the write fails silently and
-the token is lost. `agy` falls back to a **file** when it thinks it is in
-an SSH session — so export fake SSH env vars before launching it:
+Export these in every shell that runs `agy`, so it stores the token in a
+file rather than an OS keyring:
 
 ```bash
 export SSH_CONNECTION="203.0.113.1 50000 203.0.113.2 22"
@@ -54,67 +41,30 @@ export SSH_CLIENT="203.0.113.1 50000 22"
 export SSH_TTY="/dev/pts/0"
 ```
 
-### Run the broker
-
-`scripts/agy_auth_broker.py` spawns `agy -i` under a pty, answers the
-terminal capability queries so the TUI renders, auto-selects "Google
-OAuth", scrapes the OAuth URL, and feeds back an authorization code. It
-sets the SSH env vars itself.
+Run the broker, then relay the login to a human:
 
 ```bash
-python3 scripts/agy_auth_broker.py &           # spawns agy, captures the URL
-# wait ~15 s, then:
-cat /tmp/agybroker/url                         # → hand this URL to a human
-# human opens it, signs in, consents, copies the authorization code:
-printf '<code>' > /tmp/agybroker/code          # broker types it into agy
+python3 scripts/agy_auth_broker.py &      # spawns agy, captures the OAuth URL
+sleep 15 && cat /tmp/agybroker/url         # a human opens this and consents
+printf '<code>' > /tmp/agybroker/code      # paste the authorization code back
 ```
 
-On success `agy` writes the token to
-`~/.gemini/antigravity-cli/antigravity-oauth-token` and every later
-`agy -p` call runs silently.
+`agy` writes the token to `~/.gemini/antigravity-cli/antigravity-oauth-token`;
+later `agy -p` calls run silently. Complete the login within a few minutes —
+an idle container pause kills the broker's `agy` process.
 
-> **Be prompt.** In an ephemeral/idle-paused container the live `agy`
-> process dies if the human dawdles — complete the OAuth dance within a
-> few minutes. See [references/auth-internals.md](references/auth-internals.md).
-
-## Orchestrate: `agy -p`
-
-With the token file in place (and SSH env still exported):
+## 3. Orchestrate
 
 ```bash
 agy --dangerously-skip-permissions -p "<task>"
 ```
 
-**Flag ordering matters** — `-p` consumes the next argument as the prompt,
-so put other flags *before* `-p`. Useful flags: `--add-dir <path>`,
-`--print-timeout 10m` (response budget, default 5m), `--conversation <id>`
-to resume. `agy` reads `~/.gemini/config/mcp_config.json`, so it can be
-handed the same MCP servers as the rest of the fleet.
+Place every flag before `-p` — it treats the next argument as the prompt.
+Add `--add-dir <path>`, `--print-timeout 10m`, or `--conversation <id>` as
+the task needs.
 
-An orchestrator shells out, captures stdout, and folds the result back —
-same shape as `invoking-gemini`, but a full agent harness rather than a
-single model call.
+## Reuse auth on a fresh container
 
-## Persist auth across containers
-
-The token file is the durable artifact. The `refresh_token` inside it does
-not expire on a schedule; `agy` refreshes the access token itself. To skip
-the OAuth dance on a fresh container, save
-`~/.gemini/antigravity-cli/antigravity-oauth-token` somewhere safe and
-write it back (with the SSH env vars set). Keep it out of git and logs —
-it is a personal Google credential. Format and details:
-[references/auth-internals.md](references/auth-internals.md).
-
-For fully unattended use with no personal token, a GCP service account
-(`GOOGLE_APPLICATION_CREDENTIALS`) is the cleaner path — `agy` references
-it, though it is unverified here.
-
-## Troubleshooting
-
-- **`agy -p` keeps asking for auth** — the token file is missing or the
-  keyring path was used. Confirm the SSH env vars are exported and
-  `~/.gemini/antigravity-cli/antigravity-oauth-token` exists.
-- **Broker captures no URL** — check `/tmp/agybroker/status` and
-  `/tmp/agybroker/log`; `agy` may not be installed or on `PATH`.
-- **Process died mid-auth** — the container idle-paused; relaunch the
-  broker and complete the dance faster.
+Save `~/.gemini/antigravity-cli/antigravity-oauth-token` and write it back
+(with the SSH vars set) — its `refresh_token` is durable, so no repeat
+OAuth. Keep the file out of git and logs; it is a personal Google credential.

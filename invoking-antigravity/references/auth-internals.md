@@ -3,6 +3,15 @@
 Detail behind the headless-auth flow in SKILL.md. `agy` is v1.0.0
 (released at I/O 2026); behaviour below was verified empirically.
 
+## Install notes
+
+`curl -fsSL https://antigravity.google/cli/install.sh | bash` is a clean
+installer: it fetches a per-platform manifest, downloads a ~52 MB tarball,
+**verifies a SHA-512 checksum**, and expands a ~183 MB Go binary to
+`~/.local/bin/agy`. It is idempotent, takes ~3 s, and `agy` self-updates
+afterward. Distribution is install-script only — the `antigravity-cli`
+package on npm is an unrelated squatter; ignore it.
+
 ## The 30-second print-mode timeout
 
 `agy -p` (print mode), with no stored token, prints the
@@ -118,3 +127,14 @@ gitignore it.
    `cloud-platform` scope and enterprise "connect your GCP project" path
    imply a fully non-interactive option. Unverified, but the correct
    answer for unattended orchestration — no keyring, no personal token.
+
+## Troubleshooting
+
+- **`agy -p` keeps prompting for auth** — the token file is missing, or
+  `agy` used the keyring path. Confirm the SSH env vars are exported in the
+  current shell and `~/.gemini/antigravity-cli/antigravity-oauth-token`
+  exists.
+- **Broker captures no URL** — inspect `/tmp/agybroker/status` and
+  `/tmp/agybroker/log`; usually `agy` is not installed or not on `PATH`.
+- **Process died mid-auth** — the container idle-paused; relaunch the
+  broker for a fresh URL and complete the login faster.
