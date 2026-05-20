@@ -8,7 +8,7 @@ See `SKILL.md` for the full reference.
 ## Quick start
 
 ```bash
-pip install bm25s --break-system-packages
+uv pip install --system --break-system-packages bm25s
 
 BM25=/mnt/skills/user/bm25/scripts/bm25.py
 

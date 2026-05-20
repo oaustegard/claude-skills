@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 — 2026-05-18
+
+Setup uses `uv pip install --system --break-system-packages bm25s` instead of plain pip. Matches the convention across sibling skills (tree-sitting, container-layer, etc.); sub-second install on a warm uv cache. Updated SKILL.md, README, and the script's missing-dependency error message accordingly. No behavior change.
+
 ## 0.1.0 — 2026-05-18
 
 Initial release. Stateless BM25 search wrapper around xhluca/bm25s.

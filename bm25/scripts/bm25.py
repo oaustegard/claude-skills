@@ -35,7 +35,7 @@ from pathlib import Path
 try:
     import bm25s
 except ImportError:
-    sys.stderr.write("bm25s not installed. Run: pip install bm25s --break-system-packages\n")
+    sys.stderr.write("bm25s not installed. Run: uv pip install --system --break-system-packages bm25s\n")
     sys.exit(2)
 
 
