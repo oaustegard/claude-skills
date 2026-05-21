@@ -2,6 +2,18 @@
 
 All notable changes to the `composing-html` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.4.0] - 2026-05-21
+
+### Added
+
+- SKILL.md "Sibling skill: Hallmark for greenfield ad-hoc HTML" section
+  routing greenfield landing-page / audit / redesign / `study` briefs to
+  the Hallmark skill at `oaustegard/fork-hallmark` (MIT, fork of
+  `Nutlope/hallmark`). Includes a brief / use-which table and an explicit
+  exclusion for `muninn.austegard.com` and `austegard.com` (established
+  voices; composing-html and site-native templates handle them).
+- Description updated to point ad-hoc HTML cases at the new section.
+
 ## [0.3.0] - 2026-05-20
 
 ### Other
