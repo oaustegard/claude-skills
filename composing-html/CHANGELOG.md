@@ -2,6 +2,18 @@
 
 All notable changes to the `composing-html` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.4.1] - 2026-05-21
+
+### Removed
+
+- "Sibling skill: Hallmark" routing section and the `austegard.com` /
+  `muninn.austegard.com` exclusion clause added in 0.4.0. The routing
+  decision (and the personal-site exclusions) is operator-specific and
+  doesn't belong in a general-purpose skill. Moved to a separate router
+  skill in `oaustegard/muninn-utilities` (`skills/designing-html/`).
+- Description reverted to the 0.3.0 phrasing — no pointer at Hallmark or
+  any external sibling skill.
+
 ## [0.4.0] - 2026-05-21
 
 ### Other
