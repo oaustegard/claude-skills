@@ -1,8 +1,8 @@
 ---
 name: composing-html
-description: Composes single-file HTML artifacts (PR review writeups, status reports, incident postmortems, slide decks, design systems, prototypes, flowcharts, module maps, feature explainers, kanban boards, prompt tuners) from a small JSON spec instead of hand-written HTML/CSS/JS. Use when the user asks to "compare options side-by-side", requests an HTML version of a report or review or deck, asks for a flowchart, status update, postmortem, design system reference, interactive prototype, custom editor — or explicitly says "HTML artifact", "single HTML file", "self-contained HTML". Skip for ad-hoc HTML snippets (forms, emails, embedded widgets) where there's no template fit. For greenfield ad-hoc HTML pages, landing pages, audits, redesigns, or DNA extraction from a screenshot/URL, see the Hallmark sibling-skill section below.
+description: Composes single-file HTML artifacts (PR review writeups, status reports, incident postmortems, slide decks, design systems, prototypes, flowcharts, module maps, feature explainers, kanban boards, prompt tuners) from a small JSON spec instead of hand-written HTML/CSS/JS. Use when the user asks to "compare options side-by-side", requests an HTML version of a report or review or deck, asks for a flowchart, status update, postmortem, design system reference, interactive prototype, custom editor — or explicitly says "HTML artifact", "single HTML file", "self-contained HTML". Skip for ad-hoc HTML snippets (forms, emails, embedded widgets) where there's no template fit.
 metadata:
-  version: 0.4.0
+  version: 0.4.1
 ---
 
 # composing-html
@@ -16,43 +16,6 @@ into any artifact without re-deriving what a card, badge, or eyebrow looks
 like. Templates are shortcuts on top of this, useful when the same artifact
 shape repeats; see [Templates](#templates-shortcuts-for-repeat-structure)
 near the end.
-
-## Sibling skill: Hallmark for greenfield ad-hoc HTML
-
-composing-html supplies one house aesthetic (clay / ivory / slate) and a
-fixed set of artifact-shaped templates. It's the right tool for documents
-the user reads — reports, decks, reviews, design-system refs, dashboards
-with a known shape.
-
-It is the **wrong** tool for greenfield ad-hoc HTML where the user wants
-the page to *look designed* rather than read like a memo:
-
-| Brief | Use |
-|---|---|
-| "Build me a landing page for X" | Hallmark |
-| "Make a marketing page for this product" | Hallmark |
-| "Design a hero section / pricing section / CTA block" | Hallmark (component-scope) |
-| "Audit / redesign this existing page" | Hallmark (`audit` / `redesign` verbs) |
-| "Extract the design DNA from this screenshot / URL" | Hallmark (`study` verb) |
-| "PR review writeup / status report / slide deck / postmortem" | composing-html |
-| "Side-by-side comparison / module map / flowchart" | composing-html |
-
-Hallmark picks a macrostructure for the brief, dresses it in one of 22
-themes, and runs a pre-emit self-critique plus 66 slop-test gates. It's
-hosted at [`oaustegard/fork-hallmark`](https://github.com/oaustegard/fork-hallmark)
-(MIT, fork of `Nutlope/hallmark` — security review 2026-05-21: clean,
-no executable hooks, no telemetry). Fetch the tarball per session when
-the brief routes there; don't vendor it into this repo.
-
-**Exclusion: do not apply Hallmark to `muninn.austegard.com` or
-`austegard.com`.** Those sites have established voices and templates
-(corvid serif / type-led editorial); Hallmark's theme catalog and
-diversification rule would conflict. For posts published to either site,
-follow the site's own templates and the blog-writing-discipline /
-muninn-voice-signature configs (Muninn) — composing-html may still apply
-for embedded report artifacts inside a post.
-
-Otherwise: stay in composing-html (templates or freeform).
 
 ## Default workflow: freeform
 
