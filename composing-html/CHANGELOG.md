@@ -4,6 +4,12 @@ All notable changes to the `composing-html` skill are documented in this file. T
 
 ## [0.4.1] - 2026-05-21
 
+### Other
+
+- Revert #665 — move HTML routing out of composing-html (v0.4.1) (#666)
+
+## [0.4.1] - 2026-05-21
+
 ### Removed
 
 - "Sibling skill: Hallmark" routing section and the `austegard.com` /
