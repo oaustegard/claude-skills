@@ -4,6 +4,12 @@ All notable changes to the `composing-html` skill are documented in this file. T
 
 ## [0.4.0] - 2026-05-21
 
+### Other
+
+- composing-html: route ad-hoc HTML to Hallmark sibling skill (v0.4.0) (#665)
+
+## [0.4.0] - 2026-05-21
+
 ### Added
 
 - SKILL.md "Sibling skill: Hallmark for greenfield ad-hoc HTML" section
