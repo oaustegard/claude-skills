@@ -49,7 +49,9 @@ if not HAS_REQUESTS and not HAS_GENAI:
 
 # Text generation models
 MODELS = {
-    # Gemini 3.x — frontier (preview)
+    # Gemini 3.5 — frontier (GA May 2026)
+    "gemini-3.5-flash": "gemini-3.5-flash",
+    # Gemini 3.x — preview (still callable, kept for back compat)
     "gemini-3-flash-preview": "gemini-3-flash-preview",
     "gemini-3.1-pro-preview": "gemini-3.1-pro-preview",
     # Gemini 2.5 — stable production
@@ -65,9 +67,11 @@ IMAGE_MODELS = {
     "nano-banana": "gemini-2.5-flash-image",
 }
 
-# Convenience aliases
+# Convenience aliases. `flash` points to the current frontier Flash (3.5);
+# `flash-3` keeps a stable handle on the prior preview for code that pinned to it.
 MODEL_ALIASES = {
-    "flash": "gemini-3-flash-preview",
+    "flash": "gemini-3.5-flash",
+    "flash-3": "gemini-3-flash-preview",
     "pro": "gemini-3.1-pro-preview",
     "lite": "gemini-2.5-flash-lite",
     "stable-flash": "gemini-2.5-flash",
@@ -76,7 +80,7 @@ MODEL_ALIASES = {
     "image-pro": "nano-banana-pro",
 }
 
-DEFAULT_MODEL = "gemini-3-flash-preview"
+DEFAULT_MODEL = "gemini-3.5-flash"
 
 # ---------------------------------------------------------------------------
 # Cloudflare AI Gateway constants
@@ -390,6 +394,7 @@ def invoke_gemini(
     top_p: Optional[float] = None,
     top_k: Optional[int] = None,
     image_path: Optional[str] = None,
+    thinking_level: Optional[str] = None,
 ) -> Optional[str]:
     """
     Invoke Gemini model with a text (or multi-modal) prompt.
@@ -399,19 +404,34 @@ def invoke_gemini(
 
     Args:
         prompt: The text prompt to send
-        model: Model name or alias (default: gemini-3-flash-preview).
-            Aliases: flash, pro, lite, stable-flash, stable-pro
+        model: Model name or alias (default: gemini-3.5-flash).
+            Aliases: flash (3.5), flash-3 (prior preview), pro, lite,
+            stable-flash, stable-pro
         temperature: Sampling temperature (0.0–1.0)
-        max_output_tokens: Maximum tokens in response
+        max_output_tokens: Maximum tokens in response. Note: with thinking
+            models (Gemini 3.x), thinking tokens consume part of this budget;
+            set generously or use thinking_level='minimal' for non-reasoning
+            tasks.
         top_p: Nucleus sampling parameter
         top_k: Top-k sampling parameter
         image_path: Optional path to image file for multi-modal input
+        thinking_level: Reasoning budget for thinking models (Gemini 3.x).
+            One of 'minimal', 'low', 'medium', 'high'. Default (None) lets
+            the model use its built-in default — 'medium' for 3.5 Flash,
+            which silently eats output budget. Set 'minimal' for tasks that
+            don't need reasoning (transcription, classification, extraction).
+            Ignored by 2.5 models (which use a different parameter).
 
     Returns:
         Response text if successful, None if error
     """
     model_id = _resolve_model(model)
     cf_creds = get_cf_credentials()
+
+    # thinking_level is a Gemini 3.x feature. 2.5 (and earlier) models 400 on it.
+    # Silently drop for non-3.x so callers can pass it uniformly without branching.
+    if thinking_level is not None and not model_id.startswith("gemini-3"):
+        thinking_level = None
 
     max_retries = 3
     for attempt in range(max_retries):
@@ -426,6 +446,8 @@ def invoke_gemini(
                     gen_cfg["topP"] = top_p
                 if top_k is not None:
                     gen_cfg["topK"] = top_k
+                if thinking_level is not None:
+                    gen_cfg["thinkingConfig"] = {"thinkingLevel": thinking_level}
 
                 response = _cf_request(model_id, contents, gen_cfg, cf_creds)
                 return _extract_text(response)
@@ -442,6 +464,9 @@ def invoke_gemini(
                     gen_cfg_sdk["top_p"] = top_p
                 if top_k is not None:
                     gen_cfg_sdk["top_k"] = top_k
+                if thinking_level is not None:
+                    # SDK uses snake_case; mapped to thinking_config later.
+                    gen_cfg_sdk["thinking_config"] = {"thinking_level": thinking_level}
 
                 model_instance = genai.GenerativeModel(
                     model_name=model_id,
