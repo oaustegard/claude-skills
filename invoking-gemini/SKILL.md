@@ -2,7 +2,7 @@
 name: invoking-gemini
 description: Invokes Google Gemini models for structured outputs, image generation, multi-modal tasks, and Google-specific features. Use when users request Gemini, image generation, structured JSON output, Google API integration, or cost-effective parallel processing.
 metadata:
-  version: 0.5.0
+  version: 0.6.0
 ---
 
 # Invoking Gemini
@@ -135,7 +135,7 @@ from gemini_client import invoke_gemini
 
 response = invoke_gemini(
     prompt="Explain quantum computing in 3 bullet points",
-    model="gemini-3-flash-preview"
+    model="flash",  # gemini-3.5-flash (default)
 )
 print(response)
 ```
@@ -168,21 +168,26 @@ from gemini_client import invoke_parallel
 
 results = invoke_parallel(
     prompts=["Summarize Hamlet", "Summarize Macbeth", "Summarize Othello"],
-    model="gemini-3-flash-preview"
+    model="lite",  # gemini-2.5-flash-lite — cheapest, fastest for batch
 )
 ```
 
 ## Available Models
 
-All Gemini 3 models are currently in preview. Use only these — no Gemini 2.x.
+All current Gemini 3.x text/multimodal models are in preview except 3.5
+Flash (GA May 19, 2026). Use the values below — `gemini-3-flash-preview`
+and `gemini-3.1-flash-lite-preview` from earlier docs are out of date.
 
 ### Text / Reasoning Models
 
-| Model | Alias | Input/1M | Output/1M | Context |
-|-------|-------|----------|-----------|---------|
-| gemini-3-flash-preview | `flash` | $0.50 | $3.00 | 1M |
-| gemini-3.1-pro-preview | `pro` | $2.00 | $12.00 | 1M |
-| gemini-3.1-flash-lite-preview | `lite` | $0.25 | $1.50 | 1M |
+| Model | Alias | Input/1M | Output/1M | Context | Notes |
+|-------|-------|----------|-----------|---------|-------|
+| gemini-3.5-flash | `flash` | $1.50 | $9.00 | 1M | GA May 2026. Frontier Flash. Beats 3.1 Pro on most coding/agentic benchmarks. Default `thinking_level=medium` — set `minimal` for non-reasoning tasks. |
+| gemini-3-flash-preview | `flash-3` | $0.30 | $2.50 | 1M | Prior-gen Flash, kept for back compat |
+| gemini-3.1-pro-preview | `pro` | $2.00 (≤200K) / $4.00 | $12.00 / $24.00 | 1M | Current Pro tier; 3.5 Pro slated for June 2026 |
+| gemini-2.5-flash | `stable-flash` | $0.30 | $2.50 | 1M | Stable production Flash |
+| gemini-2.5-flash-lite | `lite` | **$0.10** | **$0.40** | 1M | Cheapest major-provider production model. Surprisingly strong on multimodal extraction. |
+| gemini-2.5-pro | `stable-pro` | $1.25 (≤200K) / $2.50 | $10.00 / $20.00 | 1M | Stable production Pro |
 
 ### Image Models
 
@@ -193,10 +198,30 @@ All Gemini 3 models are currently in preview. Use only these — no Gemini 2.x.
 
 See [references/models.md](references/models.md) for full details.
 
+### Thinking Budget (Gemini 3.x)
+
+Gemini 3.x models reason before responding. The parameter changed in
+2026: integer `thinking_budget` is gone; use string `thinking_level`
+∈ {`minimal`, `low`, `medium`, `high`}. Default for 3.5 Flash is
+`medium`. For transcription / classification / extraction tasks, pass
+`thinking_level='minimal'` or the model will silently spend output
+tokens on reasoning (symptom: empty response with
+`finishReason=MAX_TOKENS`).
+
+```python
+response = invoke_gemini(
+    prompt="Transcribe this image.",
+    model="flash",
+    image_path="/tmp/screenshot.png",
+    max_output_tokens=4000,
+    thinking_level="minimal",  # don't burn output budget on reasoning
+)
+```
+
 ## Error Handling
 
 ```python
-response = invoke_gemini(prompt="...", model="gemini-3-flash-preview")
+response = invoke_gemini(prompt="...", model="flash")
 if response is None:
     print("API call failed — check credentials")
 
@@ -214,10 +239,11 @@ Common issues: Missing API key → see Setup. Rate limit → auto-retries with b
 ```python
 response = invoke_gemini(
     prompt="Write a haiku",
-    model="gemini-3-flash-preview",
+    model="flash",                  # gemini-3.5-flash
     temperature=0.9,
-    max_output_tokens=100,
-    top_p=0.95
+    max_output_tokens=200,
+    top_p=0.95,
+    thinking_level="low",           # haiku is short; modest reasoning is fine
 )
 ```
 

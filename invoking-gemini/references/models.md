@@ -1,62 +1,85 @@
 # Gemini Models Reference
 
-Detailed information about available Gemini models (as of March 2026).
+Detailed information about available Gemini models (as of May 2026).
 
 ## Model Comparison
 
-### Gemini 3.x — Frontier (Preview)
+### Gemini 3.5 — Frontier (GA)
+
+#### gemini-3.5-flash
+
+**Status:** Generally available (released May 19, 2026 at Google I/O)
+**Alias:** `flash` (this is now the default Flash)
+
+**Strengths:**
+- Frontier-class performance — beats Gemini 3.1 Pro on most coding and
+  agentic benchmarks
+- Runs ~4× faster on output tokens than other frontier models
+- Frontier intelligence at sub-Pro pricing
+- Dynamic thinking on by default (configurable via `thinking_level`)
+
+**Specifications:**
+- Context window: ~1M tokens input
+- Multimodal: text, image, audio, video
+- Knowledge cutoff: January 2026
+- Default `thinking_level`: `medium` (was `high` on prior 3.x — set
+  explicitly to `minimal` for transcription/classification/extraction or
+  the model will silently spend output tokens on reasoning)
+
+**Best for:**
+- Default Flash choice for most tasks in 2026
+- Agentic coding loops, terminal automation, multi-file projects
+- Multimodal document analysis where structure must be preserved
+- Streaming chat with frontier quality
+
+**Pricing:**
+- Input: $1.50 / 1M tokens
+- Output: $9.00 / 1M tokens
+- 1M context window at base price (no surcharge tier)
+
+---
+
+### Gemini 3.x — Prior Preview Generation
 
 #### gemini-3-flash-preview
 
-**Status:** Preview (Default)
-**Alias:** `flash`
+**Status:** Preview (still callable — kept for back compat)
+**Alias:** `flash-3`
 
-**Strengths:**
-- Frontier-class performance rivaling larger models at flash-tier cost
-- Upgraded visual and spatial reasoning
-- Agentic coding capabilities
-- Computer Use support (built-in)
-
-**Specifications:**
-- Context window: ~1M tokens input
-- Multimodal: Yes (text, image, video, audio)
-
-**Best for:**
-- Default choice for most tasks
-- Structured data extraction
-- High-volume tasks needing strong reasoning
-- Agentic workflows
+The previous-generation Flash. Use when you need to pin behavior
+established before the 3.5 cutover. New code should target `flash`
+(gemini-3.5-flash) instead.
 
 **Pricing:**
-- Input: $0.50 / 1M tokens
-- Output: $3.00 / 1M tokens
+- Input: $0.30 / 1M tokens
+- Output: $2.50 / 1M tokens
 
 #### gemini-3.1-pro-preview
 
-**Status:** Preview
+**Status:** Preview (Pro-tier upgrade pending — 3.5 Pro slated for June 2026)
 **Alias:** `pro`
 
 **Strengths:**
-- Most capable Gemini model available
+- Most capable Gemini Pro currently in API
 - Advanced intelligence and complex problem-solving
-- Powerful agentic and vibe coding capabilities
-- Computer Use support (built-in)
+- 1M context with tiered pricing above 200K
 
 **Specifications:**
 - Context window: ~1M tokens input
-- Long context surcharge: 2x above 200K tokens
-- Multimodal: Yes (text, image, video, audio)
+- Long context surcharge: 2× above 200K input tokens
+- Multimodal: text, image, video, audio
 
 **Best for:**
 - Complex analysis requiring deep reasoning
-- Tasks where quality matters more than cost
-- Advanced coding tasks
+- Tasks where Pro-tier judgment matters more than cost
+- Cases where Flash output isn't quite enough
 
 **Pricing:**
 - Input: $2.00 / 1M tokens (≤200K), $4.00 (>200K)
 - Output: $12.00 / 1M tokens (≤200K), $24.00 (>200K)
 
-**Note:** Replaces the deprecated `gemini-3-pro-preview` (shutting down March 9, 2026).
+**Note:** Google has signaled `gemini-3.5-pro` rolling out in June 2026.
+When it ships, `pro` alias will likely repoint there.
 
 ---
 
@@ -64,22 +87,22 @@ Detailed information about available Gemini models (as of March 2026).
 
 #### gemini-2.5-flash
 
-**Status:** Stable
+**Status:** Stable, generally available
 **Alias:** `stable-flash`
 
 **Strengths:**
-- Best price-performance for reasoning tasks
-- Production-grade stability
-- Large context window
+- Production stability without preview-tier volatility
+- Solid price-performance for reasoning tasks
+- Empirically token-perfect on dense transcription benchmarks (May 2026)
 
 **Specifications:**
 - Context window: ~1M tokens input
-- Multimodal: Yes (text, image, video, audio)
+- Multimodal: text, image, video, audio
 
 **Best for:**
-- Production workloads needing stability
-- High-volume tasks with budget constraints
-- When preview models are too volatile
+- Production workloads where preview models are too volatile
+- High-volume tasks with a quality floor
+- Multimodal extraction when cost matters but accuracy can't slip
 
 **Pricing:**
 - Input: $0.30 / 1M tokens
@@ -87,21 +110,23 @@ Detailed information about available Gemini models (as of March 2026).
 
 #### gemini-2.5-flash-lite
 
-**Status:** Stable
+**Status:** Stable, generally available
 **Alias:** `lite`
 
 **Strengths:**
-- Cheapest model in the lineup
-- Fast response times
-- Good quality for straightforward tasks
+- **Cheapest major-provider production model** ($0.10 / $0.40)
+- Surprisingly capable on multimodal extraction — empirically transcribes
+  dense tables on par with much pricier models
+- Fast: typically lowest latency in the lineup
 
 **Specifications:**
 - Context window: ~1M tokens input
-- Multimodal: Yes (text, image, video, audio)
+- Multimodal: text, image, video, audio
 
 **Best for:**
 - Ultra-budget batch processing
-- Simple classification and extraction
+- Routine triage tasks (zeitgeist runs, inbox review, bsky image
+  transcription, classification, simple extraction)
 - Maximum throughput at minimum cost
 
 **Pricing:**
@@ -110,23 +135,22 @@ Detailed information about available Gemini models (as of March 2026).
 
 #### gemini-2.5-pro
 
-**Status:** Stable
+**Status:** Stable, generally available
 **Alias:** `stable-pro`
 
 **Strengths:**
-- Advanced reasoning with production stability
-- Deep reasoning and coding capabilities
-- Well-documented behavior
+- Pro-tier reasoning with production stability
+- Well-documented behavior across long-running deployments
 
 **Specifications:**
 - Context window: ~1M tokens input
-- Long context surcharge: 2x above 200K tokens
-- Multimodal: Yes (text, image, video, audio)
+- Long context surcharge: 2× above 200K tokens
+- Multimodal: text, image, video, audio
 
 **Best for:**
 - Complex tasks requiring production stability
-- Long document processing
-- Quality-critical applications
+- Long-document processing
+- Quality-critical workloads
 
 **Pricing:**
 - Input: $1.25 / 1M tokens (≤200K), $2.50 (>200K)
@@ -136,17 +160,18 @@ Detailed information about available Gemini models (as of March 2026).
 
 ### Image Generation Models
 
+Unchanged from prior reference — see the existing `nano-banana-2`,
+`nano-banana-pro`, and `nano-banana` entries. The image surface didn't
+shift in the May 2026 update.
+
 #### nano-banana-2
 
 **Status:** Preview
 **API Model ID:** `gemini-3.1-flash-image-preview`
 **Alias:** `image`
 
-Fast image generation/editing built on Gemini 3.1 Flash Image platform:
-- Faster performance than previous generation
-- Sharper image-editing capabilities
-- Optimized for speed over maximum quality
-- Default image model in `generate_image()`
+Fast image generation/editing on the Gemini 3.1 Flash Image platform.
+Default image model in `generate_image()`.
 
 #### nano-banana-pro
 
@@ -154,35 +179,59 @@ Fast image generation/editing built on Gemini 3.1 Flash Image platform:
 **API Model ID:** `gemini-3-pro-image-preview`
 **Alias:** `image-pro`
 
-High-fidelity image generation with reasoning-enhanced composition:
-- Legible text rendering in images
-- Complex multi-turn editing workflows
-- Character consistency using up to 14 reference inputs
+High-fidelity generation with legible text rendering and character
+consistency across up to 14 reference inputs.
 
 #### nano-banana
 
 **Status:** Stable
 **API Model ID:** `gemini-2.5-flash-image`
 
-Image generation on the Gemini 2.5 Flash platform:
-- Production-grade stability
-- Good balance of quality and speed
-
-**Note:** Image models require `responseModalities: ["IMAGE", "TEXT"]` — handled automatically by `generate_image()`.
+Production-grade stability on the Gemini 2.5 Flash Image platform.
 
 ---
 
 ## Model Selection Guide
 
 ```
-Default / general purpose?        → gemini-3-flash-preview (alias: flash)
-Need maximum reasoning quality?   → gemini-3.1-pro-preview (alias: pro)
-Production stability required?    → gemini-2.5-flash (alias: stable-flash)
-Ultra-budget batch processing?    → gemini-2.5-flash-lite (alias: lite)
-Complex + stable production?      → gemini-2.5-pro (alias: stable-pro)
-Image generation (fast)?           → nano-banana-2 (alias: image)
-Image generation (high-fidelity)?  → nano-banana-pro (alias: image-pro)
+Default Flash (frontier)?              → gemini-3.5-flash (alias: flash)
+Maximum reasoning?                     → gemini-3.1-pro-preview (alias: pro)
+Production stability with quality?     → gemini-2.5-flash (alias: stable-flash)
+Routine / bulk / cheap?                → gemini-2.5-flash-lite (alias: lite)
+Complex + stable production?           → gemini-2.5-pro (alias: stable-pro)
+Pin to prior-gen Flash (back compat)?  → gemini-3-flash-preview (alias: flash-3)
+Image generation (fast)?               → nano-banana-2 (alias: image)
+Image generation (high-fidelity)?      → nano-banana-pro (alias: image-pro)
 ```
+
+## Thinking Configuration (Gemini 3.x family)
+
+Gemini 3.x models reason before responding. By default, the model spends
+output tokens on reasoning, then on the visible answer. For Gemini 3.5
+Flash specifically, the default is `medium` — down from `high` on prior
+3.x — and the parameter shape changed:
+
+- **Old:** integer `thinking_budget`
+- **New:** string enum `thinking_level` ∈ {`minimal`, `low`, `medium`, `high`}
+
+The Python client exposes this as `invoke_gemini(..., thinking_level="...")`.
+Pass `None` (default) to let the model use its built-in default.
+
+**When to set `thinking_level='minimal'`:**
+- Transcription, OCR, image-to-text
+- Classification, tagging, extraction with a fixed schema
+- Any task where the LLM doesn't need to reason — it just needs to emit
+
+**When to leave it as default or set higher:**
+- Code generation, debugging
+- Multi-step planning
+- Math, complex analysis
+
+**Why it matters:** A `max_output_tokens=50` request can return empty if
+thinking_level (default `medium` on 3.5) consumes all 50 tokens before
+emitting visible output. Symptom: response text is empty, `finishReason`
+is `MAX_TOKENS`. Fix: either raise `max_output_tokens` substantially or
+set `thinking_level='minimal'`.
 
 ## Multimodal Capabilities
 
@@ -191,15 +240,15 @@ All text models support:
 - **Video:** MP4, MPEG, MOV, AVI, FLV, MPG, WebM, WMV, 3GPP
 - **Audio:** WAV, MP3, AIFF, AAC, OGG, FLAC
 
-**Audio input pricing:**
-- Audio input is priced higher than text (e.g., $1.00/1M tokens for Flash models)
+**Audio input pricing:** Higher than text, typically ~$1.00 / 1M tokens
+on Flash-tier models.
 
 ## Deprecated / Retired Models
 
 | Model | Status | Migration Target |
 |---|---|---|
-| gemini-3-pro-preview | Deprecated (shutdown March 9, 2026) | gemini-3.1-pro-preview |
-| gemini-2.0-flash-exp | Retiring June 1, 2026 | gemini-3-flash-preview |
+| gemini-3-pro-preview | Retired (March 9, 2026) | gemini-3.1-pro-preview |
+| gemini-2.0-flash-exp | Retiring June 1, 2026 | gemini-3.5-flash |
 | gemini-2.0-flash | Retiring June 1, 2026 | gemini-2.5-flash |
 | gemini-2.0-flash-lite | Retiring June 1, 2026 | gemini-2.5-flash-lite |
 | gemini-1.5-pro | Retired (404) | gemini-2.5-pro |
@@ -208,10 +257,11 @@ All text models support:
 
 ## Cost Optimization Tips
 
-- **Batch API:** 50% discount on all paid models for async processing
-- **Context caching:** Up to 75-90% savings for repeated large prompts
-- **Long context:** Pro models charge 2x above 200K tokens — keep prompts concise
-- **Free tier:** All models include up to 1,000 daily requests on the free tier
+- **Batch API:** 50% discount on all paid models for async (≤24h) processing
+- **Context caching:** Up to 75–90% savings for repeated large prompts
+- **Long context:** Pro models charge 2× above 200K tokens — keep prompts concise
+- **Free tier:** Gemini app + AI Studio offer free access to Flash and Lite
+  models with daily quotas; Pro is paid-only as of April 2026
 
 ## Rate Limits
 
