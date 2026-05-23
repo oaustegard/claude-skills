@@ -171,6 +171,66 @@ reposts = get_reposts(post_url)
 likes = get_likes("at://did:plc:.../app.bsky.feed.post/...")
 ```
 
+### Read Embed Images
+
+Every parsed post carries an `images` field — a list of
+`{alt, url, transcription}` dicts, one per embed image. The legacy
+`image_alts: list[str]` field is preserved (non-empty alts only).
+
+When alt text is *missing* and the image content matters, opt in to model
+transcription via the `transcribe` parameter on any post-fetch function
+(`get_user_posts`, `search_posts`, `get_feed_posts`, `get_thread`,
+`get_quotes`):
+
+```python
+# Routine/bulk work (zeitgeist, inbox review, news scans) —
+# gemini-2.5-flash-lite is the recommended default. Cheapest production
+# model anywhere ($0.10/$0.40 per 1M tokens), ~95% accuracy on dense
+# screenshots in May 2026 benchmarks:
+posts = get_user_posts("ayourtch.bsky.social", limit=40, transcribe="gemini-lite")
+
+# Token-perfect transcription, still cheap:
+posts = get_user_posts(..., transcribe="gemini-flash")
+
+# Frontier model with thinking_level=minimal — for cases where the image
+# content needs reasoning, not just transcription:
+posts = get_user_posts(..., transcribe="gemini-3.5-flash")
+
+# Anthropic single-vendor option (note: empirically weaker prompt-following
+# than Gemini on dense transcription — Haiku tends to summarize rather
+# than transcribe):
+posts = get_user_posts(..., transcribe="haiku")
+
+# Interactive sessions where image is part of the active task and you want
+# conversation context to inform interpretation (only available on Anthropic):
+thread = get_thread(post_url, transcribe="opus")
+
+# Default (no transcription) — current behavior preserved:
+posts = get_user_posts("ayourtch.bsky.social", limit=40)
+```
+
+Policy is invariant across all callers: images with non-empty alt text are
+never transcribed (the author already described the image; trust it).
+Only images with missing or empty alt are sent to the model. Network or
+API failures leave `transcription` as `None`; callers degrade silently.
+
+**Cost/quality empirics** (May 2026, n=3 dense terminal screenshots, single
+run each — sample size is small, treat as directional):
+
+| Alias | Latency | $/image | Chord-token recall |
+|---|---|---|---|
+| `gemini-lite` | ~8s | ~$0.001 | 95% |
+| `gemini-flash` | ~10s | ~$0.003 | 100% |
+| `gemini-3.5-flash` | ~10s | ~$0.014 | 100% |
+| `haiku` | ~7s | ~$0.008 | 18% (summarizes) |
+| `opus` | ~20s | ~$0.12 | 91% |
+
+Requires either `ANTHROPIC_API_KEY` (or `API_KEY` in `/mnt/project/claude.env`)
+for the `haiku` / `opus` aliases, or CF AI Gateway credentials in
+`/mnt/project/proxy.env` for the `gemini-*` aliases. Transcription only
+fires when the parameter is set, so callers without the relevant
+credentials can simply pick a different alias or leave the feature off.
+
 ### Explore Social Graph
 
 Navigate follower/following relationships:
