@@ -171,6 +171,39 @@ reposts = get_reposts(post_url)
 likes = get_likes("at://did:plc:.../app.bsky.feed.post/...")
 ```
 
+### Read Embed Images
+
+Every parsed post carries an `images` field — a list of
+`{alt, url, transcription}` dicts, one per embed image. The legacy
+`image_alts: list[str]` field is preserved (non-empty alts only).
+
+When alt text is *missing* and the image content matters, opt in to model
+transcription via the `transcribe` parameter on any post-fetch function
+(`get_user_posts`, `search_posts`, `get_feed_posts`, `get_thread`,
+`get_quotes`):
+
+```python
+# Routine/bulk work (zeitgeist, inbox review, news scans) — Haiku 4.5,
+# fast and cheap, good enough for triage:
+posts = get_user_posts("ayourtch.bsky.social", limit=40, transcribe="haiku")
+
+# Interactive sessions where the image is part of the active task — Opus,
+# higher fidelity OCR and richer scene interpretation:
+thread = get_thread(post_url, transcribe="opus")
+
+# Default (no transcription) — current behavior preserved:
+posts = get_user_posts("ayourtch.bsky.social", limit=40)
+```
+
+Policy is invariant across all callers: images with non-empty alt text are
+never transcribed (the author already described the image; trust it).
+Only images with missing or empty alt are sent to the model. Network or
+API failures leave `transcription` as `None`; callers degrade silently.
+
+Requires `ANTHROPIC_API_KEY` (or `API_KEY` in `/mnt/project/claude.env`) and
+the `anthropic` Python library. Transcription only fires when the parameter
+is set, so callers without credentials can ignore the feature entirely.
+
 ### Explore Social Graph
 
 Navigate follower/following relationships:
