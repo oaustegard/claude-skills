@@ -15,10 +15,17 @@ BASE = "https://api.bsky.app/xrpc"  # Public AppView for unauthenticated reads
 PDS_BASE = "https://bsky.social/xrpc"  # PDS for authenticated requests
 
 # Recognized values for the `transcribe` parameter on public read functions.
-# 'haiku' for routine/bulk work (zeitgeist runs, inbox review, news scans);
-# 'opus' for interactive sessions where the image is part of the active task.
-# Default None disables transcription entirely — current behavior is preserved.
-_TRANSCRIBE_ALIASES = {"haiku", "opus"}
+# Default None disables transcription entirely. When set, see image_transcribe.py
+# for cost/quality empirics; the short version (as of May 2026):
+#   'gemini-lite'      — cheapest, fastest, ~95% accuracy. Best Pareto for routines.
+#   'gemini-flash'     — token-perfect, ~3x cost of lite.
+#   'gemini-3.5-flash' — frontier capability, ~19x cost of lite.
+#   'haiku'            — Anthropic single-vendor option, weak prompt-following.
+#   'opus'             — Anthropic, for interactive use where conversation context matters.
+_TRANSCRIBE_ALIASES = {
+    "haiku", "opus",
+    "gemini-lite", "gemini-flash", "gemini-3.5-flash",
+}
 
 # Module-level session cache (memory only, never persisted)
 _session_cache: Dict[str, Any] = {}
@@ -208,9 +215,12 @@ def get_user_posts(
     Args:
         handle: Bluesky handle (with or without @)
         limit: Max posts to return (default 20, max 100)
-        transcribe: If 'haiku' or 'opus', transcribe images that have no alt
-            text via the corresponding Claude model (Haiku for routine/bulk
-            work, Opus for interactive). Default None disables transcription.
+        transcribe: If set, transcribe images that have no alt text via
+            the named model. One of 'gemini-lite' (default routine choice —
+            cheapest, ~95% accuracy), 'gemini-flash' (token-perfect, cheap),
+            'gemini-3.5-flash' (frontier, premium cost), 'haiku' (Anthropic
+            single-vendor), or 'opus' (Anthropic, interactive). Default None
+            disables transcription. See image_transcribe.py for empirics.
 
     Returns:
         List of post dicts
