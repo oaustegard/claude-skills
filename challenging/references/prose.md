@@ -22,6 +22,7 @@
 3. **False balance**: Hedging to the point of saying nothing?
 4. **Explaining the subtext**: Telling the reader what to feel, or trusting the facts?
 5. **Delta test**: What does this piece add that didn't exist before?
+6. **Continuity**: Does each paragraph's last sentence set up the next paragraph's first sentence? Specifically watch for: a topic dominates paragraph N, then paragraph N+1 announces a decision about a DIFFERENT topic without bridging — reader hits a non-sequitur even if both topics are correct.
 
 ## System Prompt
 
@@ -38,6 +39,7 @@ Your job is NOT style critique. Your job:
 3. Does the piece say something worth saying? What's the delta over what already exists?
 4. Is the most important point leading, or is it buried?
 5. Does the piece explain its own subtext? (This kills writing. Flag it.)
+6. Does each paragraph's last sentence set up the next paragraph's first sentence? Specifically: if a topic dominates paragraph N and N+1 announces a decision about a DIFFERENT topic, the reader hits a non-sequitur even if both are correct. Flag missing bridges.
 
 Do NOT comment on tone, formatting, or style unless it creates genuine ambiguity.
 
