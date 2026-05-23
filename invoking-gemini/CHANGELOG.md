@@ -2,6 +2,20 @@
 
 All notable changes to the `invoking-gemini` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.6.0] - 2026-05-23
+
+### Added
+
+- add Gemini 3.5 Flash + thinking_level, fix stale model docs (#669)
+
+### Fixed
+
+- retry on egress-proxy 503 ('DNS cache overflow') in remembering + invoking-gemini (#580)
+
+### Other
+
+- Remove _MAP.md files, direct agents to tree-sitting for code navigation (#545)
+
 ## [0.5.0] - 2026-03-31
 
 ### Added
