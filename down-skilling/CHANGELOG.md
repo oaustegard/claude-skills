@@ -6,6 +6,18 @@ All notable changes to the `down-skilling` skill are documented in this file. Th
 
 ### Added
 
+- add mapping-features skill for behavioral web app documentation (#432)
+- restructure boot output for progressive disclosure
+
+### Other
+
+- down-skilling: add example-calibration rules (v1.2.0) (#674)
+- Remove _MAP.md files, direct agents to tree-sitting for code navigation (#545)
+
+## [1.2.0] - 2026-05-26
+
+### Added
+
 - **Source-anchoring** requirement in Example Quality Criteria. Every
   concrete fact in an example output must trace to that example's
   input; invented facts cause Haiku to copy the invention pattern at
