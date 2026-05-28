@@ -5,6 +5,23 @@ metadata:
   version: 0.4.0
 ---
 
+## SURFACE ROUTING — read first
+
+This skill hand-rolls subagent orchestration via raw Anthropic API calls. A
+managed runtime now does the same job. Which one to use depends on your surface:
+
+- **In Claude Code (incl. CCotw): use the native runtime, NOT this skill.** If you
+  can invoke `/deep-research`, trigger a run with the `workflow` keyword, set
+  `/effort ultracode`, or spawn Task subagents — do that instead. The runtime gives
+  16-concurrent / 1000-agent ceilings, an approval gate, adversarial cross-review,
+  and in-session resume that this skill would otherwise reimplement badly. Dynamic
+  workflows shipped in research preview (Claude Code v2.1.154+, 2026).
+- **In claude.ai chat or the bare API (no workflow runtime): use this skill.**
+  Parallel API instances over httpx is the only fan-out path here. Proceed below.
+
+Discriminator: do you have a native subagent/Task tool or a workflow command? Yes
+→ native. No → this skill. Never reimplement the runtime where it already exists.
+
 # Orchestrating Agents
 
 This skill enables programmatic API invocations for advanced workflows including parallel processing, task delegation, and multi-agent analysis using the Anthropic API.
