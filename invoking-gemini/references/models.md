@@ -160,34 +160,59 @@ When it ships, `pro` alias will likely repoint there.
 
 ### Image Generation Models
 
-Unchanged from prior reference — see the existing `nano-banana-2`,
-`nano-banana-pro`, and `nano-banana` entries. The image surface didn't
-shift in the May 2026 update.
+**Updated 2026-05-28:** Nano Banana 2 and Nano Banana Pro reached general
+availability — announced GA on Vertex AI / Gemini Enterprise Agent Platform,
+where the GA model IDs drop the suffix (`gemini-3.1-flash-image`,
+`gemini-3-pro-image`).
+
+⚠️ This client calls the **Gemini Developer API**
+(`generativelanguage.googleapis.com`, via the CF `google-ai-studio` gateway),
+NOT Vertex. On the Developer API both models are **still served under the
+`-preview` model IDs** (verified against the live image-generation docs,
+2026-05-28). Do NOT drop the `-preview` suffix on this surface — the GA IDs are
+a Vertex-only convention and 404 here.
 
 #### nano-banana-2
 
-**Status:** Preview
+**Status:** GA on Vertex; Developer API still serves it as `-preview` (this client's surface)
 **API Model ID:** `gemini-3.1-flash-image-preview`
 **Alias:** `image`
 
-Fast image generation/editing on the Gemini 3.1 Flash Image platform.
-Default image model in `generate_image()`.
+Fast generation/editing on the Gemini 3.1 Flash Image platform. Default image
+model in `generate_image()`. Capabilities on the Developer API:
+- Output resolutions: 512 (0.5K), 1K, 2K generally available; 4K in preview.
+  512 is 3.1-Flash-only.
+- Up to 14 reference images (up to 10 high-fidelity objects + up to 4 characters).
+- Grounding with Google Search, plus Image Search grounding (3.1-Flash-only) —
+  cannot search for images of people.
+- Thinking: `thinking_level` is {`minimal` (default), `high`}; thinking cannot be
+  fully disabled and thinking tokens are billed.
+- Extra aspect ratios over 2.5 Flash Image: 1:4, 4:1, 1:8, 8:1.
+
+Note: the GA announcement's "video file as input prompt" capability is a Vertex
+preview feature. The Developer API does NOT accept video or audio input for
+image generation — don't route video here.
 
 #### nano-banana-pro
 
-**Status:** Preview
+**Status:** GA on Vertex; Developer API still serves it as `-preview` (this client's surface)
 **API Model ID:** `gemini-3-pro-image-preview`
 **Alias:** `image-pro`
 
-High-fidelity generation with legible text rendering and character
-consistency across up to 14 reference inputs.
+High-fidelity generation on the Gemini 3 Pro Image platform — legible stylized
+text rendering and professional asset production via advanced "thinking."
+Capabilities:
+- Output resolutions: 1K, 2K generally available; 4K in preview.
+- Up to 14 reference images (up to 6 high-fidelity objects + up to 5 characters).
+- Thinking always on (cannot be disabled).
 
 #### nano-banana
 
-**Status:** Stable
+**Status:** Stable, GA (unchanged)
 **API Model ID:** `gemini-2.5-flash-image`
 
-Production-grade stability on the Gemini 2.5 Flash Image platform.
+Production-grade stability on the Gemini 2.5 Flash Image platform. Works best
+with up to 3 input images.
 
 ---
 

@@ -60,7 +60,12 @@ MODELS = {
     "gemini-2.5-pro": "gemini-2.5-pro",
 }
 
-# Image generation models — display name → actual API model ID
+# Image generation models — display name -> actual API model ID.
+# NOTE (2026-05-28): Nano Banana 2 / Pro went GA on Vertex (IDs there drop
+# the suffix: gemini-3.1-flash-image / gemini-3-pro-image). This client uses
+# the Gemini Developer API (google-ai-studio gateway), where both are STILL
+# served under the -preview IDs below (verified against the live docs).
+# Do NOT drop -preview here — the GA IDs are Vertex-only and 404 on this surface.
 IMAGE_MODELS = {
     "nano-banana-2": "gemini-3.1-flash-image-preview",
     "nano-banana-pro": "gemini-3-pro-image-preview",

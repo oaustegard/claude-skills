@@ -1,5 +1,16 @@
 # invoking-gemini - Changelog
 
+## 2026-05-28
+- Nano Banana 2 (`gemini-3.1-flash-image-preview`) and Nano Banana Pro
+  (`gemini-3-pro-image-preview`) reached GA on Vertex / Gemini Enterprise.
+- Kept the `-preview` model IDs: the Gemini Developer API surface this client
+  uses still serves both under `-preview` (GA IDs without the suffix are
+  Vertex-only and 404 here). Verified against the live image-generation docs.
+- Documented capabilities: 512/1K/2K GA + 4K preview, up to 14 reference
+  images, Search + Image-Search grounding (3.1 Flash), thinking_level control.
+- Noted video-as-input is a Vertex preview only; not available on the Developer API.
+
+
 All notable changes to the `invoking-gemini` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [0.6.0] - 2026-05-23
