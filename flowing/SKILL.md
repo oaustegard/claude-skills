@@ -5,6 +5,20 @@ metadata:
   version: 1.3.2
 ---
 
+## NOT SUPERSEDED BY DYNAMIC WORKFLOWS — read first
+
+Claude Code's dynamic workflows orchestrate **subagents** (separate contexts,
+fan-out to 16-concurrent / 1000-agent). This skill is a **different primitive**:
+single-context control flow over YOUR OWN tool calls, with durable side-effects
+and checkpoint resume. The workflows runtime explicitly cannot touch the
+filesystem or shell directly — its agents do the work and the script only
+coordinates them. Flowing is the inverse: the script does the work.
+
+Use flowing for an in-context pipeline (3+ steps, branches, retries, validation,
+detached side-effects). Use a workflow when you need many subagents. They compose;
+they do not compete. Do not abandon flowing for a workflow — you would lose the
+durable side-effects and the cross-session checkpoint that hub-spoke depends on.
+
 # Flowing — Control Flow in Code, Not Prose
 
 When a procedure needs 3+ steps with branches, retries, or contracts, encode it as a DAG of Python tasks instead of prose imperatives. Prose like "first X, then Y, then if Z retry 3×" is read and generated past. A `@task` graph is structural: a step physically cannot run until its inputs are bound, and gates that fire on bad inputs can't be skipped.
