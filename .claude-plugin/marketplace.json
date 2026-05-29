@@ -155,7 +155,7 @@
       "name": "skill-development",
       "description": "Tools for creating, versioning, installing, inspecting, and orchestrating Claude skills.",
       "source": "./plugins/skill-development",
-      "version": "2.1.2",
+      "version": "2.2.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",
@@ -165,6 +165,7 @@
         "creating-skill",
         "inspecting-skills",
         "installing-skills",
+        "optimizing-skills",
         "orchestrating-skills",
         "versioning-skills"
       ]
