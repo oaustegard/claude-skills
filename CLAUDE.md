@@ -70,7 +70,7 @@ When making follow-up changes within a session after a PR has been created:
 3. **Create a new branch if needed** - If the previous branch was deleted, create a fresh branch from main
 4. **Don't assume your branch still exists** - PRs are often merged quickly in this workflow
 
-NOTE: the gh clo is not available in Claude Code on the web; use the GitHub API
+NOTE: `gh` IS available and authenticated via `$GH_TOKEN` in Claude Code on the web — use it for PRs (`gh pr create`). The raw GitHub API over curl works too as a fallback.
 
 ```bash
 # Before making secondary changes, always check:
@@ -129,9 +129,9 @@ api_key = os.environ.get('MY_VAR', '')
 
 ### GitHub API Access (Issues, PRs, etc.)
 
-**TL;DR: Use `curl` with `$GH_TOKEN` for all GitHub API operations. The `gh` CLI is not installed.**
+**TL;DR: `gh` is installed and authenticated via `$GH_TOKEN`. Prefer it (`gh pr create`, `gh issue view`, `gh api`); use raw `curl` with `$GH_TOKEN` as a fallback.**
 
-`GH_TOKEN` is available in the environment. Use it for reading issues, creating PRs, and any GitHub API call:
+`GH_TOKEN` is available in the environment and `gh` is logged in as the repo owner (verify with `gh auth status`). For repos whose `origin` is the local git proxy, pass `--repo owner/name` so `gh` targets github.com directly. Reading issues, creating PRs, and any GitHub API call work via `gh` or curl:
 
 ```bash
 # Reading an issue
@@ -147,7 +147,7 @@ curl -s -X POST -H "Authorization: token $GH_TOKEN" \
 ```
 
 **Key points:**
-- `gh` CLI is NOT available — don't attempt it, don't fall back to unauthenticated calls
+- `gh` CLI IS available and authenticated — prefer it; never fall back to unauthenticated calls
 - `GH_TOKEN` is in the environment — use it directly, no need to source extra files
 - For reading issues on public repos, auth is optional but always include it for consistency
 - For creating PRs, auth is required — this is a core workflow, not an edge case
@@ -517,29 +517,3 @@ Key implications:
 - These utilities import from the `scripts` package (e.g., `from remembering.scripts import _exec, reprioritize`), with the skill directory on `sys.path`
 - To fix a utility's code, you must update the memory content in the database, not edit a file in this repo
 - The `_exec` function is exported in `scripts/__init__.py`'s `__all__` specifically to support these runtime utilities
-
-%% lat:begin %%
-## lat.md Knowledge Graph
-
-This repo has a `lat.md/` directory containing a concept-grouped knowledge graph of the skill collection. Use it to understand architecture, find related skills, and identify gaps before making changes.
-
-### Before starting work
-
-- Run `lat search` to find sections relevant to your task. Read them to understand design intent and cross-cutting patterns before modifying skills.
-- Run `lat expand` on user prompts to expand any `[[refs]]`.
-
-### Post-task checklist (REQUIRED — do not skip)
-
-After EVERY task, before responding to the user:
-
-- [ ] Update `lat.md/` if you added, removed, or changed any skill, dependency, or architectural pattern
-- [ ] Run `lat check` — all wiki links must pass
-
-### lat.md Commands
-
-    lat locate "Section Name"      # find a section by name
-    lat search "natural language"   # semantic search across sections
-    lat refs "file#Section"         # find what references a section
-    lat expand "user prompt text"   # expand [[refs]] in a prompt
-    lat check                       # validate all links and code refs
-%% lat:end %%

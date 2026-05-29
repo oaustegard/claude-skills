@@ -6,7 +6,7 @@ This file provides guidance to LLM Agents when working with code in this reposit
 
 This is a collection of Claude Skills - custom extensions that enhance Claude's capabilities through structured prompt engineering. Each skill is packaged as a directory containing a SKILL.md file with frontmatter metadata and optional supporting resources (scripts, references, assets).
 
-**Important Context**: This repository is deprecated and read-only. Skills shown here demonstrate patterns but may reference environments/features that differ from the current Claude Code CLI environment you're running in. When working on skills, verify current environment capabilities rather than assuming the patterns shown here still apply.
+**Important Context**: This repository is **actively developed** and is the canonical home of these skills — it is the live source mounted into Muninn / Claude Code on the Web sessions. A few skills target a specific Claude environment (e.g. Claude.ai chat vs. Claude Code), so verify a skill fits the current environment before relying on it — but treat the collection as live and maintained, not legacy.
 
 ## Skills Availability in This Repository
 
@@ -17,17 +17,11 @@ This repository has project skills available via `.claude/skills/` symlinks. How
 - Skills targeting specific file formats, APIs, or workflows may only be relevant in certain contexts
 - Some skills assume environments with features that may not be present in Claude Code
 
-**Before Invoking a Skill**:
-1. **Check with the user first** before invoking any skill in this repository
-2. Verify the skill is appropriate for the current environment (Claude Code vs Claude.ai chat)
-3. Confirm the user wants to use the skill rather than native capabilities
-4. Example: "I see you want to commit to GitHub. Should I use the invoking-github skill, or would you prefer I use native git commands since we're in Claude Code?"
+**Before Invoking a Skill**: these skills are live and meant to be used — invoke the one that fits the task. Two checks worth keeping:
+1. **Environment fit** — a few skills target a specific environment (e.g. `invoking-github` is for Claude.ai chat without native git; in Claude Code, native git / `gh` is the better tool). Pick the skill that matches where you're running.
+2. **Prefer the more direct tool** — if a native capability does the job more directly than a skill, use it.
 
-**Why Check First**:
-- Avoid redundant operations (using a skill when native tools work better)
-- Prevent environment mismatches (claude.ai-only skills in Claude Code)
-- Give users choice of approach
-- Skills are for development/testing, not automatic invocation
+This is about choosing the right tool for the environment, not about treating skills as off-limits.
 
 **Available Project Skills**:
 Check `.claude/skills/` for currently available skills in this session.
