@@ -2,7 +2,7 @@
 name: optimizing-skills
 description: Disciplined, validation-gated revision of an EXISTING skill so each edit is a measured improvement rather than a guess. Use when editing, revising, or tuning a skill that already exists and there is evidence it underperforms (observed failures, drift, complaints) — invoke by name, or have versioning-skills / creating-skill defer to it before applying edits. Not for authoring a brand-new skill from scratch (use creating-skill) or one-off prose.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Optimizing Skills
@@ -30,9 +30,24 @@ improvement from a confident guess.
    silently degrade). `candidate` = `best` + your proposed edits.
 3. **Score both on the check set.** "Run" here = dispatch each check task to the
    **Agent tool** (`subagent_type=general-purpose`) with the skill version in
-   context, or evaluate by hand for small sets. Score hard pass/fail per task.
-4. **Accept only if `candidate` strictly beats `best`** (more tasks pass). Ties
-   → reject, keep `best`. An edit that doesn't move the needle does not ship.
+   context, or evaluate by hand for small sets. Score **per criterion**, not one
+   collapsed pass/fail. When a task carries several criteria, the criterion that
+   decides accept/reject is **the failure that prompted this revision**; the
+   others are regression guards that must not get worse. Collapsing criteria
+   masks the win: in the down-skilling-v1.2.0 retro, the edit drove architectural
+   hallucination 60%→0% while an unrelated length criterion stayed 0/5 in both
+   arms — a single combined pass/fail scored that as a 0–0 tie and would have
+   rejected a large, real improvement.
+4. **Accept only if `candidate` strictly beats `best`** on the triggering-failure
+   criterion, with no regression guard worse. Ties → reject, keep `best`. An edit
+   that doesn't move the needle does not ship.
+
+**When the skill's own output is compiled by an Agent** (down-skilling and
+creating-skill produce a prompt an author writes from the SKILL), score **≥2
+author samples per version**, or fix one author across both arms. A single
+author sample per arm lets author capability dominate the edit effect: the same
+down-skilling edit measured 95%→0% with one author pair and 60%→0% with another
+— real either way, but n=1 cannot tell a real edit from a lucky author.
 
 This two-tier `best`/`candidate` split is the heart of it: a working revision
 can explore, but the shipped skill only ever ratchets upward.
@@ -104,7 +119,8 @@ and verify each edit landed before scoring.
 - [ ] Held-out check set assembled (includes the triggering failure), fixed for the revision
 - [ ] Edits bounded (~4 max), each generalizable and non-duplicative
 - [ ] Failure patterns addressed before success reinforcement
-- [ ] Candidate scored against `best` on the check set; shipped only if strictly better
+- [ ] Candidate scored per-criterion against `best`; accept decided by the triggering-failure criterion, others as regression guards; shipped only if strictly better
+- [ ] For Agent-compiled artifacts (down-skilling, creating-skill): ≥2 author samples per version, or a fixed author across arms
 - [ ] Hard-won core left untouched unless doing a deliberate longitudinal review
 - [ ] Lesson about editing this skill recorded via `remember()`
 
