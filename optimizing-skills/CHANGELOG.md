@@ -4,6 +4,12 @@ All notable changes to the `optimizing-skills` skill are documented in this file
 
 ## [0.2.0] - 2026-05-29
 
+### Other
+
+- optimizing-skills v0.2.0: per-criterion gate scoring + author-sample requirement (#679)
+
+## [0.2.0] - 2026-05-29
+
 ### Changed
 
 - Gate scoring is now **per-criterion**; accept/reject is decided by the
