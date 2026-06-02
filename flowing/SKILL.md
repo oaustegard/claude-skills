@@ -2,7 +2,7 @@
 name: flowing
 description: DAG workflow runner that encodes control flow in code, not prose. Use when a procedure has 3+ steps with branching, retries, or validation that must be enforced — gates as `when=`, edge contracts as `validate=`, predicate loops as `retry_until=`. The runner owns the graph; the LLM provides leaves. Also covers parallel execution, checkpoint resume, detached side-effects.
 metadata:
-  version: 1.3.2
+  version: 1.4.0
 ---
 
 ## NOT SUPERSEDED BY DYNAMIC WORKFLOWS — read first
@@ -92,7 +92,8 @@ Distinct from `retry=` alone, which only retries on a raised exception.
 
 - **Parallel execution** — independent tasks in a layer run on a thread pool (`max_workers=`).
 - **`detached=True`** — side-effect tasks (memory writes, notifications) that run after the main DAG and never block it on failure.
-- **Resume** — `flow.run()` → fix → `flow.resume()` re-runs from the failure point, keeping succeeded tasks cached. `flow.override(task, value)` injects a corrected result.
+- **In-process resume** — `flow.run()` → fix → `flow.resume()` re-runs from the failure point, keeping succeeded tasks cached **in memory** (same process only). `flow.override(task, value)` injects a corrected result.
+- **Durable journal (`journal_path=`)** — opt-in content-addressed replay that survives container death. `Flow(term, journal_path="/path/run.jsonl").run()` appends each succeeded task's result to an append-only JSONL keyed by a `step_key` = SHA-256 over the task's bytecode + its `when`/`validate`/`retry_until` bodies + its dependencies' keys (chained, so an upstream change propagates downstream). A later `run()` — even in a fresh container — replays the unchanged prefix from the journal and only executes tasks whose key is absent; editing a task body busts its key and re-runs it and its dependents, while cosmetic knobs (`retry=`, `timeout_s=`, `name`) do not. This is the cross-session checkpoint hub-spoke work relies on. Caveat: results are pickled, so non-picklable return values simply re-run; closure-captured values are not part of the key (only the task body's own code is).
 - **`timeout_s=`**, **`retry=`** with exponential backoff, **`fail_fast=`**.
 
 Read [references/reference.md](references/reference.md) before using anything beyond the quick start and the three primitives above — it covers every `@task` parameter, the `Flow` methods, resume/override, detached auto-discovery, and the `validate=`/`when=` signature-matching gotcha.
