@@ -2,6 +2,13 @@
 
 All notable changes to the `flowing` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.4.0] - 2026-06-03
+
+### Other
+
+- flowing v1.4.0: content-addressed durable journal (cross-session resume) (#682)
+- Add surface routing to orchestration skills (native CC workflows vs custom) (#675)
+
 ## [1.4.0] - 2026-06-02
 
 ### Added
