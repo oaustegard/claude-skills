@@ -2,7 +2,7 @@
 name: composing-html
 description: Composes single-file HTML artifacts (PR review writeups, status reports, incident postmortems, slide decks, design systems, prototypes, flowcharts, module maps, feature explainers, kanban boards, prompt tuners) from a small JSON spec instead of hand-written HTML/CSS/JS. Use when the user asks to "compare options side-by-side", requests an HTML version of a report or review or deck, asks for a flowchart, status update, postmortem, design system reference, interactive prototype, custom editor — or explicitly says "HTML artifact", "single HTML file", "self-contained HTML". Skip for ad-hoc HTML snippets (forms, emails, embedded widgets) where there's no template fit.
 metadata:
-  version: 0.4.1
+  version: 0.5.0
 ---
 
 # composing-html
@@ -172,15 +172,53 @@ Spend output tokens on **content**, not chrome:
 
 1. **Never write `<html>`, `<head>`, `<style>`, `<script>`, or `<link>`.** The
    composer adds all of them. If you find yourself writing a complete page,
-   you missed the skill.
+   you missed the skill. <!-- rule:chrome-leak -->
 2. **Don't restate design tokens.** Reuse the inventory above — `var(--clay)`,
-   `.card`, `.badge--warn`, `.bullets`, etc. are already loaded.
+   `.card`, `.badge--warn`, `.bullets`, etc. are already loaded. Don't
+   hardcode hex/`rgb()` colours, inline `font-family`/`font-size`, or
+   reference tokens that aren't in the palette.
+   <!-- rule:hardcoded-color rule:inline-typography rule:undefined-token -->
 3. **`body_html` is HTML, not a JSON dialect.** Write `<section>`, `<h2>`,
    `<ul class="bullets">` directly. No translation layer.
 4. **Anything in an `_html` field is inserted verbatim** — escape any
    user-supplied content yourself. All other string values are
    HTML-escaped automatically.
 5. **One artifact per build.** Browser tabs are free.
+
+## Checking output
+
+After building, lint the artifact before presenting it:
+
+```
+python scripts/build.py check artifact.html
+```
+
+The checker is deterministic — no model call, stdlib only. It doesn't grade
+taste (the fixed chrome already prevents the usual AI tells); it flags content
+that breaks *out* of the design system or wires `base.js` hooks to nothing —
+the failure modes the chrome can't prevent on its own:
+
+| rule | catches | severity |
+|---|---|---|
+| `chrome-leak` | `<html>/<head>/<link>` (and top-level `<style>/<script>`) in body_html | error |
+| `undefined-token` | `var(--typo)` — a token not in the palette or declared here | error |
+| `broken-tabs` | `data-target` with no matching `.tab-panel[data-id]` | error |
+| `hardcoded-color` | `#hex` / `rgb()` literals instead of palette tokens | warn |
+| `inline-typography` | `font-family` / `font-size` overriding the type stacks | warn |
+| `undefined-token` for `--bind-*` | (allowed — created by `data-bind`) | — |
+| `nested-card` | `.card` inside `.card` | warn |
+| `broken-bind` | `data-bind` with no consumer, or orphan `data-out` | warn |
+| `broken-sortable` | `data-sortable` with no `draggable` children | warn |
+| `heading-skip` | heading levels that jump (h1 → h3) | warn |
+| `img-no-alt` | `<img>` without an `alt` attribute | warn |
+
+Exit code is non-zero when any error-severity rule fires. The output rules
+above carry `<!-- rule:ID -->` anchors tying each guidance line to its check,
+so the teaching and the enforcement stay in sync. Full-artifact vs body
+fragment is auto-detected; force with `--full` / `--fragment`. `--json` emits
+machine-readable findings. Contrast ratios are intentionally not checked — the
+token pairs are pre-vetted and regex can't judge author-introduced pairs
+without false positives.
 
 ## Iteration
 
@@ -240,12 +278,17 @@ Some templates with prose-heavy slots take raw HTML in keys ending with
 `tests/test_smoke.py` covers every template with a representative spec plus
 explicit security regressions (table escaping, script-tag breakout in
 `prompt_tuner`, attribute injection in `flag_editor`, CSS-color injection,
-spec mutation in `module_map`). Run with:
+spec mutation in `module_map`). `tests/test_checker.py` covers the `check`
+linter — one assertion per rule (fires on the violation, silent on the clean
+case). Run with:
 
 ```
 python composing-html/tests/test_smoke.py        # no pytest required
+python composing-html/tests/test_checker.py      # no pytest required
 python -m pytest composing-html/tests -q          # if pytest is available
 ```
 
 When adding or changing a template, add a spec entry and any regression
-asserts before merging.
+asserts before merging. When adding a checker rule, add it to both
+`scripts/checker.py` and a `<!-- rule:ID -->` anchor in the relevant guidance
+line, plus a test assertion.
