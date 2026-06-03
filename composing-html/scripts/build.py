@@ -8,6 +8,8 @@ Usage
   build.py build <template> [--spec FILE|-] [--set K=V ...] [--out FILE]
                                                     # render HTML; spec from FILE, stdin,
                                                     # and/or --set overrides
+  build.py check <file.html> [--json]               # lint body/artifact for system drift
+                                                    # and miswired interactive hooks
 
 The "build" command reads a JSON spec, runs it through the named template's
 builder, and emits a single self-contained HTML document. With no --out, the
@@ -188,6 +190,34 @@ def cmd_build(args) -> int:
     return 0
 
 
+def cmd_check(args) -> int:
+    from checker import check_html, format_findings, has_errors
+
+    path = Path(args.file)
+    if not path.exists():
+        print(f"no such file: {args.file}", file=sys.stderr)
+        return 2
+    html = path.read_text(encoding="utf-8")
+
+    fragment = None
+    if args.fragment:
+        fragment = True
+    elif args.full:
+        fragment = False
+
+    findings = check_html(html, fragment=fragment)
+
+    if args.json:
+        print(json.dumps(
+            [{"rule": f.rule, "severity": f.severity, "message": f.message,
+              "detail": f.detail} for f in findings],
+            indent=2))
+    else:
+        print(format_findings(findings))
+
+    return 1 if has_errors(findings) else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="build.py", description="Compose HTML artifacts from a small JSON spec.")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -211,6 +241,16 @@ def main(argv: list[str] | None = None) -> int:
                          "HTML/CSS/JS (e.g. --set body_html=@body.html).")
     pb.add_argument("--out", "-o", default=None, help="Write HTML to this file (default: stdout).")
     pb.set_defaults(fn=cmd_build)
+
+    pc = sub.add_parser("check", help="Lint a built artifact or body fragment for "
+                                      "design-system drift and miswired hooks.")
+    pc.add_argument("file", help="Path to the .html file to check.")
+    pc.add_argument("--json", action="store_true", help="Emit findings as JSON.")
+    pc.add_argument("--fragment", action="store_true",
+                    help="Force fragment mode (body_html, no page chrome).")
+    pc.add_argument("--full", action="store_true",
+                    help="Force full-artifact mode (skip chrome-leak rule).")
+    pc.set_defaults(fn=cmd_check)
 
     args = p.parse_args(argv)
     return args.fn(args)
