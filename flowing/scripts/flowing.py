@@ -35,7 +35,11 @@ Detached side-effects:
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import inspect
+import json
+import pickle
 import sys
 import time
 from concurrent.futures import (
@@ -65,6 +69,8 @@ class StepResult:
     error: Optional[Exception] = None
     duration_ms: float = 0
     attempts: int = 0
+    step_key: Optional[str] = None  # content-addressed key (set only when journaling)
+    cached: bool = False            # True if this result was replayed from the journal
 
 
 @dataclass
@@ -154,6 +160,60 @@ def _log(msg: str, **kw):
     for k, v in kw.items():
         parts.append(f"{k}={v}")
     print(" ".join(parts), file=sys.stderr, flush=True)
+
+
+def _fn_fingerprint(fn: Optional[Callable]) -> str:
+    """Stable-ish fingerprint of a callable's behaviour.
+
+    Prefers bytecode (co_code + stringified co_consts), which changes when the
+    body changes but is stable across re-imports of unchanged source. Falls
+    back to source text, then to a qualified-name repr. Never raises.
+    """
+    if fn is None:
+        return ""
+    try:
+        code = fn.__code__
+        return "bc:" + hashlib.sha256(
+            code.co_code + repr(code.co_consts).encode("utf-8", "replace")
+        ).hexdigest()
+    except Exception:
+        pass
+    try:
+        return "src:" + hashlib.sha256(
+            inspect.getsource(fn).encode("utf-8", "replace")
+        ).hexdigest()
+    except Exception:
+        return "id:" + getattr(fn, "__qualname__", repr(fn))
+
+
+STEP_KEY_VERSION = 1
+
+
+def compute_step_key(td: TaskDef, dep_keys: list[str]) -> str:
+    """Content-addressed, chained key for one task.
+
+    Hashes, in order: the version, the sorted dependency keys (so an upstream
+    change propagates through the chain — pi-flow's prefix sensitivity), and
+    the fingerprints of the task body plus its when/validate/retry_until
+    control callables. The result is `v<version>:<sha256>`.
+
+    What is deliberately NOT in the key: name, retry/backoff/timeout knobs,
+    detached flag. Tuning a reliability knob or renaming must not bust the
+    cache; changing behaviour must.
+    """
+    h = hashlib.sha256()
+    h.update(f"v{STEP_KEY_VERSION}\n".encode())
+    for k in sorted(dep_keys):
+        h.update(b"dep:")
+        h.update(k.encode())
+        h.update(b"\n")
+    for label, f in (("fn", td.fn), ("when", td.when),
+                     ("validate", td.validate), ("retry_until", td.retry_until)):
+        h.update(label.encode())
+        h.update(b"=")
+        h.update(_fn_fingerprint(f).encode())
+        h.update(b"\n")
+    return f"v{STEP_KEY_VERSION}:{h.hexdigest()}"
 
 
 def _run_step(td: TaskDef, results: dict[str, StepResult]) -> StepResult:
@@ -269,7 +329,8 @@ def _run_step(td: TaskDef, results: dict[str, StepResult]) -> StepResult:
 
 # @lat: [[orchestration#DAG Workflow Runner]]
 class Flow:
-    def __init__(self, *terminals: TaskDef, max_workers: int = 5, fail_fast: bool = True):
+    def __init__(self, *terminals: TaskDef, max_workers: int = 5, fail_fast: bool = True,
+                 journal_path: Optional[str] = None):
         if not terminals:
             raise ValueError("Flow requires at least one terminal task")
         self.terminals = list(terminals)
@@ -277,6 +338,99 @@ class Flow:
         self.fail_fast = fail_fast
         self.results: dict[str, StepResult] = {}
         self.detached_failures: list[StepResult] = []
+        # Content-addressed durable journal (opt-in). When set, run() replays
+        # the unchanged prefix from disk and only executes tasks whose
+        # step_key is absent — surviving container death and re-running any
+        # task whose body changed (and, via key chaining, its dependents).
+        self.journal_path = journal_path
+        self._journal_completed: dict[str, Any] = {}  # step_key -> value
+        self._step_keys: dict[TaskDef, str] = {}
+
+    def _load_journal(self) -> None:
+        """Load completed step_keys -> values from the JSONL journal.
+
+        Append-only, tolerant of a truncated trailing line (crash mid-write).
+        A value that fails to unpickle is dropped, so its task simply re-runs.
+        """
+        self._journal_completed = {}
+        if not self.journal_path:
+            return
+        try:
+            with open(self.journal_path, "r", encoding="utf-8") as fh:
+                lines = fh.readlines()
+        except FileNotFoundError:
+            return
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue  # truncated final line — discard
+            if entry.get("kind") != "Completed":
+                continue
+            try:
+                val = pickle.loads(base64.b64decode(entry["value"]))
+            except Exception:
+                continue  # unpicklable/corrupt -> treat as not-cached
+            self._journal_completed[entry["key"]] = val
+
+    def _compute_keys(self, tasks: set[TaskDef]) -> None:
+        """Compute chained step_keys for all tasks in dependency order."""
+        self._step_keys = {}
+        remaining = set(tasks)
+        # Iterate to fixed point: a task is keyable once all its in-graph deps
+        # have keys. Detached-or-not, deps may sit in another partition.
+        while remaining:
+            progressed = False
+            for t in list(remaining):
+                dep_keys = []
+                ready = True
+                for dep in t.depends_on:
+                    if dep in tasks:
+                        if dep not in self._step_keys:
+                            ready = False
+                            break
+                        dep_keys.append(self._step_keys[dep])
+                if not ready:
+                    continue
+                self._step_keys[t] = compute_step_key(t, dep_keys)
+                remaining.discard(t)
+                progressed = True
+            if not progressed:
+                # Dependency outside `tasks` (shouldn't happen) — key on body only.
+                for t in list(remaining):
+                    self._step_keys[t] = compute_step_key(t, [])
+                    remaining.discard(t)
+
+    def _cached_result(self, td: TaskDef) -> Optional[StepResult]:
+        """Return a replayed SUCCEEDED result if td's step_key is journaled."""
+        if not self.journal_path:
+            return None
+        key = self._step_keys.get(td)
+        if key is not None and key in self._journal_completed:
+            return StepResult(
+                name=td.name, state=StepState.SUCCEEDED,
+                value=self._journal_completed[key], step_key=key, cached=True,
+            )
+        return None
+
+    def _journal_append(self, result: StepResult) -> None:
+        """Append a Completed entry for a freshly-succeeded, non-cached task."""
+        if not self.journal_path or result.cached:
+            return
+        if result.state != StepState.SUCCEEDED or result.step_key is None:
+            return
+        try:
+            blob = base64.b64encode(pickle.dumps(result.value)).decode("ascii")
+        except Exception as e:
+            _log(f"JOURNAL_SKIP {result.name}", reason=f"unpicklable value: {str(e)[:80]}")
+            return
+        line = json.dumps({"kind": "Completed", "key": result.step_key,
+                           "name": result.name, "value": blob})
+        with open(self.journal_path, "a", encoding="utf-8") as fh:
+            fh.write(line + "\n")
 
     def _collect_tasks(self) -> tuple[set[TaskDef], set[TaskDef]]:
         """Collect all tasks, separating main DAG from detached tasks.
@@ -384,6 +538,25 @@ class Flow:
                 if not layer:
                     continue
 
+            # Journal replay: tasks whose step_key is already Completed return
+            # their cached value without re-running. A miss falls through to a
+            # live run; key chaining means an edited task's dependents miss too.
+            if self.journal_path:
+                cached_hits = []
+                live = []
+                for t in layer:
+                    cr = self._cached_result(t)
+                    if cr is not None:
+                        self.results[t.name] = cr
+                        cached_hits.append(t.name)
+                    else:
+                        live.append(t)
+                if cached_hits:
+                    _log("CACHED", tasks=",".join(cached_hits))
+                layer = live
+                if not layer:
+                    continue
+
             parallel = len(layer) > 1
             _log(f"LAYER {layer_idx}",
                  tasks=",".join(t.name for t in layer), parallel=parallel)
@@ -395,8 +568,12 @@ class Flow:
                         for td in layer
                     }
                     for future in as_completed(futures):
+                        td = futures[future]
                         result = future.result()
+                        if self.journal_path:
+                            result.step_key = self._step_keys.get(td)
                         self.results[result.name] = result
+                        self._journal_append(result)
                         if self.fail_fast and result.state == StepState.FAILED:
                             _log(f"FAIL_FAST triggered by {result.name}")
                             # Cancels queued-but-unstarted siblings. Siblings
@@ -408,7 +585,10 @@ class Flow:
             else:
                 for td in layer:
                     result = _run_step(td, self.results)
+                    if self.journal_path:
+                        result.step_key = self._step_keys.get(td)
                     self.results[result.name] = result
+                    self._journal_append(result)
                     if self.fail_fast and result.state == StepState.FAILED:
                         _log(f"FAIL_FAST triggered by {result.name}")
                         break
@@ -448,6 +628,22 @@ class Flow:
                         name=t.name, state=StepState.SKIPPED, attempts=0)
                     self.results[t.name] = skip_result
 
+            # Journal replay for detached side-effects: a cached hit means the
+            # side-effect already fired on a prior run — don't re-fire it.
+            if self.journal_path and runnable:
+                still = []
+                cached_hits = []
+                for t in runnable:
+                    cr = self._cached_result(t)
+                    if cr is not None:
+                        self.results[t.name] = cr
+                        cached_hits.append(t.name)
+                    else:
+                        still.append(t)
+                if cached_hits:
+                    _log("CACHED_DETACHED", tasks=",".join(cached_hits))
+                runnable = still
+
             if not runnable:
                 continue
 
@@ -460,14 +656,21 @@ class Flow:
                         for td in runnable
                     }
                     for future in as_completed(futures):
+                        td = futures[future]
                         result = future.result()
+                        if self.journal_path:
+                            result.step_key = self._step_keys.get(td)
                         self.results[result.name] = result
+                        self._journal_append(result)
                         if result.state == StepState.FAILED:
                             self.detached_failures.append(result)
             else:
                 for td in runnable:
                     result = _run_step(td, self.results)
+                    if self.journal_path:
+                        result.step_key = self._step_keys.get(td)
                     self.results[result.name] = result
+                    self._journal_append(result)
                     if result.state == StepState.FAILED:
                         self.detached_failures.append(result)
 
@@ -478,6 +681,9 @@ class Flow:
 
         main_tasks, detached_tasks = self._collect_tasks()
         self._validate_signatures(main_tasks | detached_tasks)
+        if self.journal_path:
+            self._compute_keys(main_tasks | detached_tasks)
+            self._load_journal()
         main_layers = self._build_layers(main_tasks)
 
         total_tasks = sum(len(l) for l in main_layers) + len(detached_tasks)
@@ -514,6 +720,9 @@ class Flow:
             del self.results[name]
 
         main_tasks, detached_tasks = self._collect_tasks()
+        if self.journal_path:
+            self._compute_keys(main_tasks | detached_tasks)
+            self._load_journal()
         main_layers = self._build_layers(main_tasks)
 
         cached = sum(1 for r in self.results.values() if r.state == StepState.SUCCEEDED)

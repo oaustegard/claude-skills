@@ -2,6 +2,20 @@
 
 All notable changes to the `flowing` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.4.0] - 2026-06-02
+
+### Added
+
+- **Content-addressed durable journal (`Flow(journal_path=...)`)** — opt-in cross-process replay, adapted from the StepKey/divergence design in `antstanley/pi-flow` specs 07. Each succeeded task appends a `Completed` entry to an append-only JSONL, keyed by a chained `step_key` = SHA-256 over the task body's bytecode + its `when`/`validate`/`retry_until` fingerprints + sorted dependency keys. A subsequent `run()` — including in a fresh container after the in-memory `self.results` is gone — replays the unchanged prefix from the journal and executes only tasks whose key is absent. This delivers the cross-session checkpoint `SKILL.md` already advertised but `resume()` only provided in-memory.
+- **Divergence + cascade** — editing a task body changes its `step_key`; key chaining means its dependents' keys change too, so the edited task and everything downstream re-run while the unchanged upstream prefix stays cached. Cosmetic knobs (`retry`, `retry_backoff_*`, `timeout_s`, `detached`, `name`) are excluded from the key, so tuning them does not bust the cache.
+- **Crash tolerance** — journal load discards a truncated trailing line (partial write on crash) rather than failing; non-picklable return values are skipped with a log line and simply re-run on the next pass.
+- `StepResult` gains `step_key` and `cached` fields (both `None`/`False` on the no-journal path, which is byte-for-byte unchanged).
+- New `compute_step_key()` / `STEP_KEY_VERSION` module surface; 5 new journal tests (33 total).
+
+### Notes
+
+- The fingerprint hashes the task's own code, not values it closes over — a task parameterized by a captured variable will not see that variable change reflected in its key. Pass inputs through `depends_on` (the flowing analog of pi-flow's explicit `args`) for them to participate in divergence.
+
 ## [1.3.2] - 2026-05-15
 
 ### Other

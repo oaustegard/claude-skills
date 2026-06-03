@@ -535,5 +535,104 @@ class TestClearRegistry(unittest.TestCase):
         self.assertEqual(_TASK_REGISTRY, [])
 
 
+class TestContentAddressedJournal(unittest.TestCase):
+    """Opt-in durable journal: cross-process replay + edit divergence."""
+
+    def setUp(self):
+        clear_registry()
+        import tempfile
+        self.jp = tempfile.mktemp(suffix=".jsonl")
+
+    def tearDown(self):
+        if os.path.exists(self.jp):
+            os.unlink(self.jp)
+
+    def _build(self, mult):
+        clear_registry()
+        calls = {"a": 0, "b": 0, "c": 0}
+
+        @task
+        def a():
+            calls["a"] += 1
+            return 10
+
+        if mult == 2:
+            @task(depends_on=[a], name="b")
+            def b(a):
+                calls["b"] += 1
+                return a * 2
+        else:
+            @task(depends_on=[a], name="b")
+            def b(a):
+                calls["b"] += 1
+                return a * 3
+
+        @task(depends_on=[b], name="c")
+        def c(b):
+            calls["c"] += 1
+            return b + 1
+
+        return c, calls
+
+    def test_no_journal_path_is_unchanged(self):
+        c, calls = self._build(2)
+        r = Flow(c).run()
+        self.assertEqual(r["c"].value, 21)
+        self.assertIsNone(r["c"].step_key)
+        self.assertFalse(r["c"].cached)
+
+    def test_replay_across_fresh_flow(self):
+        c, calls = self._build(2)
+        Flow(c, journal_path=self.jp).run()
+        self.assertEqual((calls["a"], calls["b"], calls["c"]), (1, 1, 1))
+        c2, calls2 = self._build(2)
+        r2 = Flow(c2, journal_path=self.jp).run()
+        self.assertEqual((calls2["a"], calls2["b"], calls2["c"]), (0, 0, 0))
+        self.assertEqual(r2["c"].value, 21)
+        self.assertTrue(r2["c"].cached and r2["a"].cached)
+
+    def test_edit_diverges_and_cascades(self):
+        c, _ = self._build(2)
+        Flow(c, journal_path=self.jp).run()
+        c3, calls3 = self._build(3)  # b's body edited
+        r3 = Flow(c3, journal_path=self.jp).run()
+        self.assertEqual(calls3["a"], 0)   # unchanged upstream cached
+        self.assertEqual(calls3["b"], 1)   # edited task re-runs
+        self.assertEqual(calls3["c"], 1)   # dependent cascades (chained key)
+        self.assertEqual(r3["c"].value, 31)
+        self.assertTrue(r3["a"].cached)
+        self.assertFalse(r3["b"].cached or r3["c"].cached)
+
+    def test_cosmetic_knob_does_not_bust_key(self):
+        clear_registry()
+        calls = {"x": 0}
+
+        @task(retry=5, name="x")
+        def x():
+            calls["x"] += 1
+            return 99
+
+        Flow(x, journal_path=self.jp).run()
+        clear_registry()
+
+        @task(retry=0, name="x")  # knob changed, body identical
+        def x2():
+            calls["x"] += 1
+            return 99
+
+        Flow(x2, journal_path=self.jp).run()
+        self.assertEqual(calls["x"], 1)
+
+    def test_truncated_trailing_line_tolerated(self):
+        c, _ = self._build(2)
+        Flow(c, journal_path=self.jp).run()
+        with open(self.jp, "a") as fh:
+            fh.write('{"kind":"Completed","key":"v1:dead","nam')  # torn write
+        c2, calls2 = self._build(2)
+        r = Flow(c2, journal_path=self.jp).run()
+        self.assertEqual((calls2["a"], calls2["b"], calls2["c"]), (0, 0, 0))
+        self.assertEqual(r["c"].value, 21)
+
+
 if __name__ == "__main__":
     unittest.main()
