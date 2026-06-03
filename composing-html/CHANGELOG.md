@@ -2,6 +2,28 @@
 
 All notable changes to the `composing-html` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.5.0] - 2026-06-03
+
+### Added
+
+- `build.py check <file.html>` — a deterministic structural linter (no model
+  call, stdlib only) for built artifacts and body fragments. Calibrated to
+  composing-html's actual failure modes: content that breaks *out* of the
+  fixed design system (`hardcoded-color`, `inline-typography`,
+  `undefined-token`) or miswires `base.js` hooks (`broken-tabs`,
+  `broken-bind`, `broken-sortable`), plus `chrome-leak`, `nested-card`,
+  `heading-skip`, `img-no-alt`. Error-severity rules set a non-zero exit code;
+  `--json` for machine output; full-artifact vs fragment auto-detected
+  (`--full` / `--fragment` to force). Contrast checking intentionally
+  out of scope (token pairs are pre-vetted; regex can't judge custom pairs).
+- `scripts/checker.py` module exposing `check_html()` / `format_findings()`.
+- `tests/test_checker.py` — one fire/silent assertion pair per rule.
+- SKILL.md: a "Checking output" section, and `<!-- rule:ID -->` anchors on the
+  output rules tying each guidance line to its checker rule, so teaching and
+  enforcement stay in sync. (Approach adapted from pbakaus/impeccable's
+  rule-anchored guidance, retargeted from freehand-design taste to
+  system-adherence + hook integrity.)
+
 ## [0.4.1] - 2026-05-21
 
 ### Other
