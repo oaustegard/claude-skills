@@ -2,6 +2,12 @@
 
 All notable changes to the `composing-html` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.5.0] - 2026-06-04
+
+### Other
+
+- composing-html v0.5.0: deterministic check command + rule anchors (#684)
+
 ## [0.5.0] - 2026-06-03
 
 ### Added
