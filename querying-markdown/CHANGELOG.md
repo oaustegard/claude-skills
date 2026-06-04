@@ -4,6 +4,12 @@ All notable changes to the `querying-markdown` skill are documented in this file
 
 ## [0.2.0] - 2026-06-04
 
+### Other
+
+- querying-markdown v0.2.0: use-gate + empirical findings (#687)
+
+## [0.2.0] - 2026-06-04
+
 ### Added
 
 - Use-gate decision table ("Before you use mq: is this actually a structural task?") routing line-prefix/substring work to grep/awk and code-structure to tree-sitting, reserving mq for language-filtered code blocks, structured links, and valid-Markdown transforms.
