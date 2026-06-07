@@ -1,6 +1,6 @@
 ---
 name: verifying-claims
-description: Check that a document's claims about code are actually true by reading the prose, the code, and the tests and reporting (or fixing) where they disagree. Use whenever the user wants to verify a README, guide, spec, or docstring still matches the code; whenever they mention documentation drift, doc-code sync, "is this still accurate", stale docs, or keeping docs/tests/code consistent; before publishing or merging a docs change; or as a periodic doc-accuracy sweep. The agent reads the prose's meaning directly — there is no claim-comment DSL to maintain. Pairs with TDD: the test suite is the deterministic behavioral gate, this skill is the semantic prose-vs-reality review.
+description: Check that a document's claims about code are actually true by reading the prose, the code, and the tests and reporting (or fixing) where they disagree. Use whenever the user wants to verify a README, guide, spec, or docstring still matches the code; whenever they mention documentation drift, doc-code sync, "is this still accurate", stale docs, or keeping docs/tests/code consistent; before publishing or merging a docs change; or as a periodic doc-accuracy sweep. The agent reads the prose's meaning directly — there is no claim-comment DSL to maintain. Pairs with TDD — the test suite is the deterministic behavioral gate, this skill is the semantic prose-vs-reality review.
 metadata:
   version: 0.2.0
 ---
