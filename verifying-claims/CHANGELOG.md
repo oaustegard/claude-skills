@@ -16,3 +16,9 @@ PRs #58/#59/#60).
 - Integration templates: GitHub Action (`assets/verify-claims.yml`) and pytest
   (`assets/test_verify_claims.py`) — the forcing functions that gate merges.
 - `references/example-spec.md`: an all-green, gateable spec.
+
+## [0.1.0] - 2026-06-07
+
+### Other
+
+- skill(verifying-claims): claim verifier + literate-TDD protocol (renamed from verso) (#689)
