@@ -1,0 +1,54 @@
+# verso claim verification — forcing function #1.
+#
+# Drop this into .github/workflows/ and add the `verify` job as a REQUIRED
+# status check (repo Settings → Branches → branch protection). Then drift
+# cannot merge: a doc whose claims no longer match the code fails the build.
+#
+# Edit SPECS below to point at the docs you want gated. Gated specs must be
+# all-green — keep teaching/demo claims that intentionally FAIL out of them.
+
+name: verso-claims
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install (edit if the repo has its own deps/tests)
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f pyproject.toml ]; then pip install -e . || true; fi
+
+      - name: Verify documentation claims
+        env:
+          # Allow signature imports from the repo's own packages.
+          VERSO_IMPORT_ALLOW: "verso,src,app,scripts"
+        run: |
+          # SPECS: the docs to gate. Add paths as needed.
+          SPECS="README.md docs/spec.md"
+          rc=0
+          for f in $SPECS; do
+            if [ -f "$f" ]; then
+              echo "::group::verso $f"
+              python scripts/verso.py "$f" || rc=1
+              echo "::endgroup::"
+            fi
+          done
+          exit $rc
+
+      # Optional but recommended: run the test suite too, so command-output
+      # claims that point at named tests have those tests actually exercised.
+      - name: Run tests
+        run: |
+          if [ -d tests ]; then python -m pytest -q || exit 1; fi
