@@ -1,34 +1,34 @@
 # verifying-claims
 
-A claim verifier for documentation. Prose embeds typed claims as HTML
-comments; `verify_claims.py` resolves each against live state and reports
-PASS / FAIL / STALE / ERROR. Documentation that breaks loudly when it drifts,
-instead of going silently stale.
+Check that what a document *says* about code is true — by reading the document,
+the code, and the tests together and reporting where they disagree.
 
-See `SKILL.md` for the full protocol: claim types, the invariant-vs-mutable
-rule, the literate-TDD loop, and the forcing functions that make the check
-unskippable.
+The reviewer is the agent, not a parser. There is no claim-comment DSL: the
+prose's meaning is read directly and compared to what the code does and what the
+tests assert. No shadow copy, because the thing checked is the thing the human
+reads.
+
+See `SKILL.md` for the procedure, the verdicts (PASS / FAIL / UNSUPPORTED /
+STALE), and the division of labor with TDD.
 
 ## Quick start
 
 ```
-python3 scripts/verify_claims.py references/example-spec.md     # verify (exit 0/1)
-python3 scripts/verify_claims.py --watch path/to/spec.md        # re-verify on save
+python3 scripts/gather_context.py --doc README.md --src pkg/ --tests tests/
 ```
 
-## Claim types
+That bundles the document text, the public API surface (ast-parsed, never
+imported), and the test inventory into one report. The agent then reads the
+bundle and judges each prose claim against it.
 
-- `signature` — a Python callable has the expected named parameters.
-- `command-output` — a subprocess exits as expected / prints expected output
-  (the bridge to a real test suite: point it at a named pytest).
+## What this is and isn't
 
-Both encode invariants. Mutable state that is *expected* to change (PR/issue
-state, current versions) is deliberately out of scope — see SKILL.md.
+- **Is:** a triggered, semantic review of whether documentation matches reality
+  — run before docs ship, after a refactor, or as a sweep.
+- **Isn't:** a CI merge gate or a test framework. The deterministic behavioral
+  gate is your test suite (TDD). This is the prose layer tests can't reach.
 
-## Integration (forcing functions)
+## Files
 
-- `assets/verify-claims.yml` — GitHub Action; make it a required check so drift
-  cannot merge.
-- `assets/test_verify_claims.py` — pytest that runs verifying-claims on gated specs; rides
-  the existing green-bar gate.
-- `references/example-spec.md` — a working all-green spec to gate on.
+- `scripts/gather_context.py` — deterministic input bundler.
+- `references/drift-report-example.md` — what a review report looks like.
