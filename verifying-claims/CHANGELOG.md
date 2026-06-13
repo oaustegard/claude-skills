@@ -29,3 +29,13 @@ directly. No DSL, no shadow copy.
 Initial skill (working title "verso"). Claim-comment DSL with `signature` and
 `command-output` resolvers, `--watch`, import allowlist, and CI/pytest
 integration templates. Superseded by 0.2.0.
+
+## [0.2.0] - 2026-06-13
+
+### Fixed
+
+- valid YAML frontmatter — colon-space in description broke parsing (#692)
+
+### Other
+
+- verifying-claims v0.2: pivot from claim-DSL to agent-driven doc/code/test review (#691)
