@@ -8,6 +8,7 @@
         "generating-lattice",
         "mapping-codebases",
         "mapping-webapp",
+        "python-lsp",
         "reasoning-semiformally",
         "searching-codebases",
         "tree-sitting"
