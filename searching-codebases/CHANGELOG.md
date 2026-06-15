@@ -6,6 +6,18 @@ All notable changes to the `searching-codebases` skill are documented in this fi
 
 ### Added
 
+- add treesit.py CLI, fix cross-process cache loss, fix Symbol dict bug (#536)
+
+### Other
+
+- searching-codebases: binding-resolved Python tier via python-lsp (#695) (#697)
+- Remove _MAP.md files, direct agents to tree-sitting for code navigation (#545)
+- Add missing READMEs for searching-codebases, featuring, tree-sitting (#521)
+
+## [2.1.0] - 2026-06-15
+
+### Added
+
 - Binding-resolved reference/definition tier for Python via the `python-lsp` skill (pyright): `--refs`, `--def`, `--hover` (#695)
   - `--refs SYMBOL` excludes same-named-but-unrelated symbols and follows imports — the precision the regex cross-reference tier lacks
   - Engaged lazily (pyright index cost paid only on these flags); Python-only with a mandatory soft fallback to the regex text path (non-`.py`, or pyright/node absent) that emits a one-line degradation note
