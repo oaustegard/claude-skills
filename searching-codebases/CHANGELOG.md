@@ -2,6 +2,13 @@
 
 All notable changes to the `searching-codebases` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.1.1] - 2026-06-15
+
+### Fixed
+
+- open all symbol-bearing files for the binding-resolved tier (#698)
+- auto-install tree-sitter for the binding-resolved tier
+
 ## [2.1.0] - 2026-06-15
 
 ### Added
