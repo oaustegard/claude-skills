@@ -26,6 +26,7 @@ from lsp_client import (  # noqa: E402
     Position,
     SymbolInfo,
     ensure_pyright,
+    find_project_root,
     uri_to_path,
 )
 
@@ -96,6 +97,54 @@ def test_bootstrap_fails_loudly_without_node(monkeypatch):
     with pytest.raises(BootstrapError) as exc:
         ensure_pyright(install=True)
     assert "node" in str(exc.value).lower()
+
+
+# ── project-root detection (the silent-undercount guard) ────────────────────
+
+def test_find_project_root_climbs_out_of_package():
+    # FIXTURE has no __init__.py; FIXTURE/pkg does. Pointed at the package,
+    # the import root is FIXTURE — the dir you'd put on sys.path for
+    # `import pkg` to resolve.
+    assert find_project_root(str(FIXTURE / "pkg")) == str(FIXTURE.resolve())
+    # A file inside the package resolves the same way.
+    assert find_project_root(str(FIXTURE / "pkg" / "models.py")) == str(FIXTURE.resolve())
+    # A non-package dir is already an import root — returned unchanged, NOT
+    # promoted to an unrelated parent (e.g. the repo's .git).
+    assert find_project_root(str(FIXTURE)) == str(FIXTURE.resolve())
+
+
+def test_auto_root_resolves_absolute_imports_misrooted_undercounts():
+    # The 3-vs-30 bug in miniature. service.py uses an ABSOLUTE intra-project
+    # import (`from pkg.models import User`). Rooted at the package `pkg`,
+    # `pkg` isn't importable, so pyright silently misses the cross-file use.
+    # auto_root promotes the root to FIXTURE, where it resolves.
+    ensure_pyright()
+
+    # auto_root=True (default): rooted at FIXTURE, the use in service.py resolves.
+    with LSPClient(str(FIXTURE / "pkg")) as c:
+        assert c.root == str(FIXTURE.resolve())   # promoted out of the package
+        assert c.scope == str((FIXTURE / "pkg").resolve())
+        c.open_all("models.py", "service.py", "other.py")
+        assert c.wait_for_index(timeout=30)
+        # `User` class def is models.py line 0, col 6.
+        files = {_rel(loc) for loc in c.references("models.py", 0, 6)}
+    assert any(f.endswith("service.py") for f in files), (
+        "auto-rooted client must resolve the absolute import and find the use "
+        "in service.py"
+    )
+
+    # auto_root=False: rooted at the package, the absolute import is unresolved
+    # and the cross-file reference silently disappears — exactly the failure
+    # auto_root exists to prevent.
+    with LSPClient(str(FIXTURE / "pkg"), auto_root=False) as c:
+        assert c.root == str((FIXTURE / "pkg").resolve())
+        c.open_all("models.py", "service.py", "other.py")
+        assert c.wait_for_index(timeout=30)
+        mis = {_rel(loc) for loc in c.references("models.py", 0, 6)}
+    assert not any(f.endswith("service.py") for f in mis), (
+        "mis-rooted client is expected to undercount (regression witness): the "
+        "cross-file use is unresolved when the package isn't on the import root"
+    )
 
 
 # ── semantic queries (the win over ripgrep) ─────────────────────────────────
