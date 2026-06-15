@@ -254,6 +254,50 @@ def occurrence_sites(root: str, symbol: str, limit: int = _MAX_OCCURRENCES) -> L
 
 # ── the query ────────────────────────────────────────────────────────────────
 
+def _files_with_symbol(root: str, symbol: str) -> Set[str]:
+    """All ``.py`` files containing ``symbol`` (word-boundary), relative to ``root``.
+
+    Unlike :func:`occurrence_sites`, this is **uncapped**. It bounds the set of
+    files pyright opens; capping it — the old behaviour reused the
+    40-occurrence-capped occurrence list — silently starved recall for frequent
+    symbols, because call sites in files past the cap were never opened and so
+    were invisible to pyright (e.g. requests ``get``: 3 refs reported vs 84
+    real, the missing 81 living in unopened test files). A files-with-matches
+    scan stays cheap even when occurrences number in the hundreds.
+    """
+    pattern = rf"\b{re.escape(symbol)}\b"
+    found: Set[str] = set()
+    rg = _find_ripgrep()
+    if rg:
+        cmd = [rg, "-l", "-t", "py"]
+        for d in _SKIP_DIRS:
+            cmd.extend(["--glob", f"!{d}"])
+        cmd.extend(["-e", pattern, root])
+        try:
+            out = subprocess.run(cmd, capture_output=True, text=True, timeout=60).stdout
+        except (subprocess.TimeoutExpired, subprocess.SubprocessError):
+            out = ""
+        for line in out.splitlines():
+            if line.strip():
+                found.add(os.path.relpath(line.strip(), root))
+        return found
+    # No ripgrep: Python walk.
+    rx = re.compile(pattern)
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in _SKIP_DIRS and not d.startswith(".")]
+        for fn in filenames:
+            if not fn.endswith(".py"):
+                continue
+            fp = os.path.join(dirpath, fn)
+            try:
+                with open(fp, "r", errors="replace") as f:
+                    if any(rx.search(t) for t in f):
+                        found.add(os.path.relpath(fp, root))
+            except OSError:
+                continue
+    return found
+
+
 def lsp_query(root: str, symbol: str, op: str = "references",
               max_open: int = _MAX_OPEN_FILES, verbose: bool = False) -> dict:
     """Run a binding-resolved ``op`` for ``symbol`` over the Python sources.
@@ -293,7 +337,7 @@ def lsp_query(root: str, symbol: str, op: str = "references",
     # Relevant files to open = every file that mentions the symbol, plus the
     # definition files. This builds pyright's model for exactly the files that
     # could contain a reference, without indexing the whole repo.
-    open_files: Set[str] = {s.file for s in occurrences} | {s.file for s in defs}
+    open_files: Set[str] = _files_with_symbol(root, symbol) | {s.file for s in defs}
     files = sorted(f for f in open_files if f.endswith(".py"))
     truncated = len(files) > max_open
     if truncated:
