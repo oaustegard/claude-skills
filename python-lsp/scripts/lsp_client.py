@@ -213,6 +213,37 @@ def uri_to_path(uri: str) -> str:
     return uri
 
 
+def find_project_root(start: str) -> str:
+    """Resolve the directory pyright should use as its workspace root.
+
+    The subtle, silent failure this guards against: point pyright at a
+    *sub-package* (e.g. ``scipy/optimize``) and its own absolute intra-project
+    imports (``from scipy.optimize._x import Y``) no longer resolve, because
+    ``scipy`` isn't importable when ``optimize`` is the root. References then
+    undercount with no error — as quietly as a text grep over-counts.
+
+    Detection is principled, not marker-based: the Python import root is the
+    first ancestor that is **not itself a package**, i.e. the directory you
+    would put on ``sys.path`` for ``import top_level_pkg`` to work. We climb out
+    of any package the start path sits inside (every ancestor with an
+    ``__init__.py``). If the start isn't inside a package, it is already an
+    import-root candidate and is returned unchanged — we deliberately do NOT
+    walk up to a project marker or ``.git`` from there, since that would promote
+    a self-contained directory to an unrelated parent and widen every query.
+
+    ``start`` may be a file or a directory. The return value is always an
+    absolute directory path.
+    """
+    base = Path(start).resolve()
+    if not base.is_dir():
+        base = base.parent
+
+    d = base
+    while (d / "__init__.py").exists() and d.parent != d:
+        d = d.parent
+    return str(d)
+
+
 # ── The client ──────────────────────────────────────────────────────────────
 
 class LSPError(RuntimeError):
@@ -232,8 +263,23 @@ class LSPClient:
         root: str,
         server_cmd: Optional[list[str]] = None,
         auto_install: bool = True,
+        auto_root: bool = True,
     ):
-        self.root = str(Path(root).resolve())
+        # ``scope`` is the path the caller reasons about — relative file
+        # arguments resolve against it, and it scopes what callers scan/open.
+        # ``root`` is what pyright is rooted at: when ``auto_root`` is set we
+        # promote ``scope`` to the enclosing project/import root so the
+        # project's own absolute imports resolve and references don't silently
+        # undercount (see ``find_project_root``). They differ only when
+        # ``scope`` sits inside a package.
+        self.scope = str(Path(root).resolve())
+        self.root = find_project_root(self.scope) if auto_root else self.scope
+        if self.root != self.scope:
+            print(
+                f"python-lsp: rooted at project root {self.root} "
+                f"(promoted from {self.scope} so intra-project imports resolve)",
+                file=sys.stderr,
+            )
         self._server_cmd = server_cmd
         self._auto_install = auto_install
         self._proc: Optional[subprocess.Popen] = None
@@ -544,7 +590,7 @@ class LSPClient:
     def _abs(self, file: str) -> str:
         p = Path(file)
         if not p.is_absolute():
-            p = Path(self.root) / p
+            p = Path(self.scope) / p
         return str(p.resolve())
 
     def _text_document_position(self, file: str, line: int, col: int) -> dict:

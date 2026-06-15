@@ -2,7 +2,7 @@
 name: python-lsp
 description: Semantic Python code queries via a stdio LSP client driving pyright-langserver. Provides binding-resolved go-to-definition, find-references, hover types, type diagnostics, file symbol outlines, and project-wide symbol search — name resolution and type inference that tree-sitter and ripgrep cannot do. Use when you need to follow an import to a definition, find all real uses of a symbol (excluding same-named-but-unrelated ones), get an inferred type, surface type errors, outline a file, or search symbols across a project. Triggers on "go to definition", "find references", "what type is", "resolve this symbol", "symbol outline", "find symbol in project", "pyright", "type-check this file".
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # python-lsp
@@ -77,6 +77,16 @@ with LSPClient("/path/to/repo") as c:        # context manager reaps the subproc
 (all zero-based) and `.as_dict()`. Convert 1-based UI input with
 `Position.from_one_based(line, col)`.
 
+The `root` you pass is split into two roles. Relative `<file>` arguments resolve
+against it (call that the *scope*), but pyright is rooted at the enclosing
+**project root** — by default `LSPClient` climbs out of any package the scope
+sits inside (every ancestor with an `__init__.py`) via `find_project_root`. This
+is what makes a query scoped to a sub-package (`scipy/optimize`) still resolve
+the project's own absolute imports (`from scipy.optimize._x import Y`); without
+it, references **silently undercount** — same blindness as a text grep, opposite
+direction. The promotion is announced on stderr. Pass `auto_root=False` to pin
+pyright at the scope verbatim.
+
 ## Methods
 
 | Method | Returns | Notes |
@@ -110,6 +120,14 @@ with LSPClient("/path/to/repo") as c:        # context manager reaps the subproc
 4. **Open the files you query.** Queries auto-`did_open` their target file, but
    for cross-file `references` open all relevant files first so pyright has
    built their models.
+5. **Root at the project, not the sub-package.** pyright resolves absolute
+   intra-project imports only when rooted where the top-level package is
+   importable. Rooted at a sub-package, those imports fail and references
+   undercount with no error. `LSPClient` auto-detects this (climbs out of the
+   enclosing package; see `find_project_root`) and prints the promotion to
+   stderr; `auto_root=False` opts out. This was a live silent-undercount bug:
+   `--refs ScalarFunction` over `scipy/optimize` returned 3 references rooted at
+   the sub-package vs 30 rooted at the project root.
 
 ## Tests
 
