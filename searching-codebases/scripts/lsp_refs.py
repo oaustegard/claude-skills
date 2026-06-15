@@ -104,6 +104,13 @@ def _code_cache(root: str):
         raise LspUnavailable("tree-sitting skill not found (cannot resolve symbol position)")
     if scripts not in sys.path:
         sys.path.insert(0, scripts)
+    # The engine imports fine without tree_sitter, but its grammar loader
+    # swallows the missing-dependency ImportError and silently returns no
+    # parsers, so scan() yields zero symbols and the whole tier degrades to
+    # regex with no real error. tree_sitter is not installed at boot and only
+    # the semantic path installs its own dep, so ensure it here — same
+    # `uv pip install --system` pattern search_semantic uses for scikit-learn.
+    _ensure_tree_sitter()
     try:
         from engine import CodeCache
     except ImportError as e:  # pragma: no cover - import-path dependent
@@ -111,6 +118,37 @@ def _code_cache(root: str):
     cache = CodeCache()
     cache.scan(root)
     return cache
+
+
+def _ensure_tree_sitter() -> None:
+    """Install the bare ``tree-sitter`` package if absent (no-op when present).
+
+    The tree-sitting engine loads bundled grammar ``.so`` files via ctypes
+    against ``tree_sitter.Language``; without the package the loader returns
+    None and scans produce nothing. Tries install strategies in order and
+    verifies the import after each — ``uv pip --system`` silently no-ops under
+    PEP 668 in the locked-down container, so ``pip --break-system-packages``
+    leads.
+    """
+    try:
+        import tree_sitter  # noqa: F401
+        return
+    except ImportError:
+        pass
+    for cmd in (
+        [sys.executable, "-m", "pip", "install", "tree-sitter",
+         "--break-system-packages", "-q"],
+        ["uv", "pip", "install", "tree-sitter", "--system"],
+    ):
+        try:
+            subprocess.run(cmd, capture_output=True, timeout=120)
+        except Exception:
+            continue
+        try:
+            import tree_sitter  # noqa: F401
+            return
+        except ImportError:
+            continue
 
 
 # ── symbol → position resolution ─────────────────────────────────────────────
