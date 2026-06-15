@@ -1,8 +1,8 @@
 ---
 name: python-lsp
-description: Semantic Python code queries via a stdio LSP client driving pyright-langserver. Provides binding-resolved go-to-definition, find-references, hover types, and type diagnostics — name resolution and type inference that tree-sitter and ripgrep cannot do. Use when you need to follow an import to a definition, find all real uses of a symbol (excluding same-named-but-unrelated ones), get an inferred type, or surface type errors. Triggers on "go to definition", "find references", "what type is", "resolve this symbol", "pyright", "type-check this file".
+description: Semantic Python code queries via a stdio LSP client driving pyright-langserver. Provides binding-resolved go-to-definition, find-references, hover types, type diagnostics, file symbol outlines, and project-wide symbol search — name resolution and type inference that tree-sitter and ripgrep cannot do. Use when you need to follow an import to a definition, find all real uses of a symbol (excluding same-named-but-unrelated ones), get an inferred type, surface type errors, outline a file, or search symbols across a project. Triggers on "go to definition", "find references", "what type is", "resolve this symbol", "symbol outline", "find symbol in project", "pyright", "type-check this file".
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # python-lsp
@@ -47,6 +47,8 @@ python3 $LSP <root> definition  <file> <line> <col>
 python3 $LSP <root> references  <file> <line> <col>
 python3 $LSP <root> hover       <file> <line> <col>
 python3 $LSP <root> diagnostics <file>
+python3 $LSP <root> symbols     <file>             # documentSymbol outline
+python3 $LSP <root> wsymbols    <query>            # workspace/symbol search
 ```
 
 Positions are **zero-based** line/character (LSP spec). `<file>` is relative to
@@ -67,13 +69,15 @@ with LSPClient("/path/to/repo") as c:        # context manager reaps the subproc
     refs  = c.references("pkg/models.py", 8, 4)     # -> [Location], binding-resolved
     typ   = c.hover("pkg/service.py", 4, 4)         # -> "(variable) u: User"
     diags = c.diagnostics("pkg/bad.py")             # -> [diagnostic dicts]
+    outln = c.document_symbols("pkg/models.py")     # -> [SymbolInfo], file outline
+    hits  = c.workspace_symbols("User")             # -> [SymbolInfo], project-wide
 ```
 
 `Location` has `.path`, `.start_line`, `.start_char`, `.end_line`, `.end_char`
 (all zero-based) and `.as_dict()`. Convert 1-based UI input with
 `Position.from_one_based(line, col)`.
 
-## Methods (v1)
+## Methods
 
 | Method | Returns | Notes |
 |---|---|---|
@@ -81,6 +85,10 @@ with LSPClient("/path/to/repo") as c:        # context manager reaps the subproc
 | `references(file, line, col)` | `list[Location]` | **Binding-resolved** — the win over ripgrep. Excludes same-named, unrelated symbols. |
 | `hover(file, line, col)` | `str \| None` | Inferred type / signature string. |
 | `diagnostics(file)` | `list[dict]` | pyright type/error diagnostics for the file. |
+| `document_symbols(file)` | `list[SymbolInfo]` | One file's outline (classes/functions/methods); nesting via `.container`. |
+| `workspace_symbols(query)` | `list[SymbolInfo]` | Project-wide fuzzy symbol search. Empty query = every symbol (expensive). |
+
+`SymbolInfo` has `.name`, `.kind` (int), `.kind_name` (e.g. `"Class"`), `.location` (a `Location`), `.container`, and `.as_dict()`.
 
 ## The lifecycle gotchas (the parts that bite)
 
@@ -88,10 +96,14 @@ with LSPClient("/path/to/repo") as c:        # context manager reaps the subproc
    results — the most common silent failure. `wait_for_index()` blocks on
    pyright's `$/progress` begin/end cycle (with a diagnostics-arrival fallback).
    Always call it after `did_open` / `open_all` and before any query.
-2. **pyright analyzes nothing until it receives configuration.** `start()`
-   pushes a `workspace/didChangeConfiguration` after `initialized`; without it
-   the server starts the service instance and goes silent. The client handles
-   this for you — relevant if you reimplement the lifecycle.
+2. **Don't advertise `workspace.configuration` or `workspace.workspaceFolders`.**
+   If the client claims either capability, pyright defers *all* analysis until
+   the corresponding negotiation completes — the server starts its service
+   instance and then goes silent (no diagnostics, no progress, queries hang).
+   `start()` advertises neither, so pyright uses its defaults and analyzes open
+   files immediately — no `didChangeConfiguration` nudge needed. Relevant if you
+   reimplement the lifecycle or add capabilities. (Bisected against the fixture;
+   `workspace.symbol` is safe to advertise.)
 3. **Reap the subprocess.** Use the context manager (or call `stop()`) so
    sessions don't leak `pyright-langserver` processes. `stop()` sends
    `shutdown` + `exit`, then waits/terminates/kills as needed.
