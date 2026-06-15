@@ -13,7 +13,7 @@ description: >-
   sources, a binding-resolved reference/definition tier (pyright, via python-lsp)
   is available with --refs/--def/--hover.
 metadata:
-  version: 2.1.0
+  version: 2.1.1
 ---
 
 # Searching Codebases
@@ -27,8 +27,10 @@ search strategies, automatic routing.
 uv tool install ripgrep
 ```
 
-tree-sitting (for structural context expansion) installs automatically when
-the `--expand` flag is used.
+tree-sitting installs automatically when needed — for `--expand` context
+expansion and for the binding-resolved `--refs`/`--def`/`--hover` tier, which
+uses it to resolve symbol positions. Only the bare `tree-sitter` package is
+fetched; the language grammars ship bundled.
 
 ## Primary Command
 
@@ -127,9 +129,11 @@ python3 $SKILL_DIR/scripts/search.py ./repo \
 
 ## Dependencies
 
-- **tree-sitting**: Provides AST-based context expansion for `--expand`.
-  Not required — search works without it, just with less structural context
-  in results.
+- **tree-sitting**: Provides AST context expansion for `--expand` *and* the
+  symbol→position resolution that seeds the binding-resolved tier
+  (`--refs`/`--def`/`--hover`). Auto-installs the bare `tree-sitter` package
+  when either is used (grammars are bundled). Regex and semantic search work
+  without it.
 - **ripgrep**: Required for regex verification. Install via `uv tool install ripgrep`.
 - **scikit-learn**: Required for semantic mode. Installs automatically.
 - **python-lsp**: Provides the binding-resolved tier (`--refs`/`--def`/`--hover`).
