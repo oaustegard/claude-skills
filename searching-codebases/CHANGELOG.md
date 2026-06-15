@@ -2,6 +2,16 @@
 
 All notable changes to the `searching-codebases` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.1.0] - 2026-06-15
+
+### Added
+
+- Binding-resolved reference/definition tier for Python via the `python-lsp` skill (pyright): `--refs`, `--def`, `--hover` (#695)
+  - `--refs SYMBOL` excludes same-named-but-unrelated symbols and follows imports — the precision the regex cross-reference tier lacks
+  - Engaged lazily (pyright index cost paid only on these flags); Python-only with a mandatory soft fallback to the regex text path (non-`.py`, or pyright/node absent) that emits a one-line degradation note
+  - `scripts/lsp_refs.py`: tree-sitting symbol→position resolution, 1-based↔0-based conversion at the LSP boundary, lifecycle-safe queries (index-wait + subprocess reaping)
+  - `tests/test_lsp_refs.py`: binding-resolution, import-following, indexing-wait determinism, no orphaned subprocess, and soft-fallback coverage
+
 ## [2.0.0] - 2026-03-31
 
 ### Other

@@ -259,14 +259,44 @@ def format_results(results: dict, root: str, output_json: bool = False) -> str:
     return "\n".join(lines)
 
 
+def run_lsp_query(root: str, symbol: str, op: str, json_out: bool,
+                  verbose: bool) -> None:
+    """Binding-resolved (pyright) tier for Python symbols, with soft fallback.
+
+    On any condition where the binding-resolved answer can't be produced
+    (non-Python target, pyright/node absent, client unimportable), emit a
+    one-line degradation note and fall back to the regex text path so the user
+    still gets results.
+    """
+    from lsp_refs import lsp_query, format_lsp, LspUnavailable
+
+    try:
+        result = lsp_query(root, symbol, op=op, verbose=verbose)
+    except LspUnavailable as e:
+        print(f"[python-lsp unavailable: {e}] falling back to regex text search",
+              file=sys.stderr)
+        results = search_regex(root, [symbol], verbose=verbose)
+        print(format_results(results, root, json_out))
+        return
+    print(format_lsp(result, root, json_out))
+
+
 def main():
     parser = argparse.ArgumentParser(description="Unified code search")
     parser.add_argument("source", help="Path, GitHub URL, 'uploads', or 'project'")
-    parser.add_argument("queries", nargs="+", help="Search queries")
+    parser.add_argument("queries", nargs="*", help="Search queries")
     parser.add_argument("--regex", action="store_true", help="Force regex mode")
     parser.add_argument("--semantic", action="store_true", help="Force semantic mode")
     parser.add_argument("--expand", action="store_true", help="Expand to full function bodies")
     parser.add_argument("--benchmark", action="store_true", help="Benchmark indexed vs brute-force")
+    parser.add_argument("--refs", metavar="SYMBOL", default=None,
+                        help="Binding-resolved references for a Python SYMBOL (pyright; "
+                             "excludes same-named unrelated symbols)")
+    parser.add_argument("--def", dest="defn", metavar="SYMBOL", default=None,
+                        help="Binding-resolved go-to-definition for a Python SYMBOL "
+                             "(follows imports across files)")
+    parser.add_argument("--hover", metavar="SYMBOL", default=None,
+                        help="Inferred type/signature for a Python SYMBOL (pyright)")
     parser.add_argument("--branch", default="main", help="Git branch for GitHub URLs")
     parser.add_argument("--skip", default=None, help="Comma-separated directories to skip")
     parser.add_argument("--json", action="store_true", help="JSON output")
@@ -278,6 +308,20 @@ def main():
     root = resolve(args.source, args.branch)
     if args.verbose:
         print(f"Resolved: {root} ({count_files(root)} files)", file=sys.stderr)
+
+    # Binding-resolved tier (Python only, engaged lazily). Mutually exclusive
+    # with the text-search queries — these answer a single symbol query.
+    lsp_ops = [("references", args.refs), ("definition", args.defn), ("hover", args.hover)]
+    active = [(op, sym) for op, sym in lsp_ops if sym]
+    if active:
+        if len(active) > 1:
+            parser.error("--refs / --def / --hover are mutually exclusive")
+        op, symbol = active[0]
+        run_lsp_query(root, symbol, op, args.json, args.verbose)
+        return
+
+    if not args.queries:
+        parser.error("no queries given (provide search terms, or use --refs/--def/--hover)")
 
     skip_dirs = None
     if args.skip:

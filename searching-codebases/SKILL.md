@@ -9,9 +9,11 @@ description: >-
   or answer "where is X" / "how does Y work" about code. Triggers on "search
   this repo", "find where X is", "grep for", "what handles Y", regex patterns,
   or natural-language questions about code. This is the convergent "find X" skill
-  — for first-encounter orientation, use exploring-codebases instead.
+  — for first-encounter orientation, use exploring-codebases instead. For Python
+  sources, a binding-resolved reference/definition tier (pyright, via python-lsp)
+  is available with --refs/--def/--hover.
 metadata:
-  version: 2.0.0
+  version: 2.1.0
 ---
 
 # Searching Codebases
@@ -62,9 +64,29 @@ python3 $SKILL_DIR/scripts/search.py ./repo "error handling strategy"
 Auto-detection: short queries and code-like tokens → regex. Multi-word
 natural language → semantic. Override with `--regex` or `--semantic`.
 
+**Binding-resolved mode** (Python only — pyright via the `python-lsp` skill):
+```bash
+python3 $SKILL_DIR/scripts/search.py ./repo --refs SYMBOL    # find all real uses
+python3 $SKILL_DIR/scripts/search.py ./repo --def SYMBOL     # go-to-definition
+python3 $SKILL_DIR/scripts/search.py ./repo --hover SYMBOL   # inferred type/signature
+```
+
+Regex mode matches *text*, so a cross-reference for a function false-positives
+on shadowed and same-named-but-unrelated symbols. `--refs` is **binding-resolved**:
+pyright excludes the unrelated same-named symbol and follows imports. Use it when
+you need a true "find all callers/users" for a `.py` symbol, not a text grep.
+
+The tier is engaged **lazily** — pyright's index cost is paid only when you ask
+for `--refs`/`--def`/`--hover`, never on ordinary searches. It is **Python-only**;
+for non-`.py` sources, or when pyright/node is unavailable, it prints a one-line
+degradation note and falls back to the regex text path. Each takes a single bare
+symbol name and is mutually exclusive with the other two and with text queries.
+
 ## Options
 
 - `--regex` / `--semantic`: Force search mode
+- `--refs SYMBOL` / `--def SYMBOL` / `--hover SYMBOL`: Binding-resolved Python
+  queries via pyright (see Binding-resolved mode above)
 - `--expand`: Return full function bodies via tree-sitting AST context
 - `--benchmark`: Compare indexed regex vs brute-force ripgrep
 - `--branch NAME`: Git branch for GitHub URLs (default: main)
@@ -110,13 +132,17 @@ python3 $SKILL_DIR/scripts/search.py ./repo \
   in results.
 - **ripgrep**: Required for regex verification. Install via `uv tool install ripgrep`.
 - **scikit-learn**: Required for semantic mode. Installs automatically.
+- **python-lsp**: Provides the binding-resolved tier (`--refs`/`--def`/`--hover`).
+  Self-bootstraps pyright on first use and requires system `node` (v18+). Not
+  required — without it those flags degrade to the regex text path.
 
 ## When to Use
 
 - **Known target**: "where is the retry logic?", "find all error handlers"
 - **Pattern matching**: regex across large codebases with indexed speedup
 - **Concept search**: "authentication flow", "database connection pooling"
-- **Cross-reference**: find all callers/users of a specific function
+- **Cross-reference**: find all callers/users of a specific function — for
+  `.py` symbols use `--refs` (binding-resolved, no same-name false positives)
 
 ## When NOT to Use
 
@@ -133,3 +159,5 @@ python3 $SKILL_DIR/scripts/search.py ./repo \
 - `scripts/ngram_index.py` — Sparse n-gram inverted index, regex decomposition
 - `scripts/sparse_ngrams.py` — Core n-gram algorithms, frequency weights
 - `scripts/code_rag.py` — TF-IDF semantic search over code chunks
+- `scripts/lsp_refs.py` — Binding-resolved Python tier: symbol→position
+  resolution (tree-sitting), pyright queries (python-lsp), soft fallback
