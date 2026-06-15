@@ -26,11 +26,13 @@ Usage (library)::
 
 Usage (CLI)::
 
-    python lsp_client.py <root> definition <file> <line> <col>
-    python lsp_client.py <root> references <file> <line> <col>
-    python lsp_client.py <root> hover      <file> <line> <col>
+    python lsp_client.py <root> definition  <file> <line> <col>
+    python lsp_client.py <root> references  <file> <line> <col>
+    python lsp_client.py <root> hover       <file> <line> <col>
     python lsp_client.py <root> diagnostics <file>
-    python lsp_client.py bootstrap        # self-install pyright via uv
+    python lsp_client.py <root> symbols     <file>          # documentSymbol outline
+    python lsp_client.py <root> wsymbols    <query>         # workspace/symbol search
+    python lsp_client.py bootstrap                          # self-install pyright via uv
 
 Standard ``--stdio`` LSP framing: each message is ``Content-Length: N\\r\\n\\r\\n``
 followed by ``N`` bytes of JSON.
@@ -169,6 +171,36 @@ class Location:
         }
 
 
+# LSP SymbolKind enum (1-based), for human-readable kind names.
+SYMBOL_KIND = {
+    1: "File", 2: "Module", 3: "Namespace", 4: "Package", 5: "Class",
+    6: "Method", 7: "Property", 8: "Field", 9: "Constructor", 10: "Enum",
+    11: "Interface", 12: "Function", 13: "Variable", 14: "Constant",
+    15: "String", 16: "Number", 17: "Boolean", 18: "Array", 19: "Object",
+    20: "Key", 21: "Null", 22: "EnumMember", 23: "Struct", 24: "Event",
+    25: "Operator", 26: "TypeParameter",
+}
+
+
+@dataclass(frozen=True)
+class SymbolInfo:
+    """A named symbol: outline entry (documentSymbol) or search hit (workspace/symbol)."""
+
+    name: str
+    kind: int
+    kind_name: str
+    location: Location
+    container: Optional[str] = None
+
+    def as_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "kind": self.kind_name,
+            "container": self.container,
+            "location": self.location.as_dict(),
+        }
+
+
 def path_to_uri(path: str) -> str:
     return Path(path).resolve().as_uri()
 
@@ -200,20 +232,10 @@ class LSPClient:
         root: str,
         server_cmd: Optional[list[str]] = None,
         auto_install: bool = True,
-        settings: Optional[dict] = None,
     ):
         self.root = str(Path(root).resolve())
         self._server_cmd = server_cmd
         self._auto_install = auto_install
-        self._settings = settings or {
-            "python": {
-                "analysis": {
-                    "diagnosticMode": "openFilesOnly",
-                    "typeCheckingMode": "basic",
-                    "useLibraryCodeForTypes": True,
-                }
-            }
-        }
         self._proc: Optional[subprocess.Popen] = None
         self._reader: Optional[threading.Thread] = None
         self._stderr_reader: Optional[threading.Thread] = None
@@ -326,33 +348,17 @@ class LSPClient:
             self._handle_notification(msg)
 
     def _handle_server_request(self, msg: dict) -> None:
+        # Any server -> client request must get a response or pyright may stall.
+        # We advertise no capabilities that solicit these, but answer defensively:
+        # workspace/configuration gets one empty (default) settings object per
+        # item; everything else gets a null result.
         method = msg["method"]
         params = msg.get("params") or {}
         if method == "workspace/configuration":
-            # One settings object per requested item, resolved by dotted section.
-            items = params.get("items", [])
-            result: Any = [self._config_for(it.get("section")) for it in items]
-        elif method in (
-            "client/registerCapability",
-            "client/unregisterCapability",
-            "window/workDoneProgress/create",
-        ):
-            result = None
+            result: Any = [{} for _ in params.get("items", [])]
         else:
             result = None
         self._send({"jsonrpc": "2.0", "id": msg["id"], "result": result})
-
-    def _config_for(self, section: Optional[str]) -> Any:
-        """Resolve a dotted config section (e.g. ``python.analysis``) from settings."""
-        node: Any = self._settings
-        if not section:
-            return node
-        for key in section.split("."):
-            if isinstance(node, dict) and key in node:
-                node = node[key]
-            else:
-                return {}
-        return node
 
     def _handle_notification(self, msg: dict) -> None:
         method = msg["method"]
@@ -441,21 +447,23 @@ class LSPClient:
                     "definition": {"linkSupport": True},
                     "references": {},
                     "hover": {"contentFormat": ["plaintext", "markdown"]},
+                    "documentSymbol": {"hierarchicalDocumentSymbolSupport": True},
                     "publishDiagnostics": {"relatedInformation": True},
                 },
-                "workspace": {"configuration": True, "workspaceFolders": True},
+                # Advertise ONLY workspace.symbol. Advertising
+                # workspace.configuration OR workspace.workspaceFolders makes
+                # pyright defer ALL analysis until the corresponding negotiation
+                # completes — the server starts its service instance and then
+                # goes silent (no diagnostics, no progress, queries hang). With
+                # neither advertised, pyright uses its defaults and analyzes open
+                # files immediately. The workspaceFolders *init param* below is
+                # fine; it is the *capability* that triggers deferral.
+                # (Bisected against the fixture, 2026-06-15.)
+                "workspace": {"symbol": {}},
             },
         }
         self._request("initialize", init_params, timeout=init_timeout)
         self._notify("initialized", {})
-        # pyright defers all analysis until it receives configuration; without
-        # this push it starts the service instance and then goes silent (no
-        # diagnostics, no progress, queries hang). This is the nudge that makes
-        # it analyze open files.
-        self._notify(
-            "workspace/didChangeConfiguration",
-            {"settings": self._settings},
-        )
         return self
 
     def _drain_stderr(self) -> None:
@@ -596,8 +604,72 @@ class LSPClient:
                     self._cv.wait(timeout=0.25)
         return self._diagnostics.get(uri, [])
 
+    def document_symbols(self, file: str) -> list["SymbolInfo"]:
+        """The symbol outline of one file (classes, functions, methods, ...).
+
+        Returns a flat list in document order; nesting is captured via each
+        symbol's ``container`` (the enclosing symbol's name).
+        """
+        self._ensure_open(file)
+        uri = path_to_uri(self._abs(file))
+        result = self._request(
+            "textDocument/documentSymbol", {"textDocument": {"uri": uri}}
+        )
+        return _flatten_document_symbols(result or [], uri)
+
+    def workspace_symbols(self, query: str) -> list["SymbolInfo"]:
+        """Project-wide fuzzy symbol search (indexes the whole tree).
+
+        Empty ``query`` returns every indexed symbol — expensive on large trees.
+        """
+        result = self._request("workspace/symbol", {"query": query}, timeout=120)
+        out: list[SymbolInfo] = []
+        for item in result or []:
+            out.append(
+                SymbolInfo(
+                    name=item.get("name", ""),
+                    kind=item.get("kind", 0),
+                    kind_name=SYMBOL_KIND.get(item.get("kind", 0), "Unknown"),
+                    location=Location.from_lsp(item["location"]),
+                    container=item.get("containerName") or None,
+                )
+            )
+        return out
+
 
 # ── result coercion ─────────────────────────────────────────────────────────
+
+def _flatten_document_symbols(nodes: list, uri: str) -> list["SymbolInfo"]:
+    """Flatten a hierarchical DocumentSymbol tree (or flat SymbolInformation list)."""
+    out: list[SymbolInfo] = []
+
+    def walk(items: list, container: Optional[str]) -> None:
+        for n in items:
+            kind = n.get("kind", 0)
+            # DocumentSymbol has selectionRange/range + children; SymbolInformation
+            # has a `location` with uri+range instead.
+            if "location" in n:
+                loc = Location.from_lsp(n["location"])
+                cont = n.get("containerName") or container
+            else:
+                rng = n.get("selectionRange") or n.get("range")
+                loc = Location.from_lsp({"uri": uri, "range": rng})
+                cont = container
+            out.append(
+                SymbolInfo(
+                    name=n.get("name", ""),
+                    kind=kind,
+                    kind_name=SYMBOL_KIND.get(kind, "Unknown"),
+                    location=loc,
+                    container=cont,
+                )
+            )
+            if n.get("children"):
+                walk(n["children"], n.get("name"))
+
+    walk(nodes, None)
+    return out
+
 
 def _as_locations(result: Any) -> list[Location]:
     if result is None:
@@ -660,6 +732,17 @@ def main(argv: list[str]) -> int:
             client.did_open(file)
             client.wait_for_index()
             _print_json(client.diagnostics(file))
+            return 0
+        if command == "symbols":
+            file = rest[0]
+            client.did_open(file)
+            client.wait_for_index()
+            _print_json([s.as_dict() for s in client.document_symbols(file)])
+            return 0
+        if command == "wsymbols":
+            query = rest[0] if rest else ""
+            client.wait_for_index()
+            _print_json([s.as_dict() for s in client.workspace_symbols(query)])
             return 0
 
         file, line, col = pos_args()

@@ -24,6 +24,7 @@ from lsp_client import (  # noqa: E402
     LSPClient,
     Location,
     Position,
+    SymbolInfo,
     ensure_pyright,
     uri_to_path,
 )
@@ -189,6 +190,66 @@ def test_context_manager_cleans_up():
         c.did_open("pkg/models.py")
         c.wait_for_index(timeout=30)
     assert _pyright_proc_count() == before
+
+
+# ── config-capability regression (the self-inflicted hang) ──────────────────
+
+def test_no_configuration_capability_and_no_nudge():
+    # Regression for the over-engineered v0.1.0: advertising
+    # workspace.configuration made pyright defer all analysis until a
+    # didChangeConfiguration nudge arrived. The fix is to NOT advertise it.
+    # This pins both halves: the capability is absent from `initialize`, and
+    # no workspace/didChangeConfiguration is ever sent — yet analysis works.
+    ensure_pyright()
+    sent: list[dict] = []
+    c = LSPClient(str(FIXTURE))
+    real_send = c._send
+
+    def spy(payload):
+        sent.append(payload)
+        return real_send(payload)
+
+    c._send = spy  # type: ignore[method-assign]
+    try:
+        c.start()
+        init = next(m for m in sent if m.get("method") == "initialize")
+        workspace_caps = init["params"]["capabilities"].get("workspace", {})
+        assert "configuration" not in workspace_caps
+        assert not any(
+            m.get("method") == "workspace/didChangeConfiguration" for m in sent
+        ), "no configuration nudge should be needed"
+        # And analysis still proceeds with no nudge.
+        c.did_open("bad.py")
+        assert c.wait_for_index(timeout=30)
+        assert c.diagnostics("bad.py"), "pyright analyzed without any config push"
+    finally:
+        c.stop()
+
+
+# ── documentSymbol / workspace symbol ───────────────────────────────────────
+
+def test_document_symbols_outline(client):
+    syms = client.document_symbols("pkg/models.py")
+    by_name = {s.name: s for s in syms}
+    assert by_name["User"].kind_name == "Class"
+    assert by_name["helper"].kind_name == "Function"
+    # `greet` is a method nested under User → its container is the class.
+    assert "greet" in by_name
+    assert by_name["greet"].kind_name == "Method"
+    assert by_name["greet"].container == "User"
+
+
+def test_document_symbol_location_in_file(client):
+    syms = client.document_symbols("pkg/models.py")
+    user = next(s for s in syms if s.name == "User")
+    assert _rel(user.location) == "pkg/models.py"
+    assert user.location.start_line == 0
+
+
+def test_workspace_symbols_find_class(client):
+    hits = client.workspace_symbols("User")
+    names = {(s.name, _rel(s.location)) for s in hits if isinstance(s, SymbolInfo)}
+    assert ("User", "pkg/models.py") in names
 
 
 # ── standalone runner ───────────────────────────────────────────────────────
