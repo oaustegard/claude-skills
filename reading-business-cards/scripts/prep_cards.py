@@ -205,13 +205,80 @@ def build_montage(crop_paths, indices, cell_w, out_path):
 
 def auto_grid(h, w, overlap, target=1500):
     """Derive rows x cols from the image's own dimensions so each tile's long
-    edge (including overlap) stays at or below `target` px — just under the
-    model's ~1568 downscale cap, so tiles keep full resolution and cards stay
-    legible. No human tuning needed; adapts per image and orientation."""
+    edge (including overlap) stays at or below `target` px. With a target <=1568
+    tiles keep full resolution; with a larger target (Opus path) tiles are
+    deliberately downscaled, trading surplus resolution for fewer tiles.
+    No human tuning needed; adapts per image and orientation."""
     factor = 1.0 + 2.0 * overlap
     rows = max(1, math.ceil(h * factor / target))
     cols = max(1, math.ceil(w * factor / target))
     return rows, cols
+
+
+# Per-model OCR floor: the native-card long-edge (px) a reader model needs to
+# pull fine print (phone/email/address) reliably — NOT just the company/name.
+# Stronger models tolerate smaller cards and more glare, so they need fewer,
+# bigger tiles (or, when native card px already clears the floor, none).
+# Empirically seeded 2026-06-15: at ~220px/card (a whole dense sheet downscaled
+# to the 1568 cap) even Opus 4.8 reads only company + some names, not contact
+# details — so the Opus floor for fine print is ~350, not magically low. The
+# limiter is pixels resolving 6pt glyphs, not model intelligence. Tune via
+# --floor-px and validate on a sample (see SKILL Stage 2).
+MODEL_FLOORS = {
+    "opus":   350,   # claude-opus-4-x  : lowest floor -> fewest/biggest tiles
+    "sonnet": 450,   # claude-sonnet-4-x: moderate (the safe default)
+    "haiku":  600,   # claude-haiku-4-x : needs big cards; validate regardless
+}
+DOWNSCALE_CAP = 1568  # model downscales any image to ~this on the long edge
+
+
+def model_key(model):
+    m = (model or "sonnet").lower()
+    for k in MODEL_FLOORS:
+        if k in m:
+            return k
+    return "sonnet"
+
+
+def estimate_card_px(bgr):
+    """Rough median card long-edge (px) from card-like bright rectangles.
+    Returns None if too few are found (caller falls back to a safe default).
+    Conservative by design: business-card aspect ~1.45-2.15, area 0.15-4% of
+    the sheet. Detection need not be complete — a handful of clean cards gives
+    a good-enough median to size the grid."""
+    H, W = bgr.shape[:2]
+    gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+    th = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
+                               cv2.THRESH_BINARY, 101, -10)
+    th = cv2.morphologyEx(th, cv2.MORPH_CLOSE, np.ones((15, 15), np.uint8))
+    cnts, _ = cv2.findContours(th, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    sheet_area = float(W * H)
+    longs = []
+    for c in cnts:
+        (_, _), (w, h), _ = cv2.minAreaRect(c)
+        if w < 10 or h < 10:
+            continue
+        lo, sh = max(w, h), min(w, h)
+        if 1.45 < lo / sh < 2.15 and 0.0015 * sheet_area < w * h < 0.04 * sheet_area:
+            longs.append(lo)
+    if len(longs) < 4:
+        return None
+    longs.sort()
+    return float(longs[len(longs) // 2])
+
+
+def target_for_model(h, w, card_px, floor):
+    """Largest tile long-edge whose post-downscale card still clears `floor`:
+        target = CAP * card_px / floor
+    Clamped so a tile never exceeds the sheet's own long edge (i.e. 1x1, no
+    tiling, when the sheet already clears the floor) and never drops below 800
+    (avoid pathological over-tiling). If card_px is unknown, fall back to the
+    full-resolution cap (Sonnet-safe). If card_px < floor, even native res is
+    short — return the cap and let the caller flag a likely re-shoot."""
+    if card_px is None:
+        return DOWNSCALE_CAP
+    raw = DOWNSCALE_CAP * card_px / max(1.0, float(floor))
+    return int(max(800, min(raw, float(max(h, w)))))
 
 
 def gather_inputs(path):
@@ -230,9 +297,19 @@ def main():
     ap.add_argument("--tiles", default="",
                     help="ROWSxCOLS override, e.g. 5x4. Omit to auto-derive the "
                          "grid from each image's size (the default).")
-    ap.add_argument("--target-px", type=int, default=1500,
-                    help="max tile long edge for auto-grid (default 1500, just "
-                         "under the model's downscale cap)")
+    ap.add_argument("--model", default="sonnet",
+                    help="reader model the tiles are sized for: opus | sonnet | "
+                         "haiku (or a full id like claude-opus-4-8). Sets the OCR "
+                         "floor -> Opus tiles least, Haiku most. Default sonnet.")
+    ap.add_argument("--target-px", type=int, default=0,
+                    help="explicit max tile long edge; overrides --model sizing. "
+                         "0 (default) = derive from model floor x measured card px.")
+    ap.add_argument("--card-px", type=int, default=0,
+                    help="native card long-edge in px; 0 (default) = auto-estimate "
+                         "per sheet. Override if the estimator misfires.")
+    ap.add_argument("--floor-px", type=int, default=0,
+                    help="override the per-model OCR floor (native card px needed). "
+                         "0 (default) = use the model's table value.")
     ap.add_argument("--overlap", type=float, default=0.12,
                     help="tile overlap fraction (default 0.12)")
     ap.add_argument("--detect", action="store_true",
@@ -279,8 +356,23 @@ def main():
                     sys.exit("--tiles must look like ROWSxCOLS, e.g. 5x4")
                 how = f"{tr}x{tc} override"
             else:
-                tr, tc = auto_grid(h, w, args.overlap, args.target_px)
-                how = f"auto {tr}x{tc} from {w}x{h}"
+                if args.target_px > 0:
+                    target = args.target_px
+                    how_extra = f"target-px {target} (explicit)"
+                else:
+                    card_px = (float(args.card_px) if args.card_px > 0
+                               else estimate_card_px(bgr))
+                    mk = model_key(args.model)
+                    floor = args.floor_px if args.floor_px > 0 else MODEL_FLOORS[mk]
+                    target = target_for_model(h, w, card_px, floor)
+                    cps = f"{card_px:.0f}px" if card_px else "unknown"
+                    how_extra = f"model={mk} floor={floor} card~{cps} -> target {target}"
+                    if card_px and card_px < floor:
+                        print(f"  ! {sheet_name}: card ~{card_px:.0f}px < {mk} floor "
+                              f"{floor}px — even native res is short; expect low "
+                              f"reads, consider a re-shoot.", file=sys.stderr)
+                tr, tc = auto_grid(h, w, args.overlap, target)
+                how = f"auto {tr}x{tc} from {w}x{h} [{how_extra}]"
             tiles = slice_tiles(bgr, tr, tc, args.overlap)
             for k, (tile, (x0, y0)) in enumerate(tiles):
                 if not args.no_deglare:
