@@ -2,7 +2,7 @@
 name: reading-business-cards
 description: "Preprocesses photographed sheets of many business cards — slicing each into overlapping high-resolution tiles and de-glaring them with container tooling (OpenCV/ImageMagick) — then reads every card via cheap parallel temperature-0 API calls (Haiku or Sonnet) using a distilled extraction prompt, and writes deduped contact fields to a CSV. Use when a user has photos or scans holding multiple business cards per image, mentions glare or unreadable cards, batch card transcription, contact extraction, or wants to read many cards without an expensive in-conversation pass. Triggers on 'business cards', 'card scan', 'extract contacts', 'read these cards', 'card glare', 'too many cards per photo'."
 metadata:
-  version: 2.0.0
+  version: 2.1.0
 ---
 
 # Reading Business Cards
@@ -19,9 +19,14 @@ it. A phone photo of 50-60 cards is often 4000-6000px; downscaled to one image,
 each card lands ~150px wide — unreadable, which forces you onto a more expensive
 model. The script cuts the sheet into overlapping **tiles**, each near the
 downscale cap (~1300px), so every card in a tile keeps 500px+ of real
-resolution. That resolution recovery is what lets the cheaper model (Sonnet)
-read cards that only the expensive one (Opus) could read before. Run this skill
-with **Sonnet selected** — that's the whole point.
+resolution. That resolution recovery is what lets a cheaper model (Sonnet) read
+cards that only the expensive one (Opus) could read before — and it lets Opus
+read cards from far fewer tiles. **The grid is sized to the reader model** (see
+Stage 1): pass `--model` and the script tiles aggressively for Haiku, moderately
+for Sonnet, and least for Opus, because a stronger reader has a lower resolution
+floor. The floor is set by the *pixels*, not the model's intelligence: at
+~220px/card (a whole dense sheet) even Opus reads only company and some names,
+not phone/email — so even Opus needs a few tiles for fine print on dense sheets.
 
 De-glaring (illumination flattening + local contrast) is applied to each tile.
 It corrects uneven lighting and the haze off glossy cards and plastic binder
@@ -39,15 +44,27 @@ overlapping, piled. Detecting individual card boundaries fails on all of these.
 overlapping rectangles. Each tile holds a few cards at high resolution; the
 overlap means a card split by one tile's edge is whole in its neighbour.
 
-Run it with no tuning — the script derives the tile grid from each image's own
-dimensions so every tile stays just under the model's downscale cap:
+Run it sized to whichever model will read the tiles — pass `--model` and the
+script measures each sheet's native card size, then derives the coarsest grid
+whose cards still clear that model's OCR floor:
 
 ```bash
-python3 scripts/prep_cards.py /mnt/user-data/uploads --out /home/claude/cards_work
+python3 scripts/prep_cards.py /mnt/user-data/uploads --out /home/claude/cards_work --model opus
 ```
 
-It prints the grid it chose per image (e.g. `auto 5x4 from 4284x5712`) and writes
-tiles to `cards_work/tiles/` (`<sheet>__r{R}_c{C}.png`) plus a `manifest.json`.
+`--model opus|sonnet|haiku` (or a full id like `claude-opus-4-8`) sets the floor:
+Opus tiles least, Haiku most. Default is `sonnet` (the safe middle). On a dense
+~660px-card sheet this yields roughly 6 tiles/sheet for Opus, 9-12 for Sonnet,
+12-20 for Haiku. If the reader is the in-conversation model (the no-key path,
+below), set `--model` to match whatever you're running. Overrides: `--target-px`
+forces an explicit tile size, `--card-px` overrides the auto card-size estimate,
+`--floor-px` overrides the per-model floor.
+
+It prints the grid it chose per image (e.g.
+`auto 3x2 from 4284x5712 [model=opus floor=350 card~668px -> target 2993]`) and
+writes tiles to `cards_work/tiles/` (`<sheet>__r{R}_c{C}.png`) plus a
+`manifest.json`. If a sheet's cards are smaller than the model's floor even at
+native resolution, it warns — that sheet needs a re-shoot, not a finer grid.
 
 Then **verify and self-adjust by inspection** — this is your judgment, not the
 person's:
@@ -64,19 +81,33 @@ De-glaring (illumination flatten + local contrast) is on by default and is
 non-destructive. Decide on the extra flags by looking at a tile, then commit to
 the full read.
 
-## Stage 2 — Read and extract (cheap path: the API runner)
+## Stage 2 — Read and extract
 
-Do NOT read 1,000 tiles yourself in this conversation — that is the token blowup
-to avoid. Instead, run `extract_cards.py`, which sends each tile to a model in a
-separate, parallel, temperature-0 API call using the distilled prompt in
-`prompts/haiku_extract.md`, parses the JSON, dedupes across overlapping tiles,
-and writes the CSV. Reading happens outside the chat context, so it costs a
-fraction of in-conversation reading and runs many tiles at once.
+There are two ways to read the tiles. **In-session reading is the universal path
+and works for everyone, key or no key:** view the tiles with the `view` tool and
+transcribe them in this conversation, applying the rules in
+`prompts/haiku_extract.md` (one row per fully-visible card, skip edge-clipped
+cards that are whole in a neighbour, never invent, `confidence` low when unsure).
+The coarse model-sized grid is what makes this tractable — a dozen tiles per
+sheet, not eighty — and the conversation model reading them is exactly the model
+that reads cards well. Cost here is the subscription's usage allowance, not
+per-token dollars; the coarser the grid (Opus), the fewer reads.
 
-**Validate the model on a sample before the full run — do not assume Haiku is
-accurate enough.** Haiku is ~6x cheaper but its OCR is weaker; on phone photos of
-loose or angled cards it confidently misreads names and companies and marks the
-errors `high` confidence. Tested guidance:
+**The API runner is an optional optimization, only when an API key is present**
+(`API_KEY` in env / `/mnt/project/claude.env`). It sends each tile to a model in
+a separate parallel temperature-0 call using the distilled prompt, dedupes, and
+writes the CSV — reading outside the chat context, so it is cheaper per token and
+runs many tiles at once. Without a key it cannot run; use the in-session path.
+The runner bills the API account per token; it buys parallelism and a cheaper
+meter, never accuracy.
+
+### Running the API runner (keyed path)
+
+**Validate the model on a sample before the full run.** Haiku is ~6x cheaper but
+its OCR is weaker; on phone photos of loose or angled cards it confidently
+misreads names and marks the errors `high` confidence. (Gemini's free tier was
+tested 2026-06-15 and read these poorly — do not reach for it here.) Tested
+guidance:
 
 1. Sample run with Haiku:
    ```bash
