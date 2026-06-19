@@ -103,6 +103,11 @@ done
 - **ImageMagick here is IM6** (`convert`, not `magick`). Policy may block some
   formats; if `convert` refuses a PDF/PS op, that's the `/etc/ImageMagick-6/policy.xml`
   security policy, not a missing codec.
+- **markup → jira emits heading anchors.** `md → jira` works (both are pandoc
+  formats), but headings come out as `h1. {anchor:slug}Title` — pandoc materializing
+  the auto-generated heading ID. Suppress with
+  `--engine pandoc ... -f markdown-auto_identifiers` (pass the format-with-extension
+  yourself, since the dispatcher infers a bare `markdown`).
 - **`--plan` lies about nothing but runs nothing** — it can't tell you the
   *content* will survive (e.g. a pptx → md drops all layout). Plan checks the
   route; only a real run checks the result.
