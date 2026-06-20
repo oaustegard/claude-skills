@@ -2,7 +2,7 @@
 name: converting-files
 description: Convert a file from one format to another inside the container — documents, images, audio, video. Routes to the right engine (pandoc, LibreOffice, ImageMagick, ffmpeg) by format pair. Triggers on "convert X to Y", "turn this docx into a pdf", "make a gif from this mp4", "md to docx", "batch-convert these images", or any single-file or batch format change where the source and target extensions differ. NOT for editing content (use docx/pptx/xlsx/pdf skills), creating files from scratch, or reading a file you already have in context.
 metadata:
-  version: 0.1.0
+  version: 0.1.1
 ---
 
 # converting-files
