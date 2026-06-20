@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.0619.2351"
+    "version": "2026.0620.0053"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -185,6 +185,7 @@
         "categorizing-bsky-accounts",
         "controlling-spotify",
         "making-waffles",
+        "researching-x-with-xquik",
         "sorting-groceries"
       ]
     },
