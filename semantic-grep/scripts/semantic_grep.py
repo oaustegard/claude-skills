@@ -63,18 +63,19 @@ def _embed_url(model: str, *, batch: bool = False) -> tuple[str, dict]:
     """Return (url, extra_headers) for embedContent / batchEmbedContents call."""
     endpoint = "batchEmbedContents" if batch else "embedContent"
     proxy = _load_env(Path("/mnt/project/proxy.env"))
-    if proxy.get("CF_ACCOUNT_ID") and proxy.get("CF_GATEWAY_ID") and proxy.get("CF_API_TOKEN"):
+    cf_account = proxy.get("CF_ACCOUNT_ID") or os.environ.get("CF_ACCOUNT_ID")
+    cf_gateway = proxy.get("CF_GATEWAY_ID") or os.environ.get("CF_GATEWAY_ID")
+    cf_token = proxy.get("CF_API_TOKEN") or os.environ.get("CF_API_TOKEN")
+    if cf_account and cf_gateway and cf_token:
         url = (
-            f"{_CF_GATEWAY_BASE}/{proxy['CF_ACCOUNT_ID']}/{proxy['CF_GATEWAY_ID']}"
+            f"{_CF_GATEWAY_BASE}/{cf_account}/{cf_gateway}"
             f"/google-ai-studio/v1beta/models/{model}:{endpoint}"
         )
-        headers = {"cf-aig-authorization": f"Bearer {proxy['CF_API_TOKEN']}"}
-        # Gateway with BYOK — no Google key needed in header
+        headers = {"cf-aig-authorization": f"Bearer {cf_token}"}
         return url, headers
-    # Direct fallback
     key = os.environ.get("GOOGLE_API_KEY") or os.environ.get("GEMINI_API_KEY")
     if not key:
-        raise RuntimeError("No credentials: missing proxy.env and GOOGLE_API_KEY")
+        raise RuntimeError("No credentials: missing proxy.env / CF_* env vars / GOOGLE_API_KEY")
     url = f"{_DIRECT_BASE}/models/{model}:{endpoint}"
     return url, {"x-goog-api-key": key}
 
