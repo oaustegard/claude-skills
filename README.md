@@ -58,6 +58,8 @@ For complete documentation, see [templates/installation/README.md](templates/ins
 
 ## Contributing Skills
 
+Note: If your skill contribution is just a marketing ploy I'll simply delete it.
+
 ### Via ZIP Upload (Easiest)
 
 1. Create your skill folder with `SKILL.md` at the root
@@ -84,10 +86,10 @@ Releases are triggered by updating `metadata.version` in SKILL.md frontmatter on
 ### Version Format
 
 Use [semantic versioning](https://semver.org/):
-- `1.0.0` - Initial release
-- `1.0.1` - Patch (bug fixes)
-- `1.1.0` - Minor (new features, backward compatible)
-- `2.0.0` - Major (breaking changes)
+- `0.1.0` - Initial release
+- `0.1.1` - Patch (bug fixes)
+- `0.2.0` - Minor (new features, backward compatible)
+- `1.0.0` - Major (breaking changes)
 
 ## Resources
 
