@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1 (2026-06-19)
+
+- Added `README.md` as the GitHub-facing front door (thin pointer to SKILL.md,
+  not a duplicate of the routing table).
+- Documented the `md → jira` heading-anchor gotcha (`h1. {anchor:slug}Title`)
+  and the `-auto_identifiers` suppression. Both directions of jira markup
+  (import and export) confirmed working on pandoc 3.1.3.
+
 ## 0.1.0 (2026-06-19)
 
 Initial release. Dispatcher (`scripts/convert.py`) over the four conversion
@@ -26,9 +34,3 @@ Known fix during build: initial audio/video routing compared the *family*
 string against extension sets (`df in AUDIO` where `df=="audio"`), so wav→mp3
 returned NO ROUTE. Corrected to compare families to families and extensions to
 extensions.
-
-## [0.1.0] - 2026-06-19
-
-### Other
-
-- Add converting-files skill (native pandoc/LibreOffice/ImageMagick/ffmpeg dispatcher) (#704)
