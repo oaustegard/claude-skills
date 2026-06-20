@@ -34,3 +34,9 @@ Known fix during build: initial audio/video routing compared the *family*
 string against extension sets (`df in AUDIO` where `df=="audio"`), so wav→mp3
 returned NO ROUTE. Corrected to compare families to families and extensions to
 extensions.
+
+## [0.1.1] - 2026-06-20
+
+### Other
+
+- converting-files: add README + bump to 0.1.1 (missing from #704 merge) (#706)
