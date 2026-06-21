@@ -9,7 +9,7 @@ description: >-
   the divergent "what's here?" skill — for targeted "where is X?" queries,
   use searching-codebases instead.
 metadata:
-  version: 2.3.0
+  version: 2.3.1
 ---
 
 # Exploring Codebases
@@ -25,15 +25,16 @@ Five numbered steps, in order. Do not skip step 0.
 
 ```bash
 uv venv /home/claude/.venv 2>/dev/null
-uv pip install tree-sitter-language-pack --python /home/claude/.venv/bin/python
+uv pip install tree-sitter --python /home/claude/.venv/bin/python
 export PYTHON=/home/claude/.venv/bin/python
 export TREESIT=/mnt/skills/user/tree-sitting/scripts/treesit.py
 export GATHER=/mnt/skills/user/featuring/scripts/gather.py
 ```
 
 If step 2's `--stats` later reports `Scanned 0 files ... Errors: 1`, the
-language pack isn't loaded — come back here and install. Treesit fails
-silently on missing deps; it does not raise a useful error.
+`tree-sitter` core package isn't installed — come back here and install it
+(the engine bundles its own grammars and does NOT use tree-sitter-language-pack).
+Treesit fails silently on missing deps; it does not raise a useful error.
 
 ### 1. Get the repo (tarball, not per-file)
 
