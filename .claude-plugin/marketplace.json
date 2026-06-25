@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.0621.2325"
+    "version": "2026.0625.0324"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -131,6 +131,7 @@
       "keywords": [
         "asking-questions",
         "cloning-project",
+        "creating-kb",
         "iterating",
         "remembering",
         "updating-knowledge"
