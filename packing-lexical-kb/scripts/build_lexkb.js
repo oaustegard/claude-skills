@@ -129,10 +129,19 @@ function buildIndex(chunks, k1, b) {
 function bundleFiles(chunks, index, sourceDesc) {
   const chunksJsonl = chunks.map((ch) => JSON.stringify(ch)).join("\n") + "\n";
   const indexJson = JSON.stringify(index);
+  // Ship both searchers (thin readers of the same neutral JSON index). The
+  // consuming agent runs whichever runtime it has — node or python3.
   const searchJs = fs.readFileSync(path.join(TEMPLATE_DIR, "search.js"), "utf8");
+  const searchPy = fs.readFileSync(path.join(TEMPLATE_DIR, "search.py"), "utf8");
   let skillMd = fs.readFileSync(path.join(TEMPLATE_DIR, BUNDLE_SKILL), "utf8");
   skillMd = skillMd.split("{{SOURCE}}").join(sourceDesc).split("{{CHUNK_COUNT}}").join(String(chunks.length));
-  return { "chunks.jsonl": chunksJsonl, "index.json": indexJson, "search.js": searchJs, "SKILL.md": skillMd };
+  return {
+    "chunks.jsonl": chunksJsonl,
+    "index.json": indexJson,
+    "search.js": searchJs,
+    "search.py": searchPy,
+    "SKILL.md": skillMd,
+  };
 }
 
 function writeBundle(outDir, files) {
