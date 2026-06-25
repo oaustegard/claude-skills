@@ -79,11 +79,28 @@ node search.js --core "factions" --filter "section=blog" --filter "date>=2025" -
 Operators: `=`, `!=`, `~` (substring), `>`, `>=`, `<`, `<=` (numeric when both
 sides parse, else lexicographic — ISO dates sort correctly).
 
+## Passage vs. full document
+
+Ranking uses the whole chunk (best recall), but each hit's `text` is by default
+the **query-densest passage** of that chunk (~1200 chars), not the entire chunk —
+so your reasoning context is signal, not the surrounding noise of a long document.
+When a hit is a passage, the result carries `full_chars` (the chunk's full
+length). If you need the complete document for a hit — broader context, a
+quote in a section the passage elided — re-run with `--snippet 0`:
+
+```bash
+node search.js --query "…" --core "…" --snippet 0 --k 3
+```
+
+Raise/lower the budget with `--snippet 2000` / `--snippet 600`.
+
 ## Output
 
-`search.js` prints JSON: `{"hits": [{id, score, text, meta}, ...]}`, sorted by
-descending BM25 score. Surface the top hits to the user with their ids, then
-answer using them as authoritative context.
+The searcher prints JSON: `{"hits": [{id, score, text, meta, full_chars?}, ...]}`,
+sorted by descending BM25 score. `text` is the focused passage (or the full chunk
+if it was already short / `--snippet 0`); `full_chars` appears only when `text`
+is a passage. Surface the top hits to the user with their ids, then answer using
+them as authoritative context.
 
 ## Mechanics
 
