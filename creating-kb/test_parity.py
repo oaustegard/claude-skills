@@ -31,6 +31,14 @@ CORPUS = {
     "property.txt": "From the protection of different and unequal faculties of acquiring "
                     "property, the possession of different degrees and kinds of property "
                     "and economic inequality immediately results.\n",
+    # A long doc (>snippet budget) so the extractive-passage path is exercised
+    # and JS/Python snippet selection is checked for byte-identity.
+    "longdoc.txt": ("Republics confront the problem of faction at every turn. " * 6
+                    + "Filler sentence about commerce and navigation and trade winds. " * 8
+                    + "Liberty is the air that gives faction its destructive fire. " * 4
+                    + "More filler about agriculture, roads, and the postal service. " * 8
+                    + "Property rights and unequal faculties drive the violence of faction. " * 4
+                    + "Closing filler about treaties, envoys, and foreign courts. " * 8 + "\n"),
 }
 
 QUERIES = [
@@ -38,6 +46,8 @@ QUERIES = [
     ["--query", "separation of powers", "--core", "powers", "--expand", "checks", "--expand", "balances"],
     ["--core", "property", "--expand", "wealth inequality", "--filter", "source_path~property"],
     ["--query", "liberty and faction", "--rm3", "--rm3-docs", "3"],
+    # exercises the snippet path on the long doc (distributed signal)
+    ["--query", "faction liberty property", "--core", "faction", "--expand", "liberty", "--expand", "property"],
 ]
 
 
@@ -46,7 +56,8 @@ def run(cmd: list[str]) -> list[tuple]:
     if out.returncode != 0:
         raise RuntimeError(f"{cmd[:2]} failed: {out.stderr[:300]}")
     hits = json.loads(out.stdout)["hits"]
-    return [(h["id"], h["score"]) for h in hits]
+    # include text + full_chars so the snippet path is part of the parity check
+    return [(h["id"], h["score"], h["text"], h.get("full_chars")) for h in hits]
 
 
 def main() -> int:
