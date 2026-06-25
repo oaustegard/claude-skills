@@ -84,15 +84,18 @@ sides parse, else lexicographic — ISO dates sort correctly).
 Ranking uses the whole chunk (best recall), but each hit's `text` is by default
 the **query-densest passage** of that chunk (~1200 chars), not the entire chunk —
 so your reasoning context is signal, not the surrounding noise of a long document.
-When a hit is a passage, the result carries `full_chars` (the chunk's full
-length). If you need the complete document for a hit — broader context, a
-quote in a section the passage elided — re-run with `--snippet 0`:
+Each matched sentence keeps its neighbours (`--context`, default 1 each side) so
+it reads in context rather than as an orphaned fragment, and nearby matches merge
+into contiguous passages; ' … ' marks elisions between them. When a hit is a
+passage, the result carries `full_chars` (the chunk's full length). If you need
+the complete document for a hit — broader context, a quote in a section the
+passage elided — re-run with `--snippet 0`:
 
 ```bash
 node search.js --query "…" --core "…" --snippet 0 --k 3
 ```
 
-Raise/lower the budget with `--snippet 2000` / `--snippet 600`.
+Tune with `--snippet 2000`/`600` (budget) and `--context 2`/`0` (neighbours).
 
 ## Output
 
