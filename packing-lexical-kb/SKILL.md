@@ -1,6 +1,6 @@
 ---
 name: packing-lexical-kb
-description: Builds a portable, embedding-free knowledgebase from a set of files and delivers it as a self-contained `.skill` bundle (BM25 index + bundled searcher + query protocol). Use when a user wants to turn uploaded files, a folder, or a corpus into a searchable knowledgebase they can hand to any agent — phrased as "make a knowledgebase", "build a KB skill", "package these docs for retrieval", "create a searchable bundle", or references to a `.skill` KB. The output runs anywhere with Node — no model, no install, no network. Distinct from `bm25` (ephemeral in-session search) and `building-github-index` (markdown project-knowledge index).
+description: Builds a portable, embedding-free knowledgebase from a set of files and delivers it as a self-contained `.skill` bundle (BM25 index + bundled searcher + query protocol). Use when a user wants to turn uploaded files, a folder, or a corpus into a searchable knowledgebase they can hand to any agent — phrased as "make a knowledgebase", "build a KB skill", "package these docs for retrieval", "create a searchable bundle", or references to a `.skill` KB. The output runs anywhere with Node or Python — no model, no install, no network. Distinct from `bm25` (ephemeral in-session search) and `building-github-index` (markdown project-knowledge index).
 metadata:
   version: 0.1.0
 ---
@@ -97,19 +97,24 @@ node /tmp/kb/search.js --query "a representative question" \
 | File | Role |
 |---|---|
 | `SKILL.md` | the query protocol the consuming agent follows (expand → search → cite) |
-| `search.js` | pure-Node BM25 + RM3 fallback + metadata filtering |
+| `search.js` / `search.py` | equivalent BM25 + RM3 + metadata-filter searchers; the agent runs whichever runtime it has |
 | `index.json` | precomputed inverted index (postings, df, doc lengths, BM25 params) |
 | `chunks.jsonl` | chunk text + structured metadata |
 
-Metadata stays structured (not folded into the indexed text), which lets the
-consuming agent filter on it (`--filter section=blog`, `--filter date>=2025`).
+Both searchers are thin readers of the same neutral JSON index, so the bundle
+runs in a Node-only or a Python-only consumer. Metadata stays structured (not
+folded into the indexed text), which lets the consuming agent filter on it
+(`--filter section=blog`, `--filter date>=2025`).
 
 ## Scripts
 
 - `scripts/build_lexkb.js` — chunker + BM25 index builder + `.skill` writer.
-- `scripts/search.js` — the runtime searcher, copied verbatim into every bundle.
-  It owns the tokenizer; the builder imports it so index and queries tokenize
-  identically.
+- `scripts/search.js` — the JS runtime searcher, copied verbatim into every
+  bundle. It owns the tokenizer; the builder imports it so index and queries
+  tokenize identically.
+- `scripts/search.py` — the Python runtime searcher, copied verbatim into every
+  bundle; a thin reader of the same neutral JSON index, parity-pinned to
+  `search.js` (identical results on a shared index).
 - `scripts/zipstore.js` — pure-JS ZIP-STORED writer (used by the builder; shared
   with the in-browser packer).
 - `scripts/bundle_SKILL.md` — the query-side SKILL.md template written into each
