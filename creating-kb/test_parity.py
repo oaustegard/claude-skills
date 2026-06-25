@@ -48,6 +48,9 @@ QUERIES = [
     ["--query", "liberty and faction", "--rm3", "--rm3-docs", "3"],
     # exercises the snippet path on the long doc (distributed signal)
     ["--query", "faction liberty property", "--core", "faction", "--expand", "liberty", "--expand", "property"],
+    # context-window variants (bare sentences vs ±2 neighbours) — must stay in parity
+    ["--core", "faction", "--expand", "liberty", "--context", "0"],
+    ["--core", "faction", "--expand", "liberty", "--expand", "property", "--context", "2"],
 ]
 
 
