@@ -107,7 +107,7 @@ inspect a full chunk.
 | File | Role |
 |---|---|
 | `SKILL.md` | the query protocol the consuming agent follows (expand → search → cite) |
-| `search.js` / `search.py` | equivalent BM25 + RM3 + metadata-filter searchers with query-focused passage extraction; the agent runs whichever runtime it has |
+| `search.js` / `search.py` | equivalent BM25 + RM3 + metadata-filter searchers; return query-focused passages (matched sentences kept in neighbour context, merged); the agent runs whichever runtime it has |
 | `index.json` | precomputed inverted index (postings, df, doc lengths, BM25 params) |
 | `chunks.jsonl` | chunk text + structured metadata |
 
