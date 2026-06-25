@@ -47,7 +47,12 @@ retrieval competitive with embeddings. Do not skip it.
    synonym can lift a result but can never drop a doc the literal question would
    have matched. Defaults: core 1.0, expand 0.4, query-floor 0.25, top-k 5.
    Keep expansion targeted — terms too generic ("system", "process") leak into
-   unrelated chunks and blur the ranking.
+   unrelated chunks and blur the ranking. A precise word can mislead too if it
+   is polysemous: prefer the disambiguating phrase as one `--core` term (e.g.
+   `--core "centered simhash"`) over a bare ambiguous word (`--core "centered"`,
+   which also matches "centered around …" in unrelated chunks). The passage
+   extractor is lexical too, so it will highlight the wrong sense rather than
+   correct it.
 
 4. **Read the returned chunks. Answer from them, and cite chunk ids inline.**
    The chunks are the source of truth the user installed. When a chunk
