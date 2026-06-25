@@ -231,43 +231,72 @@ def build_query(
 _SENT_SPLIT = re.compile(r"(?<=[.!?])\s+|\n+")
 
 
-def make_snippet(index: Index, text: str, query: dict[str, float], budget: int) -> tuple[str, bool]:
+def _span_chars(sents: list[str], idxs: list[int]) -> int:
+    """Char cost of the merged passage for a set of selected sentence indices:
+    sentence lengths + 1 per intra-run join + 3 per ' … ' between runs. Identical
+    formula in search.js so both runtimes make the same budget decisions."""
+    if not idxs:
+        return 0
+    s = sorted(idxs)
+    runs = 1
+    for a, b in zip(s, s[1:]):
+        if b != a + 1:
+            runs += 1
+    total = sum(len(sents[i]) for i in s)
+    total += (len(s) - runs)            # spaces joining sentences within a run
+    total += (runs - 1) * 3             # ' … ' between runs
+    return total
+
+
+def make_snippet(index: Index, text: str, query: dict[str, float], budget: int,
+                 context: int = 1) -> tuple[str, bool]:
     """Return (passage, truncated). Decouples the reasoning payload from the
     retrieval unit: rank a doc whole (recall), but return only the query-densest
-    sentences (signal). Scores each sentence by sum of query-term weight*idf for
-    the distinct query terms it contains, picks the top sentences up to `budget`
-    chars, and re-orders them by original position joined with ' … '.
+    sentences (signal) — each expanded by `context` neighbour sentences on either
+    side so a matched sentence keeps its referent/setup, and overlapping or
+    adjacent matches merge into contiguous passages.
 
-    Sentences anywhere in the doc are eligible, so signal distributed across a
-    long post is captured — not just one window. Scores are rounded so JS and
+    Sentences are scored by sum of query-term weight*idf for the distinct query
+    terms they contain; the highest are seeded in until ~`budget` chars (counting
+    the context windows), then emitted in document order. Runs are joined by ' … '
+    with leading/trailing ' …' marking elided head/tail. Scores rounded so JS and
     Python select identically."""
     if budget <= 0 or len(text) <= budget:
         return text, False
     sents = [s.strip() for s in _SENT_SPLIT.split(text) if s.strip()]
     if not sents:
         return text[:budget] + "…", True
+    n = len(sents)
     scored = []
     for i, s in enumerate(sents):
         toks = set(tokenize(s))
         sc = round(sum(query[t] * index.idf(t) for t in toks if t in query), 6)
-        scored.append((sc, i, s))
-    chosen: list[tuple[int, str]] = []
-    total = 0
-    for sc, i, s in sorted(scored, key=lambda x: (-x[0], x[1])):
-        if sc <= 0:
-            break
-        if chosen and total + len(s) > budget:
-            break
-        chosen.append((i, s))
-        total += len(s) + 5
-    if not chosen:
+        scored.append((sc, i))
+    seeds = [i for sc, i in sorted(scored, key=lambda x: (-x[0], x[1])) if sc > 0]
+    if not seeds:
         return text[:budget] + "…", True
-    chosen.sort()
-    body = " … ".join(s for _, s in chosen)
-    # mark elided head/tail so the agent knows it's a passage, not the whole doc
-    if chosen[0][0] > 0:
+
+    selected: set[int] = set()
+    for seed in seeds:
+        window = set(range(max(0, seed - context), min(n, seed + context + 1)))
+        cand = selected | window
+        if selected and _span_chars(sents, list(cand)) > budget:
+            break
+        selected = cand
+        if _span_chars(sents, list(selected)) >= budget:
+            break
+    if not selected:  # first seed's window even if it alone exceeds budget
+        seed = seeds[0]
+        selected = set(range(max(0, seed - context), min(n, seed + context + 1)))
+
+    idxs = sorted(selected)
+    runs: list[list[int]] = [[idxs[0]]]
+    for i in idxs[1:]:
+        (runs[-1].append(i) if i == runs[-1][-1] + 1 else runs.append([i]))
+    body = " … ".join(" ".join(sents[i] for i in run) for run in runs)
+    if idxs[0] > 0:
         body = "… " + body
-    if chosen[-1][0] < len(sents) - 1:
+    if idxs[-1] < n - 1:
         body = body + " …"
     return body, True
 
@@ -283,6 +312,7 @@ def search(
     rm3_terms: int = 15,
     rm3_alpha: float = 0.5,
     snippet_chars: int = 0,
+    snippet_context: int = 1,
 ) -> list[dict]:
     if use_rm3:
         query = rm3_expand(
@@ -296,7 +326,7 @@ def search(
             continue
         chunk = index.chunks[doc_idx]
         full = chunk["text"]
-        text, truncated = make_snippet(index, full, query, snippet_chars)
+        text, truncated = make_snippet(index, full, query, snippet_chars, snippet_context)
         hit = {
             "id": chunk.get("id"),
             "score": round(sc, 6),
@@ -330,6 +360,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--snippet", type=int, default=1200,
                     help="return only the query-densest passage, ~N chars, instead of the full "
                          "chunk (focuses reasoning context; 0 = full text)")
+    ap.add_argument("--context", type=int, default=1,
+                    help="neighbour sentences kept on each side of a match for coherence "
+                         "(0 = bare matched sentences)")
     args = ap.parse_args(argv)
 
     index = Index(Path(args.index))
@@ -353,7 +386,7 @@ def main(argv: list[str] | None = None) -> int:
         filters=[_parse_filter(f) for f in args.filter],
         use_rm3=args.rm3, rm3_docs=args.rm3_docs,
         rm3_terms=args.rm3_terms, rm3_alpha=args.rm3_alpha,
-        snippet_chars=args.snippet,
+        snippet_chars=args.snippet, snippet_context=args.context,
     )
     print(json.dumps({"hits": hits}, ensure_ascii=False, indent=2))
     return 0
