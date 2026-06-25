@@ -194,37 +194,64 @@ function passesFilters(index, docIdx, filters) {
 // byte-identical across runtimes.
 const SENT_SPLIT = /(?<=[.!?])\s+|\n+/;
 
-function makeSnippet(index, text, query, budget) {
+function spanChars(sents, idxs) {
+  // Char cost of the merged passage; same formula as search.py _span_chars so
+  // both runtimes make identical budget decisions.
+  if (!idxs.length) return 0;
+  const s = [...idxs].sort((a, b) => a - b);
+  let runs = 1;
+  for (let i = 1; i < s.length; i++) if (s[i] !== s[i - 1] + 1) runs++;
+  let total = s.reduce((acc, i) => acc + sents[i].length, 0);
+  total += s.length - runs;     // spaces joining sentences within a run
+  total += (runs - 1) * 3;      // ' … ' between runs
+  return total;
+}
+
+function makeSnippet(index, text, query, budget, context = 1) {
   // Decouple the reasoning payload from the retrieval unit: rank a doc whole
-  // (recall), return only its query-densest sentences (signal). Sentences from
-  // anywhere in the doc are eligible, so distributed signal is captured. Scores
-  // are rounded so JS and Python select identically.
+  // (recall), return only its query-densest sentences (signal) — each expanded
+  // by `context` neighbour sentences so a match keeps its referent/setup, with
+  // adjacent/overlapping matches merged into contiguous passages. Scores are
+  // rounded so JS and Python select identically.
   if (budget <= 0 || text.length <= budget) return [text, false];
   const sents = text.split(SENT_SPLIT).map((s) => s.trim()).filter(Boolean);
   if (!sents.length) return [text.slice(0, budget) + "…", true];
+  const n = sents.length;
   const scored = sents.map((s, i) => {
     let sc = 0;
     for (const t of new Set(tokenize(s))) if (query.has(t)) sc += query.get(t) * index.idf(t);
-    return [Math.round(sc * 1e6) / 1e6, i, s];
+    return [Math.round(sc * 1e6) / 1e6, i];
   });
   scored.sort((a, b) => (b[0] - a[0]) || (a[1] - b[1]));
-  const chosen = [];
-  let total = 0;
-  for (const [sc, i, s] of scored) {
-    if (sc <= 0) break;
-    if (chosen.length && total + s.length > budget) break;
-    chosen.push([i, s]);
-    total += s.length + 5;
+  const seeds = scored.filter(([sc]) => sc > 0).map(([, i]) => i);
+  if (!seeds.length) return [text.slice(0, budget) + "…", true];
+
+  let selected = new Set();
+  for (const seed of seeds) {
+    const cand = new Set(selected);
+    for (let j = Math.max(0, seed - context); j < Math.min(n, seed + context + 1); j++) cand.add(j);
+    if (selected.size && spanChars(sents, [...cand]) > budget) break;
+    selected = cand;
+    if (spanChars(sents, [...selected]) >= budget) break;
   }
-  if (!chosen.length) return [text.slice(0, budget) + "…", true];
-  chosen.sort((a, b) => a[0] - b[0]);
-  let body = chosen.map(([, s]) => s).join(" … ");
-  if (chosen[0][0] > 0) body = "… " + body;
-  if (chosen[chosen.length - 1][0] < sents.length - 1) body = body + " …";
+  if (!selected.size) {
+    const seed = seeds[0];
+    for (let j = Math.max(0, seed - context); j < Math.min(n, seed + context + 1); j++) selected.add(j);
+  }
+
+  const idxs = [...selected].sort((a, b) => a - b);
+  const runs = [[idxs[0]]];
+  for (const i of idxs.slice(1)) {
+    if (i === runs[runs.length - 1][runs[runs.length - 1].length - 1] + 1) runs[runs.length - 1].push(i);
+    else runs.push([i]);
+  }
+  let body = runs.map((run) => run.map((i) => sents[i]).join(" ")).join(" … ");
+  if (idxs[0] > 0) body = "… " + body;
+  if (idxs[idxs.length - 1] < n - 1) body = body + " …";
   return [body, true];
 }
 
-function search(index, query, { k = 5, filters = [], useRm3 = false, rm3 = {}, snippetChars = 0 } = {}) {
+function search(index, query, { k = 5, filters = [], useRm3 = false, rm3 = {}, snippetChars = 0, snippetContext = 1 } = {}) {
   if (useRm3) query = rm3Expand(index, query, rm3);
   const scores = index.score(query);
   const ranked = [...scores.entries()].sort((a, b) => b[1] - a[1]);
@@ -232,7 +259,7 @@ function search(index, query, { k = 5, filters = [], useRm3 = false, rm3 = {}, s
   for (const [docIdx, sc] of ranked) {
     if (!passesFilters(index, docIdx, filters)) continue;
     const chunk = index.chunks[docIdx];
-    const [text, truncated] = makeSnippet(index, chunk.text, query, snippetChars);
+    const [text, truncated] = makeSnippet(index, chunk.text, query, snippetChars, snippetContext);
     const hit = { id: chunk.id, score: Math.round(sc * 1e6) / 1e6, text, meta: chunk.meta || {} };
     if (truncated) hit.full_chars = chunk.text.length;
     out.push(hit);
@@ -248,7 +275,7 @@ function search(index, query, { k = 5, filters = [], useRm3 = false, rm3 = {}, s
 function parseArgs(argv) {
   const a = { index: __dirname, query: "", core: [], expand: [], filter: [],
     wCore: 1.0, wExpand: 0.4, wQuery: 0.25, k: 5, rm3: false,
-    rm3Docs: 10, rm3Terms: 15, rm3Alpha: 0.5, snippet: 1200 };
+    rm3Docs: 10, rm3Terms: 15, rm3Alpha: 0.5, snippet: 1200, context: 1 };
   const multi = { "--core": "core", "--expand": "expand", "--filter": "filter" };
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i];
@@ -265,6 +292,7 @@ function parseArgs(argv) {
     else if (t === "--rm3-terms") a.rm3Terms = Number(val);
     else if (t === "--rm3-alpha") a.rm3Alpha = Number(val);
     else if (t === "--snippet") a.snippet = Number(val);
+    else if (t === "--context") a.context = Number(val);
     else { i--; } // unknown flag without value; skip
   }
   return a;
@@ -291,7 +319,7 @@ function main(argv) {
     filters: a.filter.map(parseFilter),
     useRm3: a.rm3,
     rm3: { nDocs: a.rm3Docs, nTerms: a.rm3Terms, alpha: a.rm3Alpha },
-    snippetChars: a.snippet,
+    snippetChars: a.snippet, snippetContext: a.context,
   });
   console.log(JSON.stringify({ hits }, null, 2));
   return 0;
