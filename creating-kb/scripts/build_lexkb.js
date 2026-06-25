@@ -11,7 +11,9 @@
  *
  * Usage:
  *   node build_lexkb.js CORPUS_DIR --out out/kb --name mykb \
- *     --target-chars 1200 [--zip] [--ext txt,md,html]
+ *     [--target-chars 0] [--zip] [--ext txt,md,html]
+ * (--target-chars 0 = whole-document chunks, the default; the searcher returns a
+ *  query-focused passage per hit, so big chunks don't flood reasoning context.)
  */
 "use strict";
 
@@ -164,7 +166,7 @@ function zipSkill(files, skillPath) {
 
 function parseArgs(argv) {
   const a = { corpus: null, out: "out/kb", name: "lexical-kb", ext: "txt,md,html,htm",
-    targetChars: 1200, minChars: 40, k1: 1.5, b: 0.75, source: "", zip: false };
+    targetChars: 0, minChars: 40, k1: 1.5, b: 0.75, source: "", zip: false };
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i];
     if (t === "--zip") { a.zip = true; continue; }
