@@ -2,7 +2,7 @@
 name: creating-kb
 description: Builds a portable, embedding-free knowledgebase from a set of files and delivers it as a self-contained `.skill` bundle (BM25 index + bundled searcher + query protocol). Use when a user wants to turn uploaded files, a folder, or a corpus into a searchable knowledgebase they can hand to any agent — phrased as "make a knowledgebase", "build a KB skill", "package these docs for retrieval", "create a searchable bundle", or references to a `.skill` KB. The output runs anywhere with Node or Python — no model, no install, no network. Distinct from `bm25` (ephemeral in-session search) and `building-github-index` (markdown project-knowledge index).
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # creating-kb
@@ -42,7 +42,7 @@ from the same scripts) that runs entirely client-side.
 ```bash
 SCRIPTS=/mnt/skills/user/creating-kb/scripts
 node $SCRIPTS/build_lexkb.js /mnt/user-data/uploads \
-  --out /tmp/kb --name my-kb --target-chars 1200 --zip \
+  --out /tmp/kb --name my-kb --zip \
   --source "human description of the corpus"
 ```
 
@@ -69,16 +69,23 @@ agent reads it, expands each question into search terms, and runs the bundled
 
 ## Choosing chunk size
 
-`--target-chars` controls chunk size (whole paragraphs are packed up to the
-target; `--target-chars 0` makes each file one chunk). Lexical BM25 tolerates
-larger chunks than embedding-based retrieval, because there is no vector to
-dilute — BM25 scores individual term presence with length normalization, so a
-big chunk still ranks on the exact terms it contains. Larger chunks also hand
-the consuming agent more coherent context per hit.
+The retrieval unit and the reasoning unit are decoupled, which makes chunk size a
+low-stakes choice. `search.py`/`search.js` **rank** on the whole chunk (best
+recall) but **return** only the query-densest passage of it by default
+(`--snippet`, ~1200 chars), so a big chunk does not flood the consuming agent's
+context with surrounding noise. Index for recall; the searcher handles signal.
 
-- Short documents (≤ a few paragraphs): `--target-chars 0` (whole document).
-- Articles / mixed prose: `--target-chars 1200` (default) to `4000`.
-- Many small fragments where citation precision matters: `--target-chars 500`.
+`--target-chars` controls chunk size (whole paragraphs are packed up to the
+target; `--target-chars 0` makes each file one chunk). Lexical BM25 tolerates —
+and on a real-corpus sweep slightly *preferred* — larger chunks than
+embedding-based retrieval, because there is no vector to dilute: BM25 scores
+individual term presence with length normalization, so a big chunk still ranks on
+the exact terms it contains.
+
+- **Default: `--target-chars 0` (whole document).** Best recall, fewest chunks;
+  the snippet return keeps reasoning context focused.
+- Long, multi-topic files where you want tighter citation units: `1500`–`4000`.
+- `500` only if you need very fine-grained chunk ids and accept more chunks.
 
 ## Verifying the bundle
 
@@ -87,8 +94,11 @@ it returns sensible hits:
 
 ```bash
 node /tmp/kb/search.js --query "a representative question" \
-  --core "key term" --expand "synonym" --k 3 --text-chars 120
+  --core "key term" --expand "synonym" --k 3
 ```
+
+Each hit's `text` is the query-focused passage by default; add `--snippet 0` to
+inspect a full chunk.
 
 `search.js` prints JSON `{"hits": [...]}`. Confirm the right chunks surface.
 
@@ -97,7 +107,7 @@ node /tmp/kb/search.js --query "a representative question" \
 | File | Role |
 |---|---|
 | `SKILL.md` | the query protocol the consuming agent follows (expand → search → cite) |
-| `search.js` / `search.py` | equivalent BM25 + RM3 + metadata-filter searchers; the agent runs whichever runtime it has |
+| `search.js` / `search.py` | equivalent BM25 + RM3 + metadata-filter searchers with query-focused passage extraction; the agent runs whichever runtime it has |
 | `index.json` | precomputed inverted index (postings, df, doc lengths, BM25 params) |
 | `chunks.jsonl` | chunk text + structured metadata |
 
