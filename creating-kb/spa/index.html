@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>creating-kb · build a portable knowledgebase</title>
+<style>
+  :root { --bg:#0f1115; --card:#181b22; --ink:#e7e9ee; --mut:#9aa3b2; --acc:#6ea8fe; --ok:#5ad19a; --warn:#e0a96d; --line:#2a2f3a; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  main { max-width:760px; margin:0 auto; padding:40px 20px 80px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sub { color:var(--mut); margin:0 0 28px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:22px; margin-bottom:18px; }
+  #drop { border:2px dashed var(--line); border-radius:12px; padding:38px 20px; text-align:center; color:var(--mut);
+          transition:.15s; cursor:pointer; }
+  #drop.hot { border-color:var(--acc); background:#1c2230; color:var(--ink); }
+  #drop strong { color:var(--ink); }
+  .row { display:flex; gap:16px; flex-wrap:wrap; margin-top:18px; }
+  label { display:block; font-size:12px; color:var(--mut); margin-bottom:4px; }
+  input[type=text],input[type=number] { background:#0f1219; border:1px solid var(--line); color:var(--ink);
+          border-radius:8px; padding:8px 10px; width:100%; font:inherit; }
+  .field { flex:1 1 140px; }
+  button { background:var(--acc); color:#0b1020; border:0; border-radius:9px; padding:11px 18px; font:600 15px/1 inherit;
+           cursor:pointer; margin-top:20px; }
+  button:disabled { opacity:.5; cursor:default; }
+  #status { margin-top:16px; font-size:14px; white-space:pre-wrap; }
+  .ok { color:var(--ok); } .warn { color:var(--warn); }
+  ul.files { max-height:150px; overflow:auto; margin:14px 0 0; padding:0; list-style:none; font:12px ui-monospace,monospace; color:var(--mut); }
+  ul.files li { padding:1px 0; }
+  a.dl { display:inline-block; margin-top:18px; background:var(--ok); color:#08130d; text-decoration:none; padding:11px 18px; border-radius:9px; font-weight:600; }
+  code { background:#0f1219; padding:1px 5px; border-radius:4px; font-size:13px; }
+  .note { color:var(--mut); font-size:13px; margin-top:10px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>creating-kb</h1>
+  <p class="sub">Drop files → get a portable, embedding-free <code>.skill</code> knowledgebase. Everything runs in your browser — no upload, no model, no network.</p>
+
+  <div class="card">
+    <div id="drop">
+      <strong>Drop files or a folder here</strong><br>
+      or click to choose · <code>.txt .md .html</code> by default
+      <input id="picker" type="file" multiple hidden>
+      <input id="pickerDir" type="file" webkitdirectory hidden>
+    </div>
+    <ul class="files" id="filelist"></ul>
+
+    <div class="row">
+      <div class="field"><label>KB name</label><input id="name" type="text" value="my-kb"></div>
+      <div class="field"><label>Extensions</label><input id="ext" type="text" value="txt,md,html,htm"></div>
+      <div class="field"><label>Chunk size (chars, 0 = whole doc)</label><input id="target" type="number" value="0" min="0"></div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:1 1 100%"><label>Source description (optional)</label><input id="source" type="text" placeholder="what this corpus is"></div>
+    </div>
+
+    <button id="build" disabled>Build .skill</button>
+    <div id="status"></div>
+    <div id="dl"></div>
+  </div>
+
+  <p class="note">The bundle ships a query protocol + two searchers (<code>search.js</code> / <code>search.py</code>) and a BM25 index. Drop it into any agent's skill folder; the agent expands the query and runs the bundled searcher — no embedding model required.</p>
+</main>
+
+<script type="module">
+import { collectChunks, buildIndex, bundleFiles, zipSkill } from "../scripts/lexkb-web.mjs";
+
+const $ = (id) => document.getElementById(id);
+const drop = $("drop"), status = $("status"), dlBox = $("dl");
+let files = [];        // [{name, text}]
+let runtime = null;    // {searchJs, searchPy, bundleSkillMd}
+
+async function loadRuntime() {
+  if (runtime) return runtime;
+  const get = async (f) => {
+    const r = await fetch(f);
+    if (!r.ok) throw new Error(`could not fetch ${f} (${r.status})`);
+    return r.text();
+  };
+  runtime = {
+    searchJs: await get("../scripts/search.js"),
+    searchPy: await get("../scripts/search.py"),
+    bundleSkillMd: await get("../scripts/bundle_SKILL.md"),
+  };
+  return runtime;
+}
+
+function setStatus(msg, cls) { status.className = cls || ""; status.textContent = msg; }
+
+function renderFiles() {
+  $("filelist").innerHTML = files.map((f) => `<li>${f.name} · ${f.text.length}c</li>`).join("");
+  $("build").disabled = files.length === 0;
+}
+
+async function addFileList(fileObjs) {
+  const next = [];
+  for (const file of fileObjs) {
+    const name = file.webkitRelativePath || file.name;
+    next.push({ name, text: await file.text() });
+  }
+  // de-dup by name, last wins
+  const byName = new Map(files.map((f) => [f.name, f]));
+  for (const f of next) byName.set(f.name, f);
+  files = [...byName.values()];
+  renderFiles();
+  setStatus(`${files.length} file(s) staged.`);
+}
+
+// drag & drop (supports folders via webkitGetAsEntry)
+drop.addEventListener("click", () => $("picker").click());
+$("picker").addEventListener("change", (e) => addFileList(e.target.files));
+["dragenter", "dragover"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("hot"); }));
+["dragleave", "drop"].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("hot"); }));
+
+async function walkEntry(entry, prefix, out) {
+  if (entry.isFile) {
+    await new Promise((res) => entry.file((f) => { f._rel = prefix + f.name; out.push(f); res(); }));
+  } else if (entry.isDirectory) {
+    const reader = entry.createReader();
+    const ents = await new Promise((res) => reader.readEntries(res));
+    for (const e of ents) await walkEntry(e, prefix + entry.name + "/", out);
+  }
+}
+
+drop.addEventListener("drop", async (e) => {
+  const items = [...(e.dataTransfer.items || [])].map((it) => it.webkitGetAsEntry && it.webkitGetAsEntry()).filter(Boolean);
+  if (items.length) {
+    const collected = [];
+    for (const it of items) await walkEntry(it, "", collected);
+    // collected File objects carry _rel for nested paths
+    const objs = collected.map((f) => ({ name: f._rel || f.name, text: f.text() }));
+    const resolved = [];
+    for (const o of objs) resolved.push({ name: o.name, text: await o.text });
+    const byName = new Map(files.map((f) => [f.name, f]));
+    for (const f of resolved) byName.set(f.name, f);
+    files = [...byName.values()];
+    renderFiles();
+    setStatus(`${files.length} file(s) staged.`);
+  } else {
+    await addFileList(e.dataTransfer.files);
+  }
+});
+
+$("build").addEventListener("click", async () => {
+  try {
+    setStatus("Loading runtime…");
+    const rt = await loadRuntime();
+    const exts = new Set($("ext").value.split(",").map((s) => s.trim().replace(/^\./, "").toLowerCase()).filter(Boolean));
+    const target = Number($("target").value) || 0;
+    const name = ($("name").value.trim() || "my-kb").replace(/[^a-zA-Z0-9._-]/g, "-");
+    const chunks = collectChunks(files, exts, target, 40);
+    if (!chunks.length) { setStatus("No chunks produced — check your extensions filter.", "warn"); return; }
+    const index = buildIndex(chunks, 1.5, 0.75);
+    const bundle = bundleFiles(chunks, index, $("source").value.trim() || `${name} corpus`, rt);
+    const bytes = zipSkill(bundle, name);
+    const nFiles = new Set(chunks.map((c) => c.meta.source_path)).size;
+    setStatus(`Built ${chunks.length} chunks from ${nFiles} file(s) · vocab ${Object.keys(index.df).length} · ${(bytes.length / 1024).toFixed(1)} KB`, "ok");
+    const url = URL.createObjectURL(new Blob([bytes], { type: "application/zip" }));
+    dlBox.innerHTML = `<a class="dl" download="${name}.skill" href="${url}">Download ${name}.skill</a>`;
+  } catch (err) {
+    setStatus("Error: " + err.message + (location.protocol === "file:" ? "\n(serve over http:// — file:// blocks fetching the runtime files)" : ""), "warn");
+  }
+});
+</script>
+</body>
+</html>
