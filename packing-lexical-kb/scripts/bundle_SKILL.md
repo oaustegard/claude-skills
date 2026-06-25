@@ -1,6 +1,6 @@
 ---
 name: lexical-kb
-description: Query a portable, embedding-free lexical knowledgebase bundled as a `.skill`. Use when the user references this KB or asks a question whose answer is in its corpus ({{SOURCE}}). Retrieval is BM25 over a precomputed inverted index — there is no embedding model, so YOU expand the query into search terms before searching. Bundle holds index.json + chunks.jsonl + search.js; pure Node, no install, no network.
+description: Query a portable, embedding-free lexical knowledgebase bundled as a `.skill`. Use when the user references this KB or asks a question whose answer is in its corpus ({{SOURCE}}). Retrieval is BM25 over a precomputed inverted index — there is no embedding model, so YOU expand the query into search terms before searching. Bundle holds index.json + chunks.jsonl + search.js + search.py; pure stdlib, no install, no network.
 ---
 
 # lexical-kb — query an embedding-free knowledgebase
@@ -27,7 +27,9 @@ retrieval competitive with embeddings. Do not skip it.
    carry lower weight. This is the work the missing embedding model would have
    done. Be generous: 5–15 expansion terms is normal.
 
-3. **Run the searcher.** It ships in this bundle. Pass the user's original
+3. **Run the searcher.** It ships in this bundle in two equivalent runtimes —
+   `node search.js` or `python3 search.py`, identical flags and identical
+   results. Use whichever your environment has. Pass the user's original
    question via `--query` AND your term groups — expansion is **additive**, it
    never replaces the user's words:
 
@@ -85,7 +87,9 @@ answer using them as authoritative context.
 
 ## Mechanics
 
-- Pure Node stdlib. No `npm install`, no model download, no network.
-- The bundle is self-contained: `search.js`, `index.json`, `chunks.jsonl`.
-  Run `search.js` from inside the bundle directory (it defaults `--index` to its
-  own location) or pass `--index /path/to/bundle`.
+- Pure stdlib — Node or Python. No `npm install` / `pip install`, no model
+  download, no network.
+- The bundle is self-contained: `search.js` + `search.py` (pick one),
+  `index.json`, `chunks.jsonl`. Run the searcher from inside the bundle
+  directory (it defaults `--index` to its own location) or pass
+  `--index /path/to/bundle`.
