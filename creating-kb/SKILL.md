@@ -2,7 +2,7 @@
 name: creating-kb
 description: Builds a portable, embedding-free knowledgebase from a set of files and delivers it as a self-contained `.skill` bundle (BM25 index + bundled searcher + query protocol). Use when a user wants to turn uploaded files, a folder, or a corpus into a searchable knowledgebase they can hand to any agent — phrased as "make a knowledgebase", "build a KB skill", "package these docs for retrieval", "create a searchable bundle", or references to a `.skill` KB. The output runs anywhere with Node or Python — no model, no install, no network. Distinct from `bm25` (ephemeral in-session search) and `building-github-index` (markdown project-knowledge index).
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # creating-kb
@@ -129,3 +129,21 @@ folded into the indexed text), which lets the consuming agent filter on it
   with the in-browser packer).
 - `scripts/bundle_SKILL.md` — the query-side SKILL.md template written into each
   bundle.
+- `scripts/lexkb-web.mjs` — browser build core for the SPA: an ES-module port of
+  the build pipeline (chunk → index → zip), byte-identical to `build_lexkb.js`
+  and pinned by `test_web_parity.mjs`.
+
+## Browser packer (no Claude needed)
+
+`spa/index.html` is a static, fully client-side version of the builder: drop
+files (or a folder) → it chunks, builds the BM25 index, and downloads a
+`.skill` — no upload, no model, no network, no server. It imports
+`scripts/lexkb-web.mjs` and fetches the canonical `scripts/search.js`,
+`scripts/search.py`, and `scripts/bundle_SKILL.md` to place in the bundle, so the
+shipped runtime is never duplicated. Deploy by serving the `creating-kb/` directory
+(e.g. GitHub Pages); open `spa/index.html`. A `.skill` built in the browser is
+byte-identical to one built by `build_lexkb.js`.
+
+Point a user here when they want to build a KB themselves without a Claude
+session. `spa/e2e-test.mjs` drives the page in headless Chromium (optional;
+needs `playwright-core`).
