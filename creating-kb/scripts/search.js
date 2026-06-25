@@ -190,7 +190,41 @@ function passesFilters(index, docIdx, filters) {
 // Search
 // --------------------------------------------------------------------------- //
 
-function search(index, query, { k = 5, filters = [], useRm3 = false, rm3 = {} } = {}) {
+// Sentence splitter shared with search.py (same regex) so snippet selection is
+// byte-identical across runtimes.
+const SENT_SPLIT = /(?<=[.!?])\s+|\n+/;
+
+function makeSnippet(index, text, query, budget) {
+  // Decouple the reasoning payload from the retrieval unit: rank a doc whole
+  // (recall), return only its query-densest sentences (signal). Sentences from
+  // anywhere in the doc are eligible, so distributed signal is captured. Scores
+  // are rounded so JS and Python select identically.
+  if (budget <= 0 || text.length <= budget) return [text, false];
+  const sents = text.split(SENT_SPLIT).map((s) => s.trim()).filter(Boolean);
+  if (!sents.length) return [text.slice(0, budget) + "…", true];
+  const scored = sents.map((s, i) => {
+    let sc = 0;
+    for (const t of new Set(tokenize(s))) if (query.has(t)) sc += query.get(t) * index.idf(t);
+    return [Math.round(sc * 1e6) / 1e6, i, s];
+  });
+  scored.sort((a, b) => (b[0] - a[0]) || (a[1] - b[1]));
+  const chosen = [];
+  let total = 0;
+  for (const [sc, i, s] of scored) {
+    if (sc <= 0) break;
+    if (chosen.length && total + s.length > budget) break;
+    chosen.push([i, s]);
+    total += s.length + 5;
+  }
+  if (!chosen.length) return [text.slice(0, budget) + "…", true];
+  chosen.sort((a, b) => a[0] - b[0]);
+  let body = chosen.map(([, s]) => s).join(" … ");
+  if (chosen[0][0] > 0) body = "… " + body;
+  if (chosen[chosen.length - 1][0] < sents.length - 1) body = body + " …";
+  return [body, true];
+}
+
+function search(index, query, { k = 5, filters = [], useRm3 = false, rm3 = {}, snippetChars = 0 } = {}) {
   if (useRm3) query = rm3Expand(index, query, rm3);
   const scores = index.score(query);
   const ranked = [...scores.entries()].sort((a, b) => b[1] - a[1]);
@@ -198,7 +232,10 @@ function search(index, query, { k = 5, filters = [], useRm3 = false, rm3 = {} } 
   for (const [docIdx, sc] of ranked) {
     if (!passesFilters(index, docIdx, filters)) continue;
     const chunk = index.chunks[docIdx];
-    out.push({ id: chunk.id, score: Math.round(sc * 1e6) / 1e6, text: chunk.text, meta: chunk.meta || {} });
+    const [text, truncated] = makeSnippet(index, chunk.text, query, snippetChars);
+    const hit = { id: chunk.id, score: Math.round(sc * 1e6) / 1e6, text, meta: chunk.meta || {} };
+    if (truncated) hit.full_chars = chunk.text.length;
+    out.push(hit);
     if (out.length >= k) break;
   }
   return out;
@@ -211,7 +248,7 @@ function search(index, query, { k = 5, filters = [], useRm3 = false, rm3 = {} } 
 function parseArgs(argv) {
   const a = { index: __dirname, query: "", core: [], expand: [], filter: [],
     wCore: 1.0, wExpand: 0.4, wQuery: 0.25, k: 5, rm3: false,
-    rm3Docs: 10, rm3Terms: 15, rm3Alpha: 0.5, textChars: 0 };
+    rm3Docs: 10, rm3Terms: 15, rm3Alpha: 0.5, snippet: 1200 };
   const multi = { "--core": "core", "--expand": "expand", "--filter": "filter" };
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i];
@@ -227,7 +264,7 @@ function parseArgs(argv) {
     else if (t === "--rm3-docs") a.rm3Docs = Number(val);
     else if (t === "--rm3-terms") a.rm3Terms = Number(val);
     else if (t === "--rm3-alpha") a.rm3Alpha = Number(val);
-    else if (t === "--text-chars") a.textChars = Number(val);
+    else if (t === "--snippet") a.snippet = Number(val);
     else { i--; } // unknown flag without value; skip
   }
   return a;
@@ -254,10 +291,8 @@ function main(argv) {
     filters: a.filter.map(parseFilter),
     useRm3: a.rm3,
     rm3: { nDocs: a.rm3Docs, nTerms: a.rm3Terms, alpha: a.rm3Alpha },
+    snippetChars: a.snippet,
   });
-  if (a.textChars > 0) {
-    for (const h of hits) if (h.text.length > a.textChars) h.text = h.text.slice(0, a.textChars) + "…";
-  }
   console.log(JSON.stringify({ hits }, null, 2));
   return 0;
 }
