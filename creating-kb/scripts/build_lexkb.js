@@ -118,10 +118,11 @@ function buildIndex(chunks, k1, b) {
   });
   const N = chunks.length;
   const avgdl = N ? doclen.reduce((s, x) => s + x, 0) / N : 0;
-  const df = {};
+  // df is derivable from postings[t].length, so it is not emitted; idf()
+  // computes it on demand. Drops a vocab-sized map from every .skill index.
   const postingsObj = {};
-  for (const [t, pl] of postings) { df[t] = pl.length; postingsObj[t] = pl; }
-  return { params: { k1, b }, N, avgdl, doclen, df, postings: postingsObj };
+  for (const [t, pl] of postings) postingsObj[t] = pl;
+  return { params: { k1, b }, N, avgdl, doclen, postings: postingsObj };
 }
 
 // --------------------------------------------------------------------------- //
@@ -196,7 +197,7 @@ function main(argv) {
   writeBundle(a.out, files);
   const nFiles = new Set(chunks.map((c) => c.meta.source_path)).size;
   console.log(`built ${chunks.length} chunks from ${nFiles} files (target_chars=${a.targetChars}, ` +
-    `avgdl=${index.avgdl.toFixed(0)} tokens, vocab=${Object.keys(index.df).length}) -> ${a.out}`);
+    `avgdl=${index.avgdl.toFixed(0)} tokens, vocab=${Object.keys(index.postings).length}) -> ${a.out}`);
 
   if (a.zip) {
     const skillPath = path.join(path.dirname(a.out), `${a.name}.skill`);
