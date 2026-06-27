@@ -59,7 +59,6 @@ class Index:
         self.N = int(idx["N"])
         self.avgdl = float(idx["avgdl"])
         self.doclen = idx["doclen"]
-        self.df = idx["df"]
         self.postings = idx["postings"]
         self._idf_cache: dict[str, float] = {}
         # chunks.jsonl loaded lazily on demand
@@ -79,7 +78,7 @@ class Index:
     def idf(self, term: str) -> float:
         """Robust BM25 idf (always positive — Lucene/bm25+ variant)."""
         if term not in self._idf_cache:
-            df = self.df.get(term, 0)
+            df = len(self.postings.get(term, ()))
             self._idf_cache[term] = math.log(1.0 + (self.N - df + 0.5) / (df + 0.5))
         return self._idf_cache[term]
 
@@ -267,12 +266,16 @@ def make_snippet(index: Index, text: str, query: dict[str, float], budget: int,
     if not sents:
         return text[:budget] + "…", True
     n = len(sents)
+    # Only query-bearing sentences can seed; score them and drop zero-score
+    # sentences (the rounded value, matching the prior round-then-filter)
+    # before sorting, so the sort is over the few matches, not every sentence.
     scored = []
     for i, s in enumerate(sents):
         toks = set(tokenize(s))
         sc = round(sum(query[t] * index.idf(t) for t in toks if t in query), 6)
-        scored.append((sc, i))
-    seeds = [i for sc, i in sorted(scored, key=lambda x: (-x[0], x[1])) if sc > 0]
+        if sc > 0:
+            scored.append((sc, i))
+    seeds = [i for sc, i in sorted(scored, key=lambda x: (-x[0], x[1]))]
     if not seeds:
         return text[:budget] + "…", True
 
