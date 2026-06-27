@@ -52,7 +52,6 @@ class Index {
     this.N = Number(idx.N);
     this.avgdl = Number(idx.avgdl);
     this.doclen = idx.doclen;
-    this.df = idx.df;
     this.postings = idx.postings;
     this._idf = new Map();
     this._chunks = null;
@@ -69,7 +68,7 @@ class Index {
   idf(term) {
     let v = this._idf.get(term);
     if (v === undefined) {
-      const df = this.df[term] || 0;
+      const df = (this.postings[term] || []).length;
       v = Math.log(1.0 + (this.N - df + 0.5) / (df + 0.5));
       this._idf.set(term, v);
     }
@@ -217,13 +216,19 @@ function makeSnippet(index, text, query, budget, context = 1) {
   const sents = text.split(SENT_SPLIT).map((s) => s.trim()).filter(Boolean);
   if (!sents.length) return [text.slice(0, budget) + "…", true];
   const n = sents.length;
-  const scored = sents.map((s, i) => {
+  // Only query-bearing sentences can seed; score them, drop zero-score
+  // sentences before sorting (filter the rounded value to match the prior
+  // round-then-filter exactly), so the sort is over the few matches, not all
+  // sentences of a whole-document chunk.
+  const scored = [];
+  for (let i = 0; i < n; i++) {
     let sc = 0;
-    for (const t of new Set(tokenize(s))) if (query.has(t)) sc += query.get(t) * index.idf(t);
-    return [Math.round(sc * 1e6) / 1e6, i];
-  });
+    for (const t of new Set(tokenize(sents[i]))) if (query.has(t)) sc += query.get(t) * index.idf(t);
+    const r = Math.round(sc * 1e6) / 1e6;
+    if (r > 0) scored.push([r, i]);
+  }
   scored.sort((a, b) => (b[0] - a[0]) || (a[1] - b[1]));
-  const seeds = scored.filter(([sc]) => sc > 0).map(([, i]) => i);
+  const seeds = scored.map(([, i]) => i);
   if (!seeds.length) return [text.slice(0, budget) + "…", true];
 
   let selected = new Set();
