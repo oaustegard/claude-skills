@@ -120,10 +120,44 @@ function buildQuery(core, expand, wCore, wExpand, backstop, wBackstop) {
 // RM3 pseudo-relevance feedback (model-free fallback expansion)
 // --------------------------------------------------------------------------- //
 
+function rankedDesc(scores) {
+  // Yield [docIdx, score] in score-descending order, ties broken by insertion
+  // order into `scores` — byte-identical to a stable sort by score desc, but
+  // lazy: callers that stop early (top-k, filters) skip the remaining pops, so
+  // the old O(M log M) full sort becomes O(M) heapify + O(consumed · log M).
+  const a = [];
+  let i = 0;
+  for (const [d, s] of scores) a.push([d, s, i++]); // [doc, score, insertionIdx]
+  let size = a.length;
+  const cmp = (x, y) => (y[1] - x[1]) || (x[2] - y[2]); // <0 => x ranks first
+  const sink = (i0) => {
+    let i = i0;
+    for (;;) {
+      const l = 2 * i + 1, r = 2 * i + 2;
+      let m = i;
+      if (l < size && cmp(a[l], a[m]) < 0) m = l;
+      if (r < size && cmp(a[r], a[m]) < 0) m = r;
+      if (m === i) break;
+      [a[i], a[m]] = [a[m], a[i]];
+      i = m;
+    }
+  };
+  for (let j = (size >> 1) - 1; j >= 0; j--) sink(j);
+  const out = [];
+  while (size > 0) {
+    const top = a[0];
+    a[0] = a[size - 1];
+    size--;
+    sink(0);
+    out.push([top[0], top[1]]);
+  }
+  return out;
+}
+
 function rm3Expand(index, seed, { nDocs = 10, nTerms = 15, alpha = 0.5 } = {}) {
   const first = index.score(seed);
   if (first.size === 0) return seed;
-  const top = [...first.entries()].sort((a, b) => b[1] - a[1]).slice(0, nDocs);
+  const top = rankedDesc(first).slice(0, nDocs);
   const total = top.reduce((s, [, v]) => s + v, 0) || 1.0;
 
   const fb = new Map();
@@ -259,9 +293,8 @@ function makeSnippet(index, text, query, budget, context = 1) {
 function search(index, query, { k = 5, filters = [], useRm3 = false, rm3 = {}, snippetChars = 0, snippetContext = 1 } = {}) {
   if (useRm3) query = rm3Expand(index, query, rm3);
   const scores = index.score(query);
-  const ranked = [...scores.entries()].sort((a, b) => b[1] - a[1]);
   const out = [];
-  for (const [docIdx, sc] of ranked) {
+  for (const [docIdx, sc] of rankedDesc(scores)) {
     if (!passesFilters(index, docIdx, filters)) continue;
     const chunk = index.chunks[docIdx];
     const [text, truncated] = makeSnippet(index, chunk.text, query, snippetChars, snippetContext);

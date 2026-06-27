@@ -28,6 +28,7 @@ import json
 import math
 import re
 import sys
+import heapq
 from collections import defaultdict
 from pathlib import Path
 
@@ -104,6 +105,18 @@ class Index:
 # --------------------------------------------------------------------------- #
 
 
+def _ranked_desc(scores):
+    """Yield (doc_idx, score) in score-descending order, ties broken by insertion
+    order into ``scores`` — identical to a stable sort by score desc, but lazy via
+    a heap so early-stopping callers (top-k, filters) skip the remaining pops,
+    turning the old O(M log M) full sort into O(M) heapify + O(consumed · log M)."""
+    heap = [(-s, i, d) for i, (d, s) in enumerate(scores.items())]
+    heapq.heapify(heap)
+    while heap:
+        neg_s, _, d = heapq.heappop(heap)
+        yield d, -neg_s
+
+
 def rm3_expand(
     index: Index,
     seed_terms: dict[str, float],
@@ -121,7 +134,11 @@ def rm3_expand(
     first = index.score(seed_terms)
     if not first:
         return seed_terms
-    top = sorted(first.items(), key=lambda kv: kv[1], reverse=True)[:n_docs]
+    top = []
+    for e in _ranked_desc(first):
+        top.append(e)
+        if len(top) >= n_docs:
+            break
     total = sum(s for _, s in top) or 1.0
 
     # Feedback term mass: relevance-weighted term frequency over the top docs.
@@ -322,9 +339,8 @@ def search(
             index, query, n_docs=rm3_docs, n_terms=rm3_terms, alpha=rm3_alpha
         )
     scores = index.score(query)
-    ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
     out: list[dict] = []
-    for doc_idx, sc in ranked:
+    for doc_idx, sc in _ranked_desc(scores):
         if not apply_filters(index, doc_idx, filters or []):
             continue
         chunk = index.chunks[doc_idx]
