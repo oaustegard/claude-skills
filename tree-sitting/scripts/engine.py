@@ -52,6 +52,14 @@ def _load_language(lang: str):
         # Wrap the language function's return value in a PyCapsule, which is
         # the forward-compatible API for tree_sitter.Language in 0.23+.
         # (Passing the raw int still works but emits a DeprecationWarning.)
+        #
+        # tree-sitter version note (2026-06-28): the core library/CLI released
+        # v0.26.10 (bugfix-only), but the PyPI `tree-sitter` binding loaded here
+        # still lags at 0.25.x — no 0.26.x wheel exists yet, so this skill keeps
+        # installing the unpinned binding (auto-upgrades when it ships). The
+        # bundled parsers/*.so are ABI-versioned; when the 0.26.x binding lands,
+        # re-run tests/ to confirm the grammars still load — 0.26 may raise the
+        # minimum grammar ABI and require rebuilding the .so files.
         pythonapi.PyCapsule_New.restype = py_object
         pythonapi.PyCapsule_New.argtypes = [c_void_p, c_char_p, c_void_p]
         capsule = pythonapi.PyCapsule_New(fn(), b"tree_sitter.Language", None)
