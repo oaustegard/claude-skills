@@ -1,6 +1,6 @@
 ---
 name: muninn-boot
-description: Boots Muninn — fetches oaustegard/claude-skills and oaustegard/muninn-utilities at pinned commits, loads the Turso DB token, and runs the memory-system boot sequence. Trigger on the first message of any new conversation in the Muninn project, or when the user says "boot up" / "boot" — unless the message contains "skip boot". If the message contains "skinny boot", set BOOT_MODE=perch first.
+description: Boots Muninn — fetches oaustegard/claude-skills and oaustegard/muninn-utilities at pinned commits, loads the Turso and GitHub tokens, and runs the memory-system boot sequence. Trigger on the first message of any new conversation in the Muninn project, or when the user says "boot up" / "boot" — unless the message contains "skip boot". If the message contains "skinny boot", set BOOT_MODE=perch first.
 ---
 
 # Muninn Boot
@@ -24,7 +24,10 @@ curl -sL "https://codeload.github.com/oaustegard/muninn-utilities/tar.gz/$MUNINN
   && mkdir -p /home/claude/muninn-utilities \
   && cp -r muninn-utilities-$MUNINN_UTILS_SHA/* /home/claude/muninn-utilities/
 
-set -a; . /mnt/project/Turso.env 2>/dev/null; set +a
+set -a
+. /mnt/project/Turso.env 2>/dev/null
+. /mnt/project/GitHub.env 2>/dev/null
+set +a
 
 PTH=/usr/local/lib/python3.12/dist-packages/muninn-remembering.pth
 HOMEDIR=$(python3 -c 'import os; print(os.path.expanduser("~"))')
@@ -40,25 +43,21 @@ print(boot(mode=os.environ.get('BOOT_MODE')))
 EOF
 ```
 
-## Credential scope (deliberate)
+## Credential scope
 
-Only `Turso.env` is sourced here. The other project `.env` files
-(`GitHub.env`, `bsky.env`, `muninn-bsky.env`, `strava.env`, `proxy.env`) are
-**not** loaded at boot.
-
-This isn't a tradeoff — env vars set in one `bash_tool` call do not persist
-into the next call (verified empirically 2026-06-30: `GH_TOKEN`/`TURSO_TOKEN`
-both came back unset in a fresh call after being sourced in a prior one).
-Pre-loading five credential files that boot never uses widened exposure for
-zero functional benefit; nothing downstream could use the persisted values
-without re-sourcing anyway.
-
-When a later step needs a specific credential, source it inline immediately
-before the command that uses it:
+Boot sources the two files `boot()` reads: `Turso.env` (memory, config,
+reminders) and `GitHub.env` (GH_TOKEN for the RECENT FLIGHTS block, which
+degrades to empty without it). The remaining project `.env` files
+(`bsky.env`, `muninn-bsky.env`, `strava.env`, `proxy.env`, `claude.env`)
+are used by later task-specific steps, which source them inline immediately
+before the command that needs them:
 
 ```bash
-set -a; . /mnt/project/GitHub.env 2>/dev/null; set +a
+set -a; . /mnt/project/strava.env 2>/dev/null; set +a
 ```
+
+(Env vars do not persist across separate `bash_tool` calls, so per-call
+sourcing is how every consumer works regardless of what boot loads.)
 
 ## Updating the pinned commits
 
