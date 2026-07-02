@@ -5,6 +5,16 @@ All notable changes to the `challenging` skill are documented in this file. The 
 ## [0.11.0] - 2026-07-02
 
 ### Added
+
+- add continuity criterion to prose profile (#670)
+
+### Other
+
+- Add philosophers option to challenging + convening-experts (#721)
+
+## [0.11.0] - 2026-07-02
+
+### Added
 - `philosophers` review profile — conceptual-layer adversary applying Socratic elenchus and Aristotelian division (definitional stability, inference validity, is/ought audit, best-absolute vs best-attainable standard matching). Complements `analysis` (evidentiary layer) on argument-heavy artifacts. Calibrated by the 2026-07-02 grounded-vs-vibes ancient-consultant test. End-to-end verified same day against a planted-flaw artifact (verdict RETHINK; all planted flaws caught and attributed to the correct move).
 
 ### Changed
