@@ -5,7 +5,10 @@ All notable changes to the `challenging` skill are documented in this file. The 
 ## [0.11.0] - 2026-07-02
 
 ### Added
-- `philosophers` review profile — conceptual-layer adversary applying Socratic elenchus and Aristotelian division (definitional stability, inference validity, is/ought audit, best-absolute vs best-attainable standard matching). Complements `analysis` (evidentiary layer) on argument-heavy artifacts. Calibrated by the 2026-07-02 grounded-vs-vibes ancient-consultant test.
+- `philosophers` review profile — conceptual-layer adversary applying Socratic elenchus and Aristotelian division (definitional stability, inference validity, is/ought audit, best-absolute vs best-attainable standard matching). Complements `analysis` (evidentiary layer) on argument-heavy artifacts. Calibrated by the 2026-07-02 grounded-vs-vibes ancient-consultant test. End-to-end verified same day against a planted-flaw artifact (verdict RETHINK; all planted flaws caught and attributed to the correct move).
+
+### Changed
+- Claude adversary model bumped `claude-opus-4-6` → `claude-sonnet-5`. Two API compatibility fixes this required: dropped the `temperature` param (deprecated for Sonnet 5, returns 400) and switched response parsing to type-filtered text extraction (Sonnet 5 prepends `thinking` blocks; `content[0]` is no longer the text block).
 
 ## [0.10.0] - 2026-05-13
 
