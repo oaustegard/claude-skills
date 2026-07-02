@@ -1,8 +1,8 @@
 ---
 name: convening-experts
-description: Convenes expert panels for problem-solving. Use when user mentions panel, experts, multiple perspectives, MECE, DMAIC, RAPID, Six Sigma, root cause analysis, strategic decisions, or process improvement.
+description: Convenes expert panels for problem-solving. Use when user mentions panel, experts, multiple perspectives, MECE, DMAIC, RAPID, Six Sigma, root cause analysis, strategic decisions, process improvement, or asks for philosophers/ancients (Socratic, Aristotelian, Stoic method experts).
 metadata:
-  version: 1.0.3
+  version: 1.1.0
 ---
 
 ## SURFACE ROUTING — read first
@@ -50,8 +50,9 @@ For complex problems requiring collaborative reasoning:
 **Available expertise spans:**
 - MSD domain experts (life sciences, engineering, manufacturing, quality, corporate functions)
 - Consulting framework specialists (strategic, process improvement, innovation, systems analysis, root cause)
+- Ancient philosopher method experts (elenchus, division-before-judgment, dichotomy of control, power analysis)
 
-See [references/msd-domain-experts.md](references/msd-domain-experts.md) and [references/consulting-frameworks.md](references/consulting-frameworks.md) for complete role catalog.
+See [references/msd-domain-experts.md](references/msd-domain-experts.md), [references/consulting-frameworks.md](references/consulting-frameworks.md), and [references/ancient-philosophers.md](references/ancient-philosophers.md) for complete role catalogs.
 
 Claude loads relevant references based on problem domain.
 
@@ -68,6 +69,9 @@ Claude selects 3-5 experts based on problem characteristics:
 - **Root cause analysis** → Domain expert + Five Whys Facilitator + Systems Thinker
 - **Market positioning** → Porter Framework Expert + Marketing Specialist + BCG Consultant
 - **Cross-functional problem** → Relevant domain experts + Bain Consultant (RAPID) + Systems Thinker
+- **Definitional / conceptual dispute** → Socratic Examiner + Aristotelian Taxonomist + domain expert
+- **Governance / institutional design** → Aristotelian Taxonomist + Thucydidean Realist + Systems Thinker
+- **Ideal-vs-pragmatic tension** → Platonic Idealist + Aristotelian Taxonomist (native adversarial pair, per Politics IV Part II) + domain expert
 
 ## Response Format
 
@@ -153,6 +157,11 @@ Claude selects 3-5 experts based on problem characteristics:
 - Use domain-appropriate terminology without over-explanation
 - Prioritize practical implementation over theoretical perfection
 - Flag domain-specific risks and constraints
+
+**Philosopher Experts:**
+- Apply the named method (elenchus, division, dichotomy of control), showing its structure — method, not costume; no period voice
+- Persona-only by default; corpus-injected grounding (verbatim source text + cite-every-claim) when output must be auditable or turns on a work's fine structure — mechanics and routing table in [references/ancient-philosophers.md](references/ancient-philosophers.md)
+- Mix with domain experts — an all-philosopher panel answers modern questions at the wrong altitude unless the question itself is conceptual
 
 **Framework Experts:**
 - Apply frameworks systematically (show the structure)
