@@ -46,7 +46,7 @@ def _require_requests():
         )
 
 REFERENCES = Path(__file__).parent.parent / 'references'
-REVIEW_PROFILES = ('prose', 'prose-register', 'analysis', 'code', 'recommendation')
+REVIEW_PROFILES = ('prose', 'prose-register', 'analysis', 'code', 'recommendation', 'philosophers')
 # Profiles whose user prompt must include a <voice> block — and which require
 # a non-empty `voice` argument to prepare()/prepare_self()/challenge().
 VOICE_PROFILES = ('prose-register',)
