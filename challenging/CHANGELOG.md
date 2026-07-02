@@ -2,6 +2,11 @@
 
 All notable changes to the `challenging` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.11.0] - 2026-07-02
+
+### Added
+- `philosophers` review profile — conceptual-layer adversary applying Socratic elenchus and Aristotelian division (definitional stability, inference validity, is/ought audit, best-absolute vs best-attainable standard matching). Complements `analysis` (evidentiary layer) on argument-heavy artifacts. Calibrated by the 2026-07-02 grounded-vs-vibes ancient-consultant test.
+
 ## [0.10.0] - 2026-05-13
 
 ### Other
