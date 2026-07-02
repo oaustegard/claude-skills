@@ -46,7 +46,7 @@ def _require_requests():
         )
 
 REFERENCES = Path(__file__).parent.parent / 'references'
-REVIEW_PROFILES = ('prose', 'prose-register', 'analysis', 'code', 'recommendation')
+REVIEW_PROFILES = ('prose', 'prose-register', 'analysis', 'code', 'recommendation', 'philosophers')
 # Profiles whose user prompt must include a <voice> block — and which require
 # a non-empty `voice` argument to prepare()/prepare_self()/challenge().
 VOICE_PROFILES = ('prose-register',)
@@ -310,7 +310,6 @@ def _gemini_raw(user_prompt: str, system_prompt: str) -> dict:
     body = {
         'system_instruction': {'parts': [{'text': system_prompt}]},
         'contents': [{'role': 'user', 'parts': [{'text': user_prompt}]}],
-        'generationConfig': {'temperature': 0.4, 'maxOutputTokens': 16384}
     }
     resp = requests.post(url, headers=headers, json=body, timeout=120)
     resp.raise_for_status()
@@ -343,9 +342,8 @@ def _claude_raw(user_prompt: str, system_prompt: str) -> dict:
             'content-type': 'application/json',
         },
         json={
-            'model': 'claude-opus-4-6',
+            'model': 'claude-sonnet-5',
             'max_tokens': 32768,
-            'temperature': 0.4,
             'system': system_prompt,
             'messages': [{'role': 'user', 'content': user_prompt}],
         },
@@ -357,7 +355,9 @@ def _claude_raw(user_prompt: str, system_prompt: str) -> dict:
     if not content:
         stop = data.get('stop_reason', 'unknown')
         raise ValueError(f"Claude returned no content (stop_reason={stop})")
-    text = content[0].get('text', '')
+    # Extract by block type, not position — models with extended thinking
+    # (e.g. claude-sonnet-5) prepend 'thinking' blocks to the text block.
+    text = ''.join(b.get('text', '') for b in content if b.get('type') == 'text')
     if not text:
         raise ValueError(f"Claude content block has no text: {json.dumps(content[0])[:200]}")
     return _parse(text)

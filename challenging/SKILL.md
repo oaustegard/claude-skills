@@ -2,7 +2,7 @@
 name: challenging
 description: Cross-context adversarial review for deliverables before shipping. Use when producing blog posts, technical recommendations, analysis briefs, code, or any artifact where accuracy matters more than speed. Triggers on "challenge this", "review before shipping", "adversarial pass", "stress test this".
 metadata:
-  version: 0.10.0
+  version: 0.11.0
 ---
 
 # Challenging — Adversarial Review
@@ -28,9 +28,12 @@ Pick the profile matching your artifact. **Read only the profile you need** — 
 | `analysis` | Research briefs, comparisons, synthesis | parallel replay | `references/analysis.md` |
 | `code` | Scripts, implementations, PRs | parallel replay | `references/code.md` |
 | `recommendation` | Technical decisions, architecture choices | parallel replay | `references/recommendation.md` |
+| `philosophers` | Arguments, position pieces, design rationales — conceptual-layer audit | parallel replay | `references/philosophers.md` |
 | `drill` | 5 Whys on one finding from a review | sequential deepen | `references/drill.md` |
 
 One engine, one surface, two iteration strategies. Review profiles iterate in *parallel replay* — each pass independent, novelty tracked for confabulation. Drill iterates in *sequential deepen* — each pass takes the chain so far and produces one more why-level until bedrock or max depth, followed by a synthesis pass that extracts root causes.
+
+`philosophers` and `analysis` are complements on argument-heavy artifacts: `analysis` audits the evidentiary layer (source independence, cherry-picking, calibration); `philosophers` audits the conceptual layer via Socratic elenchus and Aristotelian division (definitional stability, inference validity, is/ought slippage, taxonomy-before-verdict). An artifact can pass one and fail the other.
 
 `prose` and `prose-register` are siblings, not redundant. `prose` evaluates generic prose competence (claims, logic, structure, performed insight) and is explicitly told not to comment on style. `prose-register` evaluates fidelity to a named voice signature passed via `voice=...` (positive markers + anti-patterns) and ignores generic competence. Run both passes on voiced prose — they catch different failure modes.
 
