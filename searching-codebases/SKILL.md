@@ -1,19 +1,18 @@
 ---
 name: searching-codebases
 description: >-
-  Find code by regex pattern or natural language concept in any codebase.
-  Auto-routes between n-gram indexed regex search (2-20x faster than ripgrep)
-  and TF-IDF semantic search. Expands results to full functions via tree-sitting
-  AST data. Accepts GitHub URLs, local directories, uploaded files/archives, or
-  project knowledge. Use when asked to find implementations, search for patterns,
-  or answer "where is X" / "how does Y work" about code. Triggers on "search
-  this repo", "find where X is", "grep for", "what handles Y", regex patterns,
-  or natural-language questions about code. This is the convergent "find X" skill
-  — for first-encounter orientation, use exploring-codebases instead. For Python
-  sources, a binding-resolved reference/definition tier (pyright, via python-lsp)
-  is available with --refs/--def/--hover.
+  Binding-resolved Python symbol queries — find all true callers (--refs),
+  go-to-definition (--def), or inferred signature (--hover) of a .py symbol
+  via pyright, excluding same-named false positives that text grep cannot.
+  Use when a task needs ALL callers/users of a Python symbol or its real
+  definition and text matching would over-match. For everything else —
+  literal tokens, regex patterns, concept/natural-language search, any repo
+  size — plain ripgrep is faster and equally accurate: measured 2026-07-04
+  on real issue-localization tasks, the semantic and indexed-regex tiers
+  tied or lost against naive rg at 4-60x the wall-clock cost. Those tiers
+  remain available below but are NOT recommended as a default.
 metadata:
-  version: 2.1.1
+  version: 2.2.0
 ---
 
 # Searching Codebases
@@ -140,20 +139,34 @@ python3 $SKILL_DIR/scripts/search.py ./repo \
   Self-bootstraps pyright on first use and requires system `node` (v18+). Not
   required — without it those flags degrade to the regex text path.
 
-## When to Use
+## When to Use — narrow, by design
 
-- **Known target**: "where is the retry logic?", "find all error handlers"
-- **Pattern matching**: regex across large codebases with indexed speedup
-- **Concept search**: "authentication flow", "database connection pooling"
-- **Cross-reference**: find all callers/users of a specific function — for
-  `.py` symbols use `--refs` (binding-resolved, no same-name false positives)
+The ONE recommended use: **binding-resolved Python symbol queries**.
 
-## When NOT to Use
+- "find all callers of `X`" / "where is `X` really defined" for a `.py`
+  symbol, when same-named-but-unrelated symbols would pollute a text grep.
+  Empirical basis: `rg get` on psf/requests returned 232 hits, 224 of them
+  false; `--refs get` excluded all 224 (2026-06-15).
 
-- **First encounter**: "what does this repo do?" → use exploring-codebases
-- **Repos under ~10 files**: just read them directly
-- **Exact symbol lookup**: `find_symbol('ClassName')` via tree-sitting is simpler
-- **Structural overview**: use tree-sitting's `tree_overview()` / `dir_overview()`
+## When NOT to Use — which is most of the time
+
+Everything else. Measured head-to-head on real issue-localization tasks
+(7 scikit-learn issues with merged fix-PRs, gold = PR diff files,
+2026-07-04, replicating the file-discovery metric of arXiv:2602.11988):
+
+- **Literal tokens / identifiers**: naive `rg -l` tied or beat the indexed
+  tier on recall@10 in every instance, at 0.4s vs 25s.
+- **Concept / natural-language search**: the TF-IDF semantic tier never
+  beat identifier grep — not even on identifier-poor issues, which are
+  themselves rare (~0.3% of merged-PR traffic in the sample).
+- **First encounter / "what is this repo"**: use exploring-codebases.
+- **Repos under ~20 files**: read them.
+
+The self-test before invoking: would plain `rg` return the same answer?
+If yes, use rg. The indexed-regex and semantic tiers are retained for
+completeness and for corpora where they may yet earn their cost (very
+large repos, non-code document collections), but they carry the burden
+of proof.
 
 ## Files
 
