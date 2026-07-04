@@ -4,6 +4,12 @@ All notable changes to the `searching-codebases` skill are documented in this fi
 
 ## [2.2.0] - 2026-07-04
 
+### Other
+
+- searching-codebases 2.2.0: narrow to binding-resolved edge case (#722)
+
+## [2.2.0] - 2026-07-04
+
 ### Changed
 
 - Repositioned the skill as edge-case: the binding-resolved Python tier
