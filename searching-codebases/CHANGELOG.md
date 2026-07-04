@@ -2,6 +2,20 @@
 
 All notable changes to the `searching-codebases` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.2.0] - 2026-07-04
+
+### Changed
+
+- Repositioned the skill as edge-case: the binding-resolved Python tier
+  (`--refs`/`--def`/`--hover`) is the one recommended use. Frontmatter
+  description and When-to-Use rewritten accordingly.
+- Empirical basis: head-to-head localization eval on 7 scikit-learn issues
+  with merged fix-PRs (replicating the file-discovery metric of
+  arXiv:2602.11988). Indexed-regex and TF-IDF semantic tiers tied or lost
+  vs naive rg on every instance at 4-60x wall-clock; semantic never won,
+  including on identifier-poor issues (~0.3% of merged-PR traffic).
+- Tiers remain functional; they carry the burden of proof.
+
 ## [2.1.1] - 2026-06-15
 
 ### Fixed
