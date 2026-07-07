@@ -1,0 +1,3 @@
+# creating-mcp-servers
+
+Creates production-ready MCP servers using FastMCP v2. Use when building MCP servers, optimizing tool descriptions for context efficiency, implementing progressive disclosure for multiple capabilities, or packaging servers for distribution.

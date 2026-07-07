@@ -1,0 +1,9 @@
+{
+  "anthropic_api_key": "sk-ant-api03-your-api-key-here",
+  "google_api_key": "AIzaSy-your-google-api-key-here",
+  "github_api_key": "ghp_your-github-token-here",
+  "_comment_anthropic": "Get your Anthropic API key from https://console.anthropic.com/settings/keys",
+  "_comment_google": "Get your Google API key from https://console.cloud.google.com/apis/credentials",
+  "_comment_github": "Get your GitHub Personal Access Token from https://github.com/settings/tokens",
+  "_comment_setup": "Copy this file to ../config.json and replace with your actual API keys"
+}

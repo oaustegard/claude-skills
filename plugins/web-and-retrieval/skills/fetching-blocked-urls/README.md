@@ -1,0 +1,3 @@
+# fetching-blocked-urls
+
+Retrieve clean markdown from URLs when web_fetch fails. Converts pages via Jina AI reader service with automatic retry. Use when web_fetch or curl returns 403, blocked, paywall, timeout, JavaScript-rendering errors, or empty content or user explicitly suggests using jina.

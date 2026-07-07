@@ -1,0 +1,6 @@
+# plugins/ is a generated artifact (registry/generate.py copies real skill
+# directories out of the repo root, one plugin per category, for the Claude
+# Code marketplace + tree-API importers). Mark it generated so GitHub collapses
+# these copies in diffs and excludes them from language stats. The source of
+# truth is the root-level skill directories.
+plugins/** linguist-generated=true

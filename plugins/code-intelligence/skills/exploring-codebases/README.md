@@ -1,0 +1,3 @@
+# exploring-codebases
+
+Semantic search for codebases. Locates matches with ripgrep and expands them into full AST nodes (functions/classes) using tree-sitter. Returns complete, syntactically valid code blocks rather than fragmented lines. Use when looking for specific implementations, examples, or references where full context is needed.

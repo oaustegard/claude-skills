@@ -1,0 +1,66 @@
+# mapping-codebases - Changelog
+
+All notable changes to the `mapping-codebases` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+## [0.8.0] - 2026-03-31
+
+### Added
+
+- mapping-codebases v0.8.0 — C support + doc comments, line ranges, constants, enum variants (#510)
+
+### Other
+
+- Regenerate _MAP.md files after @lat: backlink insertion (#504)
+- Lattice v2: bidirectional source-anchored knowledge graph (#503)
+
+## [0.7.1] - 2026-03-24
+
+### Added
+
+- use bundled parsers first, curl as fallback
+- bundle markdown parser
+- bundle html parser
+- bundle java parser
+- bundle ruby parser
+- bundle rust parser
+- bundle go parser
+- bundle tsx parser
+- bundle typescript parser
+- bundle javascript parser
+- bundle python parser
+- add mapping-features skill for behavioral web app documentation (#432)
+
+### Fixed
+
+- curl fallback for tree-sitter parser download
+- document actual sample_firehose() return format and add missing bsky utility exports
+
+## [0.7.0] - 2026-02-28
+
+### Added
+
+- add TS signatures, export defaults, Go/Rust/Ruby methods, verbose flag
+- fix three issues - aliases, expansion threshold, return format (v3.7.0)
+
+## [0.7.0] - 2026-02-28
+
+### Added
+
+- TypeScript: full function/method signatures with parameters and return types (#234)
+- TypeScript: `export default` function, class, and identifier declarations (#233)
+- TypeScript: `export interface` and `export const/let` declarations
+- Go: receiver method extraction nested under their types (#235)
+- Go: function signatures with parameters and return types
+- Rust: `impl` block method extraction nested under structs/enums (#235)
+- Rust: function/method signatures with parameters and return types
+- Ruby: methods nested under classes/modules instead of flat listing (#235)
+- Ruby: `singleton_method` extraction (e.g., `self.format`)
+- Ruby: method parameter signatures
+- `--verbose` / `-v` flag for debug output (#236)
+
+## [0.6.0] - 2026-02-03
+
+### Added
+
+- Add/Update skill: mapping-codebases
+- Add 'interaction' memory type to remembering skill
