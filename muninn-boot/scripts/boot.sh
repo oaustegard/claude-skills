@@ -9,7 +9,7 @@ set -e
 # lifetime to the container's: a recycled container has no sentinel and
 # boots fully; a warm one exits here in ~0s. Content = the pins, so bumping
 # either SHA self-invalidates the fast path. `rm` the sentinel to force.
-CLAUDE_SKILLS_SHA=b2fe13742b32400f8b69e8b793289fe1e7d107be
+CLAUDE_SKILLS_SHA=b1a227a9f8cee346df8d18bcd97234525896760d
 MUNINN_UTILS_SHA=ccbb64725f4351c5eb0d95811f2c46a297e2fe67
 SENTINEL=/home/claude/.muninn-booted
 WANT="$CLAUDE_SKILLS_SHA $MUNINN_UTILS_SHA"
