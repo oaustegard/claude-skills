@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Preact App</title>
+
+  <!-- Tailwind CSS — generated via: npx tailwindcss -o vendor/tailwind.css --content "*.html" --minify -->
+  <link rel="stylesheet" href="vendor/tailwind.css">
+
+  <!-- Import Map — vendor deps fetched via: bash scripts/vendor.sh -->
+  <script type="importmap">
+    {
+      "imports": {
+        "preact": "./vendor/preact.module.js",
+        "preact/hooks": "./vendor/hooks.module.js",
+        "@preact/signals-core": "./vendor/signals-core.mjs",
+        "@preact/signals": "./vendor/signals.mjs",
+        "htm": "./vendor/htm.module.js",
+        "htm/preact": "./vendor/htm.module.js"
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom styles if needed */
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script type="module">
+    import { render } from 'preact';
+    import { useSignal } from '@preact/signals';
+    import { html } from 'htm/preact';
+
+    // Example component
+    function App() {
+      const count = useSignal(0);
+
+      return html`
+        <div class="min-h-screen bg-gray-100 flex items-center justify-center">
+          <div class="bg-white p-8 rounded-lg shadow-lg">
+            <h1 class="text-3xl font-bold mb-4 text-gray-800">
+              Preact App
+            </h1>
+            <div class="text-center">
+              <p class="text-xl mb-4">Count: ${count}</p>
+              <button
+                onClick=${() => count.value++}
+                class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors"
+              >
+                Increment
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    render(html`<${App} />`, document.getElementById('app'));
+  </script>
+</body>
+</html>

@@ -1,0 +1,1548 @@
+#!/usr/bin/env python3
+"""
+codemap.py - Generate _MAP.md files for each directory in a codebase.
+Extracts exports/imports via tree-sitter. No LLM, deterministic, fast.
+Updated to support symbol hierarchy (Classes -> Methods) and Kinds.
+Requires Python 3.10+ and tree-sitter-language-pack.
+"""
+
+import os
+import sys
+import subprocess
+import json
+import platform
+from pathlib import Path
+from dataclasses import dataclass, field
+
+# Module-level verbose flag, set by main()
+VERBOSE = False
+_PARSERS_BOOTSTRAPPED = False
+
+
+def _bootstrap_parsers():
+    """Ensure tree-sitter parsers are available in the cache.
+
+    Resolution order:
+    1. Already cached (normal tree-sitter-language-pack path) — no action
+    2. Bundled in this skill's parsers/ directory — copy to cache
+    3. Download via curl (system cert store bypasses proxy SSL issues)
+    """
+    global _PARSERS_BOOTSTRAPPED
+    if _PARSERS_BOOTSTRAPPED:
+        return
+    _PARSERS_BOOTSTRAPPED = True
+
+    from tree_sitter_language_pack import cache_dir as _cache_dir
+    try:
+        from tree_sitter_language_pack import get_parser as _test_get
+        _test_get('python')
+        return  # Parsers already available
+    except Exception as e:
+        if 'Download error' not in str(e) and 'DownloadError' not in type(e).__name__:
+            raise  # Not a download issue — re-raise
+        _debug(f"Parser download failed in Python ({e}), checking bundled parsers...")
+
+    cache_libs = Path(_cache_dir())  # e.g., ~/.cache/tree-sitter-language-pack/v1.1.2/libs
+    cache_libs.mkdir(parents=True, exist_ok=True)
+
+    # Strategy 1: Copy bundled parsers from skill directory
+    bundled_dir = Path(__file__).parent.parent / "parsers"
+    if bundled_dir.is_dir():
+        bundled_sos = list(bundled_dir.glob("*.so"))
+        if bundled_sos:
+            import shutil
+            copied = 0
+            for so_file in bundled_sos:
+                dest = cache_libs / so_file.name
+                if not dest.exists():
+                    shutil.copy2(so_file, dest)
+                    copied += 1
+            _debug(f"Copied {copied} bundled parsers from {bundled_dir} to {cache_libs}")
+            # Verify it works now
+            try:
+                from tree_sitter_language_pack import get_parser as _verify
+                _verify('python')
+                return  # Bundled parsers worked
+            except Exception:
+                _debug("Bundled parsers copied but still failing — trying curl download")
+
+    # Strategy 2: Download all parsers via curl (system cert store)
+    _debug("No bundled parsers available, attempting curl download...")
+    try:
+        from tree_sitter_language_pack import __version__ as _tslp_version
+    except ImportError:
+        _tslp_version = "1.1.2"
+
+    cache_root = cache_libs.parent
+    release_base = f"https://github.com/kreuzberg-dev/tree-sitter-language-pack/releases/download/v{_tslp_version}"
+    manifest_url = f"{release_base}/parsers.json"
+    manifest_path = cache_root / "manifest.json"
+
+    # Fetch manifest
+    if not manifest_path.exists():
+        cache_root.mkdir(parents=True, exist_ok=True)
+        _debug(f"Fetching manifest from {manifest_url}")
+        result = subprocess.run(
+            ["curl", "-sL", manifest_url, "-o", str(manifest_path)],
+            capture_output=True, timeout=30
+        )
+        if result.returncode != 0 or not manifest_path.exists() or manifest_path.stat().st_size == 0:
+            print(f"WARNING: Could not fetch tree-sitter parser manifest via curl", file=sys.stderr)
+            return
+
+    # Determine platform and download
+    with open(manifest_path) as f:
+        manifest = json.load(f)
+
+    arch = platform.machine()
+    plat_key = f"linux-{arch}"
+    if plat_key not in manifest.get("platforms", {}):
+        print(f"WARNING: No tree-sitter parsers for platform {plat_key}", file=sys.stderr)
+        return
+
+    info = manifest["platforms"][plat_key]
+    tarball_url = info["url"]
+    tarball_path = cache_root / f"parsers-{plat_key}.tar.zst"
+
+    if not any(cache_libs.glob("*.so")):
+        _debug(f"Downloading parsers from {tarball_url}")
+        result = subprocess.run(
+            ["curl", "-sL", tarball_url, "-o", str(tarball_path)],
+            capture_output=True, timeout=120
+        )
+        if result.returncode != 0:
+            print(f"WARNING: Could not download tree-sitter parsers via curl", file=sys.stderr)
+            return
+
+        # Extract — try zstd directly, which is commonly available
+        result = subprocess.run(
+            ["tar", "--use-compress-program=unzstd", "-xf", str(tarball_path), "-C", str(cache_libs)],
+            capture_output=True, timeout=60
+        )
+        if result.returncode != 0:
+            # Fallback: decompress then extract separately
+            tar_path = tarball_path.with_suffix('')
+            subprocess.run(["zstd", "-d", str(tarball_path), "-o", str(tar_path)],
+                           capture_output=True, timeout=60)
+            subprocess.run(["tar", "xf", str(tar_path), "-C", str(cache_libs)],
+                           capture_output=True, timeout=60)
+
+        so_count = len(list(cache_libs.glob("*.so")))
+        if so_count > 0:
+            _debug(f"Cached {so_count} parser libraries in {cache_libs}")
+        else:
+            print(f"WARNING: Parser extraction produced no .so files", file=sys.stderr)
+
+
+def _get_parser(lang: str):
+    """Get a tree-sitter parser, bootstrapping the cache if needed."""
+    _bootstrap_parsers()
+    from tree_sitter_language_pack import get_parser
+    return get_parser(lang)
+
+def _debug(msg: str):
+    """Print debug message if verbose mode is enabled."""
+    if VERBOSE:
+        print(f"  DEBUG: {msg}", file=sys.stderr)
+
+# Language detection by extension
+EXT_TO_LANG = {
+    '.py': 'python',
+    '.js': 'javascript',
+    '.ts': 'typescript',
+    '.tsx': 'tsx',
+    '.jsx': 'javascript',
+    '.go': 'go',
+    '.rs': 'rust',
+    '.rb': 'ruby',
+    '.java': 'java',
+    '.c': 'c',
+    '.h': 'c',
+    '.html': 'html',
+    '.md': 'markdown',
+}
+
+# Non-code file extensions to list (without parsing)
+NON_CODE_EXTENSIONS = {
+    '.json', '.yml', '.yaml', '.toml', '.ini', '.cfg', '.conf',
+    '.txt', '.csv', '.xml', '.svg',
+    '.sh', '.bash', '.zsh',
+    '.dockerfile', '.gitignore', '.gitattributes',
+    '.env', '.env.example',
+    '.lock', '.sum',
+}
+
+# Default directories to skip
+DEFAULT_SKIP_DIRS = {'.git', 'node_modules', '__pycache__', '.venv', 'venv', 'dist', 'build', '.next'}
+
+@dataclass
+class Symbol:
+    name: str
+    kind: str  # 'class', 'function', 'method', 'variable', 'interface', 'heading'
+    signature: str | None = None
+    line: int | None = None  # 1-indexed start line number
+    end_line: int | None = None  # 1-indexed end line number
+    doc: str | None = None  # First-line doc comment
+    children: list['Symbol'] = field(default_factory=list)
+
+@dataclass
+class FileInfo:
+    name: str
+    symbols: list[Symbol] = field(default_factory=list)
+    imports: list[str] = field(default_factory=list)
+
+
+def get_language(filepath: Path) -> str | None:
+    return EXT_TO_LANG.get(filepath.suffix.lower())
+
+def get_node_text(node, source: bytes) -> str:
+    return source[node.start_byte:node.end_byte].decode()
+
+def _end_line(node) -> int:
+    """Get 1-indexed end line of a node."""
+    return node.end_point[0] + 1
+
+def _extract_doc_first_line(text: str, style: str = 'c') -> str:
+    """Extract the first meaningful line from a doc comment.
+
+    style:
+      'c'      — C/Go/Rust/Java/JS block or line comments
+      'python' — triple-quoted docstring
+      'ruby'   — # comments
+    """
+    if not text:
+        return ''
+    if style == 'python':
+        text = text.strip().strip('"""').strip("'''").strip()
+        first = text.split('\n')[0].strip()
+        return first
+    if style == 'ruby':
+        text = text.lstrip('#').strip()
+        return text.split('\n')[0].strip()
+    # C-family: /* ... */, /** ... */, //, ///
+    text = text.strip()
+    if text.startswith('/**') or text.startswith('/*'):
+        text = text.lstrip('/').lstrip('*').rstrip('*').rstrip('/').strip()
+    elif text.startswith('///') or text.startswith('//'):
+        text = text.lstrip('/').strip()
+    lines = text.split('\n')
+    for line in lines:
+        line = line.strip().lstrip('*').strip()
+        if line and not line.startswith('@') and not line.startswith('\\'):
+            return line
+    return ''
+
+def _get_preceding_doc(siblings: list, index: int, source: bytes, style: str = 'c') -> str | None:
+    """Get doc comment from the node immediately preceding siblings[index].
+
+    Handles multi-line /// chains (Rust/C) by collecting consecutive line comments.
+    Returns first meaningful line, or None.
+    """
+    if index <= 0:
+        return None
+    target_line = siblings[index].start_point[0]
+
+    # Collect consecutive comment nodes going backwards
+    comment_nodes = []
+    for j in range(index - 1, -1, -1):
+        prev = siblings[j]
+        if prev.type != 'comment':
+            break
+        comment_nodes.insert(0, prev)
+
+    if not comment_nodes:
+        return None
+
+    # Check adjacency: last comment must be within 1 line of target
+    if target_line - comment_nodes[-1].end_point[0] > 1:
+        return None
+
+    # Check if it's a doc comment (not just a regular comment)
+    first_text = get_node_text(comment_nodes[0], source).strip()
+    is_doc = (
+        first_text.startswith('/**') or  # JSDoc, Javadoc, Doxygen
+        first_text.startswith('///') or  # Rust, C
+        first_text.startswith('///')     # (same)
+    )
+
+    if style == 'c' and not is_doc:
+        # For C-family: also accept /* ... */ and // if directly adjacent
+        # (many C codebases use plain comments as docs)
+        is_doc = first_text.startswith('/*') or first_text.startswith('//')
+
+    if style == 'ruby':
+        is_doc = first_text.startswith('#')
+
+    if not is_doc:
+        return None
+
+    # Use first comment's text for the doc line
+    text = get_node_text(comment_nodes[0], source)
+    result = _extract_doc_first_line(text, style)
+    return result if result else None
+
+def _get_python_docstring(node, source: bytes) -> str | None:
+    """Extract docstring from a Python function/class body."""
+    for child in node.children:
+        if child.type == 'block':
+            for stmt in child.children:
+                if stmt.type == 'expression_statement':
+                    for expr in stmt.children:
+                        if expr.type == 'string':
+                            return _extract_doc_first_line(
+                                get_node_text(expr, source), 'python')
+                elif stmt.type != 'comment':
+                    break  # First non-comment, non-string = no docstring
+            break
+    return None
+
+def extract_python(tree, source: bytes) -> FileInfo:
+    """Extract exports and imports from Python AST."""
+    symbols = []
+    imports = []
+    
+    def get_signature(node) -> str | None:
+        for child in node.children:
+            if child.type == 'parameters':
+                return get_node_text(child, source)
+        return None
+
+    def visit_class_body(node) -> list[Symbol]:
+        members = []
+        for child in node.children:
+             if child.type == 'block':
+                 block_children = list(child.children)
+                 for i, subchild in enumerate(block_children):
+                    if subchild.type == 'function_definition':
+                        members.append(process_function(subchild, kind='method',
+                                                        siblings=block_children, idx=i))
+        return members
+
+    def process_function(node, kind='function', siblings=None, idx=None) -> Symbol:
+        name = ""
+        for child in node.children:
+            if child.type == 'identifier':
+                name = get_node_text(child, source)
+                break
+
+        signature = get_signature(node)
+        line = node.start_point[0] + 1
+        doc = _get_python_docstring(node, source)
+        return Symbol(name=name, kind=kind, signature=signature, line=line,
+                      end_line=_end_line(node), doc=doc)
+
+    def process_class(node, siblings=None, idx=None) -> Symbol:
+        name = ""
+        for child in node.children:
+            if child.type == 'identifier':
+                name = get_node_text(child, source)
+                break
+
+        children = visit_class_body(node)
+        line = node.start_point[0] + 1
+        doc = _get_python_docstring(node, source)
+        return Symbol(name=name, kind='class', line=line, end_line=_end_line(node),
+                      doc=doc, children=children)
+
+    # Iterate module children with index for sibling access
+    module = tree.root_node
+    children = list(module.children)
+    for i, node in enumerate(children):
+        # Imports
+        if node.type == 'import_statement':
+            for child in node.children:
+                if child.type == 'dotted_name':
+                    imports.append(get_node_text(child, source))
+        elif node.type == 'import_from_statement':
+            module_name = None
+            for child in node.children:
+                if child.type == 'dotted_name':
+                    module_name = get_node_text(child, source)
+                    break
+                elif child.type == 'relative_import':
+                    module_name = get_node_text(child, source)
+                    break
+            if module_name:
+                imports.append(module_name)
+        
+        # Top-level definitions
+        elif node.type == 'function_definition':
+            sym = process_function(node, siblings=children, idx=i)
+            if not sym.name.startswith('_'):
+                symbols.append(sym)
+        
+        elif node.type == 'class_definition':
+            sym = process_class(node, siblings=children, idx=i)
+            if not sym.name.startswith('_'):
+                symbols.append(sym)
+
+        # Module-level constants: UPPER_CASE = value
+        elif node.type == 'expression_statement':
+            for child in node.children:
+                if child.type == 'assignment':
+                    for part in child.children:
+                        if part.type == 'identifier':
+                            name = get_node_text(part, source)
+                            if name.isupper() and '_' in name or (name.isupper() and len(name) > 1):
+                                line = node.start_point[0] + 1
+                                symbols.append(Symbol(name=name, kind='const', line=line))
+                            break
+
+    return FileInfo(name="", symbols=symbols, imports=imports)
+
+
+def extract_typescript(tree, source: bytes) -> FileInfo:
+    """Extract exports and imports from TypeScript/JavaScript AST."""
+    symbols = []
+    imports = []
+
+    def _extract_ts_return_type(node) -> str | None:
+        """Extract return type from a function/method node."""
+        for child in node.children:
+            if child.type == 'type_annotation':
+                # Standard return type (e.g., ": Promise<void>")
+                return get_node_text(child, source).lstrip(': ').strip()
+            elif child.type == 'type_predicate_annotation':
+                # Type predicate (e.g., ": data is ValidData")
+                return get_node_text(child, source).lstrip(': ').strip()
+        return None
+
+    def get_func_signature(node) -> str | None:
+        """Extract full function signature: (params): ReturnType"""
+        params = None
+        for child in node.children:
+            if child.type == 'formal_parameters':
+                params = get_node_text(child, source)
+        if params:
+            return_type = _extract_ts_return_type(node)
+            sig = params
+            if return_type:
+                sig += f": {return_type}"
+            return sig
+        return None
+
+    def get_method_signature(node) -> str | None:
+        """Extract method signature from a method_definition node."""
+        params = None
+        for child in node.children:
+            if child.type == 'formal_parameters':
+                params = get_node_text(child, source)
+        if params:
+            return_type = _extract_ts_return_type(node)
+            sig = params
+            if return_type:
+                sig += f": {return_type}"
+            return sig
+        return None
+
+    def process_class_body(node) -> list[Symbol]:
+        members = []
+        for child in node.children:
+            if child.type == 'class_body':
+                body_children = list(child.children)
+                for i, subchild in enumerate(body_children):
+                    if subchild.type == 'method_definition':
+                        name = ""
+                        for part in subchild.children:
+                            if part.type == 'property_identifier':
+                                name = get_node_text(part, source)
+                                break
+                        if name:
+                            line = subchild.start_point[0] + 1
+                            sig = get_method_signature(subchild)
+                            doc = _get_preceding_doc(body_children, i, source, 'c')
+                            members.append(Symbol(name=name, kind='method', line=line,
+                                                  end_line=_end_line(subchild), signature=sig, doc=doc))
+        return members
+
+    def visit(node, siblings=None, node_idx=None):
+        # Import declarations
+        if node.type == 'import_statement':
+            for child in node.children:
+                if child.type == 'string':
+                    text = get_node_text(child, source).strip('"\'')
+                    imports.append(text)
+
+        # Export declarations
+        elif node.type == 'export_statement':
+            doc = _get_preceding_doc(siblings, node_idx, source, 'c') if siblings and node_idx is not None else None
+            has_default = any(
+                child.type == 'default' or
+                (child.type in ('identifier', 'reserved_identifier') and get_node_text(child, source) == 'default')
+                for child in node.children
+            )
+
+            for child in node.children:
+                if child.type == 'function_declaration':
+                    name = ""
+                    for subchild in child.children:
+                        if subchild.type == 'identifier':
+                            name = get_node_text(subchild, source)
+                            break
+                    if name:
+                        line = child.start_point[0] + 1
+                        sig = get_func_signature(child)
+                        label = f"{name} (default)" if has_default else name
+                        symbols.append(Symbol(name=label, kind='function', signature=sig,
+                                              line=line, end_line=_end_line(child), doc=doc))
+
+                elif child.type == 'class_declaration':
+                    name = ""
+                    for subchild in child.children:
+                        if subchild.type == 'type_identifier':
+                            name = get_node_text(subchild, source)
+                            break
+                    if name:
+                        members = process_class_body(child)
+                        line = child.start_point[0] + 1
+                        label = f"{name} (default)" if has_default else name
+                        symbols.append(Symbol(name=label, kind='class', line=line,
+                                              end_line=_end_line(child), doc=doc, children=members))
+
+                elif child.type == 'identifier' and has_default:
+                    # export default <identifier>
+                    name = get_node_text(child, source)
+                    if name != 'default':
+                        line = node.start_point[0] + 1
+                        symbols.append(Symbol(name=f"{name} (default)", kind='variable', line=line))
+
+                elif child.type == 'interface_declaration':
+                    name = ""
+                    for subchild in child.children:
+                        if subchild.type == 'type_identifier':
+                            name = get_node_text(subchild, source)
+                            break
+                    if name:
+                        line = child.start_point[0] + 1
+                        symbols.append(Symbol(name=name, kind='interface', line=line,
+                                              end_line=_end_line(child), doc=doc))
+
+                elif child.type == 'lexical_declaration':
+                    # export const/let declarations (e.g., export const foo = ...)
+                    for subchild in child.children:
+                        if subchild.type == 'variable_declarator':
+                            vname = ""
+                            for part in subchild.children:
+                                if part.type == 'identifier':
+                                    vname = get_node_text(part, source)
+                                    break
+                            if vname:
+                                line = subchild.start_point[0] + 1
+                                symbols.append(Symbol(name=vname, kind='variable', line=line, doc=doc))
+
+        children = list(node.children)
+        for i, child in enumerate(children):
+            visit(child, siblings=children, node_idx=i)
+
+    visit(tree.root_node)
+    return FileInfo(name="", symbols=symbols, imports=imports)
+
+
+def extract_go(tree, source: bytes) -> FileInfo:
+    symbols = []
+    imports = []
+    # Collect receiver methods: {receiver_type: [Symbol, ...]}
+    receiver_methods: dict[str, list[Symbol]] = {}
+
+    def get_go_func_signature(node, skip_receiver: bool = False) -> str | None:
+        """Extract Go function signature: (params) return_type"""
+        params = None
+        result = None
+        seen_param_list = 0
+        for child in node.children:
+            if child.type == 'parameter_list':
+                seen_param_list += 1
+                if skip_receiver and seen_param_list == 1:
+                    continue  # Skip receiver parameter_list
+                params = get_node_text(child, source)
+            elif params is not None and child.type in (
+                'type_identifier', 'pointer_type', 'qualified_type',
+                'slice_type', 'map_type', 'interface_type',
+            ):
+                result = get_node_text(child, source)
+        if params:
+            sig = params
+            if result:
+                sig += f" {result}"
+            return sig
+        return None
+
+    # Iterate with sibling context
+    top_children = list(tree.root_node.children)
+
+    def visit(node, siblings=None, node_idx=None):
+        if node.type == 'import_spec':
+            for child in node.children:
+                if child.type == 'interpreted_string_literal':
+                    imports.append(get_node_text(child, source).strip('"'))
+
+        elif node.type == 'function_declaration':
+            for child in node.children:
+                if child.type == 'identifier':
+                    name = get_node_text(child, source)
+                    if name[0].isupper():
+                        line = node.start_point[0] + 1
+                        sig = get_go_func_signature(node)
+                        doc = _get_preceding_doc(siblings, node_idx, source) if siblings and node_idx is not None else None
+                        symbols.append(Symbol(name=name, kind='func', signature=sig,
+                                              line=line, end_line=_end_line(node), doc=doc))
+                    break
+
+        elif node.type == 'type_declaration':
+            for child in node.children:
+                if child.type == 'type_spec':
+                    for subchild in child.children:
+                        if subchild.type == 'type_identifier':
+                            name = get_node_text(subchild, source)
+                            if name[0].isupper():
+                                line = node.start_point[0] + 1
+                                doc = _get_preceding_doc(siblings, node_idx, source) if siblings and node_idx is not None else None
+                                symbols.append(Symbol(name=name, kind='type', line=line,
+                                                      end_line=_end_line(node), doc=doc))
+                            break
+
+        elif node.type == 'method_declaration':
+            # Extract receiver type and method name
+            receiver_type = None
+            method_name = None
+            for child in node.children:
+                if child.type == 'parameter_list':
+                    # First parameter_list is the receiver
+                    if receiver_type is None:
+                        recv_text = get_node_text(child, source)
+                        # Extract type from receiver, e.g., "(s *Server)" -> "Server"
+                        for part in child.children:
+                            if part.type == 'parameter_declaration':
+                                for subpart in part.children:
+                                    if subpart.type == 'pointer_type':
+                                        for inner in subpart.children:
+                                            if inner.type == 'type_identifier':
+                                                receiver_type = get_node_text(inner, source)
+                                    elif subpart.type == 'type_identifier':
+                                        receiver_type = get_node_text(subpart, source)
+                elif child.type == 'field_identifier':
+                    method_name = get_node_text(child, source)
+            if receiver_type and method_name and method_name[0].isupper():
+                line = node.start_point[0] + 1
+                sig = get_go_func_signature(node, skip_receiver=True)
+                doc = _get_preceding_doc(siblings, node_idx, source) if siblings and node_idx is not None else None
+                method_sym = Symbol(name=method_name, kind='method', signature=sig,
+                                    line=line, end_line=_end_line(node), doc=doc)
+                receiver_methods.setdefault(receiver_type, []).append(method_sym)
+
+        # Constants
+        elif node.type == 'const_declaration':
+            doc = _get_preceding_doc(siblings, node_idx, source) if siblings and node_idx is not None else None
+            for child in node.children:
+                if child.type == 'const_spec':
+                    for subchild in child.children:
+                        if subchild.type == 'identifier':
+                            name = get_node_text(subchild, source)
+                            if name[0].isupper():
+                                line = child.start_point[0] + 1
+                                symbols.append(Symbol(name=name, kind='const', line=line, doc=doc))
+                                doc = None  # Only first const in group gets the doc
+                            break
+
+        children = list(node.children)
+        for i, child in enumerate(children):
+            visit(child, siblings=children, node_idx=i)
+
+    for i, child in enumerate(top_children):
+        visit(child, siblings=top_children, node_idx=i)
+
+    # Attach receiver methods as children of their type symbols
+    for sym in symbols:
+        if sym.kind == 'type' and sym.name in receiver_methods:
+            sym.children = receiver_methods.pop(sym.name)
+
+    # Any remaining receiver methods for types not in symbols (unexported types, etc.)
+    for recv_type, methods in receiver_methods.items():
+        if recv_type[0].isupper():
+            symbols.append(Symbol(name=recv_type, kind='type', children=methods))
+
+    return FileInfo(name="", symbols=symbols, imports=imports)
+
+
+def extract_rust(tree, source: bytes) -> FileInfo:
+    """Extract exports and imports from Rust AST."""
+    symbols = []
+    imports = []
+    # Collect impl methods: {type_name: [Symbol, ...]}
+    impl_methods: dict[str, list[Symbol]] = {}
+
+    def get_rust_func_signature(node) -> str | None:
+        """Extract Rust function signature: (params) -> ReturnType"""
+        params = None
+        return_type = None
+        for child in node.children:
+            if child.type == 'parameters':
+                params = get_node_text(child, source)
+            elif child.type == 'type_identifier' and params is not None:
+                return_type = get_node_text(child, source)
+            elif child.type in ('generic_type', 'reference_type', 'scoped_type_identifier',
+                                'primitive_type', 'tuple_type'):
+                if params is not None:
+                    return_type = get_node_text(child, source)
+        if params:
+            sig = params
+            if return_type:
+                sig += f" -> {return_type}"
+            return sig
+        return None
+
+    def visit(node, siblings=None, node_idx=None):
+        # Use statements
+        if node.type == 'use_declaration':
+            for child in node.children:
+                if child.type in ('scoped_identifier', 'identifier'):
+                    imports.append(get_node_text(child, source))
+
+        # Public items
+        elif node.type in ('function_item', 'struct_item', 'enum_item', 'trait_item'):
+             is_pub = False
+             for child in node.children:
+                 if child.type == 'visibility_modifier' and get_node_text(child, source) == 'pub':
+                     is_pub = True
+
+             if is_pub:
+                 name = ""
+                 for child in node.children:
+                     if child.type in ('identifier', 'type_identifier'):
+                         name = get_node_text(child, source)
+                         break
+                 if name:
+                    kind = node.type.replace('_item', '')
+                    line = node.start_point[0] + 1
+                    sig = get_rust_func_signature(node) if node.type == 'function_item' else None
+                    doc = _get_preceding_doc(siblings, node_idx, source) if siblings and node_idx is not None else None
+                    symbols.append(Symbol(name=name, kind=kind, line=line,
+                                         end_line=_end_line(node), signature=sig, doc=doc))
+
+        # Public constants, statics, type aliases
+        elif node.type in ('const_item', 'static_item', 'type_item'):
+            is_pub = False
+            for child in node.children:
+                if child.type == 'visibility_modifier' and get_node_text(child, source) == 'pub':
+                    is_pub = True
+            if is_pub:
+                name = ""
+                for child in node.children:
+                    if child.type in ('identifier', 'type_identifier'):
+                        name = get_node_text(child, source)
+                        break
+                if name:
+                    kind_map = {'const_item': 'const', 'static_item': 'static', 'type_item': 'type'}
+                    line = node.start_point[0] + 1
+                    doc = _get_preceding_doc(siblings, node_idx, source) if siblings and node_idx is not None else None
+                    symbols.append(Symbol(name=name, kind=kind_map[node.type], line=line, doc=doc))
+
+        # Impl blocks - extract methods grouped by type
+        elif node.type == 'impl_item':
+            impl_type = None
+            for child in node.children:
+                if child.type == 'type_identifier':
+                    impl_type = get_node_text(child, source)
+                elif child.type == 'generic_type':
+                    # e.g., impl Foo<T>
+                    for subchild in child.children:
+                        if subchild.type == 'type_identifier':
+                            impl_type = get_node_text(subchild, source)
+                            break
+                elif child.type == 'declaration_list' and impl_type:
+                    decl_children = list(child.children)
+                    for i, subchild in enumerate(decl_children):
+                        if subchild.type == 'function_item':
+                            is_pub = False
+                            fname = ""
+                            for part in subchild.children:
+                                if part.type == 'visibility_modifier' and get_node_text(part, source) == 'pub':
+                                    is_pub = True
+                                elif part.type == 'identifier':
+                                    fname = get_node_text(part, source)
+                            if is_pub and fname:
+                                line = subchild.start_point[0] + 1
+                                sig = get_rust_func_signature(subchild)
+                                doc = _get_preceding_doc(decl_children, i, source)
+                                method_sym = Symbol(name=fname, kind='method', signature=sig,
+                                                    line=line, end_line=_end_line(subchild), doc=doc)
+                                impl_methods.setdefault(impl_type, []).append(method_sym)
+            # Don't recurse into impl_item children (we handled them above)
+            return
+
+        children = list(node.children)
+        for i, child in enumerate(children):
+            visit(child, siblings=children, node_idx=i)
+
+    top_children = list(tree.root_node.children)
+    for i, child in enumerate(top_children):
+        visit(child, siblings=top_children, node_idx=i)
+
+    # Attach impl methods as children of their struct/enum symbols
+    for sym in symbols:
+        if sym.kind in ('struct', 'enum', 'trait') and sym.name in impl_methods:
+            sym.children = impl_methods.pop(sym.name)
+
+    # Any remaining impl methods for types not in symbols
+    for type_name, methods in impl_methods.items():
+        symbols.append(Symbol(name=type_name, kind='type', children=methods))
+
+    return FileInfo(name="", symbols=symbols, imports=imports)
+
+
+def extract_ruby(tree, source: bytes) -> FileInfo:
+    """Extract exports and imports from Ruby AST."""
+    symbols = []
+    imports = []
+
+    def extract_methods(node) -> list[Symbol]:
+        """Extract method definitions from a class/module body."""
+        methods = []
+        for child in node.children:
+            if child.type == 'body_statement':
+                body_children = list(child.children)
+                for i, subchild in enumerate(body_children):
+                    if subchild.type == 'method':
+                        name = ""
+                        sig = None
+                        for part in subchild.children:
+                            if part.type == 'identifier':
+                                name = get_node_text(part, source)
+                            elif part.type == 'method_parameters':
+                                sig = get_node_text(part, source)
+                        if name:
+                            line = subchild.start_point[0] + 1
+                            doc = _get_preceding_doc(body_children, i, source, 'ruby')
+                            methods.append(Symbol(name=name, kind='method', signature=sig,
+                                                  line=line, end_line=_end_line(subchild), doc=doc))
+                    elif subchild.type == 'singleton_method':
+                        # Class/module-level methods like `def self.format(data)`
+                        name = ""
+                        sig = None
+                        for part in subchild.children:
+                            if part.type == 'identifier':
+                                name = get_node_text(part, source)
+                            elif part.type == 'method_parameters':
+                                sig = get_node_text(part, source)
+                        if name:
+                            line = subchild.start_point[0] + 1
+                            doc = _get_preceding_doc(body_children, i, source, 'ruby')
+                            methods.append(Symbol(name=f"self.{name}", kind='method', signature=sig,
+                                                  line=line, end_line=_end_line(subchild), doc=doc))
+        return methods
+
+    def visit(node, depth=0, siblings=None, node_idx=None):
+        # Requires
+        if node.type == 'call' and any(
+            child.type == 'identifier' and get_node_text(child, source) == 'require'
+            for child in node.children
+        ):
+            for child in node.children:
+                if child.type == 'argument_list':
+                    for arg in child.children:
+                        if arg.type == 'string':
+                            text = get_node_text(arg, source).strip('"\'')
+                            imports.append(text)
+
+        elif node.type in ('class', 'module'):
+            name = ""
+            for child in node.children:
+                if child.type in ('identifier', 'constant', 'scope_resolution'):
+                    name = get_node_text(child, source)
+                    break
+            if name:
+                line = node.start_point[0] + 1
+                doc = _get_preceding_doc(siblings, node_idx, source, 'ruby') if siblings and node_idx is not None else None
+                methods = extract_methods(node)
+                symbols.append(Symbol(name=name, kind=node.type, line=line,
+                                      end_line=_end_line(node), doc=doc, children=methods))
+            # Don't recurse further into classes (methods already extracted)
+            return
+
+        elif node.type == 'method' and depth == 0:
+            # Top-level methods only (class methods are handled by extract_methods)
+            name = ""
+            sig = None
+            for child in node.children:
+                if child.type == 'identifier':
+                    name = get_node_text(child, source)
+                elif child.type == 'method_parameters':
+                    sig = get_node_text(child, source)
+            if name:
+                line = node.start_point[0] + 1
+                doc = _get_preceding_doc(siblings, node_idx, source, 'ruby') if siblings and node_idx is not None else None
+                symbols.append(Symbol(name=name, kind='method', line=line,
+                                      end_line=_end_line(node), signature=sig, doc=doc))
+            return
+
+        children = list(node.children)
+        for i, child in enumerate(children):
+            visit(child, depth + 1, siblings=children, node_idx=i)
+
+    visit(tree.root_node)
+    return FileInfo(name="", symbols=symbols, imports=imports)
+
+
+def extract_java(tree, source: bytes) -> FileInfo:
+    """Extract exports and imports from Java AST."""
+    symbols = []
+    imports = []
+    
+    def visit(node, siblings=None, node_idx=None):
+        # Imports
+        if node.type == 'import_declaration':
+            for child in node.children:
+                if child.type == 'scoped_identifier':
+                    imports.append(get_node_text(child, source))
+        
+        # Public classes/interfaces
+        elif node.type in ('class_declaration', 'interface_declaration'):
+            is_public = False
+            for child in node.children:
+                if child.type == 'modifiers':
+                    mod_text = get_node_text(child, source)
+                    if 'public' in mod_text:
+                        is_public = True
+            if is_public:
+                for child in node.children:
+                    if child.type == 'identifier':
+                        name = get_node_text(child, source)
+                        kind = node.type.replace('_declaration', '')
+                        line = node.start_point[0] + 1
+                        doc = _get_preceding_doc(siblings, node_idx, source) if siblings and node_idx is not None else None
+                        symbols.append(Symbol(name=name, kind=kind, line=line,
+                                              end_line=_end_line(node), doc=doc))
+                        break
+        
+        children = list(node.children)
+        for i, child in enumerate(children):
+            visit(child, siblings=children, node_idx=i)
+    
+    visit(tree.root_node)
+    return FileInfo(name="", symbols=symbols, imports=imports)
+
+
+def extract_c(tree, source: bytes) -> FileInfo:
+    """Extract exports and imports from C AST (.c and .h files)."""
+    symbols = []
+    imports = []
+
+    def _normalize_sig(s: str) -> str:
+        """Collapse multi-line signatures to single line."""
+        return ' '.join(s.split())
+
+    def _get_c_return_type(node) -> str:
+        """Build the return type string from tokens before the declarator."""
+        parts = []
+        for child in node.children:
+            if child.type in ('function_declarator', 'pointer_declarator', 'compound_statement'):
+                break
+            if child.type == 'storage_class_specifier':
+                continue  # skip static/extern
+            if child.type in ('primitive_type', 'type_identifier', 'sized_type_specifier',
+                              'type_qualifier'):
+                parts.append(get_node_text(child, source))
+        return ' '.join(parts) if parts else ''
+
+    def _find_func_declarator(node):
+        """Find function_declarator, possibly nested inside pointer_declarator.
+        Returns (func_declarator_node, is_pointer_return)."""
+        for child in node.children:
+            if child.type == 'function_declarator':
+                return child, False
+            if child.type == 'pointer_declarator':
+                inner = _find_func_declarator(child)
+                if inner and inner[0]:
+                    return inner[0], True
+        return None, False
+
+    def _get_func_info(node):
+        """Extract (name, params, return_type, is_static) from a function node."""
+        is_static = any(
+            c.type == 'storage_class_specifier' and get_node_text(c, source) == 'static'
+            for c in node.children
+        )
+
+        ret_type = _get_c_return_type(node)
+        func_decl, is_ptr_return = _find_func_declarator(node)
+        if not func_decl:
+            return None
+
+        if is_ptr_return:
+            ret_type += ' *'
+
+        name = ''
+        params = ''
+        for child in func_decl.children:
+            if child.type == 'identifier':
+                name = get_node_text(child, source)
+            elif child.type == 'parameter_list':
+                params = _normalize_sig(get_node_text(child, source))
+
+        if not name:
+            return None
+
+        return name, params, ret_type.strip(), is_static
+
+    def _find_field_name(node):
+        """Recursively find field_identifier inside declarators (pointer, array, etc.)."""
+        for child in node.children:
+            if child.type == 'field_identifier':
+                return get_node_text(child, source)
+            if child.type in ('pointer_declarator', 'array_declarator'):
+                result = _find_field_name(child)
+                if result:
+                    return result
+        return ''
+
+    def _get_struct_fields(node) -> list:
+        """Extract field declarations from a struct/union field_declaration_list."""
+        fields = []
+        for child in node.children:
+            if child.type == 'field_declaration_list':
+                for fc in child.children:
+                    if fc.type == 'field_declaration':
+                        field_text = get_node_text(fc, source).rstrip(';').strip()
+                        fname = _find_field_name(fc)
+                        if fname:
+                            line = fc.start_point[0] + 1
+                            fields.append(Symbol(name=fname, kind='field', line=line,
+                                                 signature=field_text))
+        return fields
+
+    # C headers wrap everything in #ifndef include guards, #ifdef __cplusplus,
+    # and extern "C" { ... } blocks. Recurse through all of these to find
+    # the actual declarations underneath.
+    _CONTAINER_TYPES = {
+        'preproc_ifdef', 'preproc_ifndef', 'preproc_if',
+        'preproc_else', 'preproc_elif',
+        'linkage_specification',  # extern "C" { ... }
+        'declaration_list',       # body of linkage_specification
+    }
+
+    def _collect_toplevel(node):
+        """Yield declaration-like nodes, recursing through preprocessor and linkage blocks."""
+        for child in node.children:
+            if child.type in _CONTAINER_TYPES:
+                yield from _collect_toplevel(child)
+            else:
+                yield child
+
+    # Collect into list for indexed doc comment access
+    top_nodes = list(_collect_toplevel(tree.root_node))
+
+    def _get_enum_variants(node) -> list[Symbol]:
+        """Extract enumerator names from an enum's enumerator_list."""
+        variants = []
+        for child in node.children:
+            if child.type == 'enumerator_list':
+                for ec in child.children:
+                    if ec.type == 'enumerator':
+                        vname = ''
+                        for part in ec.children:
+                            if part.type == 'identifier':
+                                vname = get_node_text(part, source)
+                                break
+                        if vname:
+                            variants.append(Symbol(name=vname, kind='value',
+                                                   line=ec.start_point[0] + 1))
+        return variants
+
+    for i, node in enumerate(top_nodes):
+        # Includes → imports
+        if node.type == 'preproc_include':
+            for child in node.children:
+                if child.type in ('system_lib_string', 'string_literal'):
+                    imports.append(get_node_text(child, source).strip('"<>'))
+
+        # #define constants
+        elif node.type == 'preproc_def':
+            name = ''
+            value = ''
+            for child in node.children:
+                if child.type == 'identifier':
+                    name = get_node_text(child, source)
+                elif child.type == 'preproc_arg':
+                    value = get_node_text(child, source).strip()
+            if name and name.isupper() and value:
+                line = node.start_point[0] + 1
+                sig = value if value else None
+                symbols.append(Symbol(name=name, kind='define', line=line, signature=sig))
+
+        # Function definitions (with body)
+        elif node.type == 'function_definition':
+            info = _get_func_info(node)
+            if info:
+                name, params, ret_type, is_static = info
+                if not is_static:
+                    sig = params
+                    if ret_type:
+                        sig += f' -> {ret_type}'
+                    doc = _get_preceding_doc(top_nodes, i, source)
+                    symbols.append(Symbol(name=name, kind='function', signature=sig,
+                                         line=node.start_point[0] + 1,
+                                         end_line=_end_line(node), doc=doc))
+
+        # Declarations: forward decls, function prototypes, globals
+        elif node.type == 'declaration':
+            is_static = any(
+                c.type == 'storage_class_specifier' and get_node_text(c, source) == 'static'
+                for c in node.children
+            )
+            if is_static:
+                continue
+
+            # Check if it contains a function declarator (prototype)
+            has_func_decl = False
+            for child in node.children:
+                if child.type == 'function_declarator':
+                    has_func_decl = True
+                elif child.type == 'pointer_declarator':
+                    for c in child.children:
+                        if c.type == 'function_declarator':
+                            has_func_decl = True
+
+            if has_func_decl:
+                info = _get_func_info(node)
+                if info:
+                    name, params, ret_type, _ = info
+                    sig = params
+                    if ret_type:
+                        sig += f' -> {ret_type}'
+                    doc = _get_preceding_doc(top_nodes, i, source)
+                    symbols.append(Symbol(name=name, kind='function', signature=sig,
+                                         line=node.start_point[0] + 1, doc=doc))
+
+        # Type definitions (typedef struct/enum/union/scalar)
+        elif node.type == 'type_definition':
+            typedef_name = ''
+            inner_kind = ''
+            inner_node = None
+            for child in node.children:
+                if child.type == 'type_identifier':
+                    typedef_name = get_node_text(child, source)
+                elif child.type == 'struct_specifier':
+                    inner_kind = 'struct'
+                    inner_node = child
+                elif child.type == 'enum_specifier':
+                    inner_kind = 'enum'
+                    inner_node = child
+                elif child.type == 'union_specifier':
+                    inner_kind = 'union'
+                    inner_node = child
+            if typedef_name:
+                line = node.start_point[0] + 1
+                doc = _get_preceding_doc(top_nodes, i, source)
+                sym = Symbol(name=typedef_name, kind=inner_kind or 'typedef',
+                             line=line, end_line=_end_line(node), doc=doc)
+                if inner_node and inner_kind in ('struct', 'union'):
+                    sym.children = _get_struct_fields(inner_node)
+                elif inner_node and inner_kind == 'enum':
+                    sym.children = _get_enum_variants(inner_node)
+                symbols.append(sym)
+
+        # Standalone struct definitions (not typedef)
+        elif node.type == 'struct_specifier':
+            name = ''
+            for child in node.children:
+                if child.type == 'type_identifier':
+                    name = get_node_text(child, source)
+            if name:
+                line = node.start_point[0] + 1
+                doc = _get_preceding_doc(top_nodes, i, source)
+                sym = Symbol(name=name, kind='struct', line=line,
+                             end_line=_end_line(node), doc=doc)
+                sym.children = _get_struct_fields(node)
+                symbols.append(sym)
+
+        # Standalone enum definitions
+        elif node.type == 'enum_specifier':
+            name = ''
+            for child in node.children:
+                if child.type == 'type_identifier':
+                    name = get_node_text(child, source)
+            if name:
+                line = node.start_point[0] + 1
+                doc = _get_preceding_doc(top_nodes, i, source)
+                sym = Symbol(name=name, kind='enum', line=line,
+                             end_line=_end_line(node), doc=doc)
+                sym.children = _get_enum_variants(node)
+                symbols.append(sym)
+
+    return FileInfo(name="", symbols=symbols, imports=imports)
+
+
+def extract_html_javascript(tree, source: bytes) -> FileInfo:
+    """Extract JavaScript functions and imports from HTML <script> tags."""
+    symbols = []
+    imports = []
+
+    def find_script_elements(node):
+        """Recursively find all script elements in HTML."""
+        script_contents = []
+
+        if node.type == 'script_element':
+            # Check if this is an inline script (not src-only)
+            has_src = False
+            for child in node.children:
+                if child.type == 'start_tag':
+                    tag_text = get_node_text(child, source)
+                    if 'src=' in tag_text:
+                        has_src = True
+                        # Extract the src value for imports
+                        try:
+                            import_match = tag_text.split('src=')[1].split()[0].strip('"\'>')
+                            if import_match and not import_match.startswith('http'):
+                                imports.append(import_match)
+                        except:
+                            pass
+                elif child.type == 'raw_text':
+                    # This is inline JavaScript code
+                    js_code = get_node_text(child, source)
+                    if js_code.strip():
+                        script_contents.append(js_code)
+
+        for child in node.children:
+            script_contents.extend(find_script_elements(child))
+
+        return script_contents
+
+    # Extract all script contents
+    script_contents = find_script_elements(tree.root_node)
+
+    # Parse each script block as JavaScript
+    if script_contents:
+        try:
+            js_parser = get_parser('javascript')
+            for script_code in script_contents:
+                js_tree = js_parser.parse(script_code.encode())
+
+                # Extract function declarations
+                def visit_js(node):
+                    js_source = script_code.encode()
+                    # Helper since we have different source here
+                    def get_js_text(n):
+                        return js_source[n.start_byte:n.end_byte].decode()
+
+                    # Function declarations: function foo() {}
+                    if node.type == 'function_declaration':
+                        for child in node.children:
+                            if child.type == 'identifier':
+                                func_name = get_js_text(child)
+                                line = node.start_point[0] + 1
+                                symbols.append(Symbol(name=func_name, kind='function',
+                                                       line=line, end_line=_end_line(node)))
+                                break
+
+                    # Variable declarations with functions: const foo = function() {}
+                    # Also arrow functions: const foo = () => {}
+                    elif node.type == 'variable_declarator':
+                        identifier = None
+                        is_function = False
+                        for child in node.children:
+                            if child.type == 'identifier':
+                                identifier = get_js_text(child)
+                            elif child.type in ('function', 'arrow_function', 'function_expression'):
+                                is_function = True
+                        if identifier and is_function:
+                             line = node.start_point[0] + 1
+                             symbols.append(Symbol(name=identifier, kind='function', line=line))
+
+                    # Import statements
+                    elif node.type == 'import_statement':
+                        for child in node.children:
+                            if child.type == 'string':
+                                import_path = get_js_text(child).strip('"\'')
+                                if import_path not in imports:
+                                    imports.append(import_path)
+
+                    for child in node.children:
+                        visit_js(child)
+
+                visit_js(js_tree.root_node)
+        except Exception:
+            # If JavaScript parsing fails, silently continue
+            pass
+
+    return FileInfo(name="", symbols=symbols, imports=imports)
+
+
+def extract_markdown(tree, source: bytes) -> FileInfo:
+    """Extract heading structure from Markdown for ToC-style navigation.
+
+    Only extracts h1 and h2 headings for brevity - deeper levels add noise
+    without proportional navigation value.
+    """
+    symbols = []
+
+    def get_heading_level(marker_type: str) -> int:
+        """Convert atx_h1_marker, atx_h2_marker, etc. to level number."""
+        if marker_type.startswith('atx_h') and marker_type.endswith('_marker'):
+            try:
+                return int(marker_type[5])  # Extract number from 'atx_h1_marker'
+            except ValueError:
+                return 1
+        return 1
+
+    def visit(node):
+        if node.type == 'atx_heading':
+            level = 1
+            text = ""
+            line = node.start_point[0] + 1
+
+            for child in node.children:
+                if child.type.startswith('atx_h') and child.type.endswith('_marker'):
+                    level = get_heading_level(child.type)
+                elif child.type == 'inline':
+                    text = get_node_text(child, source).strip()
+
+            # Only include h1 and h2 for brevity
+            if text and level <= 2:
+                symbols.append(Symbol(
+                    name=text,
+                    kind='heading',
+                    signature=f"h{level}",
+                    line=line
+                ))
+
+        for child in node.children:
+            visit(child)
+
+    visit(tree.root_node)
+    return FileInfo(name="", symbols=symbols, imports=[])
+
+
+EXTRACTORS = {
+    'python': extract_python,
+    'javascript': extract_typescript,
+    'typescript': extract_typescript,
+    'tsx': extract_typescript,
+    'go': extract_go,
+    'rust': extract_rust,
+    'ruby': extract_ruby,
+    'java': extract_java,
+    'c': extract_c,
+    'html': extract_html_javascript,
+    'markdown': extract_markdown,
+}
+
+# @lat: [[code-intelligence#AST Mapping]]
+def analyze_file(filepath: Path) -> FileInfo | None:
+    """Analyze a single file and return its info."""
+    lang = get_language(filepath)
+    if not lang:
+        return None
+    
+    try:
+        parser = _get_parser(lang)
+        source = filepath.read_bytes()
+        tree = parser.parse(source)
+
+        extractor = EXTRACTORS.get(lang)
+        if not extractor:
+            return None
+
+        _debug(f"Processing {filepath}")
+        info = extractor(tree, source)
+        info.name = filepath.name
+        _debug(f"Found {len(info.symbols)} symbols")
+        return info
+    except Exception as e:
+        _debug(f"Error parsing {filepath}: {e}")
+        return None
+
+
+def format_symbol(symbol: Symbol, indent: int = 0) -> list[str]:
+    lines = []
+    prefix = "  " * indent
+
+    kind_marker = ""
+    if symbol.kind == 'class': kind_marker = "(C)"
+    elif symbol.kind == 'method': kind_marker = "(m)"
+    elif symbol.kind == 'function': kind_marker = "(f)"
+    elif symbol.kind == 'heading': kind_marker = ""  # Headings don't need kind marker
+    else: kind_marker = f"({symbol.kind})"
+
+    sig = f" `{symbol.signature}`" if symbol.signature else ""
+
+    # Line references: :42 or :42-85
+    if symbol.line:
+        if symbol.end_line and symbol.end_line > symbol.line:
+            line_ref = f" :{symbol.line}-{symbol.end_line}"
+        else:
+            line_ref = f" :{symbol.line}"
+    else:
+        line_ref = ""
+
+    doc_str = f" — {symbol.doc}" if symbol.doc else ""
+
+    # For headings, format differently (no bold, include level info in signature)
+    if symbol.kind == 'heading':
+        lines.append(f"{prefix}- {symbol.name}{sig}{line_ref}")
+    else:
+        lines.append(f"{prefix}- **{symbol.name}** {kind_marker}{sig}{line_ref}{doc_str}")
+
+    for child in symbol.children:
+        lines.extend(format_symbol(child, indent + 1))
+
+    return lines
+
+def generate_map_for_directory(dirpath: Path, skip_dirs: set[str]) -> str | None:
+    """Generate _MAP.md content for a single directory."""
+    files_info = []
+    other_files = []  # Non-code files to list
+    subdirs = []
+
+    for entry in sorted(dirpath.iterdir()):
+        if entry.name.startswith('.') or entry.name == '_MAP.md':
+            continue
+        if entry.is_dir():
+            if entry.name not in skip_dirs:
+                subdirs.append(entry.name)
+        elif entry.is_file():
+            info = analyze_file(entry)
+            if info:
+                files_info.append(info)
+            else:
+                # Check if it's a known non-code file type worth listing
+                ext = entry.suffix.lower()
+                # List files with known extensions OR no extension (like Makefile, Dockerfile)
+                if ext in NON_CODE_EXTENSIONS or (not ext and entry.name not in {'LICENSE'}):
+                    other_files.append(entry.name)
+
+    if not files_info and not subdirs and not other_files:
+        return None
+    
+    # Header with stats
+    lines = [f"# {dirpath.name}/"]
+
+    # Add summary stats
+    stats = []
+    total_files = len(files_info) + len(other_files)
+    if total_files:
+        stats.append(f"Files: {total_files}")
+    if subdirs:
+        stats.append(f"Subdirectories: {len(subdirs)}")
+    if stats:
+        lines.append(f"*{' | '.join(stats)}*\n")
+    else:
+        lines.append("")
+
+    if subdirs:
+        lines.append("## Subdirectories\n")
+        for d in subdirs:
+            lines.append(f"- [{d}/](./{d}/_MAP.md)")
+        lines.append("")
+
+    if files_info:
+        lines.append("## Files\n")
+        for info in files_info:
+            lines.append(f"### {info.name}")
+
+            # Imports (skip for markdown files)
+            if info.imports:
+                short_imports = [i.split('/')[-1] for i in info.imports[:5]]
+                import_preview = ', '.join(short_imports)
+                if len(info.imports) > 5:
+                    lines.append(f"> Imports: `{import_preview}`...")
+                else:
+                    lines.append(f"> Imports: `{import_preview}`")
+
+            # Symbols
+            if info.symbols:
+                for sym in info.symbols:
+                    lines.extend(format_symbol(sym))
+            else:
+                lines.append("- *No top-level symbols*")
+
+            lines.append("")  # Spacer
+
+    if other_files:
+        lines.append("## Other Files\n")
+        for name in sorted(other_files):
+            lines.append(f"- {name}")
+        lines.append("")
+
+    return '\n'.join(lines) + '\n'
+
+
+# @lat: [[code-intelligence#AST Mapping]]
+def generate_maps(root: Path, skip_dirs: set[str], dry_run: bool = False):
+    """Walk directory tree and generate _MAP.md files."""
+    count = 0
+    total_parseable = 0
+    total_parsed = 0
+    
+    for dirpath, dirnames, filenames in os.walk(root):
+        # Filter out skip dirs in-place
+        dirnames[:] = [d for d in dirnames if d not in skip_dirs and not d.startswith('.')]
+        
+        path = Path(dirpath)
+
+        # Count parseable files in this directory for diagnostics
+        for f in filenames:
+            if get_language(Path(f)) is not None:
+                total_parseable += 1
+
+        content = generate_map_for_directory(path, skip_dirs)
+        
+        if content:
+            # Count how many files actually got symbols (not just "Other Files")
+            total_parsed += content.count('### ')  # each parsed file gets an h3
+
+            map_path = path / '_MAP.md'
+            if dry_run:
+                print(f"Would write: {map_path}")
+                print(content)
+                print("---")
+            else:
+                map_path.write_text(content)
+                print(f"Wrote: {map_path}")
+            count += 1
+    
+    # Warn if parseable files exist but none were successfully parsed
+    if total_parseable > 0 and total_parsed == 0:
+        print(f"\nWARNING: Found {total_parseable} parseable files but none were successfully parsed.", file=sys.stderr)
+        print(f"  This usually means tree-sitter parsers could not be downloaded.", file=sys.stderr)
+        print(f"  Try: curl the parsers manually or check network/SSL configuration.", file=sys.stderr)
+    elif total_parseable > 0 and total_parsed < total_parseable:
+        _debug(f"Parsed {total_parsed}/{total_parseable} parseable files")
+
+    return count
+
+
+def main():
+    global VERBOSE
+    import argparse
+    parser = argparse.ArgumentParser(description='Generate _MAP.md files for codebase navigation')
+    parser.add_argument('path', nargs='?', default='.', help='Root directory to process')
+    parser.add_argument('--dry-run', '-n', action='store_true', help='Print output without writing files')
+    parser.add_argument('--clean', action='store_true', help='Remove all _MAP.md files')
+    parser.add_argument('--skip', help='Comma-separated list of additional directories to skip (e.g., "locale,migrations,tests")')
+    parser.add_argument('--verbose', '-v', action='store_true', help='Enable debug output')
+    args = parser.parse_args()
+
+    VERBOSE = args.verbose
+    root = Path(args.path).resolve()
+    
+    # Build skip set
+    skip_dirs = DEFAULT_SKIP_DIRS.copy()
+    if args.skip:
+        skip_dirs.update(s.strip() for s in args.skip.split(','))
+    
+    if args.clean:
+        count = 0
+        for map_file in root.rglob('_MAP.md'):
+            if not any(skip in map_file.parts for skip in skip_dirs):
+                map_file.unlink()
+                print(f"Removed: {map_file}")
+                count += 1
+        print(f"Cleaned {count} _MAP.md files")
+        return
+    
+    count = generate_maps(root, skip_dirs, dry_run=args.dry_run)
+    print(f"\nGenerated {count} _MAP.md files")
+
+
+if __name__ == '__main__':
+    main()

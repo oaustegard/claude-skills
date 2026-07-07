@@ -1,0 +1,16 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "width": "container",
+  "height": 400,
+  "data": {"values": "__DATA__"},
+  "mark": {"type": "bar", "cornerRadius": 5, "tooltip": true},
+  "encoding": {
+    "x": {"field": "__X_FIELD__", "type": "__X_TYPE__", "axis": {"labelAngle": 0}},
+    "y": {"field": "__Y_FIELD__", "type": "__Y_TYPE__"},
+    "color": {"field": "__Y_FIELD__", "type": "__Y_TYPE__", "scale": {"scheme": "viridis"}, "legend": null},
+    "tooltip": [
+      {"field": "__X_FIELD__", "type": "__X_TYPE__"},
+      {"field": "__Y_FIELD__", "type": "__Y_TYPE__"}
+    ]
+  }
+}

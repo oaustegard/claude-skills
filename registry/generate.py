@@ -2,12 +2,18 @@
 """Generate category-based plugins and marketplace.json from SKILL.md frontmatter.
 
 Creates a plugins/ directory with one plugin per category. Each plugin contains
-symlinks to the actual skill directories, following Claude Code's expected structure:
+a real copy of each skill directory, following Claude Code's expected structure:
 
     plugins/<category>/
         .claude-plugin/plugin.json
         skills/
-            <skill-name> -> ../../../<skill-name>   (symlink)
+            <skill-name>/SKILL.md   (real files, not a symlink)
+
+The skills are COPIED, not symlinked. GitHub-tree-API importers (Claude Science,
+Claude Cowork) walk the committed tree and cannot descend into mode-120000
+symlink blobs, so a symlinked plugins/ imports as zero skills. Real files import
+everywhere symlinks used to resolve locally. Source of truth remains the
+root-level skill directories; plugins/ is a generated artifact.
 
 Usage:
     python registry/generate.py [SKILLS_ROOT]
@@ -16,7 +22,7 @@ Defaults to the parent directory of this script (repo root).
 """
 
 import json
-import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -85,9 +91,33 @@ def collect_keywords(skill_dir: Path) -> list[str]:
         return []
 
 
+def _ignore_symlinks(dirpath: str, names: list[str]) -> list[str]:
+    """copytree ignore-callback: skip any symlink entries in a source skill dir.
+
+    Skill directories are expected to contain only regular files. A stray
+    self-referential symlink (e.g. <skill>/<skill> -> ../../<skill>) would, if
+    dereferenced, recurse into the parent; copied as a symlink it would
+    reintroduce the mode-120000 blob this generator exists to avoid. Dropping
+    symlinks entirely is correct on both counts.
+    """
+    d = Path(dirpath)
+    return [n for n in names if (d / n).is_symlink()]
+
+
 def build_plugins_dir(root: Path, categories: dict) -> None:
-    """Create plugins/ directory structure with symlinks to skill directories."""
+    """Create plugins/ directory with real copies of each skill directory.
+
+    Copies (dereferences) rather than symlinks so the committed tree carries
+    actual SKILL.md files under plugins/<cat>/skills/<name>/. See the module
+    docstring for why symlinks break tree-API importers.
+    """
     plugins_dir = root / "plugins"
+
+    # Full deterministic rebuild: wipe first so skills removed from a category
+    # (or moved between categories) leave no stale copies behind. git compares
+    # content, so identical regeneration produces an empty diff.
+    if plugins_dir.exists():
+        shutil.rmtree(plugins_dir)
 
     for cat_name, cat_info in categories.items():
         cat_dir = plugins_dir / cat_name
@@ -98,7 +128,7 @@ def build_plugins_dir(root: Path, categories: dict) -> None:
         skills_dir.mkdir(parents=True, exist_ok=True)
         plugin_meta_dir.mkdir(parents=True, exist_ok=True)
 
-        # Create symlinks for each skill
+        # Copy each skill directory (real files, no symlinks)
         for skill_name in cat_info["skills"]:
             skill_source = root / skill_name
             if not skill_source.exists():
@@ -110,18 +140,8 @@ def build_plugins_dir(root: Path, categories: dict) -> None:
                       file=sys.stderr)
                 continue
 
-            link_path = skills_dir / skill_name
-            # Relative symlink: from plugins/<cat>/skills/<name> -> ../../../<name>
-            rel_target = os.path.relpath(skill_source, skills_dir)
-
-            if link_path.is_symlink():
-                link_path.unlink()
-            elif link_path.exists():
-                print(f"WARN: {link_path} exists and is not a symlink, skipping",
-                      file=sys.stderr)
-                continue
-
-            link_path.symlink_to(rel_target)
+            dest = skills_dir / skill_name
+            shutil.copytree(skill_source, dest, ignore=_ignore_symlinks)
 
         # Create plugin.json
         skill_names = [s for s in cat_info["skills"]
@@ -136,15 +156,6 @@ def build_plugins_dir(root: Path, categories: dict) -> None:
         (plugin_meta_dir / "plugin.json").write_text(
             json.dumps(plugin_json, indent=2) + "\n"
         )
-
-    # Clean up categories that no longer exist
-    if plugins_dir.exists():
-        for entry in plugins_dir.iterdir():
-            if entry.is_dir() and entry.name not in categories:
-                import shutil
-                shutil.rmtree(entry)
-                print(f"Removed stale category plugin: {entry.name}",
-                      file=sys.stderr)
 
 
 def build_marketplace(root: Path, categories: dict) -> Marketplace:

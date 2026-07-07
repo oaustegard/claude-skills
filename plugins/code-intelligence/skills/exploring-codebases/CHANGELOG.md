@@ -1,0 +1,99 @@
+# exploring-codebases - Changelog
+
+All notable changes to the `exploring-codebases` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+## [2.3.1] - 2026-06-21
+
+### Fixed
+
+- install tree-sitter core, not language-pack (step 0) (#708)
+
+## [2.3.0] - 2026-05-20
+
+### Other
+
+- exploring-codebases v2.3.0: add bm25 pairing
+
+## [2.3.0] - 2026-05-18
+
+### Added
+
+- bm25 skill pairing — routing table entries for "which files are most about X?" / "rank by concept" queries, plus a "Pairing bm25 with this workflow" subsection covering the bm25→tree-sitting follow-through pattern and the `--exclude tests/*` lesson from fly #656.
+
+## [2.2.1] - 2026-04-21
+
+### Other
+
+- exploring-codebases v2.2.1: good/bad batching examples (salvaged from #559) (#565)
+
+## [2.2.0] - 2026-04-20
+
+### Other
+
+- exploring-codebases v2.2.0: step-0 setup, ref variants, sanity check, drill-optional (#561)
+
+## [2.1.0] - 2026-04-20
+
+### Other
+
+- exploring-codebases: TODO-style workflow (tarball-first, batched treesit) (#560)
+- Remove _MAP.md files, direct agents to tree-sitting for code navigation (#545)
+
+## [2.0.0] - 2026-04-08
+
+### Added
+
+- add treesit.py CLI, fix cross-process cache loss, fix Symbol dict bug (#536)
+
+### Other
+
+- exploring-codebases: remove dead search.py (replaced by tree-sitting)
+
+## [1.0.0] - 2026-03-31
+
+### Added
+
+- add mapping-features skill for behavioral web app documentation (#432)
+- implement issues #229, #231, #281, #282, #283 (v4.3.0)
+
+### Other
+
+- exploring v1.0.0, searching v2.0.0: tree-sitting replaces mapping-codebases
+- Regenerate _MAP.md files after @lat: backlink insertion (#504)
+- Lattice v2: bidirectional source-anchored knowledge graph (#503)
+
+## [0.3.1] - 2026-02-13
+
+### Fixed
+
+- parse multi-line signatures in --use-maps mode
+
+## [0.3.1] - 2026-02-13
+
+### Fixed
+
+- Fix `--use-maps` mode failing to parse multi-line signatures in `_MAP.md` files
+- Functions with long parameter lists (spanning multiple lines in map files) are now correctly parsed
+- Full multi-line signatures are accumulated and displayed properly
+
+### Added
+
+- Document scope and limitations: which code elements are returned vs not
+
+## [0.3.0] - 2026-02-13
+
+### Added
+
+- Address top 3 priority GitHub issues (#253, #254, #276)
+- fix three issues - aliases, expansion threshold, return format (v3.7.0)
+
+## [0.2.0] - 2026-02-03
+
+### Added
+
+- Add/Update skill: exploring-codebases
+- Add/Update skill: exploring-codebases
+
+### Other
+
+- Update README with project inspiration details

@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "preact": "https://esm.sh/*preact@10.23.1",
+        "preact/": "https://esm.sh/*preact@10.23.1/",
+        "@preact/signals": "https://esm.sh/*@preact/signals@1.3.0",
+        "@preact/signals-core": "https://esm.sh/*@preact/signals-core@1.8.0",
+        "htm": "https://esm.sh/*htm@3.1.1",
+        "htm/preact": "https://esm.sh/*htm@3.1.1/preact"
+      }
+    }
+  </script>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div id="app" class="p-6"></div>
+
+  <script type="module">
+    import { render, createContext } from 'preact';
+    import { useContext, useState, useMemo } from 'preact/hooks';
+    import { signal, useSignal } from '@preact/signals';
+    import { html } from 'htm/preact';
+
+    // ============================================================
+    // DATA CONTEXT
+    // ============================================================
+    const DataContext = createContext({ data: {}, setData: () => {} });
+
+    function DataProvider({ initialData, children }) {
+      const [data, setData] = useState(initialData || {});
+      return html`<${DataContext.Provider} value=${{ data, setData }}>${children}<//>`;
+    }
+
+    function useData() {
+      return useContext(DataContext);
+    }
+
+    function getByPath(obj, path) {
+      if (!path || path === '/') return obj;
+      const segments = path.startsWith('/') ? path.slice(1).split('/') : path.split('/');
+      let current = obj;
+      for (const segment of segments) {
+        if (current == null) return undefined;
+        current = current[segment];
+      }
+      return current;
+    }
+
+    function useDataValue(path) {
+      const { data } = useData();
+      return getByPath(data, path);
+    }
+
+    // ============================================================
+    // VISIBILITY
+    // ============================================================
+    function evaluateVisibility(condition, data) {
+      if (condition === undefined || condition === true) return true;
+      if (condition === false) return false;
+      if (typeof condition === 'object') {
+        if ('path' in condition) return !!getByPath(data, condition.path);
+        if ('and' in condition) return condition.and.every(c => evaluateVisibility(c, data));
+        if ('or' in condition) return condition.or.some(c => evaluateVisibility(c, data));
+        if ('not' in condition) return !evaluateVisibility(condition.not, data);
+        if ('eq' in condition) {
+          const [a, b] = condition.eq.map(v => typeof v === 'object' && 'path' in v ? getByPath(data, v.path) : v);
+          return a === b;
+        }
+      }
+      return true;
+    }
+
+    // ============================================================
+    // FORMATTERS
+    // ============================================================
+    function formatValue(value, format) {
+      if (value == null) return '-';
+      if (format === 'currency') {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+      }
+      if (format === 'percent') {
+        return new Intl.NumberFormat('en-US', { style: 'percent', minimumFractionDigits: 1 }).format(value);
+      }
+      if (format === 'number') {
+        return new Intl.NumberFormat('en-US').format(value);
+      }
+      if (format === 'date' && value) {
+        return new Date(value).toLocaleDateString();
+      }
+      return String(value);
+    }
+
+    // ============================================================
+    // COMPONENTS
+    // ============================================================
+
+    // Layout: Card
+    function Card({ element, children }) {
+      const { title, description, padding = 'md' } = element.props;
+      const padClass = { sm: 'p-3', md: 'p-4', lg: 'p-6' }[padding] || 'p-4';
+      return html`
+        <div class="bg-white rounded-lg shadow-sm border border-gray-200 ${padClass}">
+          ${title && html`<h3 class="text-lg font-semibold text-gray-900 mb-1">${title}</h3>`}
+          ${description && html`<p class="text-sm text-gray-500 mb-3">${description}</p>`}
+          ${children}
+        </div>
+      `;
+    }
+
+    // Layout: Grid
+    function Grid({ element, children }) {
+      const { columns = 2, gap = 'md' } = element.props;
+      const colClass = { 1: 'grid-cols-1', 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-4' }[columns] || 'grid-cols-2';
+      const gapClass = { sm: 'gap-2', md: 'gap-4', lg: 'gap-6' }[gap] || 'gap-4';
+      return html`<div class="grid ${colClass} ${gapClass}">${children}</div>`;
+    }
+
+    // Layout: Stack
+    function Stack({ element, children }) {
+      const { direction = 'vertical', gap = 'md', align = 'stretch' } = element.props;
+      const dirClass = direction === 'horizontal' ? 'flex-row' : 'flex-col';
+      const gapClass = { sm: 'gap-2', md: 'gap-4', lg: 'gap-6' }[gap] || 'gap-4';
+      const alignClass = { start: 'items-start', center: 'items-center', end: 'items-end', stretch: 'items-stretch' }[align] || '';
+      return html`<div class="flex ${dirClass} ${gapClass} ${alignClass}">${children}</div>`;
+    }
+
+    // Data: Metric
+    function Metric({ element }) {
+      const { label, valuePath, format, trend, trendValue } = element.props;
+      const value = useDataValue(valuePath);
+      const displayValue = formatValue(value, format);
+      const trendColor = { up: 'text-green-600', down: 'text-red-600', neutral: 'text-gray-500' }[trend] || 'text-gray-500';
+      const trendIcon = { up: '↑', down: '↓', neutral: '→' }[trend] || '';
+
+      return html`
+        <div class="flex flex-col gap-1">
+          <span class="text-sm text-gray-500">${label}</span>
+          <span class="text-3xl font-semibold text-gray-900">${displayValue}</span>
+          ${(trend || trendValue) && html`
+            <span class="text-sm ${trendColor}">${trendIcon} ${trendValue || ''}</span>
+          `}
+        </div>
+      `;
+    }
+
+    // Data: Chart (simplified SVG bar/line chart)
+    function Chart({ element }) {
+      const { type, dataPath, title, height = 200 } = element.props;
+      const data = useDataValue(dataPath) || [];
+      
+      if (!data.length) {
+        return html`<div class="flex items-center justify-center h-48 text-gray-400">No data</div>`;
+      }
+
+      const values = data.map(d => d.value ?? d.y ?? 0);
+      const labels = data.map(d => d.month ?? d.label ?? d.x ?? '');
+      const max = Math.max(...values, 1);
+      const width = 100;
+      const chartHeight = 60;
+      const barWidth = width / values.length * 0.7;
+      const barGap = width / values.length * 0.3;
+
+      if (type === 'bar') {
+        return html`
+          <div>
+            ${title && html`<div class="text-sm font-medium text-gray-700 mb-2">${title}</div>`}
+            <svg viewBox="0 0 ${width} ${chartHeight + 20}" class="w-full" style="height: ${height}px">
+              ${values.map((v, i) => {
+                const barHeight = (v / max) * chartHeight;
+                const x = i * (barWidth + barGap) + barGap / 2;
+                return html`
+                  <g>
+                    <rect x=${x} y=${chartHeight - barHeight} width=${barWidth} height=${barHeight} fill="#3b82f6" rx="2"/>
+                    <text x=${x + barWidth / 2} y=${chartHeight + 12} text-anchor="middle" class="text-[3px] fill-gray-500">${labels[i]}</text>
+                  </g>
+                `;
+              })}
+            </svg>
+          </div>
+        `;
+      }
+
+      if (type === 'line' || type === 'area') {
+        const points = values.map((v, i) => {
+          const x = (i / (values.length - 1)) * width;
+          const y = chartHeight - (v / max) * chartHeight;
+          return `${x},${y}`;
+        }).join(' ');
+        const areaPoints = `0,${chartHeight} ${points} ${width},${chartHeight}`;
+
+        return html`
+          <div>
+            ${title && html`<div class="text-sm font-medium text-gray-700 mb-2">${title}</div>`}
+            <svg viewBox="0 0 ${width} ${chartHeight + 20}" class="w-full" style="height: ${height}px">
+              ${type === 'area' && html`<polygon points=${areaPoints} fill="#3b82f6" fill-opacity="0.1"/>`}
+              <polyline points=${points} fill="none" stroke="#3b82f6" stroke-width="2"/>
+              ${values.map((v, i) => {
+                const x = (i / (values.length - 1)) * width;
+                const y = chartHeight - (v / max) * chartHeight;
+                return html`
+                  <g>
+                    <circle cx=${x} cy=${y} r="2" fill="#3b82f6"/>
+                    <text x=${x} y=${chartHeight + 12} text-anchor="middle" class="text-[3px] fill-gray-500">${labels[i]}</text>
+                  </g>
+                `;
+              })}
+            </svg>
+          </div>
+        `;
+      }
+
+      if (type === 'pie') {
+        const total = values.reduce((a, b) => a + b, 0);
+        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+        let currentAngle = 0;
+        const cx = 50, cy = 30, r = 25;
+
+        return html`
+          <div>
+            ${title && html`<div class="text-sm font-medium text-gray-700 mb-2">${title}</div>`}
+            <svg viewBox="0 0 100 80" class="w-full" style="height: ${height}px">
+              ${values.map((v, i) => {
+                const angle = (v / total) * 2 * Math.PI;
+                const x1 = cx + r * Math.cos(currentAngle);
+                const y1 = cy + r * Math.sin(currentAngle);
+                currentAngle += angle;
+                const x2 = cx + r * Math.cos(currentAngle);
+                const y2 = cy + r * Math.sin(currentAngle);
+                const largeArc = angle > Math.PI ? 1 : 0;
+                const path = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+                return html`<path d=${path} fill=${colors[i % colors.length]}/>`;
+              })}
+            </svg>
+            <div class="flex flex-wrap gap-2 justify-center mt-2">
+              ${labels.map((l, i) => html`
+                <div class="flex items-center gap-1 text-xs">
+                  <div class="w-2 h-2 rounded-full" style="background: ${colors[i % colors.length]}"></div>
+                  <span>${l}</span>
+                </div>
+              `)}
+            </div>
+          </div>
+        `;
+      }
+
+      return html`<div class="text-gray-400">Unknown chart type: ${type}</div>`;
+    }
+
+    // Data: Table
+    function Table({ element }) {
+      const { dataPath, columns } = element.props;
+      const data = useDataValue(dataPath) || [];
+
+      return html`
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                ${columns.map(col => html`
+                  <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    ${col.label}
+                  </th>
+                `)}
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              ${data.map(row => html`
+                <tr>
+                  ${columns.map(col => html`
+                    <td class="px-4 py-3 text-sm text-gray-900">
+                      ${col.format === 'badge' 
+                        ? html`<span class="px-2 py-1 text-xs rounded-full bg-gray-100">${row[col.key]}</span>`
+                        : formatValue(row[col.key], col.format)
+                      }
+                    </td>
+                  `)}
+                </tr>
+              `)}
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    // Data: List
+    function List({ element, children }) {
+      const { dataPath, emptyMessage = 'No items' } = element.props;
+      const data = useDataValue(dataPath) || [];
+      
+      if (!data.length) {
+        return html`<div class="text-gray-400 text-sm py-4 text-center">${emptyMessage}</div>`;
+      }
+
+      return html`<div class="divide-y divide-gray-100">${children}</div>`;
+    }
+
+    // Interactive: Button
+    function Button({ element, onAction }) {
+      const { label, action, variant = 'primary', size = 'md', disabled } = element.props;
+      const baseClass = 'inline-flex items-center justify-center font-medium rounded-lg transition-colors';
+      const sizeClass = { sm: 'px-3 py-1.5 text-sm', md: 'px-4 py-2', lg: 'px-6 py-3 text-lg' }[size] || 'px-4 py-2';
+      const variantClass = {
+        primary: 'bg-blue-600 text-white hover:bg-blue-700',
+        secondary: 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+        danger: 'bg-red-600 text-white hover:bg-red-700',
+        ghost: 'text-gray-600 hover:bg-gray-100'
+      }[variant] || 'bg-blue-600 text-white hover:bg-blue-700';
+      const disabledClass = disabled ? 'opacity-50 cursor-not-allowed' : '';
+
+      return html`
+        <button 
+          class="${baseClass} ${sizeClass} ${variantClass} ${disabledClass}"
+          disabled=${disabled}
+          onClick=${() => onAction && onAction(action)}
+        >
+          ${label}
+        </button>
+      `;
+    }
+
+    // Interactive: Select
+    function Select({ element }) {
+      const { label, bindPath, options, placeholder } = element.props;
+      const { data, setData } = useData();
+      const value = getByPath(data, bindPath) || '';
+
+      const handleChange = (e) => {
+        const segments = bindPath.startsWith('/') ? bindPath.slice(1).split('/') : bindPath.split('/');
+        const newData = { ...data };
+        let current = newData;
+        for (let i = 0; i < segments.length - 1; i++) {
+          current[segments[i]] = { ...current[segments[i]] };
+          current = current[segments[i]];
+        }
+        current[segments[segments.length - 1]] = e.target.value;
+        setData(newData);
+      };
+
+      return html`
+        <div class="flex flex-col gap-1">
+          ${label && html`<label class="text-sm font-medium text-gray-700">${label}</label>`}
+          <select 
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2 border"
+            value=${value}
+            onChange=${handleChange}
+          >
+            ${placeholder && html`<option value="">${placeholder}</option>`}
+            ${options.map(opt => html`<option value=${opt.value}>${opt.label}</option>`)}
+          </select>
+        </div>
+      `;
+    }
+
+    // Interactive: DatePicker
+    function DatePicker({ element }) {
+      const { label, bindPath, placeholder } = element.props;
+      const { data, setData } = useData();
+      const value = getByPath(data, bindPath) || '';
+
+      const handleChange = (e) => {
+        const segments = bindPath.startsWith('/') ? bindPath.slice(1).split('/') : bindPath.split('/');
+        const newData = { ...data };
+        let current = newData;
+        for (let i = 0; i < segments.length - 1; i++) {
+          current[segments[i]] = { ...current[segments[i]] };
+          current = current[segments[i]];
+        }
+        current[segments[segments.length - 1]] = e.target.value;
+        setData(newData);
+      };
+
+      return html`
+        <div class="flex flex-col gap-1">
+          ${label && html`<label class="text-sm font-medium text-gray-700">${label}</label>`}
+          <input 
+            type="date"
+            class="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 px-3 py-2 border"
+            value=${value}
+            placeholder=${placeholder}
+            onChange=${handleChange}
+          />
+        </div>
+      `;
+    }
+
+    // Typography: Heading
+    function Heading({ element }) {
+      const { text, level = 'h2' } = element.props;
+      const classes = {
+        h1: 'text-3xl font-bold text-gray-900',
+        h2: 'text-2xl font-semibold text-gray-900',
+        h3: 'text-xl font-semibold text-gray-900',
+        h4: 'text-lg font-medium text-gray-900'
+      }[level] || 'text-2xl font-semibold text-gray-900';
+
+      return html`<div class=${classes}>${text}</div>`;
+    }
+
+    // Typography: Text
+    function Text({ element }) {
+      const { content, variant = 'body', color = 'default' } = element.props;
+      const variantClass = { body: 'text-base', caption: 'text-sm', label: 'text-sm font-medium' }[variant] || 'text-base';
+      const colorClass = {
+        default: 'text-gray-700',
+        muted: 'text-gray-500',
+        success: 'text-green-600',
+        warning: 'text-amber-600',
+        danger: 'text-red-600'
+      }[color] || 'text-gray-700';
+
+      return html`<p class="${variantClass} ${colorClass}">${content}</p>`;
+    }
+
+    // Status: Badge
+    function Badge({ element }) {
+      const { text, variant = 'default' } = element.props;
+      const variantClass = {
+        default: 'bg-gray-100 text-gray-800',
+        success: 'bg-green-100 text-green-800',
+        warning: 'bg-amber-100 text-amber-800',
+        danger: 'bg-red-100 text-red-800',
+        info: 'bg-blue-100 text-blue-800'
+      }[variant] || 'bg-gray-100 text-gray-800';
+
+      return html`<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${variantClass}">${text}</span>`;
+    }
+
+    // Status: Alert
+    function Alert({ element }) {
+      const { type, title, message, dismissible } = element.props;
+      const dismissed = useSignal(false);
+      
+      if (dismissed.value) return null;
+
+      const colors = {
+        info: { bg: 'bg-blue-50', border: 'border-blue-200', title: 'text-blue-800', text: 'text-blue-700' },
+        success: { bg: 'bg-green-50', border: 'border-green-200', title: 'text-green-800', text: 'text-green-700' },
+        warning: { bg: 'bg-amber-50', border: 'border-amber-200', title: 'text-amber-800', text: 'text-amber-700' },
+        error: { bg: 'bg-red-50', border: 'border-red-200', title: 'text-red-800', text: 'text-red-700' }
+      }[type] || colors.info;
+
+      return html`
+        <div class="rounded-lg border p-4 ${colors.bg} ${colors.border}">
+          <div class="flex justify-between items-start">
+            <div>
+              <h4 class="font-medium ${colors.title}">${title}</h4>
+              ${message && html`<p class="mt-1 text-sm ${colors.text}">${message}</p>`}
+            </div>
+            ${dismissible && html`
+              <button onClick=${() => dismissed.value = true} class="text-gray-400 hover:text-gray-600">×</button>
+            `}
+          </div>
+        </div>
+      `;
+    }
+
+    // Special: Divider
+    function Divider({ element }) {
+      const { label } = element.props;
+      if (label) {
+        return html`
+          <div class="relative py-2">
+            <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-200"></div></div>
+            <div class="relative flex justify-center"><span class="px-2 bg-gray-50 text-sm text-gray-500">${label}</span></div>
+          </div>
+        `;
+      }
+      return html`<hr class="border-gray-200 my-4"/>`;
+    }
+
+    // Special: Empty
+    function Empty({ element, onAction }) {
+      const { title, description, action, actionLabel } = element.props;
+      return html`
+        <div class="text-center py-12">
+          <h3 class="text-lg font-medium text-gray-900">${title}</h3>
+          ${description && html`<p class="mt-2 text-sm text-gray-500">${description}</p>`}
+          ${action && actionLabel && html`
+            <button 
+              onClick=${() => onAction && onAction(action)}
+              class="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              ${actionLabel}
+            </button>
+          `}
+        </div>
+      `;
+    }
+
+    // ============================================================
+    // COMPONENT REGISTRY
+    // ============================================================
+    const COMPONENTS = {
+      Card, Grid, Stack, Metric, Chart, Table, List,
+      Button, Select, DatePicker,
+      Heading, Text, Badge, Alert, Divider, Empty
+    };
+
+    // ============================================================
+    // RENDERER
+    // ============================================================
+    function ElementRenderer({ elementKey, tree, onAction }) {
+      const { data } = useData();
+      const element = tree.elements[elementKey];
+      
+      if (!element) return null;
+      if (!evaluateVisibility(element.visible, data)) return null;
+
+      const Component = COMPONENTS[element.type];
+      if (!Component) {
+        console.warn(`Unknown component: ${element.type}`);
+        return null;
+      }
+
+      const children = element.children?.map(childKey => 
+        html`<${ElementRenderer} key=${childKey} elementKey=${childKey} tree=${tree} onAction=${onAction}/>`
+      );
+
+      return html`<${Component} element=${element} onAction=${onAction}>${children}<//>`;
+    }
+
+    function Renderer({ tree, onAction }) {
+      if (!tree?.root) return null;
+      return html`<${ElementRenderer} elementKey=${tree.root} tree=${tree} onAction=${onAction}/>`;
+    }
+
+    // ============================================================
+    // APP
+    // ============================================================
+    
+    // REPLACE THIS WITH YOUR UITREE JSON
+    const UI_TREE = {
+      "root": "demo",
+      "elements": {
+        "demo": {
+          "key": "demo",
+          "type": "Card",
+          "props": { "title": "json-render-ui Demo", "padding": "lg" },
+          "children": ["text"]
+        },
+        "text": {
+          "key": "text",
+          "type": "Text",
+          "props": { "content": "Replace UI_TREE with your generated JSON.", "color": "muted" }
+        }
+      },
+      "data": {}
+    };
+
+    function App() {
+      const handleAction = (action) => {
+        console.log('Action:', action);
+        alert(`Action triggered: ${action}`);
+      };
+
+      return html`
+        <${DataProvider} initialData=${UI_TREE.data || {}}>
+          <${Renderer} tree=${UI_TREE} onAction=${handleAction}/>
+        <//>
+      `;
+    }
+
+    render(html`<${App}/>`, document.getElementById('app'));
+  </script>
+</body>
+</html>
