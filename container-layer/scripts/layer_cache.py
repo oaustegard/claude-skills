@@ -209,12 +209,25 @@ def build_and_push(
     
     tarball = "/tmp/_layer_build.tar.gz"
     
-    # Build tarball with absolute paths (rooted at /)
-    paths_str = " ".join(f'"{p}"' for p in existing)
-    cmd = f'tar -czf "{tarball}" {paths_str} 2>&1'
-    
+    # Build tarball with absolute paths (rooted at /). Feed the path list to
+    # tar via a NUL-delimited -T file rather than the command line: a large
+    # snapshot (thousands of individual files) overflows the single argv string
+    # passed to `/bin/sh -c`, raising OSError [Errno 7] "Argument list too long"
+    # at exec — which aborts the layer build entirely. -T reads names from a
+    # file, so argv stays tiny regardless of how many paths are snapshotted.
+    # --null pairs with NUL separators so paths with spaces need no quoting.
+    filelist = "/tmp/_layer_build_files.txt"
+    with open(filelist, "wb") as fh:
+        fh.write(b"\0".join(os.fsencode(p) for p in existing))
+    cmd = f'tar -czf "{tarball}" --null -T "{filelist}" 2>&1'
+
     result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
-    
+
+    try:
+        os.remove(filelist)
+    except OSError:
+        pass
+
     if not os.path.exists(tarball):
         print(f"  Tarball creation failed: {result.stderr.strip()}")
         return
