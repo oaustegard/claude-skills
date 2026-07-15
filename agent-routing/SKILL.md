@@ -4,40 +4,26 @@ description: Decide which model (Haiku/Sonnet/Opus) and effort level each subage
 compatibility: Designed for Claude Code / Claude Code on the Web — assumes an orchestrator with Agent/Workflow subagent tools exposing per-call model and effort options. Not applicable to claude.ai chat use.
 metadata:
   author: Oskar Austegard and Claude (Fable 5)
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Agent Routing — model + effort selection for subagents
 
-One question decides most routing: **is the task mechanically checkable, or does
-it require judgment?** Checkable tasks go to Haiku with a verifier. Judgment
-tasks go up-tier. Everything else here is refinement of that split.
+Before spawning any subagent, answer one question: **is the task mechanically
+checkable, or does it require judgment?** Checkable → Haiku at `effort: 'low'`
+behind a verifier. Judgment → up-tier. The routing table refines this split; the
+rest of the skill governs cascades and loops.
 
-For turning a judgment-shaped task INTO a Haiku-executable one (explicit
-procedures, n-shot examples), use the sibling `down-skilling` skill; this skill
-decides the routing, that one engineers the prompt.
+**Do not up-tier checkable work "to be safe."** Measured Haiku 4.5 failure on
+every checkable task family tested is ≈0, at `effort: 'low'`, with
+chain-of-thought suppressed (evidence: references/calibration-2026-07-15.md).
+The burden of proof is on routing *up*: reflexive up-tiering costs 3–5× for
+safety that the data says is imaginary. Spend effort, not tier, and only where
+reasoning depth demonstrably falls short.
 
-## Priors that measured data overturned (2026-07-15)
-
-- **Haiku 4.5 does not need help on closed-form work.** 240/240 across nested
-  mod-23 arithmetic (16-leaf trees), 30-hop function chains, 25-op state
-  tracking, trap-laden word math, and 5-constraint sentence generation
-  (including a lipogram) — even with chain-of-thought suppressed and
-  `effort: 'low'`. Do not route these up-tier "to be safe"; the safety is
-  imaginary and the cost is 3–5×.
-- **Bigger is not automatically more precise.** In the same battery Sonnet at
-  low effort went 17/20, miscounting exact-word-count constraints twice and
-  breaking a no-letter-'e' constraint once. Small n — treat as "no evidence of
-  up-tier benefit," not "Sonnet is worse" — but the burden of proof now sits on
-  routing *up*, not down.
-- **Effort didn't move Haiku on mechanical tasks** (low == high == 100%).
-  Default subagents to `effort: 'low'` for anything checkable; spend effort,
-  not parameters, only where reasoning depth demonstrably falls short.
-- **Blind self-improvement loops are identity-or-drift.** Re-running a fixed
-  prompt on a correct answer returned the identity in 96/96 loop-pairs; the
-  one task whose output did change (a 5-7-5 haiku) got *worse* on loop 2 and
-  froze on the broken text for all remaining loops. Loops only pay when an
-  out-of-band evaluator selects among iterations.
+To turn a judgment-shaped task INTO a Haiku-executable one (explicit procedures,
+n-shot examples), use the sibling `down-skilling` skill. This skill decides the
+routing; that one engineers the prompt.
 
 ## Routing table
 
@@ -52,9 +38,9 @@ decides the routing, that one engineers the prompt.
 | Ambiguity resolution, novel synthesis, architecture, taste | `sonnet`/`opus` | `high` | human or panel |
 | Long-horizon multi-step agentic work, cross-file reasoning | `sonnet`/`opus` | `high`/`xhigh` | milestone checks |
 
-## The cascade (default composition)
+## Cascade (default composition)
 
-When a cheap verifier exists, never choose between Haiku and Sonnet — compose:
+When a near-free verifier exists, compose instead of choosing a tier up front:
 
 ```
 result = haiku(task, effort=low)
@@ -62,43 +48,40 @@ if verify(result) fails:  result = sonnet(task)      # escalate on evidence
 if verify(result) fails:  result = opus(task)         # rare
 ```
 
-Pricing (per MTok, 2026-07): Haiku $1/$5 · Sonnet $3/$15 · Opus 4.8 $5/$25.
-Expected cascade cost ≈ `c_haiku + p_fail × c_sonnet`, so with a reliable
-near-free verifier the cascade beats Sonnet-direct whenever Haiku's failure
-rate is **below ~2/3**, and beats Opus-direct below ~4/5. Every checkable task
-measured so far has Haiku failure ≈ 0 — the cascade is nearly pure savings.
-No verifier ⇒ no cascade: route by the table instead, because silent Haiku
-errors compound downstream.
+Input-cost ratio is Haiku 1× · Sonnet 3× · Opus 5×. Expected cascade cost ≈
+`c_haiku + p_fail × c_sonnet`, so the cascade beats Sonnet-direct while Haiku's
+failure rate stays below ~2/3, and beats Opus-direct below ~4/5 (derivation in
+the reference). Every checkable task measured has Haiku failure ≈0, so the
+cascade is nearly pure savings.
 
-## Loop discipline (evaluator as exit gate)
+**No verifier ⇒ no cascade.** Route by the table instead, because silent Haiku
+errors compound downstream with nothing to catch them.
 
-Derived from a Looped-Mamba replication (arXiv 2607.10110, run 2026-07-15 with
-Haiku subagents as the shared recurrent block): an LLM call already unrolls its
-own depth as chain-of-thought, so re-applying the same prompt to its own output
-is the identity at best and regression-then-freeze at worst.
+## Loop discipline
 
-1. **Never blind-loop.** Only loop with an out-of-band evaluator scoring every
-   iteration — ground truth, mechanical checker, or an up-tier judge.
-2. **Select, don't trust the last.** `final = argmax_r eval(answer_r)` — never
+Never blind-loop. Re-applying the same prompt to a model's own output is the
+identity at best (an LLM call already unrolls its reasoning depth internally) and
+regression-then-freeze at worst — in calibration, a re-looped haiku broke its
+own middle line on iteration 2 and froze on the broken text for every iteration
+after. Loops only pay when an out-of-band evaluator scores each iteration.
+
+1. **Loop only with an out-of-band evaluator** — ground truth, mechanical
+   checker, or an up-tier judge scoring every iteration.
+2. **Select, don't trust the last:** `final = argmax_r eval(answer_r)`. Never
    ship iteration N just because it's newest.
-3. **Stop on first regression.** If `eval(r) < eval(r-1)`, stop; empirically
-   loops froze on the degraded output rather than recovering, so the
-   local-minimum risk of stopping early is smaller than the drift risk of
-   continuing.
-4. **Loop for diversity, not depth.** Vary the prompt/angle per iteration if
-   you want the loop to explore; identical re-application converges instantly.
-5. **"Improve this" with no headroom is the danger zone.** Asking a model to
-   improve an already-good answer pressures it to change something; without a
-   selector that change ships. With one, it's harmless.
+3. **Stop on first regression.** If `eval(r) < eval(r-1)`, stop — loops froze on
+   degraded output rather than recovering, so early-stop risk beats drift risk.
+4. **Loop for diversity, not depth.** Vary the prompt/angle per iteration to
+   explore; identical re-application converges instantly.
+5. **"Improve this" with no headroom is the danger zone.** It pressures the model
+   to change something; without a selector, that change ships.
 
 ## Judge rules
 
-- Judge model ≠ worker model; judge at least one tier up (Sonnet judging
-  Haiku, Opus judging Sonnet). Same-model self-assessment was not tested here —
-  don't assume it works.
-- Prefer mechanical checkers over judges wherever a spec can be executed
-  (word counts, schemas, tests, regex). They're free, deterministic, and the
-  calibration used zero judge tokens.
+- Judge model ≠ worker model; judge at least one tier up (Sonnet judging Haiku,
+  Opus judging Sonnet). Same-model self-assessment is untested — don't assume it.
+- Prefer mechanical checkers over judges wherever a spec can be executed (word
+  counts, schemas, tests, regex): free, deterministic, zero judge tokens.
 - Judges are for rubric quality, not arithmetic — don't ask Sonnet to verify a
   sum a Python one-liner can check.
 
@@ -109,13 +92,12 @@ is the identity at best and regression-then-freeze at worst.
 - Output will be shipped verbatim to a human without review.
 - The subagent must plan its own multi-step tool strategy over many turns.
 
-## Known unknowns (recalibrate when these bite)
+## Recalibrate when
 
-- Boundary location: no deterministic task has made Haiku fail yet, so the
-  cliff is *somewhere past* this battery — probe with harder instances before
-  trusting Haiku on a genuinely novel task family.
-- Multi-turn agentic tool use was not calibrated — the table's up-tier rows
-  there are prior, not measurement.
-- Model versions move: re-run the battery in
-  [references/calibration-2026-07-15.md](references/calibration-2026-07-15.md)
-  when Haiku or Sonnet rev bumps.
+- **The task is off the measured battery.** No deterministic task has made Haiku
+  fail yet, so the cliff is past what's been probed — test harder instances
+  before trusting Haiku on a genuinely novel task family.
+- **The work is multi-turn agentic tool use.** That was not calibrated; treat the
+  table's up-tier rows there as prior, not measurement.
+- **A model rev bumps.** Re-run the battery (generators + scorer described in
+  references/calibration-2026-07-15.md) before trusting the table.
