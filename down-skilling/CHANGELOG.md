@@ -4,6 +4,12 @@ All notable changes to the `down-skilling` skill are documented in this file. Th
 
 ## [1.3.0] - 2026-07-15
 
+### Other
+
+- Add agent-routing skill; update down-skilling with 2026-07-15 Haiku 4.5 calibration (#728)
+
+## [1.3.0] - 2026-07-15
+
 ### Added
 
 - **"Before Distilling: Check Whether the Task Needs It"** triage section.
