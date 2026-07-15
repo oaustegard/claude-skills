@@ -17,7 +17,7 @@ Returns: `installed` or `not_installed`
 
 ### 2. Install if needed (one-time, ~19s)
 ```bash
-if [ "$(bash check_install.sh)" = "not_installed" ]; then
+if [ "$(bash /mnt/skills/user/exploring-data/scripts/check_install.sh)" = "not_installed" ]; then
     bash /mnt/skills/user/exploring-data/scripts/install_ydata.sh
 fi
 ```
