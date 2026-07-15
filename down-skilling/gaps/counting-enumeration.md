@@ -3,10 +3,21 @@
 **Opus**: Counts items accurately. Generates exactly N items when asked.
 Tracks quantities across sections.
 
-**Haiku**: May produce N-1 or N+1 items when asked for exactly N.
-Counting errors increase with N > 5. May lose count in longer outputs.
+**Haiku**: Stronger than model-card priors suggested. Calibration
+(2026-07-15, Haiku 4.5): exact-word-count sentence generation hit the
+target 13/13 times at N = 10–14 — under up to four *additional*
+simultaneous constraints — while Sonnet at low effort missed twice on
+the same battery. The decisive factor was **definitional precision**:
+each prompt stated the counting rule explicitly ("a word = any run of
+letters or apostrophes"). Residual risk concentrates in large N (>15,
+unmeasured), counting inside long free-form outputs, and prompts that
+leave the unit of counting ambiguous.
 
-**Mitigation**: Structure output so counting is mechanical, not cognitive.
+**Mitigation**: Define the unit of counting exactly, in the prompt.
+Then, for larger N or count-inside-long-output tasks, structure output
+so counting is mechanical, not cognitive — and prefer a deterministic
+post-hoc checker (word counts are free to verify) over prompt
+scaffolding alone.
 
 For "generate exactly 5 items":
 ```

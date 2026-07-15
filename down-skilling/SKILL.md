@@ -9,7 +9,7 @@ description: >-
   a smaller model with high reliability.
 metadata:
   author: Oskar Austegard and Opus
-  version: 1.2.0
+  version: 1.3.0
 ---
 
 # Down-Skilling: Opus → Haiku Distillation
@@ -30,13 +30,14 @@ needs stated explicitly.
 
 ## Economics: Why Examples Are Free
 
-Opus input costs ~6× Haiku input. A task that costs $1.00 on Opus costs
-~$0.17 on Haiku — but only if Haiku gets it right on the first try.
-One retry wipes the savings; two retries makes Haiku more expensive.
+Opus 4.8 costs 5× Haiku 4.5 on both sides ($5/$25 vs $1/$5 per MTok;
+2026-07 pricing). A task that costs $1.00 on Opus costs ~$0.20 on Haiku —
+but only if Haiku gets it right on the first try. One retry halves the
+savings; a few retries makes Haiku more expensive.
 
 **The math that matters:**
-- Input tokens are cheap (Haiku: $0.80/MTok input vs $4.00/MTok output)
-- Adding 2,000 tokens of examples costs ~$0.0016 per call
+- Input tokens are cheap (Haiku 4.5: $1.00/MTok input vs $5.00/MTok output)
+- Adding 2,000 tokens of examples costs ~$0.002 per call
 - A single failed-then-retried call costs ~$0.008+ in wasted output
 - **Examples pay for themselves if they prevent even 1-in-5 retries**
 
@@ -51,6 +52,44 @@ One retry wipes the savings; two retries makes Haiku more expensive.
 **Bottom line:** Every example that prevents a Haiku misfire saves 5-25×
 its input cost in wasted output tokens. Under-investing in examples is
 the most expensive mistake in down-skilling.
+
+## Before Distilling: Check Whether the Task Needs It (2026-07 calibration)
+
+This skill's gap catalog was originally derived from model-card priors.
+A 2026-07-15 empirical calibration (300 measured Haiku 4.5 calls; data in
+the `agent-routing` skill's `references/calibration-2026-07-15.md`) found
+Haiku 4.5 substantially stronger than those priors on **mechanically
+checkable** work: 240/240 on nested modular arithmetic (16-leaf expression
+trees), 30-hop function chains, 25-operation state tracking, trap-laden
+word math, and 5-simultaneous-constraint sentence generation (exact word
+counts, required/forbidden tokens, a lipogram) — at `effort: low`, and in
+one control with chain-of-thought suppressed entirely. On the same battery
+Sonnet at low effort scored 17/20, missing exact-count constraints Haiku
+satisfied.
+
+**Triage before investing in a full distillation:**
+
+1. **Output mechanically checkable** (schema validates, tests run, counts
+   count, regex matches)? → A minimal prompt + a deterministic verifier +
+   retry-or-escalate-on-fail is cheaper and more reliable than an
+   example-heavy prompt with no verifier. Spend your effort writing the
+   checker, not the examples. Precision constraints ("exactly N words")
+   held reliably when the prompt defined the counting rule explicitly
+   ("a word = any run of letters or apostrophes") — definitional
+   precision, not scaffolding volume, did the work.
+2. **Output requires judgment** (tone, relevance, quality, ambiguity
+   resolution)? → This is what the rest of this skill is for. Distill
+   fully: procedures, rubrics, n-shot examples.
+3. **Mixed?** → Split the task. Route the checkable part per (1); distill
+   only the judgment part.
+
+**Iteration warning (measured, same calibration):** never ask Haiku to
+blindly re-improve its own output in a loop. On correct answers,
+re-application returned the identity (0 changes in 96 loop-pairs); on the
+one output that did change, quality *regressed* on the second pass and
+then froze on the degraded text for all remaining passes. If you iterate,
+score every iteration with an out-of-band checker or judge, keep
+`argmax`, and stop at the first regression.
 
 ## Activation
 
