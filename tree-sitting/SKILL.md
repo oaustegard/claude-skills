@@ -2,7 +2,7 @@
 name: tree-sitting
 description: AST-powered code navigation via tree-sitter. Auto-scans codebases and provides progressive-disclosure tree views with symbol search, source retrieval, and reference finding. Each invocation is self-contained — no cross-process state. Use when exploring unfamiliar repos, navigating code, or needing fast symbol lookup. Triggers on "map this codebase", "explore repo", "find symbol", "navigate code", "tree-sitter", or when starting work on an unfamiliar repository.
 metadata:
-  version: 0.6.0
+  version: 0.7.0
 ---
 
 # tree-sitting
@@ -78,7 +78,33 @@ Append after the repo path. Multiple queries per call.
 | `imports:FILE` | `imports:src/api.py` | Import list for a file |
 | `dir:PATH` | `dir:src/core` | Directory overview (engine format) |
 
+### Caching
+
+Scans are cached to disk, keyed on a fileset fingerprint (mtime + size of all
+files under root, combined with skip-set and cache format version). Repeat drills
+in a session skip re-parsing — results are byte-identical whether served from
+cache or fresh parse.
+
+Cache auto-invalidates when files change, are added, or removed. Use `--no-cache`
+to skip cache entirely (always parse), or `--rebuild-cache` to ignore existing
+cache and rewrite it. Set `TREESIT_CACHE_DIR` environment variable to relocate
+cache from the system temp directory.
+
 ### Workflow
+
+For structural drills ("what does this expose", "where is X", "who calls X"),
+**batch multiple queries in a single call**:
+
+```bash
+# Batch drills (default for exploration)
+treesit.py /repo 'find:Parser*' 'source:parse_input' 'refs:ParseState'
+```
+
+One scan, all results. Do not fall back to `grep` or `sed` for symbol lookups —
+the AST queries (`find:`, `source:`, `refs:`) provide accurate, fast symbol-aware
+results that text search cannot match.
+
+For iterative exploration:
 
 ```
 1. treesit.py /repo                           → orient: what dirs, how big
@@ -89,7 +115,7 @@ Append after the repo path. Multiple queries per call.
 ```
 
 Each call is self-contained. No need to "scan first, query later" —
-scan happens automatically every time (~700ms).
+scan happens automatically, and results are cached for subsequent calls (~700ms first scan).
 
 ## Usage: Direct Python (single invocation)
 

@@ -7,6 +7,9 @@ Designed to be held in a long-lived process (MCP server) for fast queries.
 
 import os
 import fnmatch
+import hashlib
+import json
+import tempfile
 from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Optional
@@ -101,6 +104,40 @@ DEFAULT_SKIP = {
     'vendor', 'coverage', '.eggs', '*.egg-info',
 }
 
+# Cache format version — bump this to invalidate all existing caches
+CACHE_FORMAT_VERSION = 1
+
+
+def cache_path_for(root: str) -> Path:
+    """Determine deterministic cache file path for a root directory.
+
+    Honors TREESIT_CACHE_DIR environment variable if set, otherwise uses
+    system temp directory. Filename derived from SHA256 of resolved abspath.
+
+    Args:
+        root: Source root path (may contain symlinks or be relative)
+
+    Returns:
+        pathlib.Path to cache file (may not exist)
+    """
+    # Resolve to absolute canonical path
+    root_resolved = str(Path(root).resolve())
+
+    # Determine cache directory
+    cache_dir_env = os.environ.get('TREESIT_CACHE_DIR')
+    if cache_dir_env:
+        cache_dir = Path(cache_dir_env)
+    else:
+        cache_dir = Path(tempfile.gettempdir()) / 'treesit-cache'
+
+    # Ensure cache directory exists
+    cache_dir.mkdir(parents=True, exist_ok=True)
+
+    # Derive filename from SHA256 of resolved path
+    cache_hash = hashlib.sha256(root_resolved.encode()).hexdigest()
+
+    return cache_dir / f'{cache_hash}.json'
+
 
 @dataclass
 class Symbol:
@@ -128,6 +165,28 @@ class Symbol:
         if include_children and self.children:
             d['children'] = [c.to_dict(include_children=False) for c in self.children]
         return d
+
+    @staticmethod
+    def from_dict(d: dict) -> 'Symbol':
+        """Deserialize a Symbol from a dict (from cache JSON).
+
+        Reconstructs one level of children (to_dict stores one level).
+        """
+        children = []
+        if 'children' in d and d['children']:
+            for child_dict in d['children']:
+                children.append(Symbol.from_dict(child_dict))
+
+        return Symbol(
+            name=d['name'],
+            kind=d['kind'],
+            file=d['file'],
+            line=d['line'],
+            end_line=d['end_line'],
+            signature=d.get('signature'),
+            doc=d.get('doc'),
+            children=children,
+        )
 
     def format_oneline(self) -> str:
         """Format as a concise one-line string."""
@@ -1256,8 +1315,8 @@ def extract_imports(tree, source: bytes, lang: str) -> list[str]:
 class FileEntry:
     path: str       # relative path
     lang: str
-    source: bytes
-    tree: object    # tree-sitter Tree
+    source: Optional[bytes]  # Can be None for lazy loading from cache
+    tree: Optional[object]   # tree-sitter Tree; can be None for lazy loading
     symbols: list[Symbol]
     imports: list[str]
 
@@ -1274,43 +1333,124 @@ class CodeCache:
     def is_loaded(self) -> bool:
         return self.root is not None and len(self.files) > 0
 
-    def scan(self, root: str, skip: set[str] | None = None) -> dict:
-        """Parse all recognized files under root. Returns stats."""
+    def _fingerprint(self, root: str, skip: set[str] | None = None) -> str:
+        """Compute a stable fingerprint of the scanned tree.
+
+        Hash over sorted (relpath, size, mtime_ns) for all candidate files,
+        combined with CACHE_FORMAT_VERSION and sorted(skip).
+
+        Args:
+            root: Root directory path
+            skip: Set of directory names to skip (uses DEFAULT_SKIP if None)
+
+        Returns:
+            Hex string fingerprint
+        """
+        root_path = Path(root).resolve()
+        skip_dirs = skip if skip is not None else DEFAULT_SKIP
+
+        # Collect all candidate files: (relpath, size, mtime_ns)
+        file_stats = []
+
+        for dirpath, dirnames, filenames in os.walk(root_path):
+            # Prune directories to skip
+            dirnames[:] = [d for d in dirnames
+                          if d not in skip_dirs and not d.startswith('.')]
+
+            for fn in sorted(filenames):
+                fp = Path(dirpath) / fn
+                ext = fp.suffix.lower()
+                # Only consider files we can parse
+                if ext not in EXT_TO_LANG:
+                    continue
+
+                try:
+                    relpath = str(fp.relative_to(root_path))
+                    stat = fp.stat()
+                    file_stats.append((relpath, stat.st_size, stat.st_mtime_ns))
+                except OSError:
+                    # File disappeared or is unreadable; skip it
+                    continue
+
+        # Create hash input: sorted file stats + version + sorted skip
+        hash_parts = []
+        hash_parts.append(f'version:{CACHE_FORMAT_VERSION}')
+        hash_parts.extend(f'{relpath}:{size}:{mtime}' for relpath, size, mtime in sorted(file_stats))
+        hash_parts.extend(f'skip:{d}' for d in sorted(skip_dirs))
+
+        hash_input = '\n'.join(hash_parts).encode('utf-8')
+        return hashlib.sha256(hash_input).hexdigest()
+
+    def scan(self, root: str, skip: set[str] | None = None, use_cache: bool = True, rebuild_cache: bool = False) -> dict:
+        """Parse all recognized files under root, with optional persistent cache.
+
+        Args:
+            root: Root directory to scan
+            skip: Set of directory names to skip (uses DEFAULT_SKIP if None)
+            use_cache: If True, read from and write to persistent cache
+            rebuild_cache: If True, ignore cache and force fresh parse
+
+        Returns:
+            Stats dict including 'loaded_from_cache' bool
+        """
         self.root = Path(root).resolve()
         self.files.clear()
         self._symbol_index.clear()
-        skip_dirs = skip or DEFAULT_SKIP
+        skip_dirs = skip if skip is not None else DEFAULT_SKIP
         total_bytes = 0
         errors = 0
+        loaded_from_cache = False
 
-        for dirpath, dirnames, filenames in os.walk(self.root):
-            dirnames[:] = [d for d in dirnames
-                           if d not in skip_dirs and not d.startswith('.')]
-            for fn in sorted(filenames):
-                fp = Path(dirpath) / fn
-                lang = EXT_TO_LANG.get(fp.suffix.lower())
-                if not lang:
-                    continue
-                relpath = str(fp.relative_to(self.root))
+        # Determine cache path and fingerprint
+        cache_path = cache_path_for(str(self.root)) if use_cache else None
+        fingerprint = self._fingerprint(str(self.root), skip_dirs) if use_cache else None
+
+        # Try to load from cache
+        if use_cache and not rebuild_cache and cache_path and fingerprint:
+            try:
+                loaded_from_cache = self._try_load_cache(cache_path, fingerprint)
+            except Exception:
+                # Any error loading cache: silently fall back to parse
+                loaded_from_cache = False
+
+        # If no cache hit, parse fresh
+        if not loaded_from_cache:
+            for dirpath, dirnames, filenames in os.walk(self.root):
+                dirnames[:] = [d for d in dirnames
+                               if d not in skip_dirs and not d.startswith('.')]
+                for fn in sorted(filenames):
+                    fp = Path(dirpath) / fn
+                    lang = EXT_TO_LANG.get(fp.suffix.lower())
+                    if not lang:
+                        continue
+                    relpath = str(fp.relative_to(self.root))
+                    try:
+                        source = fp.read_bytes()
+                        total_bytes += len(source)
+                        parser = _get_parser(lang)
+                        if parser is None:
+                            continue  # Parser not available for this language
+                        tree = parser.parse(source)
+                        syms = extract_symbols(tree, source, relpath, lang)
+                        imps = extract_imports(tree, source, lang)
+                        self.files[relpath] = FileEntry(
+                            path=relpath, lang=lang, source=source,
+                            tree=tree, symbols=syms, imports=imps)
+                        # Index symbols
+                        for sym in syms:
+                            self._symbol_index.setdefault(sym.name, []).append(sym)
+                            for child in sym.children:
+                                self._symbol_index.setdefault(child.name, []).append(child)
+                    except Exception as e:
+                        errors += 1
+
+            # Write cache if caching is enabled
+            if use_cache and cache_path and fingerprint:
                 try:
-                    source = fp.read_bytes()
-                    total_bytes += len(source)
-                    parser = _get_parser(lang)
-                    if parser is None:
-                        continue  # Parser not available for this language
-                    tree = parser.parse(source)
-                    syms = extract_symbols(tree, source, relpath, lang)
-                    imps = extract_imports(tree, source, lang)
-                    self.files[relpath] = FileEntry(
-                        path=relpath, lang=lang, source=source,
-                        tree=tree, symbols=syms, imports=imps)
-                    # Index symbols
-                    for sym in syms:
-                        self._symbol_index.setdefault(sym.name, []).append(sym)
-                        for child in sym.children:
-                            self._symbol_index.setdefault(child.name, []).append(child)
-                except Exception as e:
-                    errors += 1
+                    self._write_cache(cache_path, fingerprint)
+                except Exception:
+                    # Silently ignore cache write failures
+                    pass
 
         return {
             'root': str(self.root),
@@ -1319,7 +1459,137 @@ class CodeCache:
             'bytes': total_bytes,
             'errors': errors,
             'languages': sorted(set(e.lang for e in self.files.values())),
+            'loaded_from_cache': loaded_from_cache,
         }
+
+    def _try_load_cache(self, cache_path: Path, fingerprint: str) -> bool:
+        """Try to load cache from disk.
+
+        Args:
+            cache_path: Path to cache file
+            fingerprint: Expected fingerprint
+
+        Returns:
+            True if cache was loaded successfully, False otherwise.
+            On any error, returns False and caller falls back to parse.
+        """
+        if not cache_path.exists():
+            return False
+
+        try:
+            with open(cache_path, 'r') as f:
+                cache_data = json.load(f)
+        except (json.JSONDecodeError, IOError, OSError):
+            # Bad JSON or unreadable file
+            return False
+
+        # Validate cache format
+        if not isinstance(cache_data, dict):
+            return False
+
+        # Check version
+        cache_version = cache_data.get('cache_format_version')
+        if cache_version != CACHE_FORMAT_VERSION:
+            return False
+
+        # Check fingerprint
+        cache_fingerprint = cache_data.get('fingerprint')
+        if cache_fingerprint != fingerprint:
+            return False
+
+        # Load files from cache
+        files_data = cache_data.get('files', {})
+        if not isinstance(files_data, dict):
+            return False
+
+        try:
+            for relpath, file_data in files_data.items():
+                lang = file_data.get('lang')
+                imports = file_data.get('imports', [])
+                symbols_data = file_data.get('symbols', [])
+
+                # Deserialize symbols
+                symbols = []
+                for sym_dict in symbols_data:
+                    try:
+                        sym = Symbol.from_dict(sym_dict)
+                        symbols.append(sym)
+                    except (KeyError, TypeError):
+                        # Bad symbol data; fail cache load
+                        return False
+
+                # Create FileEntry with tree=None and source=None (lazy load)
+                self.files[relpath] = FileEntry(
+                    path=relpath,
+                    lang=lang,
+                    source=None,
+                    tree=None,
+                    symbols=symbols,
+                    imports=imports,
+                )
+
+                # Index symbols
+                for sym in symbols:
+                    self._symbol_index.setdefault(sym.name, []).append(sym)
+                    for child in sym.children:
+                        self._symbol_index.setdefault(child.name, []).append(child)
+
+            return True
+        except Exception:
+            return False
+
+    def _write_cache(self, cache_path: Path, fingerprint: str) -> None:
+        """Write cache to disk atomically.
+
+        Args:
+            cache_path: Path to write cache file to
+            fingerprint: Fingerprint of scanned tree
+        """
+        # Build cache data structure
+        cache_data = {
+            'cache_format_version': CACHE_FORMAT_VERSION,
+            'fingerprint': fingerprint,
+            'files': {},
+        }
+
+        # Serialize files
+        for relpath, entry in self.files.items():
+            cache_data['files'][relpath] = {
+                'lang': entry.lang,
+                'symbols': [s.to_dict(include_children=True) for s in entry.symbols],
+                'imports': entry.imports,
+            }
+
+        # Write atomically: write to temp file, then replace
+        tmp_path = None
+        try:
+            # Use same directory as target file for atomic rename
+            cache_dir = cache_path.parent
+            cache_dir.mkdir(parents=True, exist_ok=True)
+
+            # Create temp file in the same directory for atomic rename
+            fd, tmp_file_path = tempfile.mkstemp(
+                prefix='.treesit-',
+                suffix='.tmp.json',
+                dir=cache_dir,
+            )
+            tmp_path = Path(tmp_file_path)
+            os.close(fd)  # Close the file descriptor; we'll reopen with json.dump
+
+            with open(tmp_path, 'w') as f:
+                json.dump(cache_data, f)
+
+            # Atomic replace
+            os.replace(tmp_path, cache_path)
+        except Exception:
+            # Clean up temp file if it exists
+            if tmp_path is not None:
+                try:
+                    if tmp_path.exists():
+                        tmp_path.unlink()
+                except Exception:
+                    pass
+            raise
 
     def find_symbol(self, query: str, kind: str | None = None,
                     limit: int = 20) -> list[Symbol]:
@@ -1407,7 +1677,10 @@ class CodeCache:
         return '\n'.join(lines)
 
     def get_source_range(self, filepath: str, start_line: int, end_line: int) -> str:
-        """Get source code for a line range."""
+        """Get source code for a line range.
+
+        Supports lazy source loading: if entry.source is None, reads from disk.
+        """
         entry = self.files.get(filepath)
         if not entry:
             for rp, e in self.files.items():
@@ -1416,18 +1689,46 @@ class CodeCache:
                     break
         if not entry:
             return f"File not found: {filepath}"
-        lines = entry.source.decode('utf-8', errors='replace').split('\n')
+
+        # Lazy load source if needed
+        source = entry.source
+        if source is None:
+            try:
+                if self.root:
+                    src_path = self.root / entry.path
+                    source = src_path.read_bytes()
+                else:
+                    return f"Cannot load source: no root context"
+            except OSError:
+                return f"Cannot read source file: {entry.path}"
+
+        lines = source.decode('utf-8', errors='replace').split('\n')
         selected = lines[start_line-1:end_line]
         return '\n'.join(f"{start_line+i:4d} | {line}" for i, line in enumerate(selected))
 
     def references(self, symbol_name: str, limit: int = 20) -> list[dict]:
-        """Find text references to a symbol across the codebase."""
+        """Find text references to a symbol across the codebase.
+
+        Supports lazy source loading: if entry.source is None, reads from disk.
+        """
         results = []
         name_bytes = symbol_name.encode()
         for relpath, entry in self.files.items():
-            if name_bytes not in entry.source:
+            # Lazy load source if needed
+            source = entry.source
+            if source is None:
+                try:
+                    if self.root:
+                        src_path = self.root / entry.path
+                        source = src_path.read_bytes()
+                    else:
+                        continue
+                except OSError:
+                    continue
+
+            if name_bytes not in source:
                 continue
-            lines = entry.source.decode('utf-8', errors='replace').split('\n')
+            lines = source.decode('utf-8', errors='replace').split('\n')
             for i, line in enumerate(lines):
                 if symbol_name in line:
                     results.append({

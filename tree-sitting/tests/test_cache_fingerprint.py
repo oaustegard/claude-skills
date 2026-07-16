@@ -24,7 +24,7 @@ from engine import CodeCache
 def create_test_repo(tmp_path: Path) -> Path:
     """Create a minimal test repository with real source files."""
     repo = tmp_path / "test_repo"
-    repo.mkdir()
+    repo.mkdir(parents=True, exist_ok=True)
 
     # Create a Python source file
     py_file = repo / "example.py"
@@ -259,8 +259,8 @@ def test_cache_path_for_resolves_symlinks(tmp_path: Path):
 def test_cache_path_for_differs_for_different_roots(tmp_path: Path):
     """cache_path_for differs for different roots."""
     import engine
-    repo1 = create_test_repo(tmp_path)
-    repo2 = create_test_repo(tmp_path)  # Creates another repo in tmp_path
+    repo1 = create_test_repo(tmp_path / "root_a")
+    repo2 = create_test_repo(tmp_path / "root_b")  # a genuinely distinct root
 
     path1 = engine.cache_path_for(str(repo1))
     path2 = engine.cache_path_for(str(repo2))
