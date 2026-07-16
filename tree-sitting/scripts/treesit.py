@@ -320,6 +320,10 @@ def main():
                         help='Suppress tree overview, show only query results')
     parser.add_argument('--stats', action='store_true',
                         help='Show scan statistics')
+    parser.add_argument('--no-cache', action='store_true',
+                        help='Disable persistent cache (never read or write)')
+    parser.add_argument('--rebuild-cache', action='store_true',
+                        help='Ignore existing cache, re-parse, and overwrite cache')
 
     args, extra = parser.parse_known_args()
     # Extra args are queries (argparse struggles with nargs='*' after options)
@@ -337,11 +341,14 @@ def main():
     cache = CodeCache()
     skip = set(args.skip.split(',')) if args.skip else None
     t0 = time.perf_counter()
-    stats = cache.scan(args.repo, skip=skip)
+    use_cache = not args.no_cache
+    rebuild_cache = args.rebuild_cache
+    stats = cache.scan(args.repo, skip=skip, use_cache=use_cache, rebuild_cache=rebuild_cache)
     elapsed = (time.perf_counter() - t0) * 1000
 
     if args.stats:
-        print(f"Scanned {stats['files']} files ({stats['bytes']//1024} KB) in {elapsed:.0f}ms")
+        cached_marker = " (cached)" if stats.get('loaded_from_cache', False) else ""
+        print(f"Scanned {stats['files']} files ({stats['bytes']//1024} KB) in {elapsed:.0f}ms{cached_marker}")
         print(f"Symbols: {stats['symbols']} | Languages: {', '.join(stats['languages'])}")
         if stats['errors']:
             print(f"Errors: {stats['errors']}")
