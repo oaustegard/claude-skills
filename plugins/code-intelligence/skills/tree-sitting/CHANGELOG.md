@@ -2,6 +2,26 @@
 
 All notable changes to the `tree-sitting` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.7.0] - 2026-07-16
+
+### Added
+
+- persistent scan-cache (0.7.0) (#732)
+
+### Other
+
+- tree-sitting: note tree-sitter v0.26.10 is core-only (no Python binding yet) (#719)
+
+## [0.7.0] - 2026-07-16
+
+### Added
+
+- Persistent filesystem scan-cache: scans are cached to disk, keyed on fileset fingerprint (mtime + size of all candidate files, combined with skip-set and cache format version). Auto-invalidates when files change, are added, or removed. Atomic writes prevent corrupt cache files. Cache hits return byte-identical results vs. fresh parse. New flags: `--no-cache` (disable cache), `--rebuild-cache` (force rewrite). New env var: `TREESIT_CACHE_DIR` to relocate cache from system temp.
+
+### Changed
+
+- Workflow guidance: batched multi-query drills are now the default approach for structural exploration. Users should combine `find:`, `source:`, and `refs:` queries in a single invocation instead of separate calls. Added explicit note NOT to fall back to grep/sed for symbol structure lookups.
+
 ## [0.6.0] - 2026-05-17
 
 ### Other
