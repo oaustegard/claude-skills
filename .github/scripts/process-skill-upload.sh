@@ -116,9 +116,36 @@ echo "$ZIP_FILES" | while IFS= read -r ZIP_FILE; do
     exit 1
   fi
 
-  # Use the folder name as the skill name (simpler and more reliable)
-  SKILL_NAME=$(basename "$EXTRACTED_PATH")
-  echo "Skill name: $SKILL_NAME"
+  # Prefer the skill's own name from SKILL.md frontmatter over the extracted
+  # folder name. Windows dedupes re-downloaded zips as "myskill (1).zip",
+  # "myskill (2).zip", etc., and re-zipping an already-extracted folder on
+  # Windows can carry that "(N)" suffix into the folder name too, so the
+  # folder name alone is not reliable.
+  FRONTMATTER_NAME=$(python3 -c "
+import re
+import sys
+try:
+    import yaml
+except ImportError:
+    sys.exit(0)
+
+with open('$SKILL_MD_PATH', encoding='utf-8') as f:
+    content = f.read()
+
+match = re.search(r'^---\s*\n(.*?\n)---\s*\n', content, re.DOTALL)
+if match:
+    frontmatter = yaml.safe_load(match.group(1))
+    if frontmatter and 'name' in frontmatter:
+        print(frontmatter['name'])
+" 2>/dev/null || true)
+
+  if [ -n "$FRONTMATTER_NAME" ]; then
+    SKILL_NAME="$FRONTMATTER_NAME"
+    echo "Skill name (from SKILL.md frontmatter): $SKILL_NAME"
+  else
+    SKILL_NAME=$(basename "$EXTRACTED_PATH")
+    echo "Skill name (from folder, frontmatter unavailable): $SKILL_NAME"
+  fi
 
   # Security Validations
   echo "Running security checks..."

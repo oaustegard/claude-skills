@@ -20,6 +20,10 @@ def generate_readme(skill_dir):
         print(f'⚠️  SKILL.md not found in {skill_dir}')
         return False
 
+    if os.path.exists(readme_path):
+        print(f'ℹ️  README.md already exists in {skill_dir}, leaving it as-is')
+        return True
+
     try:
         with open(skill_md_path, 'r', encoding='utf-8') as f:
             content = f.read()
