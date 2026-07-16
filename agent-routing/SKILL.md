@@ -4,7 +4,7 @@ description: Decide which model (Haiku/Sonnet/Opus) and effort level each subage
 compatibility: Designed for Claude Code / Claude Code on the Web — assumes an orchestrator with Agent/Workflow subagent tools exposing per-call model and effort options. Not applicable to claude.ai chat use.
 metadata:
   author: Oskar Austegard and Claude (Fable 5)
-  version: "1.1.0"
+  version: "1.2.0"
 ---
 
 # Agent Routing — model + effort selection for subagents
@@ -24,6 +24,29 @@ reasoning depth demonstrably falls short.
 To turn a judgment-shaped task INTO a Haiku-executable one (explicit procedures,
 n-shot examples), use the sibling `down-skilling` skill. This skill decides the
 routing; that one engineers the prompt.
+
+## Context handoff — routing picks the tier; the prompt carries the context
+
+Subagents inherit nothing: not the conversation, not loaded skills, not the
+existence of artifacts already on disk. Every index, scan output, artifact
+path, or tool-invocation recipe the orchestrator relies on must be serialized
+into the subagent's prompt (or written to a file the prompt points at).
+Otherwise the agent falls back to blind rediscovery — and the tier premium is
+spent on crawling, not judgment. A Sonnet with no handoff wastes more than a
+Haiku with a good procedure.
+
+This is the context-side twin of down-skilling: that skill engineers the
+*procedure* into the prompt; this rule makes the *artifacts and tools* travel
+with it. Checklist per spawn: (1) artifact paths + how to query them, (2) tool
+commands verbatim (interpreter path included — subagents don't know your
+venv), (3) explicit anti-patterns ("no `ls`/glob discovery"), (4) an output
+spec. Skills that orchestrate fan-outs should embed this (see
+`exploring-codebases` for the worked exploration case).
+
+Evidence: 2026-07-16, four Sonnet Explore agents launched onto a 2,300-file
+repo without the handoff opened with `ls` crawls despite a full tree-sitter
+symbol index sitting on disk; relaunched with per-agent index slices + the
+verbatim tool command + anti-crawl rules, discovery cost dropped to ~zero.
 
 ## Routing table
 
