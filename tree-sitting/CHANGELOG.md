@@ -6,6 +6,16 @@ All notable changes to the `tree-sitting` skill are documented in this file. The
 
 ### Added
 
+- persistent scan-cache (0.7.0) (#732)
+
+### Other
+
+- tree-sitting: note tree-sitter v0.26.10 is core-only (no Python binding yet) (#719)
+
+## [0.7.0] - 2026-07-16
+
+### Added
+
 - Persistent filesystem scan-cache: scans are cached to disk, keyed on fileset fingerprint (mtime + size of all candidate files, combined with skip-set and cache format version). Auto-invalidates when files change, are added, or removed. Atomic writes prevent corrupt cache files. Cache hits return byte-identical results vs. fresh parse. New flags: `--no-cache` (disable cache), `--rebuild-cache` (force rewrite). New env var: `TREESIT_CACHE_DIR` to relocate cache from system temp.
 
 ### Changed
