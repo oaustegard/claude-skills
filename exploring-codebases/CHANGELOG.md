@@ -2,6 +2,12 @@
 
 All notable changes to the `exploring-codebases` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.4.0] - 2026-07-16
+
+### Added
+
+- subagent context-handoff guidance (exploring-codebases 2.4.0, agent-routing 1.2.0) (#733)
+
 ## [2.3.1] - 2026-06-21
 
 ### Fixed
