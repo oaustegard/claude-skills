@@ -66,19 +66,30 @@ Either way, end Stage 1 with one plain paragraph: subjects, setting, arc. If the
 
 ---
 
-## Stage 2 — Narrate
+## Stage 2 — Beats & narration
 
-Write the caption text: one short caption per panel (4 panels is the default; 3–6 is the range). Match the requested voice (David Attenborough hushed-drama is the common ask; dial the stakes above what the mundane footage deserves). Captions must be short enough to render legibly in a box — one or two sentences.
+**Let the video decide the panel count.** Break the clip into its natural beats — the distinct moments the story actually has — and make one panel per beat. Do NOT default to four or to a 2×2 grid. A 12-second perch-and-glide is three beats (sentinel → launch → glide); a busier clip may be five or six. Fewer, larger panels for a slow arc; more, tighter panels for rapid action. (Diagnosed 2026-07-18: a hardcoded 2×2 four-panel default is wrong — layout must fit the footage.)
+
+Write one short caption per beat, in the requested voice (David Attenborough hushed-drama is the common ask; dial the stakes above what the mundane footage deserves). Captions must be short enough to render legibly in a box — one or two sentences.
 
 Keep a **character/setting bible** in one line: the exact look of each recurring subject (breed/colour, leash colour, the woods, the light). You will paste it into every panel prompt so the panels stay consistent.
 
 ---
 
-## Stage 3 — Draw the panels
+## Stage 3 — Design the page, then draw the panels
 
-Model: **`gemini-3-pro-image`** (GA; was `gemini-3-pro-image-preview`). There is **no Gemini 3.5 *image* model** — 3.5 is text-only; the current image line is `gemini-3-pro-image` and `gemini-3.1-flash-image`. Do not use `gemini-2.5-flash-image`.
+**Division of labour (the default):** you are weak at drawing but decent at layout, so *you* design the page and outsource only the drawing. Design a bespoke layout that fits the story — panel count from Stage 2, panel sizes and arrangement chosen to serve the arc (a splash panel for the climax; a tall panel for a vertical action; a downward stack for a descent; growing panels to build drama). Assign each panel a target **aspect ratio**. Then generate each panel with Gemini *at that aspect ratio*, and composite the drawn panels into the layout you designed (PIL). This beats both the rigid uniform grid and the one-shot page.
 
-Four rules, each from a diagnosed defect on 2026-07-18:
+- Request the aspect in the prompt ("Draw ONE comic panel, 16:7 wide landscape" / "4:3 large" / "3:4 tall"). Gemini 3 honours it closely (measured 2026-07-18: asked 16:7/16:6/4:3, got 2.33/2.72/1.34).
+- Composite with **cover-fit** (resize to fill the box, centre-crop) so a slightly-off aspect still fills its box cleanly. Design boxes at each panel's target aspect to minimise cropping.
+
+**Two alternatives, by request:**
+- *One-shot full page* — Gemini 3 can render an entire multi-panel comic in ONE image call; describe the whole layout (panel count, arrangement, gutters, per-panel scene + caption, title) in the prompt. Use when the user wants Gemini's freeform layout and you don't need pixel control. Trade-off: no per-panel regeneration, less border control.
+- *Uniform grid* — the simplest fallback; a fixed 2×N. Use only when the story genuinely has equal-weight beats.
+
+Model for all paths: **`gemini-3-pro-image`** (GA; was `gemini-3-pro-image-preview`). There is **no Gemini 3.5 *image* model** — 3.5 is text-only; the current image line is `gemini-3-pro-image` and `gemini-3.1-flash-image`. Do not use `gemini-2.5-flash-image`. (`gemini-3.5-flash` is the *video parser* in Stage 1, not an image model.)
+
+Four rules for per-panel drawing, each from a diagnosed defect on 2026-07-18:
 
 1. **Anchor every panel to real stills.** Pass TWO images per panel: a single shared *anchor* still (canonical setting + subject) and the panel's own still. Instruct: "First reference = canonical setting+subject; second = this panel's framing; redraw as a comic panel." This is what keeps the drawn scene faithful instead of inventing.
 2. **State continuity explicitly.** "All N panels are ONE comic: identical setting, identical <subject> design (<character bible>)." Without it the woods and the animal drift panel to panel.
@@ -100,9 +111,9 @@ invoke_gemini(prompt=("QA this comic panel. JSON only: setting, subject, deer, "
    model="flash", image_path="panel_1.png", max_output_tokens=500, thinking_level="minimal")
 ```
 
-Check per panel: subjects match the grounded storyline, setting/subject consistent across panels, captions verbatim with no stray text, creatures correct (adult vs fawn). Regenerate only the panels that fail — single-panel regen is cheap.
+Check per panel: subjects match the grounded storyline, setting/subject consistent across panels, captions verbatim with **no stray text and no doubled words** (Gemini repeated "and and" once — 2026-07-18), creatures correct (adult vs fawn). Regenerate only the panels that fail — single-panel regen is cheap. For a one-shot page, QA the whole page the same way. (Note: the vision QA reports your own title/subtitle as "stray text" — that is expected, not a defect.)
 
-**Compose** with PIL. Strip any baked border first — image-model panels arrive with inconsistent baked frames (one dark, others white), which reads as a mismatched-border defect. Crop a uniform ~10px inset off every panel, then draw one identical border on all. Add a title band. Save to `/mnt/user-data/outputs/`, then `present_files`.
+**Compose** with PIL into the layout you designed in Stage 3. Strip any baked border first — image-model panels arrive with inconsistent baked frames (one dark, others white), which reads as a mismatched-border defect: crop a uniform ~8–10px inset off every panel, then draw one identical border on all. Cover-fit each panel into its designed box, add a title band, save to `/mnt/user-data/outputs/`, then `present_files`. (The one-shot page needs none of this — it arrives pre-composed; just QA and present.)
 
 ---
 
@@ -116,3 +127,5 @@ Check per panel: subjects match the grounded storyline, setting/subject consiste
 - Panel-1 border differed → **strip baked borders, apply one uniform frame**.
 - Guessed "Gemini 3.5 image" → **no such model; use `gemini-3-pro-image`, bin 2.5-flash-image**.
 - Local image viewer unavailable → **QA via Gemini vision, never ship unseen**.
+- Hardcoded a 2×2 four-panel layout → **derive panel count from the beats; design the layout to fit the story**.
+- Gemini doubled a word in a caption ("and and") → **QA captions for doubled words, not just stray text**.
