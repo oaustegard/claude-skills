@@ -2,7 +2,7 @@
 name: processing-video
 description: "Audio and video processing with ffmpeg. Use when: user asks to convert, trim, merge, compress, or transcode video or audio files; extract audio from video; create GIFs or animated WebP from video; add subtitles or watermarks to video; change video resolution, framerate, or codec; normalize audio loudness; extract frames from video; concatenate clips; create thumbnails from video; strip or add audio tracks; convert between audio formats (MP3, AAC, FLAC, Opus, WAV); adjust volume; apply video filters; stabilize shaky video; generate waveform or spectrum visualizations; probe media file metadata. Triggers on 'ffmpeg', 'video', 'audio', 'transcode', 'MP4', 'MKV', 'WebM', 'MP3', 'AAC', 'FLAC', 'Opus', 'WAV', 'GIF from video', 'extract audio', 'add subtitles', 'video to gif', 'compress video', 'trim video', 'merge videos', 'normalize audio', 'framerate', 'resolution', 'bitrate', 'codec', 'ffprobe', 'waveform', 'spectrogram'."
 metadata:
-  version: 0.1.0
+  version: 0.1.1
 ---
 
 # ffmpeg Toolkit
@@ -10,6 +10,8 @@ metadata:
 ffmpeg 6.1.1 is pre-installed with a full-featured build. Also available: **ffprobe** (media analysis) and **ffplay** (playback, limited use in container).
 
 Before writing custom Python for media tasks, check whether ffmpeg handles it in a single command.
+
+To *interpret* video content (summarize, describe, find scenes) rather than transform it, use the **parsing-video** skill — it samples frames into timestamped contact sheets that can be read as images.
 
 ## Task Reference
 
