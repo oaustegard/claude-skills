@@ -73,9 +73,13 @@ payoff word, and holds the final frame so the ending lands.
     --out film.mp4 --overlay-last "COMING HOME" --tail-hold 1.3 &)
 ```
 Run detached too — six trims plus a 30 s stitch exceed the bash ceiling on the
-single-core container. Diagnosed: abrupt ending → `--tail-hold`; jarring cuts
-between six independent Veo ambiences → audio dropped by default (`--keep-audio`
-to `acrossfade` instead).
+single-core container. Diagnosed: abrupt ending → `--tail-hold`.
+
+**Audio: Veo clips carry real generated audio (ambience, foley) — don't drop it
+silently.** `assemble.py` mutes by default only because hard-cutting six
+independent ambiences is jarring; pass `--keep-audio` to `acrossfade` them into a
+continuous bed. Surface the choice to the user rather than deciding for them
+(Oskar was surprised audio existed and had been dropped, 2026-07-18).
 
 ## Prompt craft — continuity is the hard part
 
