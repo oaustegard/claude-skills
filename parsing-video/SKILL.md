@@ -1,8 +1,8 @@
 ---
 name: parsing-video
-description: "Interpret video content visually by sampling frames into timestamped contact sheets that can be read as images. Use when: user asks what happens in a video; asks to summarize, describe, review, or QA video content or footage; asks about scenes, actions, people, or objects in a video; needs a storyboard-style overview of a clip; asks to find where something occurs in a video. Triggers on 'watch this video', 'what's in this video', 'summarize the video', 'describe the footage', 'contact sheet', 'storyboard', 'review this clip', 'find the scene where', 'scene detection', 'shot boundaries', 'detect cuts'. For converting, trimming, or transcoding video, use processing-video instead."
+description: "Interpret video content visually by sampling frames into timestamped contact sheets that can be read as images. Use when: user asks what happens in a video; asks to summarize, describe, review, or QA video content or footage; asks about scenes, actions, people, or objects in a video; needs a storyboard-style overview of a clip; asks to find where something occurs in a video. Triggers on 'watch this video', 'what's in this video', 'summarize the video', 'describe the footage', 'contact sheet', 'storyboard', 'review this clip', 'find the scene where', 'scene detection', 'shot boundaries', 'detect cuts', 'dwell points'. For converting, trimming, or transcoding video, use processing-video instead."
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # Parsing Video
@@ -57,9 +57,13 @@ python3 scripts/contact_sheet.py input.mp4 --start 95 --end 125 --grid 3x3 --til
 ffmpeg -ss 00:01:42 -i input.mp4 -frames:v 1 detail.png
 ```
 
-## Scene-aware sampling
+## Content-aware sampling
 
-Uniform sampling can straddle a cut mid-interval or waste tiles on a static shot. To align tiles to shot boundaries, detect cuts and feed the timestamps to `--at`:
+Uniform sampling guarantees temporal coverage but ignores structure: it can straddle a cut mid-interval, waste tiles on a static shot, or land mid-pan on a motion-blurred frame. Two refinements, both feeding `--at`. Choose by footage type: **edited content** (films, trailers, TV) → shot boundaries; **continuously shot footage** (handheld, drone, screen recordings, dashcam) → dwell points; unknown → uniform first, refine after.
+
+### Shot boundaries (cuts)
+
+Detect cuts and align tiles to them:
 
 ```bash
 # ffmpeg scene score: frames whose difference from the previous frame exceeds 0.3
@@ -77,6 +81,21 @@ Each selected frame is the *first frame of the new shot* (the score compares aga
 - **Camera motion** (pans, handheld shake) can fire false positives.
 
 So treat scene-aligned sampling as a **refinement, not a replacement**: run uniform sheets first for guaranteed temporal coverage, then a scene-aligned sheet (or a union of both timestamp sets via `--at`) when shot structure matters. If cut detection quality itself matters, the purpose-built tool is **PySceneDetect** (`uv pip install --system scenedetect[opencv-headless]`, then `scenedetect -i input.mp4 list-scenes`) — its content/adaptive detectors are more robust to motion and noise than the raw ffmpeg score, but they are still cut-oriented and share the within-shot blindness above.
+
+### Dwell points (where the camera settles)
+
+In continuously shot footage cuts are rare or absent — the structure lives in camera *moves*. In the frame-difference signal, held compositions are the **valleys** and pans/zooms are the **peaks** between them. The valley midpoints are the frames worth sampling: sharp, deliberately framed, one per composition — where uniform sampling would land mid-pan on smeared pixels.
+
+```bash
+python3 scripts/contact_sheet.py input.mp4 --at "$(python3 scripts/dwell_points.py input.mp4 --max 16)"
+```
+
+`dwell_points.py` computes the motion signal cheaply (4 fps at 160 px via ffmpeg's scene metric), smooths it over ~1 s, and takes spans below a **relative** threshold (default p40 of the signal) lasting at least `--min-dwell` (1 s). It keeps the `--max` longest holds and prints their midpoints; stderr lists each hold span with its duration so you can see the video's rhythm before reading a single frame.
+
+Caveats:
+- The threshold is relative, so on **constant-motion footage** (one unbroken pan) it degrades to picking the least-motion moments — harmless but arbitrary; prefer uniform sampling there. It exits non-zero when no hold lasts `--min-dwell`.
+- **Subject motion during a held shot** (a person gesturing in a static frame) raises the valley floor but rarely fills it; if a busy-but-held shot is missed, lower `--percentile`.
+- Dwells say where the camera settled, not what changed — combine with uniform coverage for anything time-critical.
 
 ## Interpreting honestly
 
