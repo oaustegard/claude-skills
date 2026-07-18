@@ -1,8 +1,8 @@
 ---
 name: parsing-video
-description: "Interpret video content visually by sampling frames into timestamped contact sheets that can be read as images. Use when: user asks what happens in a video; asks to summarize, describe, review, or QA video content or footage; asks about scenes, actions, people, or objects in a video; needs a storyboard-style overview of a clip; asks to find where something occurs in a video. Triggers on 'watch this video', 'what's in this video', 'summarize the video', 'describe the footage', 'contact sheet', 'storyboard', 'review this clip', 'find the scene where'. For converting, trimming, or transcoding video, use processing-video instead."
+description: "Interpret video content visually by sampling frames into timestamped contact sheets that can be read as images. Use when: user asks what happens in a video; asks to summarize, describe, review, or QA video content or footage; asks about scenes, actions, people, or objects in a video; needs a storyboard-style overview of a clip; asks to find where something occurs in a video. Triggers on 'watch this video', 'what's in this video', 'summarize the video', 'describe the footage', 'contact sheet', 'storyboard', 'review this clip', 'find the scene where', 'scene detection', 'shot boundaries', 'detect cuts'. For converting, trimming, or transcoding video, use processing-video instead."
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Parsing Video
@@ -56,6 +56,27 @@ python3 scripts/contact_sheet.py input.mp4 --start 95 --end 125 --grid 3x3 --til
 # Or extract a single full-resolution frame at the moment of interest
 ffmpeg -ss 00:01:42 -i input.mp4 -frames:v 1 detail.png
 ```
+
+## Scene-aware sampling
+
+Uniform sampling can straddle a cut mid-interval or waste tiles on a static shot. To align tiles to shot boundaries, detect cuts and feed the timestamps to `--at`:
+
+```bash
+# ffmpeg scene score: frames whose difference from the previous frame exceeds 0.3
+TS=$(ffmpeg -i input.mp4 -vf "select='gt(scene,0.3)',metadata=print:file=-" -f null - 2>/dev/null \
+     | grep -oP 'pts_time:\K[0-9.]+' | paste -sd,)
+python3 scripts/contact_sheet.py input.mp4 --at "$TS"
+```
+
+Each selected frame is the *first frame of the new shot* (the score compares against the previous frame). Threshold 0.3–0.4 suits most content; lower it for subtle cuts, raise it for noisy footage.
+
+**Know what scene detection misses.** The scene score is a frame-pair difference metric:
+
+- **Gradual transitions** (dissolves, fades, wipes) spread the change across many frames, each below threshold — they often go undetected.
+- **Within-shot content changes**: between two cuts, objects can enter, leave, or change substantially with no boundary ever firing. A long static-camera shot with lots of action yields *one* tile under pure scene-aligned sampling.
+- **Camera motion** (pans, handheld shake) can fire false positives.
+
+So treat scene-aligned sampling as a **refinement, not a replacement**: run uniform sheets first for guaranteed temporal coverage, then a scene-aligned sheet (or a union of both timestamp sets via `--at`) when shot structure matters. If cut detection quality itself matters, the purpose-built tool is **PySceneDetect** (`uv pip install --system scenedetect[opencv-headless]`, then `scenedetect -i input.mp4 list-scenes`) — its content/adaptive detectors are more robust to motion and noise than the raw ffmpeg score, but they are still cut-oriented and share the within-shot blindness above.
 
 ## Interpreting honestly
 

@@ -63,6 +63,17 @@ def hms(seconds: float) -> str:
     return f"{s // 3600}:{s % 3600 // 60:02d}:{s % 60:02d}"
 
 
+def parse_ts(value: str) -> float:
+    """Parse a timestamp given as seconds ('90', '90.5') or clock ('1:30', '0:01:30')."""
+    parts = value.strip().split(":")
+    if len(parts) > 3 or not all(p for p in parts):
+        raise ValueError(f"bad timestamp: {value!r}")
+    total = 0.0
+    for p in parts:
+        total = total * 60 + float(p)
+    return total
+
+
 def find_font() -> str | None:
     """Return the first available label font, or None to rely on fontconfig."""
     for f in FONT_CANDIDATES:
@@ -118,6 +129,10 @@ def main() -> None:
                     help="width of each tile in px (default 380; 4 cols ≈ 1550px sheet)")
     ap.add_argument("--start", type=float, default=0.0, help="window start in seconds")
     ap.add_argument("--end", type=float, default=None, help="window end in seconds (default: duration)")
+    ap.add_argument("--at", default=None, metavar="TS,TS,...",
+                    help="sample at explicit timestamps (seconds or H:MM:SS, comma-separated) "
+                         "instead of even intervals — e.g. scene-cut times; "
+                         "overrides --sheets/--start/--end")
     ap.add_argument("--output-dir", default=None, help="where to write sheets (default: alongside input)")
     args = ap.parse_args()
 
@@ -134,16 +149,31 @@ def main() -> None:
 
     meta = probe(str(src))
     duration = meta["duration"]
-    end = min(args.end, duration) if args.end is not None else duration
-    start = max(0.0, args.start)
-    span = end - start
-    if span <= 0:
-        sys.exit(f"empty time window: start={start}, end={end} (duration {duration:.1f}s)")
 
-    n_frames = cols * rows * args.sheets
-    interval = span / n_frames
-    # Sample at interval midpoints: avoids the black/logo first frame and EOF misses.
-    timestamps = [start + (i + 0.5) * interval for i in range(n_frames)]
+    if args.at:
+        try:
+            timestamps = sorted(parse_ts(t) for t in args.at.split(","))
+        except ValueError as e:
+            sys.exit(str(e))
+        in_range = [t for t in timestamps if 0 <= t < duration]
+        if len(in_range) < len(timestamps):
+            print(f"warning: dropped {len(timestamps) - len(in_range)} timestamp(s) "
+                  f"outside 0–{duration:.1f}s", file=sys.stderr)
+        if not in_range:
+            sys.exit("no --at timestamps fall within the video")
+        timestamps = in_range
+        n_frames = len(timestamps)
+        start, end, interval = timestamps[0], timestamps[-1], None
+    else:
+        end = min(args.end, duration) if args.end is not None else duration
+        start = max(0.0, args.start)
+        span = end - start
+        if span <= 0:
+            sys.exit(f"empty time window: start={start}, end={end} (duration {duration:.1f}s)")
+        n_frames = cols * rows * args.sheets
+        interval = span / n_frames
+        # Sample at interval midpoints: avoids the black/logo first frame and EOF misses.
+        timestamps = [start + (i + 0.5) * interval for i in range(n_frames)]
 
     out_dir = Path(args.output_dir) if args.output_dir else src.parent
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -176,12 +206,14 @@ def main() -> None:
 
     sheets = sorted(out_dir.glob(f"{src.stem}_sheet_*.png"))
     per_sheet = cols * rows
-    print(f"{src.name}: {duration:.1f}s total, sampled {n_frames} frames "
-          f"every {interval:.1f}s from {hms(start)} to {hms(end)}")
+    how = (f"at {n_frames} explicit timestamps" if interval is None
+           else f"{n_frames} frames every {interval:.1f}s")
+    print(f"{src.name}: {duration:.1f}s total, sampled {how} "
+          f"from {hms(start)} to {hms(end)}")
     for i, sheet in enumerate(sheets):
-        lo = start + i * per_sheet * interval
-        hi = min(end, lo + per_sheet * interval)
-        print(f"  {sheet}  [{hms(lo)} – {hms(hi)}]")
+        chunk = timestamps[i * per_sheet:(i + 1) * per_sheet]
+        if chunk:
+            print(f"  {sheet}  [{hms(chunk[0])} – {hms(chunk[-1])}]")
     print("Read the sheet image(s) to view the video; timestamps are stamped on each tile.")
 
 
