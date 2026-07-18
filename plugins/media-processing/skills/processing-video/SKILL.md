@@ -2,7 +2,7 @@
 name: processing-video
 description: "Audio and video processing with ffmpeg. Use when: user asks to convert, trim, merge, compress, or transcode video or audio files; extract audio from video; create GIFs or animated WebP from video; add subtitles or watermarks to video; change video resolution, framerate, or codec; normalize audio loudness; extract frames from video; concatenate clips; create thumbnails from video; strip or add audio tracks; convert between audio formats (MP3, AAC, FLAC, Opus, WAV); adjust volume; apply video filters; stabilize shaky video; generate waveform or spectrum visualizations; probe media file metadata. Triggers on 'ffmpeg', 'video', 'audio', 'transcode', 'MP4', 'MKV', 'WebM', 'MP3', 'AAC', 'FLAC', 'Opus', 'WAV', 'GIF from video', 'extract audio', 'add subtitles', 'video to gif', 'compress video', 'trim video', 'merge videos', 'normalize audio', 'framerate', 'resolution', 'bitrate', 'codec', 'ffprobe', 'waveform', 'spectrogram'."
 metadata:
-  version: 0.1.0
+  version: 0.1.2
 ---
 
 # ffmpeg Toolkit
@@ -10,6 +10,8 @@ metadata:
 ffmpeg 6.1.1 is pre-installed with a full-featured build. Also available: **ffprobe** (media analysis) and **ffplay** (playback, limited use in container).
 
 Before writing custom Python for media tasks, check whether ffmpeg handles it in a single command.
+
+To *interpret* video content (summarize, describe, find scenes) rather than transform it, use the **parsing-video** skill — it samples frames into timestamped contact sheets that can be read as images.
 
 ## Task Reference
 
@@ -116,7 +118,9 @@ ffmpeg -i input.mp4 -vf "fps=1" frame_%04d.png             # 1 frame/second
 ffmpeg -i input.mp4 -vf "select='eq(pict_type,I)'" -vsync vfr keyframe_%04d.png  # keyframes only
 ffmpeg -i input.mp4 -vf "thumbnail=300" -frames:v 1 thumb.png   # best thumbnail from first 300 frames
 ffmpeg -ss 00:00:05 -i input.mp4 -frames:v 1 screenshot.png     # single frame at timestamp
+ffmpeg -i input.mp4 -vf "select='gt(scene,0.3)'" -vsync vfr cut_%04d.png  # first frame of each detected cut
 ```
+The `scene` score is a frame-pair difference: it catches hard cuts but misses gradual transitions (dissolves/fades) and within-shot content changes; pans can false-positive. For robust shot detection use PySceneDetect (`scenedetect -i input.mp4 list-scenes`).
 
 ### Subtitles
 ```
