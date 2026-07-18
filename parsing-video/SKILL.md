@@ -2,7 +2,7 @@
 name: parsing-video
 description: "Interpret video content visually by sampling frames into timestamped contact sheets that can be read as images. Use when: user asks what happens in a video; asks to summarize, describe, review, or QA video content or footage; asks about scenes, actions, people, or objects in a video; needs a storyboard-style overview of a clip; asks to find where something occurs in a video. Triggers on 'watch this video', 'what's in this video', 'summarize the video', 'describe the footage', 'contact sheet', 'storyboard', 'review this clip', 'find the scene where', 'scene detection', 'shot boundaries', 'detect cuts', 'dwell points'. For converting, trimming, or transcoding video, use processing-video instead."
 metadata:
-  version: 0.3.0
+  version: 0.4.0
 ---
 
 # Parsing Video
@@ -96,6 +96,37 @@ Caveats:
 - The threshold is relative, so on **constant-motion footage** (one unbroken pan) it degrades to picking the least-motion moments — harmless but arbitrary; prefer uniform sampling there. It exits non-zero when no hold lasts `--min-dwell`.
 - **Subject motion during a held shot** (a person gesturing in a static frame) raises the valley floor but rarely fills it; if a busy-but-held shot is missed, lower `--percentile`.
 - Dwells say where the camera settled, not what changed — combine with uniform coverage for anything time-critical.
+
+## Overseeing a multi-clip edit
+
+When acting as the editing agent over a generated or assembled cut (see the
+**creating-video** skill), review at two levels:
+
+1. **The whole assembly.** Contact-sheet the *final stitched cut*, not just the
+   individual clips. Per-clip sheets each look fine in isolation; character drift,
+   prop jumps, and logic breaks only appear when the shots sit in sequence. One
+   4×4 sheet over a 30 s cut gives ~2–3 tiles per scene — enough to catch them.
+
+2. **The seams.** A cut hides continuity errors at the boundary — the outgoing
+   clip's last frame vs the incoming clip's first frame. `scripts/seams.py` pairs
+   them, one row per cut, for a one-look check:
+
+   ```bash
+   python3 scripts/seams.py clip1.mp4 clip2.mp4 ... clipN.mp4 --out seams.png
+   ```
+
+Read every sheet against the **continuity checklist** for generated video:
+
+- **Character** — same face/hair/wardrobe across every shot they appear in.
+- **Prop** — same identity, size, color, and attachment point shot to shot
+  (the classic failure: a small object that changes size or moves between shots).
+- **Physical logic** — is the world coherent across the cut (a window open before
+  something enters through it; an action's result matching its setup)?
+- **Action completeness** — is the key beat actually *shown*, not cut around?
+
+Report which scene or seam fails and what the fix is (tighten the prompt, or
+regenerate just that shot) — that verdict is the deliverable the editing agent
+acts on.
 
 ## Interpreting honestly
 
