@@ -1,13 +1,23 @@
 ---
 name: exploring-data
-description: Exploratory data analysis using ydata-profiling. Use when users upload .csv/.xlsx/.json/.parquet files or request "explore data", "analyze dataset", "EDA", "profile data". Generates interactive HTML or JSON reports with statistics, visualizations, correlations, and quality alerts.
+description: Exploratory data analysis. Use when users upload .csv/.xlsx/.json/.parquet files or request "explore data", "analyze dataset", "EDA", "profile data". Small files get ydata-profiling HTML/JSON reports; large files (>200MB or >5M rows) get fixed-memory DuckDB/sketch profiling. Also covers near-duplicate row detection, cross-file key overlap ("can these join?"), dataset drift vs a stored baseline, and time-series profiling.
 metadata:
-  version: 0.0.3
+  version: 0.1.0
 ---
 
 # Exploring Data
 
-## Workflow
+## 0. Route by size FIRST
+
+```bash
+ls -la <filepath>   # or: wc -l for row estimate
+```
+
+- **< 200MB and < ~5M rows** → ydata-profiling path (section A). Exact stats, interactive HTML.
+- **Larger** → large-file path (section B). ydata-profiling loads everything into pandas and will crawl or OOM; the DuckDB/sketch path runs in fixed memory at any size.
+- **Task-specific ops** (any size): duplicates, join feasibility, drift → section C.
+
+## A. Standard path (ydata-profiling)
 
 ### 1. Check if installed (instant)
 ```bash
@@ -38,42 +48,85 @@ bash /mnt/skills/user/exploring-data/scripts/analyze.sh <filepath> [minimal|full
 python /mnt/skills/user/exploring-data/scripts/summarize_insights.py /mnt/user-data/outputs/eda_report.json
 ```
 
-**Reads:** `eda_report.json` (comprehensive ydata output)  
-**Writes:** `eda_insights_summary.md` (condensed for Claude)  
-**Outputs to stdout:** Formatted markdown summary
-
 Claude should read the stdout markdown summary, NOT the full JSON report.
 
-## Invocation Examples
+### Modes
 
+**Minimal (default, 5-10s):** overview, variable analysis, correlations, missing values, alerts
+**Full (10-20s):** minimal + scatter matrices, sample data, character analysis
+
+Full-mode triggers: "comprehensive analysis", "detailed EDA", "full profiling", "deep analysis". Otherwise minimal.
+
+### Time series
+If the data has a datetime index/column and the user cares about temporal behavior
+(gaps, trends, seasonality, autocorrelation), pass `tsmode=True` to ProfileReport —
+run the venv python directly instead of analyze.sh:
+```python
+ProfileReport(df, tsmode=True, sortby="<datetime_col>", title=...)
+```
+This adds gap detection, stationarity and seasonality checks that the default
+report omits.
+
+### Small-file drift
+Comparing two versions of a dataset that BOTH fit in memory: use ydata's native
+compare — `ProfileReport(df_a).compare(ProfileReport(df_b)).to_file(...)`.
+For files too big to load, or comparing against a months-old file you no longer
+have, use the sketch snapshot/drift ops in section C.
+
+## B. Large-file path (DuckDB, fixed memory)
+
+### 1. Install deps (idempotent, ~10s first time)
 ```bash
-# Standard workflow (user views HTML)
-bash analyze.sh /mnt/user-data/uploads/data.csv
-# Produces: eda_report.html + eda_report.json
-# Link user to: computer:///mnt/user-data/outputs/eda_report.html
-
-# User asks Claude to analyze
-bash analyze.sh /mnt/user-data/uploads/data.csv
-python summarize_insights.py /mnt/user-data/outputs/eda_report.json
-# Claude reads the stdout markdown summary
-# Claude can then provide analysis based on patterns/insights
-
-# Full mode for comprehensive analysis
-bash analyze.sh /mnt/user-data/uploads/data.csv full
-
-# JSON-only output (skip HTML generation)
-bash analyze.sh /mnt/user-data/uploads/data.csv minimal json
+bash /mnt/skills/user/exploring-data/scripts/install_large.sh
 ```
 
-## Modes
+### 2. Profile
+```bash
+python3 /mnt/skills/user/exploring-data/scripts/profile_large.py <file> [--json out.json]
+```
 
-**Minimal (default, 5-10s):**
-Dataset overview, variable analysis, correlations, missing values, alerts
+Streams the file through DuckDB: per-column null%, approximate distinct counts
+(HLL), min/max/mean, approximate quantiles (t-digest) for numerics, top-5
+values for strings, plus quality flags (mostly-null, constant, id-like
+columns). Markdown lands on stdout — read it directly, no summarize step
+needed. Handles csv/tsv/parquet/json/ndjson. 1M rows profiles in seconds;
+memory is flat regardless of file size.
 
-**Full (10-20s):**
-Everything in minimal + scatter matrices, sample data, character analysis, more visualizations
+For ad-hoc follow-up queries on the same large file, use DuckDB SQL directly
+(`duckdb.connect().execute("SELECT ... FROM read_csv_auto('...')")`) rather
+than loading pandas.
 
-## User Triggers for Full Mode
-"comprehensive analysis", "detailed EDA", "full profiling", "deep analysis"
+## C. Sketch ops (any file size, fixed memory)
 
-Otherwise use minimal.
+All via `scripts/sketch_ops.py` (deps from install_large.sh). These answer
+questions profilers don't:
+
+### Near-duplicate rows
+```bash
+python3 sketch_ops.py dups <file> [--threshold 0.9] [--cols a,b,c]
+```
+Exact duplicates counted by hash; near-duplicates via MinHash LSH over row
+tokens. Use `--cols` to restrict to the columns that define identity.
+
+### Key overlap / join feasibility
+```bash
+python3 sketch_ops.py overlap <fileA> <fileB> --key <col> [--key-b <col>]
+```
+Theta sketches per key column → estimated intersection, Jaccard, and "% of A's
+keys in B" both ways — answers "will this join hold?" without loading either
+file.
+
+### Drift vs stored baseline
+```bash
+python3 sketch_ops.py snapshot <file> --out baseline.sketch.json   # ~20KB
+python3 sketch_ops.py drift <newfile> --baseline baseline.sketch.json
+```
+Snapshot serializes HLL (all columns) + KLL quantile sketches (numeric
+columns) to a small JSON. Drift reports schema changes, >10% shifts in
+distinct counts, and IQR-relative quantile movement. The snapshot is a few KB
+— store it (repo, memory) and diff next month's delivery against it without
+keeping the original file.
+
+Note: snapshot/dups stream rows through Python (~1M rows in a few seconds);
+profile_large is pure DuckDB and faster. For a quick look at a big file,
+profile first, sketch ops only when the question calls for them.
