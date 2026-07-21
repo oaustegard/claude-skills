@@ -1,15 +1,57 @@
 # Gemini Models Reference
 
-Detailed information about available Gemini models (as of May 2026).
+Detailed information about available Gemini models (as of July 2026).
 
 ## Model Comparison
 
-### Gemini 3.5 — Frontier (GA)
+### Gemini 3.6 — Frontier Flash (GA, current default)
+
+#### gemini-3.6-flash
+
+**Status:** Generally available (released July 21, 2026)
+**Alias:** `flash` (the current default Flash)
+
+**Strengths:**
+- Current frontier Flash — builds on 3.5 Flash for coding, knowledge work,
+  and multimodal tasks
+- ~17% fewer output tokens than 3.5 Flash on the Artificial Analysis index
+  (the headline efficiency win — addresses 3.5's verbosity)
+- Quality gains alongside efficiency: DeepSWE 49% vs 37%, MLE-Bench 63.9%
+  vs 49.7%, OSWorld-Verified 83.0% vs 78.4%, GDPval-AA v2 1421 vs 1349
+- Built-in client-side Computer Use tool via the Gemini API (Preview)
+- Dynamic thinking on by default (configurable via `thinking_level`)
+
+**Specifications:**
+- Context window: ~1M tokens input / 65,536 tokens output
+- Multimodal: text, image, audio, video
+- Default `thinking_level`: `medium` — set explicitly to `minimal` for
+  transcription/classification/extraction or the model will silently spend
+  output tokens on reasoning
+- Enhanced Frontier Safety safeguards (CBRN, cyber-offense); model card
+  notes a slight tone regression vs 3.5 Flash
+
+**Best for:**
+- Default Flash / sub-agent-delegation choice for most tasks
+- Agentic coding loops, terminal automation, multi-file projects
+- Cost-sensitive high-volume agentic work (cheaper output than 3.5)
+
+**Pricing:**
+- Input: $1.50 / 1M tokens
+- Output: $7.50 / 1M tokens (down from 3.5 Flash's $9.00)
+- 1M context window at base price (no surcharge tier)
+
+Shipped alongside `gemini-3.5-flash-lite` (low-latency subagent tier) and
+`gemini-3.5-flash-cyber` (vuln-finding, fine-tuned on 3.5 Flash) — neither
+is wired into this client's alias table yet.
+
+---
+
+### Gemini 3.5 — Prior Frontier Flash (GA)
 
 #### gemini-3.5-flash
 
 **Status:** Generally available (released May 19, 2026 at Google I/O)
-**Alias:** `flash` (this is now the default Flash)
+**Alias:** `flash-3.5` (was `flash` until 3.6 shipped)
 
 **Strengths:**
 - Frontier-class performance — beats Gemini 3.1 Pro on most coding and
@@ -27,10 +69,9 @@ Detailed information about available Gemini models (as of May 2026).
   the model will silently spend output tokens on reasoning)
 
 **Best for:**
-- Default Flash choice for most tasks in 2026
+- Pinning to prior-gen Flash behavior when 3.6 output differs
 - Agentic coding loops, terminal automation, multi-file projects
 - Multimodal document analysis where structure must be preserved
-- Streaming chat with frontier quality
 
 **Pricing:**
 - Input: $1.50 / 1M tokens
@@ -219,12 +260,13 @@ with up to 3 input images.
 ## Model Selection Guide
 
 ```
-Default Flash (frontier)?              → gemini-3.5-flash (alias: flash)
+Default Flash (frontier)?              → gemini-3.6-flash (alias: flash)
 Maximum reasoning?                     → gemini-3.1-pro-preview (alias: pro)
 Production stability with quality?     → gemini-2.5-flash (alias: stable-flash)
 Routine / bulk / cheap?                → gemini-2.5-flash-lite (alias: lite)
 Complex + stable production?           → gemini-2.5-pro (alias: stable-pro)
-Pin to prior-gen Flash (back compat)?  → gemini-3-flash-preview (alias: flash-3)
+Pin to prior frontier Flash (3.5)?     → gemini-3.5-flash (alias: flash-3.5)
+Pin to older preview Flash?            → gemini-3-flash-preview (alias: flash-3)
 Image generation (fast)?               → nano-banana-2 (alias: image)
 Image generation (high-fidelity)?      → nano-banana-pro (alias: image-pro)
 ```
