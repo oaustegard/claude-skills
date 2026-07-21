@@ -135,7 +135,7 @@ from gemini_client import invoke_gemini
 
 response = invoke_gemini(
     prompt="Explain quantum computing in 3 bullet points",
-    model="flash",  # gemini-3.5-flash (default)
+    model="flash",  # gemini-3.6-flash (default)
 )
 print(response)
 ```
@@ -174,16 +174,18 @@ results = invoke_parallel(
 
 ## Available Models
 
-All current Gemini 3.x text/multimodal models are in preview except 3.5
-Flash (GA May 19, 2026). Use the values below — `gemini-3-flash-preview`
-and `gemini-3.1-flash-lite-preview` from earlier docs are out of date.
+The current frontier Flash is **gemini-3.6-flash** (GA 2026-07-21), the
+default and the `flash` alias. Prior-gen `gemini-3.5-flash` (GA May 2026)
+remains callable as `flash-3.5`. `gemini-3-flash-preview` and
+`gemini-3.1-flash-lite-preview` from earlier docs are out of date.
 
 ### Text / Reasoning Models
 
 | Model | Alias | Input/1M | Output/1M | Context | Notes |
 |-------|-------|----------|-----------|---------|-------|
-| gemini-3.5-flash | `flash` | $1.50 | $9.00 | 1M | GA May 2026. Frontier Flash. Beats 3.1 Pro on most coding/agentic benchmarks. Default `thinking_level=medium` — set `minimal` for non-reasoning tasks. |
-| gemini-3-flash-preview | `flash-3` | $0.30 | $2.50 | 1M | Prior-gen Flash, kept for back compat |
+| gemini-3.6-flash | `flash` | $1.50 | $7.50 | 1M in / 64K out | **Default.** GA 2026-07-21. Current frontier Flash: ~17% fewer output tokens than 3.5 Flash, better coding/agentic (DeepSWE 49% vs 37%, OSWorld 83% vs 78%). Default `thinking_level=medium` — set `minimal` for non-reasoning tasks. Model card notes a slight tone regression vs 3.5. |
+| gemini-3.5-flash | `flash-3.5` | $1.50 | $9.00 | 1M | Prior frontier Flash (GA May 2026). Beats 3.1 Pro on most coding/agentic benchmarks. |
+| gemini-3-flash-preview | `flash-3` | $0.30 | $2.50 | 1M | Older preview Flash, kept for back compat |
 | gemini-3.1-pro-preview | `pro` | $2.00 (≤200K) / $4.00 | $12.00 / $24.00 | 1M | Current Pro tier; 3.5 Pro slated for June 2026 |
 | gemini-2.5-flash | `stable-flash` | $0.30 | $2.50 | 1M | Stable production Flash |
 | gemini-2.5-flash-lite | `lite` | **$0.10** | **$0.40** | 1M | Cheapest major-provider production model. Surprisingly strong on multimodal extraction. |
@@ -239,7 +241,7 @@ Common issues: Missing API key → see Setup. Rate limit → auto-retries with b
 ```python
 response = invoke_gemini(
     prompt="Write a haiku",
-    model="flash",                  # gemini-3.5-flash
+    model="flash",                  # gemini-3.6-flash
     temperature=0.9,
     max_output_tokens=200,
     top_p=0.95,
