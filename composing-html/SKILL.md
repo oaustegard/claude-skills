@@ -116,7 +116,8 @@ Semantic aliases: `--ok`, `--warn`, `--err`, `--info`.
 - `.stack`, `.row` — vertical / horizontal flex.
 - `.card`, `.card--soft`, `.card--elev` — content containers.
 - `.rule` — `<hr>` underline below `<h2>`.
-- `.colophon` — footer strip (auto-added by composer).
+- `.colophon` — optional footer strip; pass `colophon="text"` to `page()` to
+  show it (off by default).
 
 ### Components
 
