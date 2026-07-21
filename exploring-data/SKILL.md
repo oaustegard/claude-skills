@@ -2,7 +2,7 @@
 name: exploring-data
 description: Exploratory data analysis. Use when users upload .csv/.xlsx/.json/.parquet files or request "explore data", "analyze dataset", "EDA", "profile data". Small files get ydata-profiling HTML/JSON reports; large files (>200MB or >5M rows) get fixed-memory DuckDB/sketch profiling. Also covers near-duplicate row detection, cross-file key overlap ("can these join?"), dataset drift vs a stored baseline, and time-series profiling.
 metadata:
-  version: 0.1.0
+  version: 0.1.1
 ---
 
 # Exploring Data
@@ -49,6 +49,27 @@ python /mnt/skills/user/exploring-data/scripts/summarize_insights.py /mnt/user-d
 ```
 
 Claude should read the stdout markdown summary, NOT the full JSON report.
+
+### 5. Present findings visually (don't just hand over the ydata HTML)
+
+The ydata report is exhaustive but dense; a link to it is a weak deliverable.
+Turn the JSON into a compact dashboard of the findings that matter:
+```bash
+python3 /mnt/skills/user/exploring-data/scripts/visualize_findings.py \
+    /mnt/user-data/outputs/eda_report.json
+# → /mnt/user-data/outputs/eda_findings.html
+```
+Emits a single self-contained HTML file (Chart.js from cdnjs, dark-mode aware):
+missingness by column (tiered good/bad), the most skewed or zero-inflated
+numeric distributions as small-multiple histograms, and the largest categorical
+breakdowns. `--top N` caps charts per category (default 6). Also reads
+`profile_large.py --json` output, so the large-file path gets the same treatment.
+
+Present BOTH files: `eda_findings.html` for the headline read, `eda_report.html`
+for the full drill-down. In a chat surface that renders inline visuals, prefer
+rendering the two or three findings that actually answer the user's question as
+inline charts over linking a file — a link the user has to open is the weakest
+form of "showing" data.
 
 ### Modes
 
