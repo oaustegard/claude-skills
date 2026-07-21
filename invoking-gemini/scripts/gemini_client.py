@@ -49,7 +49,9 @@ if not HAS_REQUESTS and not HAS_GENAI:
 
 # Text generation models
 MODELS = {
-    # Gemini 3.5 — frontier (GA May 2026)
+    # Gemini 3.6 — current frontier Flash (GA 2026-07-21)
+    "gemini-3.6-flash": "gemini-3.6-flash",
+    # Gemini 3.5 — prior frontier Flash (GA May 2026)
     "gemini-3.5-flash": "gemini-3.5-flash",
     # Gemini 3.x — preview (still callable, kept for back compat)
     "gemini-3-flash-preview": "gemini-3-flash-preview",
@@ -72,10 +74,12 @@ IMAGE_MODELS = {
     "nano-banana": "gemini-2.5-flash-image",
 }
 
-# Convenience aliases. `flash` points to the current frontier Flash (3.5);
-# `flash-3` keeps a stable handle on the prior preview for code that pinned to it.
+# Convenience aliases. `flash` points to the current frontier Flash (3.6, GA
+# 2026-07-21); `flash-3.5` and `flash-3` keep stable handles on the prior Flash
+# generations for code that pinned to them.
 MODEL_ALIASES = {
-    "flash": "gemini-3.5-flash",
+    "flash": "gemini-3.6-flash",
+    "flash-3.5": "gemini-3.5-flash",
     "flash-3": "gemini-3-flash-preview",
     "pro": "gemini-3.1-pro-preview",
     "lite": "gemini-2.5-flash-lite",
@@ -85,7 +89,7 @@ MODEL_ALIASES = {
     "image-pro": "nano-banana-pro",
 }
 
-DEFAULT_MODEL = "gemini-3.5-flash"
+DEFAULT_MODEL = "gemini-3.6-flash"
 
 # ---------------------------------------------------------------------------
 # Cloudflare AI Gateway constants
@@ -409,9 +413,9 @@ def invoke_gemini(
 
     Args:
         prompt: The text prompt to send
-        model: Model name or alias (default: gemini-3.5-flash).
-            Aliases: flash (3.5), flash-3 (prior preview), pro, lite,
-            stable-flash, stable-pro
+        model: Model name or alias (default: gemini-3.6-flash).
+            Aliases: flash (3.6), flash-3.5 (prior Flash), flash-3 (prior
+            preview), pro, lite, stable-flash, stable-pro
         temperature: Sampling temperature (0.0–1.0)
         max_output_tokens: Maximum tokens in response. Note: with thinking
             models (Gemini 3.x), thinking tokens consume part of this budget;
@@ -422,8 +426,8 @@ def invoke_gemini(
         image_path: Optional path to image file for multi-modal input
         thinking_level: Reasoning budget for thinking models (Gemini 3.x).
             One of 'minimal', 'low', 'medium', 'high'. Default (None) lets
-            the model use its built-in default — 'medium' for 3.5 Flash,
-            which silently eats output budget. Set 'minimal' for tasks that
+            the model use its built-in default — 'medium' for 3.x Flash
+            (incl. 3.6), which silently eats output budget. Set 'minimal' for tasks that
             don't need reasoning (transcription, classification, extraction).
             Ignored by 2.5 models (which use a different parameter).
 
