@@ -4,7 +4,7 @@ Page shell + primitive helpers shared by every template module.
 
 Templates receive a structured spec (a dict) and return a single HTML string
 that goes into <body>. The composer wraps it with <head>, inlines base.css /
-base.js, and adds the colophon footer. Templates never write <html>, <head>,
+base.js. If a caller passes `colophon=`, adds a colophon footer. Templates never write <html>, <head>,
 <style>, <script>, or <link>.
 
 Helpers provided here are deliberately small. Each takes plain Python data
@@ -199,7 +199,7 @@ def page(*, title: str, body: str,
          extra_css: str = "",
          extra_js: str = "",
          show_masthead: bool = True,
-         colophon: str | None = "Composed with composing-html") -> str:
+         colophon: str | None = None) -> str:
     """Wrap inner body html with the full page shell.
 
     Inlines base.css and base.js so the artifact is a single, portable file.
