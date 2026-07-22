@@ -220,12 +220,16 @@ availability — announced GA on Vertex AI / Gemini Enterprise Agent Platform,
 where the GA model IDs drop the suffix (`gemini-3.1-flash-image`,
 `gemini-3-pro-image`).
 
-⚠️ This client calls the **Gemini Developer API**
-(`generativelanguage.googleapis.com`, via the CF `google-ai-studio` gateway),
-NOT Vertex. On the Developer API both models are **still served under the
-`-preview` model IDs** (verified against the live image-generation docs,
-2026-05-28). Do NOT drop the `-preview` suffix on this surface — the GA IDs are
-a Vertex-only convention and 404 here.
+⚠️ **Corrected 2026-07-21 (the previous note here was wrong).** The GA IDs
+`gemini-3.1-flash-image` and `gemini-3-pro-image` are **NOT** Vertex-only and do
+**NOT** 404 on the Developer API — they were released on this surface on
+2026-05-28 and were live-tested working through the CF gateway on 2026-07-21.
+The `-preview` IDs also still resolve (their announced 2026-06-25 shutdown
+appears to redirect rather than fail), so nothing is broken either way — but
+**new code should target the GA IDs**.
+
+Also available and not yet wired into this client: `gemini-3.1-flash-lite-image`
+(Nano Banana 2 Lite, GA) — the cheapest image tier, ~$0.034/image.
 
 #### nano-banana-2
 
