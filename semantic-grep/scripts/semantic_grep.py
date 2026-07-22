@@ -4,7 +4,11 @@ semantic_grep: a jina-grep reproduction using Gemini embeddings.
 In-process semantic search over text files or in-memory strings.
 Routes through Cloudflare AI Gateway (proxy.env) when available.
 
-Model: gemini-embedding-001 (GA, 2048 input tokens, MRL truncation supported)
+Model: gemini-embedding-2 (GA 2026-04-22; general-purpose AND multimodal, MRL
+       truncation supported). Supersedes gemini-embedding-001, which is text-only.
+       Verified 2026-07-21 through the CF gateway: text, image (image/png) and
+       audio (audio/wav) all embed to the same space at the requested dim,
+       L2-normalized. 001 rejects non-text with HTTP 400.
 Task types used: RETRIEVAL_QUERY (query) + RETRIEVAL_DOCUMENT (corpus) — asymmetric.
 
 Design notes:
@@ -35,8 +39,8 @@ import requests
 
 _CF_GATEWAY_BASE = "https://gateway.ai.cloudflare.com/v1"
 _DIRECT_BASE = "https://generativelanguage.googleapis.com/v1beta"
-_DEFAULT_MODEL = "gemini-embedding-001"
-_MAX_INPUT_TOKENS = 2048  # per Gemini docs for gemini-embedding-001
+_DEFAULT_MODEL = "gemini-embedding-2"
+_MAX_INPUT_TOKENS = 2048  # conservative; documented for embedding-001, unverified for -2
 # Conservative char-per-token ratio. English prose is ~4 chars/token,
 # but CJK is closer to 1 char/token and emoji can be <1. Picking 1.5 as a safe
 # lower bound means we under-fill for English (some wasted context) in exchange
