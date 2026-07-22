@@ -168,7 +168,7 @@ from gemini_client import invoke_parallel
 
 results = invoke_parallel(
     prompts=["Summarize Hamlet", "Summarize Macbeth", "Summarize Othello"],
-    model="lite",  # gemini-2.5-flash-lite — cheapest, fastest for batch
+    model="lite",  # gemini-3.5-flash-lite — cheap/fast tier for batch
 )
 ```
 
@@ -187,9 +187,10 @@ remains callable as `flash-3.5`. `gemini-3-flash-preview` and
 | gemini-3.5-flash | `flash-3.5` | $1.50 | $9.00 | 1M | Prior frontier Flash (GA May 2026). Beats 3.1 Pro on most coding/agentic benchmarks. |
 | gemini-3-flash-preview | `flash-3` | $0.30 | $2.50 | 1M | Older preview Flash, kept for back compat |
 | gemini-3.1-pro-preview | `pro` | $2.00 (≤200K) / $4.00 | $12.00 / $24.00 | 1M | Current Pro tier; 3.5 Pro slated for June 2026 |
-| gemini-2.5-flash | `stable-flash` | $0.30 | $2.50 | 1M | Stable production Flash |
-| gemini-2.5-flash-lite | `lite` | **$0.10** | **$0.40** | 1M | Cheapest major-provider production model. Surprisingly strong on multimodal extraction. |
-| gemini-2.5-pro | `stable-pro` | $1.25 (≤200K) / $2.50 | $10.00 / $20.00 | 1M | Stable production Pro |
+| gemini-3.5-flash-lite | `lite` | $0.30 | $2.50 | 1M | **Cheap/bulk tier.** GA 2026-07-21. Fastest 3.5-class (350 output tok/sec); beats gemini-3-flash on SWE-Bench Pro and OSWorld-Verified. |
+| ~~gemini-2.5-flash~~ | `stable-flash` | $0.30 | $2.50 | 1M | **DEPRECATED** — 2025-era generation, do not route here. |
+| ~~gemini-2.5-flash-lite~~ | — | $0.10 | $0.40 | 1M | **DEPRECATED** — cheaper, but a 2025-era generation. `lite` now resolves to gemini-3.5-flash-lite. |
+| ~~gemini-2.5-pro~~ | `stable-pro` | $1.25 (≤200K) / $2.50 | $10.00 / $20.00 | 1M | **DEPRECATED** — 2025-era generation, do not route here. |
 
 ### Image Models
 
