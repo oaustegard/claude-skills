@@ -44,9 +44,10 @@ Shipped alongside two sibling models, neither wired into this client's alias
 table:
 
 - `gemini-3.5-flash-lite` — GA. Fastest 3.5-class model (350 output tok/sec),
-  $0.30 / $2.50. Note this is *pricier* than the current `lite` alias target
-  (gemini-2.5-flash-lite, $0.10 / $0.40), so repointing `lite` would be a
-  cost/quality trade-off, not a free upgrade.
+  $0.30 / $2.50. **This is now the `lite` alias target** (repointed 2026-07-21
+  from gemini-2.5-flash-lite). It costs ~6x more on output than the 2.5 model it
+  replaces; that was accepted deliberately — the 2.5 generation is retired
+  regardless of price.
 - `gemini-3.5-flash-cyber` — vuln-finding, fine-tuned on 3.5 Flash; powers
   CodeMender. **NOT generally available**: access is limited to governments
   and trusted partners under a pilot program due to dual-use risk. It cannot
@@ -132,7 +133,12 @@ When it ships, `pro` alias will likely repoint there.
 
 ---
 
-### Gemini 2.5 — Stable Production
+### Gemini 2.5 — DEPRECATED (retired 2026-07-21)
+
+⚠️ The Gemini 2.5 text generation is **retired from routing**. A 2025-era
+generation; the cost saving does not justify the quality gap. Model IDs remain
+callable so pinned code does not hard-break, but do not target them in new work.
+The `lite` alias now resolves to `gemini-3.5-flash-lite`.
 
 #### gemini-2.5-flash
 
@@ -159,8 +165,8 @@ When it ships, `pro` alias will likely repoint there.
 
 #### gemini-2.5-flash-lite
 
-**Status:** Stable, generally available
-**Alias:** `lite`
+**Status:** DEPRECATED (retired from routing 2026-07-21)
+**Alias:** none — `lite` now points at gemini-3.5-flash-lite
 
 **Strengths:**
 - **Cheapest major-provider production model** ($0.10 / $0.40)
@@ -270,9 +276,7 @@ with up to 3 input images.
 ```
 Default Flash (frontier)?              → gemini-3.6-flash (alias: flash)
 Maximum reasoning?                     → gemini-3.1-pro-preview (alias: pro)
-Production stability with quality?     → gemini-2.5-flash (alias: stable-flash)
-Routine / bulk / cheap?                → gemini-2.5-flash-lite (alias: lite)
-Complex + stable production?           → gemini-2.5-pro (alias: stable-pro)
+Routine / bulk / cheap / fastest?      → gemini-3.5-flash-lite (alias: lite)
 Pin to prior frontier Flash (3.5)?     → gemini-3.5-flash (alias: flash-3.5)
 Pin to older preview Flash?            → gemini-3-flash-preview (alias: flash-3)
 Image generation (fast)?               → nano-banana-2 (alias: image)
@@ -323,11 +327,11 @@ on Flash-tier models.
 | Model | Status | Migration Target |
 |---|---|---|
 | gemini-3-pro-preview | Retired (March 9, 2026) | gemini-3.1-pro-preview |
-| gemini-2.0-flash-exp | Retiring June 1, 2026 | gemini-3.5-flash |
-| gemini-2.0-flash | Retiring June 1, 2026 | gemini-2.5-flash |
-| gemini-2.0-flash-lite | Retiring June 1, 2026 | gemini-2.5-flash-lite |
+| gemini-2.0-flash-exp | Retiring June 1, 2026 | gemini-3.6-flash |
+| gemini-2.0-flash | Retiring June 1, 2026 | gemini-3.6-flash |
+| gemini-2.0-flash-lite | Retiring June 1, 2026 | gemini-3.5-flash-lite |
 | gemini-1.5-pro | Retired (404) | gemini-2.5-pro |
-| gemini-1.5-flash | Retired (404) | gemini-2.5-flash |
+| gemini-1.5-flash | Retired (404) | gemini-3.6-flash |
 | gemini-1.0-* | Retired (404) | — |
 
 ## Cost Optimization Tips
