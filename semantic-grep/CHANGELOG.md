@@ -1,5 +1,21 @@
 # semantic-grep - Changelog
 
+## 2026-07-21
+
+### Changed — default encoder is now `gemini-embedding-2`
+- `_DEFAULT_MODEL`: `gemini-embedding-001` → `gemini-embedding-2` (GA 2026-04-22).
+- Embedding-2 is a strict superset: same request shape and dims for text, plus
+  image and audio into the same vector space. Verified through the CF gateway
+  2026-07-21 — 001 rejects non-text input with HTTP 400.
+
+### Retired — `gemini-embedding-001`
+- Listed in `_RETIRED_MODELS`; passing it explicitly still works but raises a
+  `DeprecationWarning` pointing at the replacement.
+- **No migration needed.** This skill is serverless and re-embeds on every call
+  (no persistent index), and the memory system stopped generating embeddings in
+  v0.13.0 — so no stored 001 vectors exist to invalidate.
+- Vectors from different encoders are not comparable; never mix them in one index.
+
 All notable changes to the `semantic-grep` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [0.1.1] - 2026-04-19
