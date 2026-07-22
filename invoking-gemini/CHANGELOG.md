@@ -1,6 +1,19 @@
 # invoking-gemini - Changelog
 
 ## 2026-07-21
+
+### ⚠️ BREAKING — `lite` alias repointed
+- `MODEL_ALIASES['lite']`: `gemini-2.5-flash-lite` → `gemini-3.5-flash-lite`.
+  Output cost goes from $0.40 to $2.50 per 1M (~6x) for any caller using
+  `model="lite"`. Pin `gemini-2.5-flash-lite` by full ID if you need the old
+  rate, though it is deprecated (below).
+- The Gemini 2.5 **text** generation is retired from routing: `gemini-2.5-flash`,
+  `gemini-2.5-flash-lite`, `gemini-2.5-pro`. Model IDs stay callable and the
+  `stable-flash` / `stable-pro` aliases still resolve, so nothing hard-breaks,
+  but they are no longer recommended targets. Image model `nano-banana`
+  (gemini-2.5-flash-image) is NOT affected.
+- Added `gemini-3.5-flash-lite` (GA 2026-07-21) as the cheap/bulk tier.
+
 - Gemini 3.6 Flash (`gemini-3.6-flash`) reached GA (2026-07-21). Added it to
   the model registry and made it the new `DEFAULT_MODEL`.
 - Repointed the `flash` alias from `gemini-3.5-flash` to `gemini-3.6-flash`.
