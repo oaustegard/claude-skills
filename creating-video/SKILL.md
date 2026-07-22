@@ -2,7 +2,7 @@
 name: creating-video
 description: "Create video from prompts by overseeing multi-clip AI generation end to end: write a shot list, generate each scene with Gemini Omni Flash (via the Cloudflare AI Gateway), review the results, and assemble them into a finished cut. Use when the user asks to make/generate a video, a short film, an animatic, or a multi-scene clip from a script or idea; when they mention Omni, Veo, text-to-video, or image-to-video; or when acting as the editing/director agent over generated footage. Triggers on 'make a video', 'generate a clip', 'short film', 'video from this script', 'turn this into a video', 'omni', 'veo', 'text to video', 'storyboard to video'. For transcoding/trimming/merging/GIF/subtitles use processing-video; for reading or summarizing existing video content use parsing-video."
 metadata:
-  version: 0.2.0
+  version: 0.2.1
 ---
 
 # Creating Video

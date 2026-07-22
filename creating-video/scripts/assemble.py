@@ -62,10 +62,14 @@ def assemble(clips, out, beat=5.42, xfade=0.5, keep_audio=False,
             vf += f",tpad=stop_mode=clone:stop_duration={tail_hold}"
         vf += ",format=yuv420p"
         dst = tmp / f"t{i}.mp4"
-        audio = [] if not keep_audio else []
         cmd = ["ffmpeg", "-y", "-ss", "0.4", "-t", f"{beat}", "-i", str(src),
                "-vf", vf, "-r", str(fps)]
-        if not keep_audio:
+        if keep_audio:
+            af = "aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo"
+            if last and tail_hold > 0:
+                af += f",apad=pad_dur={tail_hold}"  # keep A/V equal length on the held tail
+            cmd += ["-af", af, "-c:a", "aac", "-b:a", "128k"]
+        else:
             cmd += ["-an"]
         cmd += ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", str(dst)]
         rc, log = _run(cmd)
@@ -80,17 +84,27 @@ def assemble(clips, out, beat=5.42, xfade=0.5, keep_audio=False,
     D = beat  # clip duration for offset math (tail_hold handled inside last clip)
     T = xfade
     fc = ""
-    prev = "0"
-    total = D + tail_hold  # final clip is longer by tail_hold
+    prev = None
     for k in range(1, n):
         off = k * (D - T)
+        left = "[0:v]" if k == 1 else f"[{prev}]"
         lbl = "v" if k == n - 1 else f"x{k}"
-        fc += f"[{prev}][{k}]xfade=transition=fade:duration={T}:offset={off:.3f}[{lbl}];"
+        fc += f"{left}[{k}:v]xfade=transition=fade:duration={T}:offset={off:.3f}[{lbl}];"
         prev = lbl
     full_len = (n * D) - ((n - 1) * T) + tail_hold
     fc += (f"[v]fade=t=in:st=0:d=0.6,"
            f"fade=t=out:st={full_len-1.0:.2f}:d=1.0,format=yuv420p[vv]")
-    cmd = ["ffmpeg", "-y"] + inputs + ["-filter_complex", fc, "-map", "[vv]",
+    maps = ["-map", "[vv]"]
+    if keep_audio:
+        aprev = None
+        for k in range(1, n):
+            left = "[0:a]" if k == 1 else f"[{aprev}]"
+            albl = "a" if k == n - 1 else f"ax{k}"
+            fc += f";{left}[{k}:a]acrossfade=d={T}[{albl}]"
+            aprev = albl
+        fc += f";[a]afade=t=out:st={full_len-1.0:.2f}:d=1.0[aa]"
+        maps += ["-map", "[aa]", "-c:a", "aac", "-b:a", "160k"]
+    cmd = ["ffmpeg", "-y"] + inputs + ["-filter_complex", fc] + maps + [
            "-r", str(fps), "-c:v", "libx264", "-preset", "veryfast", "-crf", "20",
            "-movflags", "+faststart", str(out)]
     rc, log = _run(cmd)
