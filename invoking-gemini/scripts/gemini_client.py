@@ -56,7 +56,11 @@ MODELS = {
     # Gemini 3.x — preview (still callable, kept for back compat)
     "gemini-3-flash-preview": "gemini-3-flash-preview",
     "gemini-3.1-pro-preview": "gemini-3.1-pro-preview",
-    # Gemini 2.5 — stable production
+    # Gemini 3.5 Flash-Lite — cheap/bulk tier (GA 2026-07-21)
+    "gemini-3.5-flash-lite": "gemini-3.5-flash-lite",
+    # Gemini 2.5 — DEPRECATED 2026-07-21. A 2025-era generation; do NOT route
+    # here. IDs kept callable so pinned code does not hard-break, but they are
+    # no longer a recommended target and `lite` no longer points at 2.5.
     "gemini-2.5-flash": "gemini-2.5-flash",
     "gemini-2.5-flash-lite": "gemini-2.5-flash-lite",
     "gemini-2.5-pro": "gemini-2.5-pro",
@@ -76,13 +80,16 @@ IMAGE_MODELS = {
 
 # Convenience aliases. `flash` points to the current frontier Flash (3.6, GA
 # 2026-07-21); `flash-3.5` and `flash-3` keep stable handles on the prior Flash
-# generations for code that pinned to them.
+# generations for code that pinned to them. `lite` repointed 2026-07-21 from
+# gemini-2.5-flash-lite to gemini-3.5-flash-lite (BREAKING: ~6x output cost,
+# $0.40 -> $2.50/M, in exchange for a current-generation model).
 MODEL_ALIASES = {
     "flash": "gemini-3.6-flash",
     "flash-3.5": "gemini-3.5-flash",
     "flash-3": "gemini-3-flash-preview",
     "pro": "gemini-3.1-pro-preview",
-    "lite": "gemini-2.5-flash-lite",
+    "lite": "gemini-3.5-flash-lite",
+    # DEPRECATED aliases (Gemini 2.5). Retained for back compat only.
     "stable-flash": "gemini-2.5-flash",
     "stable-pro": "gemini-2.5-pro",
     "image": "nano-banana-2",
