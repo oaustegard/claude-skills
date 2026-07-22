@@ -284,6 +284,8 @@ def _cf_request(
                 )
             response.raise_for_status()
             return response.json()
+        except MediaInputError:
+            raise  # deterministic input error — retrying cannot help
         except Exception as e:
             if attempt == max_retries - 1:
                 raise
@@ -312,15 +314,55 @@ def _extract_text(response: dict) -> Optional[str]:
         return None
 
 
+class MediaInputError(ValueError):
+    """Invalid media input. Deterministic — never worth retrying."""
+
+
+# Extensions mimetypes.guess_type() gets wrong or misses, per Gemini's accepted
+# media types. Audio/video matter here: a bad guess silently sends the wrong
+# mimeType and the model returns a confused answer instead of an error.
+_MEDIA_MIME_OVERRIDES = {
+    ".m4a": "audio/mp4", ".aac": "audio/aac", ".flac": "audio/flac",
+    ".ogg": "audio/ogg", ".opus": "audio/opus", ".mp3": "audio/mpeg",
+    ".wav": "audio/wav", ".aiff": "audio/aiff",
+    ".mp4": "video/mp4", ".mov": "video/quicktime", ".webm": "video/webm",
+    ".heic": "image/heic", ".heif": "image/heif",
+}
+
+# generateContent inline payloads must fit the request; base64 inflates ~4/3.
+# Files above this need the Files API (not implemented in this client).
+_INLINE_MEDIA_MAX_BYTES = 15 * 1024 * 1024
+
+
+def _guess_media_mime(path: str) -> str:
+    """Resolve a media mimeType, preferring explicit overrides over mimetypes."""
+    import mimetypes
+    ext = Path(path).suffix.lower()
+    if ext in _MEDIA_MIME_OVERRIDES:
+        return _MEDIA_MIME_OVERRIDES[ext]
+    return mimetypes.guess_type(path)[0] or "application/octet-stream"
+
+
 def _build_contents(prompt: str, image_path: Optional[str]) -> list:
-    """Build the Gemini REST API 'contents' array."""
+    """Build the Gemini REST API 'contents' array.
+
+    `image_path` accepts ANY supported media file — image, audio, or video —
+    despite the legacy name. Audio input is verified working on this path
+    (2026-07-21).
+    """
     parts: list = [{"text": prompt}]
     if image_path:
         import base64
-        import mimetypes
 
+        size = Path(image_path).stat().st_size
+        if size > _INLINE_MEDIA_MAX_BYTES:
+            raise MediaInputError(
+                f"{image_path} is {size/1e6:.1f}MB; inline media is capped at "
+                f"{_INLINE_MEDIA_MAX_BYTES/1e6:.0f}MB. Larger files need the "
+                f"Files API, which this client does not implement yet."
+            )
         image_data = Path(image_path).read_bytes()
-        mime_type = mimetypes.guess_type(image_path)[0] or "image/jpeg"
+        mime_type = _guess_media_mime(image_path)
         parts.append({
             "inlineData": {
                 "mimeType": mime_type,
@@ -362,7 +404,19 @@ def _initialize_direct_client() -> bool:
 
 
 def _build_genai_content(prompt: str, image_path: Optional[str]):
-    """Build content argument for google.generativeai SDK calls."""
+    """Build content argument for google.generativeai SDK calls.
+
+    NOTE: this direct-SDK fallback handles IMAGES only. Non-image media
+    (audio/video) works on the CF Gateway path; PIL cannot open it, so fail
+    with a clear message instead of an opaque UnidentifiedImageError.
+    """
+    if image_path and not _guess_media_mime(image_path).startswith("image/"):
+        raise MediaInputError(
+            f"{image_path} is not an image ({_guess_media_mime(image_path)}). "
+            "Audio/video input requires the Cloudflare AI Gateway path — "
+            "configure proxy.env; the direct google-generativeai SDK fallback "
+            "supports images only."
+        )
     if image_path:
         from PIL import Image  # type: ignore[import]
         return [prompt, Image.open(image_path)]
@@ -430,7 +484,10 @@ def invoke_gemini(
             tasks.
         top_p: Nucleus sampling parameter
         top_k: Top-k sampling parameter
-        image_path: Optional path to image file for multi-modal input
+        image_path: Optional path to a media file for multi-modal input.
+            Despite the name, accepts image, AUDIO, or video (audio verified
+            2026-07-21). Requires the CF Gateway path for non-image media.
+            Inline only — files >15MB need the Files API (not implemented).
         thinking_level: Reasoning budget for thinking models (Gemini 3.x).
             One of 'minimal', 'low', 'medium', 'high'. Default (None) lets
             the model use its built-in default — 'medium' for 3.x Flash
@@ -492,6 +549,8 @@ def invoke_gemini(
                 response = model_instance.generate_content(content)
                 return response.text
 
+        except MediaInputError:
+            raise  # deterministic input error — retrying cannot help
         except Exception as e:
             if attempt < max_retries - 1:
                 wait_time = 2 ** attempt
@@ -609,6 +668,8 @@ def generate_image(
             print(f"Image saved to {output_path}")
             return {"path": output_path, "caption": caption}
 
+        except MediaInputError:
+            raise  # deterministic input error — retrying cannot help
         except Exception as e:
             if attempt < max_retries - 1:
                 wait_time = 2 ** attempt
@@ -671,7 +732,10 @@ def invoke_with_structured_output(
         model: Model name or alias (default: gemini-3-flash-preview).
             Aliases: flash, pro, lite, stable-flash, stable-pro
         temperature: Sampling temperature (0.0–1.0)
-        image_path: Optional path to image file for multi-modal input
+        image_path: Optional path to a media file for multi-modal input.
+            Despite the name, accepts image, AUDIO, or video (audio verified
+            2026-07-21). Requires the CF Gateway path for non-image media.
+            Inline only — files >15MB need the Files API (not implemented).
 
     Returns:
         Instance of pydantic_model if successful, None if error
@@ -719,6 +783,8 @@ def invoke_with_structured_output(
                 json_data = json.loads(response.text)
                 return pydantic_model(**json_data)
 
+        except MediaInputError:
+            raise  # deterministic input error — retrying cannot help
         except Exception as e:
             if attempt < max_retries - 1:
                 wait_time = 2 ** attempt
