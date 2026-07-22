@@ -2,6 +2,12 @@
 
 All notable changes to the `creating-video` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.2.1] - 2026-07-22
+
+### Fixed
+
+- --keep-audio was a no-op — port audio crossfade from the stale branch (#742)
+
 ## [0.2.1] - 2026-07-21
 
 ### Fixed
