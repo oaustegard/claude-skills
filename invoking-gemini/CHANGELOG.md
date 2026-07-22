@@ -2,6 +2,27 @@
 
 ## 2026-07-21
 
+### Added — audio (and video) input
+- `image_path` now accepts **any** supported media file, not just images. Audio
+  input verified working 2026-07-21 (3-beep WAV; `gemini-3.6-flash` returned the
+  correct count and pitch direction). The param keeps its legacy name for
+  back compat; docstrings now state what it really accepts.
+- Explicit mimeType overrides for audio/video extensions `mimetypes` guesses
+  wrongly or misses (.m4a/.aac/.flac/.ogg/.opus/.mp3/.wav/.aiff/.mp4/.mov/.webm/
+  .heic/.heif). A wrong guess previously sent a bad mimeType and produced a
+  confused answer rather than an error.
+- New `MediaInputError` (subclass of `ValueError`) for deterministic input
+  problems; retry loops re-raise it immediately instead of burning 3 attempts.
+- 15MB inline cap enforced with an actionable message. Larger files need the
+  Files API, which this client still does not implement.
+- The direct google-generativeai SDK fallback now rejects non-image media with a
+  clear message instead of an opaque PIL `UnidentifiedImageError`. Audio/video
+  require the CF Gateway path.
+
+**Routing note:** send audio to `gemini-3.6-flash`. `gemini-3.5-flash-lite` was
+unreliable on the same clip — it reported three beeps then two on identical
+input, and got the pitch direction wrong both times.
+
 ### ⚠️ BREAKING — `lite` alias repointed
 - `MODEL_ALIASES['lite']`: `gemini-2.5-flash-lite` → `gemini-3.5-flash-lite`.
   Output cost goes from $0.40 to $2.50 per 1M (~6x) for any caller using
