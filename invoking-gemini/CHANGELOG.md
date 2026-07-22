@@ -1,5 +1,54 @@
 # invoking-gemini - Changelog
 
+## 2026-07-21
+
+### Added — audio (and video) input
+- `image_path` now accepts **any** supported media file, not just images. Audio
+  input verified working 2026-07-21 (3-beep WAV; `gemini-3.6-flash` returned the
+  correct count and pitch direction). The param keeps its legacy name for
+  back compat; docstrings now state what it really accepts.
+- Explicit mimeType overrides for audio/video extensions `mimetypes` guesses
+  wrongly or misses (.m4a/.aac/.flac/.ogg/.opus/.mp3/.wav/.aiff/.mp4/.mov/.webm/
+  .heic/.heif). A wrong guess previously sent a bad mimeType and produced a
+  confused answer rather than an error.
+- New `MediaInputError` (subclass of `ValueError`) for deterministic input
+  problems; retry loops re-raise it immediately instead of burning 3 attempts.
+- 15MB inline cap enforced with an actionable message. Larger files need the
+  Files API, which this client still does not implement.
+- The direct google-generativeai SDK fallback now rejects non-image media with a
+  clear message instead of an opaque PIL `UnidentifiedImageError`. Audio/video
+  require the CF Gateway path.
+
+**Routing note:** send audio to `gemini-3.6-flash`. `gemini-3.5-flash-lite` was
+unreliable on the same clip — it reported three beeps then two on identical
+input, and got the pitch direction wrong both times.
+
+### ⚠️ BREAKING — `lite` alias repointed
+- `MODEL_ALIASES['lite']`: `gemini-2.5-flash-lite` → `gemini-3.5-flash-lite`.
+  Output cost goes from $0.40 to $2.50 per 1M (~6x) for any caller using
+  `model="lite"`. Pin `gemini-2.5-flash-lite` by full ID if you need the old
+  rate, though it is deprecated (below).
+- The Gemini 2.5 **text** generation is retired from routing: `gemini-2.5-flash`,
+  `gemini-2.5-flash-lite`, `gemini-2.5-pro`. Model IDs stay callable and the
+  `stable-flash` / `stable-pro` aliases still resolve, so nothing hard-breaks,
+  but they are no longer recommended targets. Image model `nano-banana`
+  (gemini-2.5-flash-image) is NOT affected.
+- Added `gemini-3.5-flash-lite` (GA 2026-07-21) as the cheap/bulk tier.
+
+- Gemini 3.6 Flash (`gemini-3.6-flash`) reached GA (2026-07-21). Added it to
+  the model registry and made it the new `DEFAULT_MODEL`.
+- Repointed the `flash` alias from `gemini-3.5-flash` to `gemini-3.6-flash`.
+  Added `flash-3.5` as a stable handle for the prior frontier Flash; `flash-3`
+  still pins the older `gemini-3-flash-preview`.
+- Rationale: 3.6 Flash is ~half Sonnet's cost (in $1.50 / out $7.50 vs ~$3 /
+  ~$15) and improves coding/agentic quality with ~17% fewer output tokens than
+  3.5 Flash — making it the default for sub-agent delegation.
+- Updated SKILL.md and references/models.md tables (pricing, 64K output cap,
+  benchmark deltas, tone-regression caveat).
+- Not touched: `gemini-3.5-flash-lite` / `gemini-3.5-flash-cyber` (shipped same
+  day) are not yet aliased; two helper fns still hardcode a
+  `gemini-3-flash-preview` default in their signatures (pre-existing).
+
 ## 2026-05-28
 - Nano Banana 2 (`gemini-3.1-flash-image-preview`) and Nano Banana Pro
   (`gemini-3-pro-image-preview`) reached GA on Vertex / Gemini Enterprise.
