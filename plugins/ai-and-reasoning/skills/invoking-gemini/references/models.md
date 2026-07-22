@@ -1,15 +1,66 @@
 # Gemini Models Reference
 
-Detailed information about available Gemini models (as of May 2026).
+Detailed information about available Gemini models (as of July 2026).
 
 ## Model Comparison
 
-### Gemini 3.5 — Frontier (GA)
+### Gemini 3.6 — Frontier Flash (GA, current default)
+
+#### gemini-3.6-flash
+
+**Status:** Generally available (released July 21, 2026)
+**Alias:** `flash` (the current default Flash)
+
+**Strengths:**
+- Current frontier Flash — builds on 3.5 Flash for coding, knowledge work,
+  and multimodal tasks
+- ~17% fewer output tokens than 3.5 Flash on the Artificial Analysis index
+  (the headline efficiency win — addresses 3.5's verbosity)
+- Quality gains alongside efficiency: DeepSWE 49% vs 37%, MLE-Bench 63.9%
+  vs 49.7%, OSWorld-Verified 83.0% vs 78.4%, GDPval-AA v2 1421 vs 1349
+- Built-in client-side Computer Use tool via the Gemini API (Preview)
+- Dynamic thinking on by default (configurable via `thinking_level`)
+
+**Specifications:**
+- Context window: ~1M tokens input / 65,536 tokens output
+- Multimodal: text, image, audio, video
+- Default `thinking_level`: `medium` — set explicitly to `minimal` for
+  transcription/classification/extraction or the model will silently spend
+  output tokens on reasoning
+- Enhanced Frontier Safety safeguards (CBRN, cyber-offense); model card
+  notes a slight tone regression vs 3.5 Flash
+
+**Best for:**
+- Default Flash / sub-agent-delegation choice for most tasks
+- Agentic coding loops, terminal automation, multi-file projects
+- Cost-sensitive high-volume agentic work (cheaper output than 3.5)
+
+**Pricing:**
+- Input: $1.50 / 1M tokens
+- Output: $7.50 / 1M tokens (down from 3.5 Flash's $9.00)
+- 1M context window at base price (no surcharge tier)
+
+Shipped alongside two sibling models, neither wired into this client's alias
+table:
+
+- `gemini-3.5-flash-lite` — GA. Fastest 3.5-class model (350 output tok/sec),
+  $0.30 / $2.50. **This is now the `lite` alias target** (repointed 2026-07-21
+  from gemini-2.5-flash-lite). It costs ~6x more on output than the 2.5 model it
+  replaces; that was accepted deliberately — the 2.5 generation is retired
+  regardless of price.
+- `gemini-3.5-flash-cyber` — vuln-finding, fine-tuned on 3.5 Flash; powers
+  CodeMender. **NOT generally available**: access is limited to governments
+  and trusted partners under a pilot program due to dual-use risk. It cannot
+  simply be added as an alias.
+
+---
+
+### Gemini 3.5 — Prior Frontier Flash (GA)
 
 #### gemini-3.5-flash
 
 **Status:** Generally available (released May 19, 2026 at Google I/O)
-**Alias:** `flash` (this is now the default Flash)
+**Alias:** `flash-3.5` (was `flash` until 3.6 shipped)
 
 **Strengths:**
 - Frontier-class performance — beats Gemini 3.1 Pro on most coding and
@@ -27,10 +78,9 @@ Detailed information about available Gemini models (as of May 2026).
   the model will silently spend output tokens on reasoning)
 
 **Best for:**
-- Default Flash choice for most tasks in 2026
+- Pinning to prior-gen Flash behavior when 3.6 output differs
 - Agentic coding loops, terminal automation, multi-file projects
 - Multimodal document analysis where structure must be preserved
-- Streaming chat with frontier quality
 
 **Pricing:**
 - Input: $1.50 / 1M tokens
@@ -83,7 +133,12 @@ When it ships, `pro` alias will likely repoint there.
 
 ---
 
-### Gemini 2.5 — Stable Production
+### Gemini 2.5 — DEPRECATED (retired 2026-07-21)
+
+⚠️ The Gemini 2.5 text generation is **retired from routing**. A 2025-era
+generation; the cost saving does not justify the quality gap. Model IDs remain
+callable so pinned code does not hard-break, but do not target them in new work.
+The `lite` alias now resolves to `gemini-3.5-flash-lite`.
 
 #### gemini-2.5-flash
 
@@ -110,8 +165,8 @@ When it ships, `pro` alias will likely repoint there.
 
 #### gemini-2.5-flash-lite
 
-**Status:** Stable, generally available
-**Alias:** `lite`
+**Status:** DEPRECATED (retired from routing 2026-07-21)
+**Alias:** none — `lite` now points at gemini-3.5-flash-lite
 
 **Strengths:**
 - **Cheapest major-provider production model** ($0.10 / $0.40)
@@ -165,12 +220,16 @@ availability — announced GA on Vertex AI / Gemini Enterprise Agent Platform,
 where the GA model IDs drop the suffix (`gemini-3.1-flash-image`,
 `gemini-3-pro-image`).
 
-⚠️ This client calls the **Gemini Developer API**
-(`generativelanguage.googleapis.com`, via the CF `google-ai-studio` gateway),
-NOT Vertex. On the Developer API both models are **still served under the
-`-preview` model IDs** (verified against the live image-generation docs,
-2026-05-28). Do NOT drop the `-preview` suffix on this surface — the GA IDs are
-a Vertex-only convention and 404 here.
+⚠️ **Corrected 2026-07-21 (the previous note here was wrong).** The GA IDs
+`gemini-3.1-flash-image` and `gemini-3-pro-image` are **NOT** Vertex-only and do
+**NOT** 404 on the Developer API — they were released on this surface on
+2026-05-28 and were live-tested working through the CF gateway on 2026-07-21.
+The `-preview` IDs also still resolve (their announced 2026-06-25 shutdown
+appears to redirect rather than fail), so nothing is broken either way — but
+**new code should target the GA IDs**.
+
+Also available and not yet wired into this client: `gemini-3.1-flash-lite-image`
+(Nano Banana 2 Lite, GA) — the cheapest image tier, ~$0.034/image.
 
 #### nano-banana-2
 
@@ -219,12 +278,11 @@ with up to 3 input images.
 ## Model Selection Guide
 
 ```
-Default Flash (frontier)?              → gemini-3.5-flash (alias: flash)
+Default Flash (frontier)?              → gemini-3.6-flash (alias: flash)
 Maximum reasoning?                     → gemini-3.1-pro-preview (alias: pro)
-Production stability with quality?     → gemini-2.5-flash (alias: stable-flash)
-Routine / bulk / cheap?                → gemini-2.5-flash-lite (alias: lite)
-Complex + stable production?           → gemini-2.5-pro (alias: stable-pro)
-Pin to prior-gen Flash (back compat)?  → gemini-3-flash-preview (alias: flash-3)
+Routine / bulk / cheap / fastest?      → gemini-3.5-flash-lite (alias: lite)
+Pin to prior frontier Flash (3.5)?     → gemini-3.5-flash (alias: flash-3.5)
+Pin to older preview Flash?            → gemini-3-flash-preview (alias: flash-3)
 Image generation (fast)?               → nano-banana-2 (alias: image)
 Image generation (high-fidelity)?      → nano-banana-pro (alias: image-pro)
 ```
@@ -273,11 +331,11 @@ on Flash-tier models.
 | Model | Status | Migration Target |
 |---|---|---|
 | gemini-3-pro-preview | Retired (March 9, 2026) | gemini-3.1-pro-preview |
-| gemini-2.0-flash-exp | Retiring June 1, 2026 | gemini-3.5-flash |
-| gemini-2.0-flash | Retiring June 1, 2026 | gemini-2.5-flash |
-| gemini-2.0-flash-lite | Retiring June 1, 2026 | gemini-2.5-flash-lite |
+| gemini-2.0-flash-exp | Retiring June 1, 2026 | gemini-3.6-flash |
+| gemini-2.0-flash | Retiring June 1, 2026 | gemini-3.6-flash |
+| gemini-2.0-flash-lite | Retiring June 1, 2026 | gemini-3.5-flash-lite |
 | gemini-1.5-pro | Retired (404) | gemini-2.5-pro |
-| gemini-1.5-flash | Retired (404) | gemini-2.5-flash |
+| gemini-1.5-flash | Retired (404) | gemini-3.6-flash |
 | gemini-1.0-* | Retired (404) | — |
 
 ## Cost Optimization Tips
