@@ -40,9 +40,17 @@ Detailed information about available Gemini models (as of July 2026).
 - Output: $7.50 / 1M tokens (down from 3.5 Flash's $9.00)
 - 1M context window at base price (no surcharge tier)
 
-Shipped alongside `gemini-3.5-flash-lite` (low-latency subagent tier) and
-`gemini-3.5-flash-cyber` (vuln-finding, fine-tuned on 3.5 Flash) — neither
-is wired into this client's alias table yet.
+Shipped alongside two sibling models, neither wired into this client's alias
+table:
+
+- `gemini-3.5-flash-lite` — GA. Fastest 3.5-class model (350 output tok/sec),
+  $0.30 / $2.50. Note this is *pricier* than the current `lite` alias target
+  (gemini-2.5-flash-lite, $0.10 / $0.40), so repointing `lite` would be a
+  cost/quality trade-off, not a free upgrade.
+- `gemini-3.5-flash-cyber` — vuln-finding, fine-tuned on 3.5 Flash; powers
+  CodeMender. **NOT generally available**: access is limited to governments
+  and trusted partners under a pilot program due to dual-use risk. It cannot
+  simply be added as an alias.
 
 ---
 
