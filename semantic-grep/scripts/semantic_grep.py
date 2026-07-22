@@ -4,7 +4,11 @@ semantic_grep: a jina-grep reproduction using Gemini embeddings.
 In-process semantic search over text files or in-memory strings.
 Routes through Cloudflare AI Gateway (proxy.env) when available.
 
-Model: gemini-embedding-001 (GA, 2048 input tokens, MRL truncation supported)
+Model: gemini-embedding-2 (GA 2026-04-22; general-purpose AND multimodal, MRL
+       truncation supported). Supersedes gemini-embedding-001, which is text-only.
+       Verified 2026-07-21 through the CF gateway: text, image (image/png) and
+       audio (audio/wav) all embed to the same space at the requested dim,
+       L2-normalized. 001 rejects non-text with HTTP 400.
 Task types used: RETRIEVAL_QUERY (query) + RETRIEVAL_DOCUMENT (corpus) — asymmetric.
 
 Design notes:
@@ -35,8 +39,28 @@ import requests
 
 _CF_GATEWAY_BASE = "https://gateway.ai.cloudflare.com/v1"
 _DIRECT_BASE = "https://generativelanguage.googleapis.com/v1beta"
-_DEFAULT_MODEL = "gemini-embedding-001"
-_MAX_INPUT_TOKENS = 2048  # per Gemini docs for gemini-embedding-001
+_DEFAULT_MODEL = "gemini-embedding-2"
+
+# Retired 2026-07-21. gemini-embedding-001 is text-only and superseded by
+# gemini-embedding-2 (general-purpose AND multimodal, same request shape and
+# dims). Still callable if explicitly requested, but warns — nothing in this
+# skill persists vectors, so there is no index to migrate.
+_RETIRED_MODELS = {
+    "gemini-embedding-001": "gemini-embedding-2",
+}
+
+
+def _check_retired(model: str) -> None:
+    """Warn once if a caller explicitly asks for a retired embedding model."""
+    if model in _RETIRED_MODELS:
+        import warnings
+        warnings.warn(
+            f"{model} is retired; use {_RETIRED_MODELS[model]} "
+            f"(general-purpose and multimodal, same dims). Vectors from "
+            f"different encoders are not comparable — do not mix them.",
+            DeprecationWarning, stacklevel=3,
+        )
+_MAX_INPUT_TOKENS = 2048  # conservative; documented for embedding-001, unverified for -2
 # Conservative char-per-token ratio. English prose is ~4 chars/token,
 # but CJK is closer to 1 char/token and emoji can be <1. Picking 1.5 as a safe
 # lower bound means we under-fill for English (some wasted context) in exchange
@@ -94,6 +118,7 @@ TaskType = Literal[
 def _embed_one(text: str, task_type: TaskType, *, model: str, dim: int,
                timeout: float = 30.0, retries: int = 2) -> np.ndarray:
     """Embed a single string. Normalizes output if dim < 3072."""
+    _check_retired(model)
     url, headers = _embed_url(model)
     headers = {**headers, "Content-Type": "application/json"}
     body = {

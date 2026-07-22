@@ -7,7 +7,7 @@ metadata:
 
 # Semantic Grep
 
-jina-grep-style semantic search, done in-process via Python rather than as an external CLI. Embeds query + corpus chunks with `gemini-embedding-001`, ranks by cosine similarity, returns grep-format output.
+jina-grep-style semantic search, done in-process via Python rather than as an external CLI. Embeds query + corpus chunks with `gemini-embedding-2`, ranks by cosine similarity, returns grep-format output.
 
 ## When Semantic Search Helps
 
@@ -64,7 +64,7 @@ Main search function.
 - `threshold` *(float | None)* — cosine similarity cutoff; `None` = no filter (top_k only)
 - `granularity` *("paragraph" | "line")* — how to chunk files (default paragraph)
 - `include` *(str)* — filename-glob filter when `corpus` is a directory (default `"*.txt"`). Matches against `Path.name` only, not the full path — `"*.md"` works, `"docs/*.md"` does not.
-- `model` *(str)* — default `"gemini-embedding-001"`
+- `model` *(str)* — default `"gemini-embedding-2"`. `gemini-embedding-001` is **retired** (text-only) and warns if passed explicitly.
 - `dim` *(int)* — 128 / 768 / 1536 / 3072 (default 768; MRL-truncated + renormalized)
 - `task` *("text" | "code")* — selects text vs code task types
 
@@ -119,7 +119,10 @@ Use `SEMANTIC_SIMILARITY` (symmetric) only if you're doing pairwise sim, not ret
 
 ## Model Notes
 
-`gemini-embedding-001` (GA since Feb 2026):
+`gemini-embedding-2` (GA since 2026-04-22) — general-purpose **and** multimodal.
+Verified 2026-07-21 via the CF gateway: text, image and audio all embed to the
+same space at the requested dim, L2-normalized. The retired `gemini-embedding-001`
+was text-only and rejected non-text input with HTTP 400:
 - 2,048 input token limit per text. Longer texts are truncated at ~8K chars (approximation).
 - Matryoshka (MRL) — 3072 native dims, safely truncatable to 1536/768/256/128.
 - 3072 is auto-normalized; lower dims need client-side renorm (handled here).
