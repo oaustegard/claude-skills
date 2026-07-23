@@ -62,6 +62,13 @@ input, and got the pitch direction wrong both times.
 
 All notable changes to the `invoking-gemini` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.7.0] - 2026-07-23
+
+### Other
+
+- invoking-gemini: default to gemini-3.6-flash, retire Gemini 2.5 text models (#741)
+- invoking-gemini: Nano Banana 2/Pro GA — keep -preview IDs on Developer API surface (#676)
+
 ## [0.6.0] - 2026-05-23
 
 ### Added
