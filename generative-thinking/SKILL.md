@@ -1,8 +1,8 @@
 ---
 name: generative-thinking
-description: Break out of a locked problem frame by picking one disciplined move — reframe, provocation (Po), random stimulus, SCAMPER, inversion, perspective shift, or constraint play — and committing to it before evaluating. Use when stuck, when options feel narrow or obvious, when iterations produce variations of the same idea, or when the user says "widen this", "break out of", "think differently", "I'm stuck", "feels too obvious", "stress-test the framing", "what am I missing". Complements challenging (which evaluates) and convening-experts (which synthesizes viewpoints); this skill generates distance, not judgment.
+description: Break out of a locked problem frame by picking one disciplined move — reframe, provocation (Po), random stimulus, SCAMPER, inversion, perspective shift, constraint play, or family traversal — and committing to it before evaluating. Use when stuck, when options feel narrow or obvious, when iterations produce variations of the same idea, or when the user says "widen this", "break out of", "think differently", "I'm stuck", "feels too obvious", "stress-test the framing", "what am I missing", or holds two related examples and asks what lies between or beyond them. Complements challenging (which evaluates) and convening-experts (which synthesizes viewpoints); this skill generates distance, not judgment.
 metadata:
-  version: 0.1.2
+  version: 0.2.0
 ---
 
 # Generative Thinking — One Move, Committed
@@ -47,6 +47,7 @@ Match the stuck-pattern to the move. When unsure, default to **Reframe**.
 | Stuck on "how do we make X succeed?" | **Inversion** — ask "how do we guarantee X fails?" then negate |
 | Problem is defined entirely in one domain's vocabulary | **Perspective shift** — how would [distant domain] solve this? |
 | Every solution is blocked by a constraint | **Constraint play** — remove it ("assume magic"), or add an absurd one ("must fit in a tweet") |
+| Two known examples, no theory of the space between/beyond them | **Family traversal** — name the shared family, walk it to its limits |
 
 ### Reframe
 The problem-as-stated is rarely the problem-to-solve. Mutate the sentence:
@@ -126,6 +127,20 @@ Constraints define the solution space. Move them deliberately.
 
 **Fired if**: a relaxed-constraint solution reveals what you actually value (not just what you'll accept), or an added-constraint solution is sharper than the unconstrained one. If both feel like the same answer with a different budget, the binding constraint is elsewhere — find it.
 
+### Family traversal
+For when you hold two (or more) related instances and generation keeps orbiting them. The pair is not the object — the parametrized family containing both is. Sub-moves in descending observed yield:
+
+1. **Name the face.** State the family or frontier both instances lie on, and its parameter. (*Two embedding quantizers → the rate–distortion frontier, parametrized by bits per dimension.*) If you cannot name the parameter, you have not found the family yet.
+2. **Walk to the limits.** Continue past both anchors to the family's extreme points — limits are where members change character. (*The 0-bit limit of vector search is ranking by document prior; the zero-distortion limit is exact symbolic addressing — which revealed two "unrelated" projects as endpoints of one frontier.*)
+3. **Swap the bound object.** Name the supporting constraint that walls the family — the bound that cannot be crossed. Since crossing is impossible within the model, change what the constraint binds. (*Cannot beat rate–distortion for embeddings → quantize the weights, or the knowledge, instead.*)
+4. **Probe the chord.** Mixtures and blends of the anchors (dithering, ensembles, fusion weights). Lowest yield — blends average rather than extrapolate — but cheap. Run last, not first.
+
+Then **sharpen and verify**: the traversal's real product is questions precise enough to have derivable answers; the discovery happens in the derivation and a cheap measurement, not in the geometry. (*A frontier framing of an addressing scheme implied a capacity law, j² ≤ 2^(significand bits); sixty seconds of numpy confirmed a cliff at exactly N = 4096, closing a four-month-old empirical mystery.*) Without this step the move outputs taxonomy, not generation.
+
+**Fired if**: a limit point or constraint-swap landed outside the prior search space, AND at least one output is a checkable claim. If the output is only a tidy classification of the anchors, the move stalled — push further along the edge or swap the constraint.
+
+*Caution*: do not equate the interior of the space with novelty. In high dimensions essentially all operation is already extrapolation outside the training hull (Balestriero & LeCun 2021), and mixtures of known points are averages. The generative directions are the limits and the constraint-swaps; the chord is a probe, not a doctrine.
+
 ## Applying the skill to an agent's own reasoning
 
 LLM agents exhibit a context-bound analog of functional fixedness: attention concentrates on current framing and generates variations of it. Signals this is happening:
@@ -150,6 +165,7 @@ Load these only when the user wants depth on a specific technique.
 - SCAMPER — Bob Eberle, *SCAMPER: Games for Imagination Development* (1971), built on Alex Osborn's *Applied Imagination* (1953) checklist. Summary: [Wikipedia: SCAMPER](https://en.wikipedia.org/wiki/SCAMPER).
 - Oblique Strategies — Brian Eno & Peter Schmidt (1974–2001, five editions). Summary: [Wikipedia: Oblique Strategies](https://en.wikipedia.org/wiki/Oblique_Strategies). Full deck: [mattrickard.com/list-of-all-oblique-strategies](https://mattrickard.com/list-of-all-oblique-strategies). Draw one at random when reaching for random stimulus.
 - Functional fixedness (the cognitive bias this skill counters) — Karl Duncker, originally *Zur Psychologie des produktiven Denkens* (1935); English translation *On Problem-Solving* (1945), [doi:10.1037/h0093599](https://doi.org/10.1037/h0093599). The candle problem is the canonical demonstration.
+- Extrapolation vs interpolation in high dimensions (why "interior = novelty" is wrong) — Balestriero, Pesenti & LeCun, "Learning in High Dimension Always Amounts to Extrapolation," [arXiv:2110.09485](https://arxiv.org/abs/2110.09485).
 - Design fixation and generative-AI specific failure modes — Wadinambiarachchi, Kelly, Pareek, Zhou & Velloso, "The Effects of Generative AI on Design Fixation and Divergent Thinking," CHI 2024, paper 380, [doi:10.1145/3613904.3642919](https://doi.org/10.1145/3613904.3642919) ([arXiv:2403.11164](https://arxiv.org/abs/2403.11164)). N=60 visual ideation experiment: participants with AI image-generator support showed *higher* fixation on the initial example, and lower fluency, variety, and originality than the no-support baseline. Directly relevant when the fixation is coming from an LLM's own prior outputs.
 
 ## Quick-reference card
@@ -163,6 +179,7 @@ DIAGNOSE: What kind of stuck?
   → chasing success       : INVERSION
   → one domain vocabulary : PERSPECTIVE SHIFT
   → blocked by constraint : CONSTRAINT PLAY
+  → two examples, no theory: FAMILY TRAVERSAL
 
 DISCIPLINE:
   1. Generation before evaluation
