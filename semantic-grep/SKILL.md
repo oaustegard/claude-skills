@@ -2,7 +2,7 @@
 name: semantic-grep
 description: In-process semantic search over text files or in-memory strings, using Gemini embeddings via the CF AI Gateway. Use when user wants fuzzy/conceptual search where exact-keyword grep would miss — "sessions discussing regulatory constraints", "code about retry logic", "notes mentioning burnout even if the word isn't there". Complements searching-codebases (regex/AST) and extracting-keywords (YAKE). Do NOT use when an exact string/regex match is what's wanted — grep/rg wins on speed and precision there.
 metadata:
-  version: 0.1.1
+  version: 0.2.0
 ---
 
 # Semantic Grep
