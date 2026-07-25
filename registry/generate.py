@@ -42,6 +42,24 @@ def load_categories() -> dict:
         return json.load(f)["categories"]
 
 
+def is_deprecated(skill_dir: Path) -> bool:
+    """True if a skill declares metadata.deprecated in its SKILL.md.
+
+    Deprecated skills stay in the repo (so existing references resolve and the
+    superseded_by pointer is readable) but are excluded from the packaged
+    plugins and from marketplace keywords.
+
+    Frontmatter that fails to parse is NOT treated as deprecated: that would
+    silently drop a healthy skill from distribution on a YAML typo. Such skills
+    surface instead via get_skill_version() returning None.
+    """
+    try:
+        fm, _ = parse_skill_md(skill_dir / "SKILL.md")
+    except Exception:
+        return False
+    return bool((fm.get("metadata") or {}).get("deprecated"))
+
+
 def get_skill_version(skill_dir: Path) -> str | None:
     """Extract version from a skill's SKILL.md frontmatter."""
     try:
@@ -139,13 +157,18 @@ def build_plugins_dir(root: Path, categories: dict) -> None:
                 print(f"WARN: {skill_name}/SKILL.md not found, skipping",
                       file=sys.stderr)
                 continue
+            if is_deprecated(skill_source):
+                print(f"INFO: {skill_name} is deprecated, not packaging",
+                      file=sys.stderr)
+                continue
 
             dest = skills_dir / skill_name
             shutil.copytree(skill_source, dest, ignore=_ignore_symlinks)
 
         # Create plugin.json
         skill_names = [s for s in cat_info["skills"]
-                       if (root / s / "SKILL.md").exists()]
+                       if (root / s / "SKILL.md").exists()
+                       and not is_deprecated(root / s)]
         plugin_json = {
             "name": cat_name,
             "description": cat_info["description"],
@@ -164,7 +187,8 @@ def build_marketplace(root: Path, categories: dict) -> Marketplace:
 
     for cat_name, cat_info in sorted(categories.items()):
         skill_dirs = [root / s for s in cat_info["skills"]
-                      if (root / s / "SKILL.md").exists()]
+                      if (root / s / "SKILL.md").exists()
+                      and not is_deprecated(root / s)]
         if not skill_dirs:
             continue
 

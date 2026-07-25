@@ -1,5 +1,5 @@
 {
   "name": "media-processing",
-  "description": "Image manipulation, video/audio processing, SVG conversion, and computer vision augmentation.",
-  "version": "1.0.0"
+  "description": "Image manipulation, video/audio processing, file format conversion, SVG conversion, and computer vision augmentation.",
+  "version": "2.1.0"
 }

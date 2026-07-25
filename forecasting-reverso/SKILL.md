@@ -1,6 +1,8 @@
 ---
 name: forecasting-reverso
 description: Zero-shot univariate time series forecasting using the Reverso foundation model (NumPy/Numba CPU-only inference). Activate when users provide time series data and request forecasts, predictions, or extrapolations. Supports Reverso Small (550K params). Triggers on "forecast", "predict", "time series", "Reverso", or when tabular data with a temporal dimension needs future-value estimation.
+metadata:
+  version: 0.1.0
 ---
 
 # Reverso Time Series Forecasting

@@ -3,14 +3,17 @@
     "code-intelligence": {
       "description": "Codebase exploration, navigation, mapping, and static analysis tools for understanding unfamiliar codebases.",
       "skills": [
+        "assessing-impact",
         "exploring-codebases",
         "featuring",
         "generating-lattice",
         "mapping-codebases",
         "mapping-webapp",
+        "orienting-codebases",
         "python-lsp",
         "reasoning-semiformally",
         "searching-codebases",
+        "semantic-grep",
         "tree-sitting"
       ]
     },
@@ -30,10 +33,12 @@
       "skills": [
         "check-tools",
         "coding-mojo",
+        "composing-html",
         "creating-bookmarklets",
         "creating-mcp-servers",
         "developing-preact",
-        "generating-patches"
+        "generating-patches",
+        "querying-markdown"
       ]
     },
     "github-and-git": {
@@ -41,31 +46,44 @@
       "skills": [
         "accessing-github-repos",
         "building-github-index",
-        "building-github-index-v2",
+        "closing-issues",
         "githubbing",
-        "invoking-github"
+        "invoking-github",
+        "opening-prs"
       ]
     },
     "ai-and-reasoning": {
       "description": "AI model invocation, multi-agent orchestration, prompt distillation, and structured reasoning frameworks.",
       "skills": [
+        "agent-routing",
+        "challenging",
         "convening-experts",
         "down-skilling",
+        "generative-thinking",
         "invoking-antigravity",
         "invoking-gemini",
         "llm-as-computer",
         "orchestrating-agents",
         "reviewing-ai-papers",
-        "tiling-tree"
+        "tiling-tree",
+        "verifying-claims"
       ]
     },
     "media-processing": {
-      "description": "Image manipulation, video/audio processing, SVG conversion, and computer vision augmentation.",
+      "description": "Image manipulation, video/audio processing, file format conversion, SVG conversion, and computer vision augmentation.",
       "skills": [
+        "converting-files",
+        "creating-video",
+        "detecting-tips-zones",
+        "drawing-video",
         "image-to-svg",
+        "parsing-video",
         "processing-images",
         "processing-video",
-        "seeing-images"
+        "reading-business-cards",
+        "seeing-images",
+        "svg-portrait-mode",
+        "transcribing-images"
       ]
     },
     "web-and-retrieval": {
@@ -87,13 +105,16 @@
       ]
     },
     "knowledge-and-memory": {
-      "description": "Research methodology, persistent memory, iterative workflows, and project knowledge management.",
+      "description": "Research methodology, corpus search, persistent memory, iterative workflows, and project knowledge management.",
       "skills": [
         "asking-questions",
+        "bm25",
         "cloning-project",
         "creating-kb",
         "iterating",
-        "remembering",
+        "mapping-documents",
+        "session-memory",
+        "tracking-todos",
         "updating-knowledge"
       ]
     },
@@ -102,11 +123,13 @@
       "skills": [
         "crafting-instructions",
         "creating-skill",
+        "finding-skills",
         "inspecting-skills",
         "installing-skills",
         "optimizing-skills",
         "orchestrating-skills",
-        "versioning-skills"
+        "versioning-skills",
+        "writing-instructions"
       ]
     },
     "environment-and-config": {
@@ -115,7 +138,8 @@
         "api-credentials",
         "configuring",
         "container-layer",
-        "flowing"
+        "flowing",
+        "uploading-files"
       ]
     }
   }
