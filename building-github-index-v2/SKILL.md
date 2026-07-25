@@ -1,11 +1,27 @@
 ---
-name: building-github-index
-description: Generate progressive disclosure indexes for GitHub repositories to use as Claude project knowledge. Use when setting up projects referencing external documentation, creating searchable indexes of technical blogs or knowledge bases, combining multiple repos into one index, or when user mentions "index", "github repo", "project knowledge", or "documentation reference".
+name: building-github-index-v2
+description: DEPRECATED - Use building-github-index instead. Superseded per-file GitHub API implementation of progressive disclosure repository indexes.
 metadata:
-  version: 2.0.0
+  version: 2.0.1
+  deprecated: true
+  superseded_by: building-github-index
 ---
 
-# Building GitHub Index
+# Building GitHub Index (v2 — DEPRECATED)
+
+**⚠️ DEPRECATED: Use the `building-github-index` skill instead.**
+
+Despite the "-v2" directory name, this is the *older* implementation. It fetches
+the repo tree and then every file individually through `api.github.com`, which is
+slow and burns per-file rate limit. `building-github-index` supersedes it with a
+single-request tarball download that processes files locally.
+
+This directory is retained only so existing references resolve. It receives no
+further updates.
+
+---
+
+## Legacy Documentation
 
 Create markdown indexes of GitHub repositories optimized for Claude project knowledge. Indexes enable retrieval via GitHub API with semantic descriptions for effective matching.
 

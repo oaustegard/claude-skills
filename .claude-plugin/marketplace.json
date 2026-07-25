@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.0724.1528"
+    "version": "2026.0725.2051"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -20,13 +20,17 @@
       "category": "Ai And Reasoning",
       "keywords": [
         "orchestrating-agents",
+        "agent-routing",
+        "challenging",
         "convening-experts",
         "down-skilling",
+        "generative-thinking",
         "invoking-antigravity",
         "invoking-gemini",
         "llm-as-computer",
         "reviewing-ai-papers",
-        "tiling-tree"
+        "tiling-tree",
+        "verifying-claims"
       ]
     },
     {
@@ -39,14 +43,17 @@
       "license": "MIT",
       "category": "Code Intelligence",
       "keywords": [
+        "assessing-impact",
         "exploring-codebases",
         "featuring",
         "generating-lattice",
         "mapping-codebases",
         "mapping-webapp",
+        "orienting-codebases",
         "python-lsp",
         "reasoning-semiformally",
         "searching-codebases",
+        "semantic-grep",
         "tree-sitting"
       ]
     },
@@ -80,10 +87,12 @@
       "keywords": [
         "check-tools",
         "coding-mojo",
+        "composing-html",
         "creating-bookmarklets",
         "creating-mcp-servers",
         "developing-preact",
-        "generating-patches"
+        "generating-patches",
+        "querying-markdown"
       ]
     },
     {
@@ -99,7 +108,8 @@
         "api-credentials",
         "configuring",
         "container-layer",
-        "flowing"
+        "flowing",
+        "uploading-files"
       ]
     },
     {
@@ -114,14 +124,15 @@
       "keywords": [
         "accessing-github-repos",
         "building-github-index",
-        "building-github-index-v2",
+        "closing-issues",
         "githubbing",
-        "invoking-github"
+        "invoking-github",
+        "opening-prs"
       ]
     },
     {
       "name": "knowledge-and-memory",
-      "description": "Research methodology, persistent memory, iterative workflows, and project knowledge management.",
+      "description": "Research methodology, corpus search, persistent memory, iterative workflows, and project knowledge management.",
       "source": "./plugins/knowledge-and-memory",
       "version": "1.1.0",
       "repository": "https://github.com/oaustegard/claude-skills",
@@ -130,26 +141,38 @@
       "category": "Knowledge And Memory",
       "keywords": [
         "asking-questions",
+        "bm25",
         "cloning-project",
         "creating-kb",
         "iterating",
+        "mapping-documents",
+        "session-memory",
+        "tracking-todos",
         "updating-knowledge"
       ]
     },
     {
       "name": "media-processing",
-      "description": "Image manipulation, video/audio processing, SVG conversion, and computer vision augmentation.",
+      "description": "Image manipulation, video/audio processing, file format conversion, SVG conversion, and computer vision augmentation.",
       "source": "./plugins/media-processing",
-      "version": "1.0.0",
+      "version": "2.1.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",
       "category": "Media Processing",
       "keywords": [
+        "converting-files",
+        "creating-video",
+        "detecting-tips-zones",
+        "drawing-video",
         "image-to-svg",
+        "parsing-video",
         "processing-images",
         "processing-video",
-        "seeing-images"
+        "reading-business-cards",
+        "seeing-images",
+        "svg-portrait-mode",
+        "transcribing-images"
       ]
     },
     {
@@ -164,11 +187,13 @@
       "keywords": [
         "crafting-instructions",
         "creating-skill",
+        "finding-skills",
         "inspecting-skills",
         "installing-skills",
         "optimizing-skills",
         "orchestrating-skills",
-        "versioning-skills"
+        "versioning-skills",
+        "writing-instructions"
       ]
     },
     {

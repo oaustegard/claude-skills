@@ -1,8 +1,8 @@
 ---
 name: json-render-ui
-description: Generate guardrailed UI from natural language. Claude emits constrained JSON, skill runtime renders via Preact. Use when user provides json and requests: Dashboards with metrics, charts, tables; Admin panels; Data visualization interfaces; Form-based applications
+description: "Generate guardrailed UI from natural language. Emits constrained JSON that a Preact runtime renders. Use when the request is for a dashboard with metrics, charts, or tables; an admin panel; a data visualization interface; or a form-based application."
 metadata:
-  version: 0.0.1
+  version: 0.0.2
 ---
 
 # JSON Render UI
@@ -144,10 +144,10 @@ Analyze the user's request and emit a UITree structure. Include sample data that
 
 Create an HTML artifact that:
 1. Embeds the UITree JSON
-2. Imports the renderer from `assets/renderer.js` (inline it)
-3. Renders the UI
+2. Renders the UI
 
-Use the template in `assets/template.html`.
+Start from `assets/template.html`, which already carries the embedded renderer —
+there is no separate `renderer.js` to inline.
 
 ## Constraints
 
