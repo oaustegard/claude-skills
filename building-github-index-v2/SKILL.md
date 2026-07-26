@@ -2,7 +2,7 @@
 name: building-github-index-v2
 description: DEPRECATED - Use building-github-index instead. Superseded per-file GitHub API implementation of progressive disclosure repository indexes.
 metadata:
-  version: 2.0.1
+  version: 2.0.2
   deprecated: true
   superseded_by: building-github-index
 ---
@@ -118,7 +118,7 @@ Allowlist: `api.github.com`, `raw.githubusercontent.com`
 ## Related Skills
 
 - `accessing-github-repos` - Private repos, PAT setup, tarball download
-- `mapping-codebases` - Detailed code structure (methods, imports, line numbers)
+- `tree-sitting` - Detailed code structure (methods, imports, line numbers)
 
 ## Condensed Format (pk_index.py)
 

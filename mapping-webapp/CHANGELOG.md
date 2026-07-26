@@ -19,3 +19,12 @@ All notable changes to the `mapping-webapp` skill are documented in this file. T
 ### Added
 
 - add mapping-webapp skill for behavioral web app documentation (#432)
+## 0.4.0 — 2026-07-26
+
+- Structure now comes from tree-sitting at runtime instead of committed `_MAP.md`
+  files (mapping-codebases is deprecated). New `scripts/codecontext.py` wraps the
+  scan; `analyze.py`, `describe.py`, `discover.py`, and `featuremap.py` delegate to it.
+- `featuremap.py` no longer aborts when `_MAP.md` is absent; it checks that
+  tree-sitting is installed instead.
+- Page discovery reads the scanned file list directly rather than regex-scraping
+  HTML references out of a root `_MAP.md`.

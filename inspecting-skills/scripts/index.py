@@ -2,7 +2,7 @@
 index.py - Extract callable symbols from Python files using AST parsing.
 
 Uses Python's stdlib ast module for reliable parsing. Tree-sitter is available
-via mapping-codebases for multi-language support, but stdlib ast is preferred
+via tree-sitting for multi-language support, but stdlib ast is preferred
 for Python-only indexing due to zero external dependencies.
 """
 

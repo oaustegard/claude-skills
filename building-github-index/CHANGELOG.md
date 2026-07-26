@@ -7,3 +7,7 @@ All notable changes to the `building-github-index` skill are documented in this 
 ### Added
 
 - Add/Update skill: building-github-index
+
+## 2.0.1 — 2026-07-26
+
+- Repointed the code-structure reference from mapping-codebases (deprecated) to tree-sitting.

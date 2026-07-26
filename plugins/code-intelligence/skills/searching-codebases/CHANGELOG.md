@@ -78,3 +78,7 @@ All notable changes to the `searching-codebases` skill are documented in this fi
 - searching-codebases/SKILL.md
 - Implement #414, #415, #416: perch findings digests, boot flight awareness, inline links
 - Add searching-codebases skill
+## 2.3.0 — 2026-07-26
+
+- Dropped `_MAP.md` as a corpus source (`_extract_map_entries` removed). Code and
+  markdown extractors are unaffected; `_MAP.md` files no longer exist to index.

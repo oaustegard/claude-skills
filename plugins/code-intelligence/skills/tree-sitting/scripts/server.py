@@ -65,7 +65,7 @@ def dir_overview(
     path: Annotated[str, Field(description="Directory path relative to repo root ('' for root)")] = '',
 ) -> str:
     """List files and their top-level symbols for a specific directory.
-    Like a dynamic _MAP.md for one directory."""
+    A structural digest of one directory."""
     if not cache.is_loaded:
         return "No codebase scanned. Call scan() first."
     return cache.dir_overview(path)
@@ -98,7 +98,7 @@ def file_symbols(
     path: Annotated[str, Field(description="File path relative to repo root (or partial match)")],
 ) -> str:
     """List all symbols in a specific file with signatures and doc comments.
-    The equivalent of reading a _MAP.md entry for one file."""
+    The structural digest for a single file."""
     if not cache.is_loaded:
         return "No codebase scanned. Call scan() first."
     syms = cache.file_symbols(path)

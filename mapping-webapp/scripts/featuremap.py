@@ -13,6 +13,8 @@ import argparse
 import json
 import sys
 from pathlib import Path
+
+from codecontext import load_cache
 from urllib.parse import urljoin
 
 # Allow running as script or via package import
@@ -69,7 +71,7 @@ Examples:
     )
     parser.add_argument(
         "--codebase", required=True, type=Path,
-        help="Path to the codebase root (must contain _MAP.md files)",
+        help="Path to the codebase root",
     )
     parser.add_argument(
         "--output", type=Path, default=None,
@@ -164,12 +166,11 @@ def main() -> int:
     output_path = args.output or (codebase / "_FEATURES.md")
     screenshots_dir = args.screenshots_dir or (codebase / "screenshots")
 
-    # Validate codebase has _MAP.md
-    root_map = codebase / "_MAP.md"
-    if not root_map.exists():
+    # Validate tree-sitting can scan the codebase
+    if load_cache(codebase) is None:
         print(
-            f"ERROR: No _MAP.md found at {root_map}. "
-            "Run mapping-codebases first.",
+            "ERROR: tree-sitting skill not found. Install it alongside "
+            "mapping-webapp; it supplies the code structure this tool reads.",
             file=sys.stderr,
         )
         return 1

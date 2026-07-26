@@ -12,6 +12,8 @@ import re
 import sys
 from pathlib import Path
 
+from codecontext import find_relevant_code_context
+
 from .discover import PageInfo
 
 # Prompt template for code-based analysis
@@ -154,55 +156,6 @@ def _read_source_context(codebase: Path, page_path: str, max_chars: int = 15000)
     return "\n\n".join(parts) if parts else "(no readable source files)"
 
 
-def _find_relevant_map_excerpts(codebase: Path, page_path: str) -> str:
-    """Find _MAP.md excerpts relevant to a page.
-
-    Args:
-        codebase: Path to codebase root.
-        page_path: URL path of the page.
-
-    Returns:
-        Concatenated relevant _MAP.md excerpts.
-    """
-    excerpts = []
-    map_files = list(codebase.rglob("_MAP.md"))
-
-    keywords = [
-        seg.lower()
-        for seg in page_path.strip("/").split("/")
-        if seg and len(seg) > 1
-    ]
-    # Also strip file extensions from keywords
-    keywords = [kw.rsplit(".", 1)[0] if "." in kw else kw for kw in keywords]
-
-    if not keywords:
-        keywords = ["index", "home", "app", "main"]
-
-    for map_file in map_files[:10]:
-        try:
-            content = map_file.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
-
-        content_lower = content.lower()
-        if any(kw in content_lower for kw in keywords):
-            lines = content.splitlines()[:200]
-            rel_path = map_file.relative_to(codebase)
-            excerpts.append(f"### {rel_path}\n" + "\n".join(lines))
-
-    if not excerpts:
-        root_map = codebase / "_MAP.md"
-        if root_map.exists():
-            try:
-                content = root_map.read_text(encoding="utf-8")
-                lines = content.splitlines()[:100]
-                excerpts.append("### _MAP.md (root)\n" + "\n".join(lines))
-            except (OSError, UnicodeDecodeError):
-                pass
-
-    return "\n\n".join(excerpts) if excerpts else "(no _MAP.md excerpts found)"
-
-
 def _get_api_key() -> str:
     """Retrieve the Anthropic API key."""
     try:
@@ -261,7 +214,7 @@ def analyze_page(
             "source": "code",
         }
 
-    map_excerpts = _find_relevant_map_excerpts(codebase, page.path)
+    map_excerpts = find_relevant_code_context(codebase, page.path)
 
     prompt = ANALYZE_PROMPT.format(
         path=page.path,

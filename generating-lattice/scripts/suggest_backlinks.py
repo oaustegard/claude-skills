@@ -126,7 +126,7 @@ def _load_treesit_engine():
 
 
 def find_symbol_line(symbol_map, source_file, symbol_name):
-    """Look up a symbol's line number from the pre-parsed _MAP.md data.
+    """Look up a symbol's line number from the pre-built symbol map.
 
     Tries hierarchical path first (e.g. 'App#listen'), then leaf name.
     """
@@ -197,7 +197,7 @@ def suggest_backlinks(project_root, refs, symbol_map):
                 already_linked.append(ref)
                 continue
             
-            # Find where the symbol is defined via _MAP.md
+            # Find where the symbol is defined via the tree-sitting scan
             line_num = find_symbol_line(symbol_map, source_file, ref['symbol'])
             if line_num is None:
                 not_found.append(ref)
@@ -249,7 +249,7 @@ def main():
         print(f'Error: {lat_dir} not found. Generate lat.md/ files first.')
         sys.exit(1)
     
-    # Parse _MAP.md files for symbol line lookup
+    # Build the symbol -> line lookup from a tree-sitting scan
     symbol_map = build_symbol_map(project_root)
     if not symbol_map:
         print('Warning: no symbols found. Check that the repo path is correct')

@@ -2,7 +2,7 @@
 name: building-github-index
 description: Generate progressive disclosure indexes for GitHub repositories to use as Claude project knowledge. Use when setting up projects referencing external documentation, creating searchable indexes of technical blogs or knowledge bases, combining multiple repos into one index, or when user mentions "index", "github repo", "project knowledge", or "documentation reference".
 metadata:
-  version: 2.0.0
+  version: 2.0.1
 ---
 
 # Building GitHub Index
@@ -102,7 +102,7 @@ Both scripts download a repo tarball (single HTTP request, no per-file rate limi
 ## Related Skills
 
 - `accessing-github-repos` - Private repos, PAT setup, tarball download
-- `mapping-codebases` - Detailed code structure (methods, imports, line numbers)
+- `tree-sitting` - Detailed code structure (methods, imports, line numbers)
 
 ## Condensed Format (pk_index.py)
 
