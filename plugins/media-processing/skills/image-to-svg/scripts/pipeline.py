@@ -15,11 +15,12 @@ Usage:
                              stroke_width_cap=6, stroke_opacity=0.8,
                              stroke_merge=True, stroke_blur=0.5)
 """
-import cv2
-import numpy as np
 import sys
 from collections import Counter
 from pathlib import Path
+
+import cv2
+import numpy as np
 
 # --- Skill paths (stable in container) ---
 _SKILL_ROOT = Path(__file__).resolve().parent.parent  # image-to-svg/
@@ -27,7 +28,7 @@ _SKILLS_DIR = _SKILL_ROOT.parent                       # /mnt/skills/user/
 
 sys.path.insert(0, str(_SKILLS_DIR / "flowing" / "scripts"))
 
-from flowing import task, Flow
+from flowing import Flow, task
 
 # --- Mode presets ---
 MODES = {
@@ -153,7 +154,8 @@ def _ensure_nn_binary():
     """Compile nn_assign.c if binary is missing or stale."""
     if _NN_BIN.exists() and _NN_BIN.stat().st_mtime >= _NN_SRC.stat().st_mtime:
         return True
-    import subprocess, shutil
+    import shutil
+    import subprocess
     gcc = shutil.which("gcc")
     if not gcc:
         return False
@@ -169,7 +171,9 @@ def _ensure_nn_binary():
 
 def _nn_assign_fast(pixels_u8, centers_u8, K):
     """Assign each pixel to nearest center. Uses compiled C (27x faster) with numpy fallback."""
-    import subprocess, tempfile, os
+    import os
+    import subprocess
+    import tempfile
 
     if _ensure_nn_binary():
         px_f = tempfile.mktemp(suffix=".bin")
@@ -214,7 +218,9 @@ def _im_smooth(source_path, smooth_spec):
     Returns:
         Path to preprocessed temp file, or source_path if smooth is None/unavailable.
     """
-    import subprocess, shutil, tempfile
+    import shutil
+    import subprocess
+    import tempfile
 
     if not smooth_spec:
         return source_path
@@ -698,8 +704,10 @@ def _run_compositional(source_path, mode, svg_width, palette, bg_color,
     Returns:
         (svg_string, flow) tuple
     """
-    import tempfile, os
-    from lines import extract_lines, suppress_line_regions, merge_segments_to_curves
+    import os
+    import tempfile
+
+    from lines import extract_lines, merge_segments_to_curves, suppress_line_regions
 
     # Load original image
     img = cv2.imread(str(source_path))

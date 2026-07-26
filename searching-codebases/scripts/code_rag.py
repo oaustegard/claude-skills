@@ -16,19 +16,16 @@ Usage:
     python3 code_rag.py search /path/to/repo "middleware" --rg
 """
 
+import json
 import os
 import re
 import sys
-import json
 import time
-from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Optional
+from pathlib import Path
 
-import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-
 
 # ── Chunk extraction ─────────────────────────────────────────────
 
@@ -430,8 +427,8 @@ EXTRACTORS = {
 class Index:
     """TF-IDF index over code chunks."""
     chunks: list[Chunk] = field(default_factory=list)
-    vectorizer: Optional[TfidfVectorizer] = None
-    matrix: Optional[object] = None
+    vectorizer: TfidfVectorizer | None = None
+    matrix: object | None = None
     build_time_ms: float = 0
     repo_path: str = ""
 

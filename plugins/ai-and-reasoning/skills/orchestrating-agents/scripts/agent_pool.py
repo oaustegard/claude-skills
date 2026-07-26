@@ -36,9 +36,8 @@ Usage:
 
 import threading
 import time
-from dataclasses import dataclass, field
-from typing import Optional
 from contextlib import contextmanager
+from dataclasses import dataclass, field
 
 
 # Lazy import to avoid circular deps
@@ -102,11 +101,11 @@ class SpawnReservation:
         # Agent "analyst" is now live in the pool
     """
 
-    def __init__(self, pool: 'AgentPool', name: str, parent: Optional[str] = None):
+    def __init__(self, pool: 'AgentPool', name: str, parent: str | None = None):
         self.pool = pool
         self.name = name
         self.parent = parent
-        self.system: Optional[str] = None
+        self.system: str | None = None
         self.model: str = "claude-sonnet-4-6"
         self.max_tokens: int = 4096
         self.temperature: float = 1.0
@@ -262,7 +261,7 @@ class AgentPool:
     # -- Messaging --
 
     def send(self, author: str, *, to: str, content: str,
-             trigger_turn: bool = False) -> Optional[str]:
+             trigger_turn: bool = False) -> str | None:
         """
         Send a message from one agent to another.
 

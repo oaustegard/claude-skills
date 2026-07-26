@@ -30,7 +30,6 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Set
 
 # Default directories to skip when collecting Python files / occurrences.
 _SKIP_DIRS = {
@@ -64,13 +63,13 @@ class Site:
 
 # ── locating sibling skills ──────────────────────────────────────────────────
 
-def _skill_scripts(name: str, env_var: Optional[str] = None) -> Optional[str]:
+def _skill_scripts(name: str, env_var: str | None = None) -> str | None:
     """Locate a sibling skill's ``scripts/`` dir across deploy and dev layouts.
 
     Order: explicit env override, the installed ``/mnt/skills/user`` location,
     then a sibling of this repo checkout (``<repo>/<name>/scripts``).
     """
-    candidates: List[str] = []
+    candidates: list[str] = []
     if env_var and os.environ.get(env_var):
         candidates.append(os.environ[env_var])
     candidates.append(f"/mnt/skills/user/{name}/scripts")
@@ -91,7 +90,7 @@ def _import_lsp_client():
     if scripts not in sys.path:
         sys.path.insert(0, scripts)
     try:
-        import lsp_client  # noqa: F401
+        import lsp_client
         return lsp_client
     except ImportError as e:  # pragma: no cover - import-path dependent
         raise LspUnavailable(f"cannot import python-lsp client: {e}")
@@ -131,7 +130,7 @@ def _ensure_tree_sitter() -> None:
     leads.
     """
     try:
-        import tree_sitter  # noqa: F401
+        import tree_sitter
         return
     except ImportError:
         pass
@@ -175,7 +174,7 @@ def _read_line(root: str, rel: str, line1: int) -> str:
     return lines[line1 - 1].rstrip("\n") if 0 < line1 <= len(lines) else ""
 
 
-def definition_sites(root: str, symbol: str) -> List[Site]:
+def definition_sites(root: str, symbol: str) -> list[Site]:
     """Definition sites of ``symbol`` in Python files, via tree-sitting.
 
     Returns one :class:`Site` per ``def`` / ``class`` / method named exactly
@@ -183,7 +182,7 @@ def definition_sites(root: str, symbol: str) -> List[Site]:
     definition — which is the non-Python / wrong-target fallback signal.
     """
     cache = _code_cache(root)
-    sites: List[Site] = []
+    sites: list[Site] = []
     for sym in cache.find_symbol(symbol, limit=200):
         if sym.name != symbol:
             continue  # find_symbol does substring matching; we want exact
@@ -195,12 +194,12 @@ def definition_sites(root: str, symbol: str) -> List[Site]:
     return sites
 
 
-def _find_ripgrep() -> Optional[str]:
+def _find_ripgrep() -> str | None:
     from shutil import which
     return which("rg")
 
 
-def occurrence_sites(root: str, symbol: str, limit: int = _MAX_OCCURRENCES) -> List[Site]:
+def occurrence_sites(root: str, symbol: str, limit: int = _MAX_OCCURRENCES) -> list[Site]:
     """Every textual ``\\bsymbol\\b`` occurrence in ``.py`` files under root.
 
     Used as anchors for ``definition`` (so it can follow an import from any use
@@ -209,7 +208,7 @@ def occurrence_sites(root: str, symbol: str, limit: int = _MAX_OCCURRENCES) -> L
     references; pyright narrows it to the binding-resolved set.
     """
     rg = _find_ripgrep()
-    sites: List[Site] = []
+    sites: list[Site] = []
     pattern = rf"\b{re.escape(symbol)}\b"
     if rg:
         cmd = [rg, "--no-heading", "--line-number", "--column", "--color=never",
@@ -254,7 +253,7 @@ def occurrence_sites(root: str, symbol: str, limit: int = _MAX_OCCURRENCES) -> L
 
 # ── the query ────────────────────────────────────────────────────────────────
 
-def _files_with_symbol(root: str, symbol: str) -> Set[str]:
+def _files_with_symbol(root: str, symbol: str) -> set[str]:
     """All ``.py`` files containing ``symbol`` (word-boundary), relative to ``root``.
 
     Unlike :func:`occurrence_sites`, this is **uncapped**. It bounds the set of
@@ -266,7 +265,7 @@ def _files_with_symbol(root: str, symbol: str) -> Set[str]:
     scan stays cheap even when occurrences number in the hundreds.
     """
     pattern = rf"\b{re.escape(symbol)}\b"
-    found: Set[str] = set()
+    found: set[str] = set()
     rg = _find_ripgrep()
     if rg:
         cmd = [rg, "-l", "-t", "py"]
@@ -337,14 +336,14 @@ def lsp_query(root: str, symbol: str, op: str = "references",
     # Relevant files to open = every file that mentions the symbol, plus the
     # definition files. This builds pyright's model for exactly the files that
     # could contain a reference, without indexing the whole repo.
-    open_files: Set[str] = _files_with_symbol(root, symbol) | {s.file for s in defs}
+    open_files: set[str] = _files_with_symbol(root, symbol) | {s.file for s in defs}
     files = sorted(f for f in open_files if f.endswith(".py"))
     truncated = len(files) > max_open
     if truncated:
         files = files[:max_open]
 
-    note_parts: List[str] = []
-    results: List[dict] = []
+    note_parts: list[str] = []
+    results: list[dict] = []
     try:
         with lsp.LSPClient(root) as client:
             if files:

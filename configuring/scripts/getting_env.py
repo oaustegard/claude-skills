@@ -27,16 +27,17 @@ Usage:
     vars = load_env("/path/to/.env")
 """
 
-import os
 import json
+import os
+from collections.abc import Callable
 from pathlib import Path
-from typing import Optional, Dict, Any, List, Callable
+from typing import Any
 
 __version__ = "2.0.0"
 
 # Module-level cache
-_cache: Dict[str, str] = {}
-_loaded_sources: List[str] = []
+_cache: dict[str, str] = {}
+_loaded_sources: list[str] = []
 
 
 # =============================================================================
@@ -84,7 +85,7 @@ def detect_environment() -> str:
 # File Parsing Utilities
 # =============================================================================
 
-def _parse_env_file(path: Path) -> Dict[str, str]:
+def _parse_env_file(path: Path) -> dict[str, str]:
     """
     Parse a .env file into a dict.
     
@@ -114,8 +115,7 @@ def _parse_env_file(path: Path) -> Dict[str, str]:
             continue
         
         # Handle 'export KEY=value' format
-        if line.startswith('export '):
-            line = line[7:]
+        line = line.removeprefix('export ')
         
         # Must have an equals sign
         if '=' not in line:
@@ -135,7 +135,7 @@ def _parse_env_file(path: Path) -> Dict[str, str]:
     return env
 
 
-def _parse_shell_exports(path: Path) -> Dict[str, str]:
+def _parse_shell_exports(path: Path) -> dict[str, str]:
     """
     Parse exported environment variables from a shell script or snapshot.
 
@@ -178,7 +178,7 @@ def _parse_shell_exports(path: Path) -> Dict[str, str]:
     return env
 
 
-def _parse_single_value_file(path: Path, key_name: str) -> Dict[str, str]:
+def _parse_single_value_file(path: Path, key_name: str) -> dict[str, str]:
     """
     Parse a single-value file (like turso-token.txt) into a dict.
     
@@ -207,7 +207,7 @@ def _parse_single_value_file(path: Path, key_name: str) -> Dict[str, str]:
     return {key_name: content}
 
 
-def _parse_json_settings(path: Path) -> Dict[str, str]:
+def _parse_json_settings(path: Path) -> dict[str, str]:
     """
     Parse env vars from a Claude Code settings.json file.
     
@@ -230,11 +230,11 @@ def _parse_json_settings(path: Path) -> Dict[str, str]:
     try:
         data = json.loads(path.read_text())
         return data.get("env", {})
-    except (json.JSONDecodeError, IOError):
+    except (OSError, json.JSONDecodeError):
         return {}
 
 
-def _parse_toml_env(path: Path) -> Dict[str, str]:
+def _parse_toml_env(path: Path) -> dict[str, str]:
     """
     Parse environment variables from a Codex config.toml file.
     
@@ -263,7 +263,7 @@ def _parse_toml_env(path: Path) -> Dict[str, str]:
             pairs = match.group(1)
             for pair_match in re.finditer(r'(\w+)\s*=\s*"([^"]*)"', pairs):
                 env[pair_match.group(1)] = pair_match.group(2)
-    except IOError:
+    except OSError:
         pass
     
     return env
@@ -273,12 +273,12 @@ def _parse_toml_env(path: Path) -> Dict[str, str]:
 # Source Loading Functions
 # =============================================================================
 
-def _load_os_environ() -> Dict[str, str]:
+def _load_os_environ() -> dict[str, str]:
     """Load all environment variables from os.environ."""
     return dict(os.environ)
 
 
-def _load_claude_ai_project() -> Dict[str, str]:
+def _load_claude_ai_project() -> dict[str, str]:
     """
     Load environment variables from Claude.ai project knowledge.
     
@@ -308,7 +308,7 @@ def _load_claude_ai_project() -> Dict[str, str]:
     return env
 
 
-def _load_claude_code() -> Dict[str, str]:
+def _load_claude_code() -> dict[str, str]:
     """
     Load environment variables from Claude Code settings.
     
@@ -333,7 +333,7 @@ def _load_claude_code() -> Dict[str, str]:
     return env
 
 
-def _load_codex() -> Dict[str, str]:
+def _load_codex() -> dict[str, str]:
     """
     Load environment variables from OpenAI Codex configuration.
     
@@ -364,7 +364,7 @@ def _load_codex() -> Dict[str, str]:
     return env
 
 
-def _load_jules() -> Dict[str, str]:
+def _load_jules() -> dict[str, str]:
     """
     Load environment variables for Jules environment.
     
@@ -381,7 +381,7 @@ def _load_jules() -> Dict[str, str]:
     return env
 
 
-def _load_dotenv_files() -> Dict[str, str]:
+def _load_dotenv_files() -> dict[str, str]:
     """
     Load environment variables from standard .env file locations.
     
@@ -409,7 +409,7 @@ def _load_dotenv_files() -> Dict[str, str]:
 # =============================================================================
 
 # @lat: [[infrastructure#Environment Detection]]
-def load_all(force_reload: bool = False) -> Dict[str, str]:
+def load_all(force_reload: bool = False) -> dict[str, str]:
     """
     Load environment variables from all detected sources.
     
@@ -473,11 +473,11 @@ def load_all(force_reload: bool = False) -> Dict[str, str]:
 
 def get_env(
     key: str,
-    default: Optional[str] = None,
+    default: str | None = None,
     *,
     required: bool = False,
-    validator: Optional[Callable[[str], bool]] = None,
-) -> Optional[str]:
+    validator: Callable[[str], bool] | None = None,
+) -> str | None:
     """
     Get an environment variable from any available source.
     
@@ -517,7 +517,7 @@ def get_env(
     return value
 
 
-def load_env(path: str | Path) -> Dict[str, str]:
+def load_env(path: str | Path) -> dict[str, str]:
     """
     Load environment variables from a specific file.
     
@@ -571,12 +571,12 @@ def mask_secret(value: str, show_chars: int = 4) -> str:
     return f"{value[:show_chars]}...{value[-show_chars:]}"
 
 
-def get_loaded_sources() -> List[str]:
+def get_loaded_sources() -> list[str]:
     """Return list of sources that were loaded."""
     return _loaded_sources.copy()
 
 
-def debug_info() -> Dict[str, Any]:
+def debug_info() -> dict[str, Any]:
     """
     Get debug information about the current environment.
     

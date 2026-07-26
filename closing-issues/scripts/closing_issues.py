@@ -13,12 +13,12 @@ from __future__ import annotations
 import json
 import os
 import urllib.request
-from typing import Callable, Optional
+from collections.abc import Callable
 
 # The flowing skill is canonical. Try the package layout first; fall
 # back to importing it from the canonical install path.
 try:
-    from flowing import task, Flow, StepState  # type: ignore
+    from flowing import Flow, StepState, task  # type: ignore
 except ImportError:  # pragma: no cover — defensive only
     import importlib.util as _ilu
     import sys as _sys
@@ -80,7 +80,7 @@ def close_issue(
     number: int,
     synthesis: str,
     *,
-    post_close_callback: Optional[Callable] = None,
+    post_close_callback: Callable | None = None,
     state_reason: str = "completed",
 ) -> dict:
     """Close a GitHub issue with a synthesis comment.

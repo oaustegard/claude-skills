@@ -7,7 +7,6 @@ with torch.save().
 
 import io
 import pickle
-import struct
 import zipfile
 
 import numpy as np

@@ -29,7 +29,6 @@ rather than raising, so the caller can degrade gracefully.
 import base64
 import sys
 import urllib.request
-from typing import Optional
 
 # Defer Anthropic + Gemini client imports to call-time so the module loads
 # cleanly in environments where their dependencies aren't on sys.path.
@@ -75,7 +74,7 @@ _TRANSCRIBE_PROMPT = (
 )
 
 
-def _download(url: str, timeout: float = 15.0) -> Optional[tuple[bytes, str]]:
+def _download(url: str, timeout: float = 15.0) -> tuple[bytes, str] | None:
     """Fetch image bytes + content-type from URL. Returns None on any error."""
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "muninn-raven"})
@@ -102,7 +101,7 @@ def _download(url: str, timeout: float = 15.0) -> Optional[tuple[bytes, str]]:
         return None
 
 
-def _call_anthropic(model: str, data: bytes, ctype: str, max_tokens: int) -> Optional[str]:
+def _call_anthropic(model: str, data: bytes, ctype: str, max_tokens: int) -> str | None:
     """Anthropic Messages API path."""
     if _CLAUDE_CLIENT_PATH not in sys.path:
         sys.path.insert(0, _CLAUDE_CLIENT_PATH)
@@ -122,7 +121,7 @@ def _call_anthropic(model: str, data: bytes, ctype: str, max_tokens: int) -> Opt
         return None
 
 
-def _call_gemini(model: str, data: bytes, ctype: str, max_tokens: int) -> Optional[str]:
+def _call_gemini(model: str, data: bytes, ctype: str, max_tokens: int) -> str | None:
     """Gemini path via the invoking-gemini client.
 
     Writes the bytes to a temp file because invoke_gemini takes image_path,
@@ -138,7 +137,8 @@ def _call_gemini(model: str, data: bytes, ctype: str, max_tokens: int) -> Option
     except ImportError:
         return None
 
-    import tempfile, os as _os
+    import os as _os
+    import tempfile
     suffix = {"image/png": ".png", "image/jpeg": ".jpg",
               "image/webp": ".webp", "image/gif": ".gif"}.get(ctype, ".png")
     tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
@@ -167,7 +167,7 @@ def transcribe_image(
     model_alias: str = "gemini-lite",
     max_tokens: int = 4000,
     timeout: float = 15.0,
-) -> Optional[str]:
+) -> str | None:
     """Download `url` and transcribe it via the chosen model.
 
     Args:

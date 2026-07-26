@@ -7,19 +7,18 @@ Run: python -m pytest tests/test_cache_roundtrip.py -v
 Or:  python tests/test_cache_roundtrip.py  (standalone)
 """
 
-import sys
-import os
-import tempfile
 import shutil
-import json
+import sys
+import tempfile
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 # Bootstrap parsers before importing engine
 sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 
 from engine import (
-    CodeCache, Symbol, FileEntry, _get_parser,
+    CodeCache,
+    _get_parser,
 )
 
 # These are not yet implemented; tests will fail trying to use them.

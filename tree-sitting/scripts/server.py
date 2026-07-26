@@ -11,10 +11,11 @@ Run:     fastmcp run server.py
          python server.py --port 8080        # SSE
 """
 
-from typing import Annotated, Optional
-from pydantic import Field
+from typing import Annotated
+
+from engine import cache
 from fastmcp import FastMCP
-from engine import cache, CodeCache
+from pydantic import Field
 
 mcp = FastMCP(
     name="tree-sitting",
@@ -30,7 +31,7 @@ mcp = FastMCP(
 @mcp.tool(annotations={"title": "Scan Codebase", "destructiveHint": False})
 def scan(
     path: Annotated[str, Field(description="Absolute path to codebase root")],
-    skip: Annotated[Optional[str], Field(
+    skip: Annotated[str | None, Field(
         description="Comma-separated dirs to skip (default: .git,node_modules,__pycache__,...)",
         default=None
     )] = None,
@@ -73,7 +74,7 @@ def dir_overview(
 @mcp.tool(annotations={"title": "Find Symbol", "readOnlyHint": True})
 def find_symbol(
     query: Annotated[str, Field(description="Symbol name, substring, or wildcard pattern (e.g. 'ts_parser_*')")],
-    kind: Annotated[Optional[str], Field(
+    kind: Annotated[str | None, Field(
         description="Filter by kind: function, class, struct, enum, method, const, define, type",
         default=None
     )] = None,
@@ -120,7 +121,7 @@ def file_symbols(
 @mcp.tool(annotations={"title": "Get Source", "readOnlyHint": True})
 def get_source(
     symbol: Annotated[str, Field(description="Symbol name to get source for")],
-    file: Annotated[Optional[str], Field(
+    file: Annotated[str | None, Field(
         description="File path to disambiguate if symbol exists in multiple files",
         default=None
     )] = None,

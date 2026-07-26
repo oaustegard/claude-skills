@@ -4,22 +4,22 @@ Run: python -m pytest tests/test_engine.py -v
 Or:  python tests/test_engine.py  (standalone)
 """
 
-import sys
-import os
-import tempfile
 import shutil
+import sys
+import tempfile
 from pathlib import Path
 
 # Bootstrap parsers before importing engine
 sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 
 from engine import (
-    Symbol, CodeCache, extract_symbols, extract_imports,
-    _get_parser, _extract_via_tags, EXTRACTORS, TAGS_SCM,
-    _extract_python, _extract_c, _extract_go, _extract_rust,
-    _extract_typescript, _extract_ruby, _extract_markdown,
+    EXTRACTORS,
+    TAGS_SCM,
+    CodeCache,
+    Symbol,
+    _get_parser,
+    extract_symbols,
 )
-
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 

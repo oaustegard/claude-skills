@@ -12,8 +12,7 @@ import time
 # Add this directory to path for imports
 sys.path.insert(0, os.path.dirname(__file__))
 
-from isa_lite import Instruction, OP_NAMES, OP_PUSH, OP_JZ, OP_JNZ, OP_HALT, OP_TRAP, OP_CALL, OP_LOCAL_GET, OP_LOCAL_SET, OP_LOCAL_TEE
-
+from isa_lite import OP_NAMES
 
 SKILL_DIR = os.path.dirname(os.path.abspath(__file__))
 MOJO_SRC = os.path.join(SKILL_DIR, "executor.mojo")

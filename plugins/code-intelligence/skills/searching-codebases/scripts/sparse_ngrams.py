@@ -13,8 +13,6 @@ boundary positions are strictly greater than all interior weights.
 """
 
 import zlib
-from typing import List, Tuple, Optional
-from collections import Counter
 
 
 def weight_crc32(a: int, b: int) -> int:
@@ -90,14 +88,14 @@ class FrequencyWeights:
 
 def compute_weights(
     text: bytes, weight_fn=weight_crc32
-) -> List[int]:
+) -> list[int]:
     """Compute weights for all consecutive character pairs in text."""
     if len(text) < 2:
         return []
     return [weight_fn(text[i], text[i + 1]) for i in range(len(text) - 1)]
 
 
-def build_all(weights: List[int]) -> List[Tuple[int, int]]:
+def build_all(weights: list[int]) -> list[tuple[int, int]]:
     """
     Extract ALL valid sparse n-grams from a weight sequence.
 
@@ -117,7 +115,7 @@ def build_all(weights: List[int]) -> List[Tuple[int, int]]:
 
     ngrams = []
     # Monotone decreasing stack of pair positions
-    stack: List[int] = []
+    stack: list[int] = []
 
     for i in range(n):
         # Pop positions dominated by current weight
@@ -137,7 +135,7 @@ def build_all(weights: List[int]) -> List[Tuple[int, int]]:
     return ngrams
 
 
-def build_covering(weights: List[int]) -> List[Tuple[int, int]]:
+def build_covering(weights: list[int]) -> list[tuple[int, int]]:
     """
     Extract the MINIMAL covering set of sparse n-grams.
 

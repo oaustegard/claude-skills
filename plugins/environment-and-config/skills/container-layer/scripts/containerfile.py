@@ -9,13 +9,11 @@ import hashlib
 import json
 import os
 import re
-import subprocess
 import shlex
+import subprocess
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
-
 
 # Instructions we execute
 EXECUTABLE_INSTRUCTIONS = {"ENV", "RUN", "FETCH", "WORKDIR", "SNAPSHOT"}
@@ -213,7 +211,7 @@ def diff_paths(baseline: dict[str, set[str]], paths: list[str]) -> list[str]:
 class ContainerfileExecutor:
     """Executes a parsed Containerfile, tracking modified paths."""
     
-    def __init__(self, gh_token: Optional[str] = None):
+    def __init__(self, gh_token: str | None = None):
         self.snapshot_paths: list[str] = []
         self.env: dict[str, str] = dict(os.environ)
         self.workdir: str = "/home/claude"
@@ -423,9 +421,9 @@ class ContainerLayer:
         self,
         containerfile_path: str,
         cache_repo: str = "oaustegard/claude-container-layers",
-        gh_token: Optional[str] = None,
+        gh_token: str | None = None,
         salt: str = "",
-        layer_name: Optional[str] = None,
+        layer_name: str | None = None,
     ):
         self.containerfile_path = containerfile_path
         self.cache_repo = cache_repo
@@ -490,9 +488,9 @@ class ContainerLayer:
 def compose(
     containerfile_paths: list[str],
     cache_repo: str = "oaustegard/claude-container-layers",
-    gh_token: Optional[str] = None,
+    gh_token: str | None = None,
     salt: str = "",
-    names: Optional[list[Optional[str]]] = None,
+    names: list[str | None] | None = None,
 ) -> list[BuildResult]:
     """Restore (or build+push, on miss) a sequence of named layers in order.
 

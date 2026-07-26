@@ -6,7 +6,6 @@ Primary: discovers pages from codebase structure (_MAP.md, HTML files, route con
 Secondary: supplements with browser crawling via webctl when available.
 """
 
-import json
 import re
 import subprocess
 from dataclasses import dataclass

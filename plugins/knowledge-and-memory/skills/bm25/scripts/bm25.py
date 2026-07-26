@@ -32,7 +32,7 @@ import tarfile
 import tempfile
 import time
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 try:
@@ -195,7 +195,7 @@ class CorpusIndex:
             json.dump({
                 'corpus_root': str(self.root),
                 'files_count': len(self.paths),
-                'built_at': datetime.now(timezone.utc).isoformat(),
+                'built_at': datetime.now(UTC).isoformat(),
                 'build_s': round(self.build_s, 3),
             }, f, indent=2)
 

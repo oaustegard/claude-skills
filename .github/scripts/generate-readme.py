@@ -5,9 +5,10 @@ Generate README.md from SKILL.md frontmatter.
 Usage: generate-readme.py <skill_directory>
 """
 
-import sys
 import os
 import re
+import sys
+
 import yaml
 
 

@@ -21,17 +21,14 @@ Design notes:
 from __future__ import annotations
 
 import fnmatch
-import json
 import os
-import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Literal
+from typing import Literal
 
 import numpy as np
 import requests
-
 
 # ---------------------------------------------------------------------------
 # Credentials (reuse invoking-gemini's proxy pattern)

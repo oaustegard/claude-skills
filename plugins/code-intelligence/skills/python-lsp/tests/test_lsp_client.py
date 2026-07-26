@@ -19,10 +19,10 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from lsp_client import (  # noqa: E402
+from lsp_client import (
     BootstrapError,
-    LSPClient,
     Location,
+    LSPClient,
     Position,
     SymbolInfo,
     ensure_pyright,

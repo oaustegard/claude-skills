@@ -18,7 +18,7 @@ import pathlib
 import re
 import signal
 import sys
-from typing import Iterator
+from collections.abc import Iterator
 
 # Restore default SIGPIPE handling so piping into `head` etc. exits cleanly.
 if hasattr(signal, "SIGPIPE"):
@@ -48,13 +48,13 @@ def _parse_meta(path: pathlib.Path) -> tuple[str | None, str | None]:
     except OSError:
         return None, None
 
-    fm_match = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.S)
+    fm_match = re.match(r"^---\s*\n(.*?)\n---\s*\n", text, re.DOTALL)
     if not fm_match:
         return None, None
     frontmatter = fm_match.group(1)
 
     name = None
-    name_match = re.search(r"^name:\s*(.+)$", frontmatter, re.M)
+    name_match = re.search(r"^name:\s*(.+)$", frontmatter, re.MULTILINE)
     if name_match:
         name = name_match.group(1).strip()
 
@@ -62,7 +62,7 @@ def _parse_meta(path: pathlib.Path) -> tuple[str | None, str | None]:
     desc_match = re.search(
         r"^description:\s*(.+?)(?=^\S|^\s*$)",
         frontmatter,
-        re.M | re.S,
+        re.MULTILINE | re.DOTALL,
     )
     if desc_match:
         desc = " ".join(desc_match.group(1).split())

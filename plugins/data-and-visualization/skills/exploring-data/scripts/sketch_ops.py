@@ -16,10 +16,14 @@ from pathlib import Path
 
 try:
     import duckdb
-    from datasketches import (hll_sketch, kll_floats_sketch,
-                              update_theta_sketch, theta_intersection,
-                              theta_union)
     from datasketch import MinHash, MinHashLSH
+    from datasketches import (
+        hll_sketch,
+        kll_floats_sketch,
+        theta_intersection,
+        theta_union,
+        update_theta_sketch,
+    )
 except ImportError as e:
     sys.exit(f"Missing dep ({e.name}) — run install_large.sh first")
 

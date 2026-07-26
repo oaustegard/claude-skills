@@ -30,7 +30,6 @@ Usage:
 import argparse
 import json
 import os
-import re
 import subprocess
 import sys
 import time
@@ -38,8 +37,7 @@ import time
 # Add script directory to path
 sys.path.insert(0, os.path.dirname(__file__))
 
-from resolve import resolve, count_files
-
+from resolve import count_files, resolve
 
 # Regex metacharacters that signal "this is a regex, not natural language"
 _REGEX_META = {'*', '+', '?', '[', ']', '(', ')', '{', '}', '|', '^', '$', '\\', '.'}
@@ -96,7 +94,7 @@ def search_regex(root: str, queries: list, expand: bool = False,
             print(f"Small codebase ({file_count} files), using direct search", file=sys.stderr)
         results = {}
         for q in queries:
-            from ngram_index import _brute_force_search, DEFAULT_SKIP_DIRS
+            from ngram_index import DEFAULT_SKIP_DIRS, _brute_force_search
             matches = _brute_force_search(q, root, skip_dirs or DEFAULT_SKIP_DIRS)
             results[q] = _maybe_expand(matches, root, expand)
         return results
@@ -168,7 +166,7 @@ def _maybe_expand(matches: list, root: str, expand: bool) -> list:
     if not expand:
         return matches
 
-    from context import expand_match, deduplicate_contexts
+    from context import expand_match
 
     contexts = []
     for m in matches:
@@ -210,7 +208,7 @@ def _run_benchmark(index, pattern, root, skip_dirs):
     if missed:
         print(f"  ⚠ Missed: {len(missed)} files")
     elif not (idx_files - brute_files):
-        print(f"  ✓ Results match")
+        print("  ✓ Results match")
 
 
 def format_results(results: dict, root: str, output_json: bool = False) -> str:
@@ -268,7 +266,7 @@ def run_lsp_query(root: str, symbol: str, op: str, json_out: bool,
     one-line degradation note and fall back to the regex text path so the user
     still gets results.
     """
-    from lsp_refs import lsp_query, format_lsp, LspUnavailable
+    from lsp_refs import LspUnavailable, format_lsp, lsp_query
 
     try:
         result = lsp_query(root, symbol, op=op, verbose=verbose)

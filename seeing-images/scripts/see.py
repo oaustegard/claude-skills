@@ -5,10 +5,11 @@ All image-producing functions save to /home/claude/see_*.png and return the path
 Dependencies: Pillow (pre-installed), numpy (via pip if needed)
 """
 
-import os
 import math
-from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
+import os
 from collections import Counter
+
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 OUT_DIR = "/home/claude"
 

@@ -9,8 +9,6 @@ Handles the non-LLM phases:
 from __future__ import annotations
 
 import re
-from typing import Optional
-
 
 # ---------------------------------------------------------------------------
 # Context extraction
@@ -72,8 +70,8 @@ def extract_lines(context: str, ranges: list[tuple[int, int]]) -> str:
 
 def extract_context_subset(
     context: str,
-    sections: Optional[list[str]] = None,
-    line_ranges: Optional[list[tuple[int, int]]] = None,
+    sections: list[str] | None = None,
+    line_ranges: list[tuple[int, int]] | None = None,
 ) -> str:
     """Extract context subset. Sections first, line ranges as fallback, full context if neither."""
     parts = []

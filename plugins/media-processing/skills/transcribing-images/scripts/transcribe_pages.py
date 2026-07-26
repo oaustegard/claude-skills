@@ -51,7 +51,6 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Optional
 
 # Reuse the transcription routing core from the bsky skill. It carries the
 # model registry and the empirical cost/recall Pareto data; don't re-derive it.
@@ -93,7 +92,7 @@ def _run(cmd: list[str], timeout: int = 120) -> tuple[int, str, str]:
     return p.returncode, p.stdout, p.stderr
 
 
-def pptx_to_pdf(pptx_path: str, out_dir: str) -> Optional[str]:
+def pptx_to_pdf(pptx_path: str, out_dir: str) -> str | None:
     """Convert PPTX/PPT to PDF via LibreOffice headless. Returns PDF path."""
     rc, _, err = _run([
         "libreoffice", "--headless", "--convert-to", "pdf",
@@ -108,7 +107,7 @@ def pptx_to_pdf(pptx_path: str, out_dir: str) -> Optional[str]:
 
 
 def pdf_to_pngs(pdf_path: str, out_dir: str, dpi: int = 150,
-                first: Optional[int] = None, last: Optional[int] = None) -> list[str]:
+                first: int | None = None, last: int | None = None) -> list[str]:
     """Rasterize PDF pages to PNGs via pdftoppm. Returns sorted PNG paths.
 
     150 dpi is the default: legible for a vision model without blowing the
@@ -129,7 +128,7 @@ def pdf_to_pngs(pdf_path: str, out_dir: str, dpi: int = 150,
 
 
 def rasterize(src: str, out_dir: str, dpi: int = 150,
-              first: Optional[int] = None, last: Optional[int] = None) -> list[str]:
+              first: int | None = None, last: int | None = None) -> list[str]:
     """Turn any supported source into a list of page-image paths."""
     ext = Path(src).suffix.lower()
     if ext in (".pptx", ".ppt"):
@@ -149,7 +148,7 @@ def rasterize(src: str, out_dir: str, dpi: int = 150,
 # Transcription: vision-model path (reused core) + tesseract fallback
 # ──────────────────────────────────────────────────────────────────────────
 
-def _read_local(path: str) -> Optional[tuple[bytes, str]]:
+def _read_local(path: str) -> tuple[bytes, str] | None:
     try:
         data = Path(path).read_bytes()
     except OSError as e:
@@ -163,7 +162,7 @@ def _read_local(path: str) -> Optional[tuple[bytes, str]]:
 
 
 def _transcribe_vision(path: str, model_alias: str, max_tokens: int,
-                       prompt: str) -> Optional[str]:
+                       prompt: str) -> str | None:
     """Vision-model transcription of a LOCAL image.
 
     Mirrors image_transcribe.py's backend dispatch but feeds local bytes
@@ -227,7 +226,7 @@ def _transcribe_vision(path: str, model_alias: str, max_tokens: int,
     return None
 
 
-def _transcribe_tesseract(path: str) -> Optional[str]:
+def _transcribe_tesseract(path: str) -> str | None:
     """Offline OCR fallback. Glyphs only — no diagram/chart reading.
 
     Use only for pages known to be plain scanned text. eng + osd are the only
@@ -250,7 +249,7 @@ def _transcribe_tesseract(path: str) -> Optional[str]:
 
 def transcribe_file(src: str, model_alias: str = "gemini-lite",
                     engine: str = "vision", dpi: int = 150,
-                    first: Optional[int] = None, last: Optional[int] = None,
+                    first: int | None = None, last: int | None = None,
                     max_tokens: int = 4000,
                     prompt: str = _PAGE_PROMPT) -> list[dict]:
     """Rasterize `src` and transcribe each page.
@@ -285,7 +284,7 @@ def transcribe_file(src: str, model_alias: str = "gemini-lite",
         return results
 
 
-def _parse_pages(spec: Optional[str]) -> tuple[Optional[int], Optional[int]]:
+def _parse_pages(spec: str | None) -> tuple[int | None, int | None]:
     if not spec:
         return None, None
     if "-" in spec:

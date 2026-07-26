@@ -21,7 +21,9 @@ Usage:
       [--overlay-last "COMING HOME"] [--overlay-at 3.2] \
       [--tail-hold 1.2] [--font /path/to/Bold.ttf]
 """
-import os, sys, json, argparse, subprocess, tempfile
+import argparse
+import subprocess
+import tempfile
 from pathlib import Path
 
 

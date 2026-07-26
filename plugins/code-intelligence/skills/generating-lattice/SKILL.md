@@ -8,7 +8,7 @@ description: >-
   "knowledge graph", "document this codebase", "add back-links", or wants
   cross-referenced architecture docs anchored to source code symbols.
 metadata:
-  version: 0.3.0
+  version: 0.4.0
 ---
 
 # Generating Lattice
@@ -29,10 +29,10 @@ CLI, which catches documentation drift whenever code or docs change.
 Without both directions, the lattice is a static essay that drifts silently.
 With both, `lat check` enforces consistency.
 
-**Dependency:** Requires **mapping-codebases** skill. The structural maps
-(`_MAP.md` files) are the input that makes LLM-assisted authoring
-token-efficient — read maps to understand API surfaces, then selectively read
-source files only where design rationale lives.
+**Dependency:** Requires the **tree-sitting** skill. Its AST scan is the input
+that makes LLM-assisted authoring token-efficient — read the tree to understand
+API surfaces, then selectively read source files only where design rationale
+lives.
 
 ## Installation
 
@@ -49,21 +49,25 @@ search), `lat section` (browsing), `lat refs` (reference lookup), and `lat mcp`
 
 ### Phase 1: Structural Scan
 
-Ensure `_MAP.md` files exist. Generate them if missing:
+Get the symbol inventory from tree-sitting. Nothing is written to disk — the
+scan runs in ~700ms for a 250-file repo, so it is cheaper to re-derive than to
+maintain:
 
 ```bash
-# Install mapping-codebases dependencies
-uv venv /home/claude/.venv
-uv pip install tree-sitter-language-pack --python /home/claude/.venv/bin/python
+uv pip install --system --break-system-packages tree-sitter
+TREESIT=/mnt/skills/user/tree-sitting/scripts/treesit.py
 
-# Generate maps
-/home/claude/.venv/bin/python /mnt/skills/user/mapping-codebases/scripts/codemap.py /path/to/repo \
+# Root orientation
+python3 $TREESIT /path/to/repo --skip tests,.github,node_modules,vendor
+
+# Full inventory, minimal detail
+python3 $TREESIT /path/to/repo --depth=-1 --detail=sparse \
   --skip tests,.github,node_modules,vendor
 ```
 
-Read the root `_MAP.md` first for high-level orientation, then drill into
-subdirectory maps. The maps are the symbol inventory — they tell you what exists
-and where, so you can write source code links without reading every file.
+Read the root overview first, then scope into subdirectories with `--path`. The
+tree is the symbol inventory — it tells you what exists and where, including
+line ranges, so you can write source code links without reading every file.
 
 ### Phase 2: Selective Source Reading
 
@@ -133,7 +137,7 @@ mechanism described in [[auth#Token Refresh]].
 
 Organize by domain concept, not file structure. A `data.md` file might reference
 `db.js`, `sync.js`, and `demo.js` because they're all part of the data layer.
-The `_MAP.md` files already provide file-level structure; `lat.md/` adds the
+The tree-sitting scan already provides file-level structure; `lat.md/` adds the
 semantic layer explaining WHY things connect.
 
 #### Index File
@@ -162,8 +166,8 @@ python3 SKILL_DIR/scripts/suggest_backlinks.py /path/to/repo
 ```
 
 This parses all `[[src/...]]` wiki links from `lat.md/` files, looks up
-referenced symbols in `_MAP.md` files for O(1) line number resolution, and
-suggests `@lat:` comment placements. Requires `_MAP.md` files from Phase 1.
+referenced symbols via a tree-sitting scan for line number resolution, and
+suggests `@lat:` comment placements. Requires the tree-sitting skill.
 
 Comment syntax by language:
 - JS/TS/Rust/Go/C: `// @lat: [[section#Subsection]]`
@@ -181,27 +185,6 @@ To auto-apply suggestions (review the output first):
 
 ```bash
 python3 SKILL_DIR/scripts/suggest_backlinks.py /path/to/repo --apply
-```
-
-### Phase 4b: Annotate Maps with Lattice Cross-References
-
-After backlinks exist in source, annotate `_MAP.md` files so someone browsing
-a code map can find the lat.md section that explains WHY a module is designed
-the way it is:
-
-```bash
-python3 SKILL_DIR/scripts/annotate_maps.py /path/to/repo
-```
-
-This scans `@lat:` comments in source and adds `> Documented in:` lines to
-`_MAP.md` file headers. Idempotent — safe to re-run after regenerating maps.
-
-Example output in `_MAP.md`:
-```markdown
-### auth.js
-> Documented in: [[auth#Token Refresh]], [[auth#Server]]
-> Imports: `express`
-- **refreshToken** (f) `(token)` :15
 ```
 
 #### require-code-mention for Critical Sections

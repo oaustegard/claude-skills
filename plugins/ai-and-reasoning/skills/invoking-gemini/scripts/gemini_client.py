@@ -15,7 +15,6 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Optional, Type
 
 try:
     import requests
@@ -126,7 +125,7 @@ def _parse_env_file(path: Path) -> dict:
     return result
 
 
-def get_cf_credentials() -> Optional[dict]:
+def get_cf_credentials() -> dict | None:
     """
     Load Cloudflare AI Gateway credentials.
 
@@ -147,7 +146,7 @@ def get_cf_credentials() -> Optional[dict]:
                 creds = _parse_env_file(env_path)
                 if all(creds.get(k) for k in required):
                     return creds
-            except (IOError, OSError):
+            except OSError:
                 continue
 
     # Fall back to environment variables
@@ -181,7 +180,7 @@ def get_google_api_key() -> str:
             key = key_file.read_text().strip()
             if key:
                 return key
-        except (IOError, OSError) as e:
+        except OSError as e:
             raise ValueError(f"Found GOOGLE_API_KEY.txt but couldn't read it: {e}")
 
     # 2. Combined credentials file
@@ -193,7 +192,7 @@ def get_google_api_key() -> str:
             key = config.get("google_api_key", "").strip()
             if key:
                 return key
-        except (json.JSONDecodeError, IOError, OSError) as e:
+        except (json.JSONDecodeError, OSError) as e:
             raise ValueError(f"Found API_CREDENTIALS.json but couldn't parse it: {e}")
 
     # 3. Environment variable
@@ -306,7 +305,7 @@ def _cf_request(
             time.sleep(delay)
 
 
-def _extract_text(response: dict) -> Optional[str]:
+def _extract_text(response: dict) -> str | None:
     """Extract generated text from a Gemini REST API response."""
     try:
         return response["candidates"][0]["content"]["parts"][0]["text"]
@@ -343,7 +342,7 @@ def _guess_media_mime(path: str) -> str:
     return mimetypes.guess_type(path)[0] or "application/octet-stream"
 
 
-def _build_contents(prompt: str, image_path: Optional[str]) -> list:
+def _build_contents(prompt: str, image_path: str | None) -> list:
     """Build the Gemini REST API 'contents' array.
 
     `image_path` accepts ANY supported media file — image, audio, or video —
@@ -372,7 +371,7 @@ def _build_contents(prompt: str, image_path: Optional[str]) -> list:
     return [{"parts": parts}]
 
 
-def _pydantic_to_schema(model_class: Type) -> dict:
+def _pydantic_to_schema(model_class: type) -> dict:
     """Convert a Pydantic model class to a Gemini-compatible JSON schema dict."""
     try:
         schema = model_class.model_json_schema()  # Pydantic v2
@@ -403,7 +402,7 @@ def _initialize_direct_client() -> bool:
         return False
 
 
-def _build_genai_content(prompt: str, image_path: Optional[str]):
+def _build_genai_content(prompt: str, image_path: str | None):
     """Build content argument for google.generativeai SDK calls.
 
     NOTE: this direct-SDK fallback handles IMAGES only. Non-image media
@@ -460,12 +459,12 @@ def invoke_gemini(
     prompt: str,
     model: str = DEFAULT_MODEL,
     temperature: float = 0.7,
-    max_output_tokens: Optional[int] = None,
-    top_p: Optional[float] = None,
-    top_k: Optional[int] = None,
-    image_path: Optional[str] = None,
-    thinking_level: Optional[str] = None,
-) -> Optional[str]:
+    max_output_tokens: int | None = None,
+    top_p: float | None = None,
+    top_k: int | None = None,
+    image_path: str | None = None,
+    thinking_level: str | None = None,
+) -> str | None:
     """
     Invoke Gemini model with a text (or multi-modal) prompt.
 
@@ -565,10 +564,10 @@ def invoke_gemini(
 
 def generate_image(
     prompt: str,
-    output_path: Optional[str] = None,
+    output_path: str | None = None,
     model: str = "nano-banana-2",
     temperature: float = 0.7,
-) -> Optional[dict]:
+) -> dict | None:
     """
     Generate an image using a Gemini image model.
 
@@ -718,11 +717,11 @@ def _sdk_response_to_dict(response_obj) -> dict:
 
 def invoke_with_structured_output(
     prompt: str,
-    pydantic_model: Type,
+    pydantic_model: type,
     model: str = DEFAULT_MODEL,
     temperature: float = 0.7,
-    image_path: Optional[str] = None,
-) -> Optional[object]:
+    image_path: str | None = None,
+) -> object | None:
     """
     Invoke Gemini with structured (JSON schema) output using a Pydantic model.
 
@@ -925,7 +924,8 @@ if __name__ == "__main__":
 
     if HAS_PYDANTIC:
         print("\n4. Testing structured output...")
-        from pydantic import BaseModel as PM, Field
+        from pydantic import BaseModel as PM
+        from pydantic import Field
 
         class MathAnswer(PM):
             result: int = Field(description="The numerical result")

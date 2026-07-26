@@ -14,7 +14,6 @@ from pathlib import Path
 
 from .discover import PageInfo
 
-
 # Prompt template for code-based analysis
 ANALYZE_PROMPT = """\
 You are documenting a web application's features for developer agents who cannot see the UI.

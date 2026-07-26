@@ -8,10 +8,9 @@ Uses screenshots + a11y trees to enrich code-derived behavioral descriptions.
 
 from pathlib import Path
 
-from .capture import capture_page, PageCapture
+from .capture import PageCapture, capture_page
 from .describe import describe_page
 from .discover import PageInfo, should_skip_verify
-
 
 VERIFY_ENRICHMENT_SUFFIX = """
 

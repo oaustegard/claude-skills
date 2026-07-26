@@ -16,11 +16,11 @@ Usage:
 Exit codes: 0 = clean, 1 = drift detected
 """
 
+import argparse
 import re
 import sys
-import argparse
-from pathlib import Path
 from collections import defaultdict
+from pathlib import Path
 
 # Reuse gather's engine discovery
 from gather import _find_treesit_engine
@@ -320,7 +320,7 @@ def format_report(results: dict) -> str:
     if 'error' in results:
         return f"ERROR: {results['error']}"
 
-    lines.append(f"# _FEATURES.md Check")
+    lines.append("# _FEATURES.md Check")
     lines.append(f"Feature files: {results['features_files']} | "
                  f"Features: {results['total_features']} | "
                  f"Refs: {results['total_refs']} | "

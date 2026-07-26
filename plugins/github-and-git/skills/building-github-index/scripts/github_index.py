@@ -19,13 +19,13 @@ import urllib.request
 from dataclasses import dataclass, field
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import Optional
+
 
 @dataclass
 class FileInfo:
     path: str
-    title: Optional[str] = None
-    description: Optional[str] = None
+    title: str | None = None
+    description: str | None = None
     category: str = "Other"
 
 @dataclass  
@@ -52,7 +52,7 @@ try:
 except ImportError:
     TS_AVAILABLE = False
 
-def api_request(url: str, token: Optional[str] = None, timeout: int = 30) -> dict:
+def api_request(url: str, token: str | None = None, timeout: int = 30) -> dict:
     headers = {"Accept": "application/vnd.github+json"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
@@ -67,12 +67,12 @@ def api_request(url: str, token: Optional[str] = None, timeout: int = 30) -> dic
             raise RuntimeError(f"Not found: {url}")
         raise
 
-def get_repo_info(owner: str, repo: str, token: Optional[str] = None) -> tuple[str, str]:
+def get_repo_info(owner: str, repo: str, token: str | None = None) -> tuple[str, str]:
     url = f"https://api.github.com/repos/{owner}/{repo}"
     data = api_request(url, token)
     return data.get("default_branch", "main"), data.get("description", "")
 
-def fetch_tarball(owner: str, repo: str, branch: str, token: Optional[str] = None) -> bytes:
+def fetch_tarball(owner: str, repo: str, branch: str, token: str | None = None) -> bytes:
     url = f"https://api.github.com/repos/{owner}/{repo}/tarball/{branch}"
     headers = {"Accept": "application/vnd.github+json"}
     if token:
@@ -196,7 +196,7 @@ def description_from_path(path: str) -> str:
         return parent.replace('_', ' ').replace('-', ' ').title() if parent != '.' else stem
     return stem.replace('_', ' ').replace('-', ' ')
 
-def process_repo(owner: str, repo: str, token: Optional[str] = None,
+def process_repo(owner: str, repo: str, token: str | None = None,
                  include: list[str] = None, exclude: list[str] = None,
                  max_files: int = 200, skip_fetch: bool = False,
                  code_symbols: bool = False) -> RepoInfo:

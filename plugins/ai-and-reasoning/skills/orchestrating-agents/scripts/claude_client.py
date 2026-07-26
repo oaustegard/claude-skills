@@ -31,12 +31,12 @@ Do not repeat their analysis — build on it."""
 
 import json
 import os
-import time
 import threading
-from pathlib import Path
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Any, Union
 from copy import deepcopy
+from pathlib import Path
+from typing import Any
 
 try:
     import anthropic
@@ -116,7 +116,7 @@ def get_anthropic_api_key() -> str:
                     key = line[len("API_KEY="):].strip().strip('"').strip("'")
                     if key:
                         return key
-        except (IOError, OSError) as e:
+        except OSError as e:
             raise ValueError(
                 f"Found claude.env but couldn't read it: {e}\n"
                 f"Please check file permissions"
@@ -129,7 +129,7 @@ def get_anthropic_api_key() -> str:
             key = key_file.read_text().strip()
             if key:
                 return key
-        except (IOError, OSError) as e:
+        except OSError as e:
             raise ValueError(
                 f"Found ANTHROPIC_API_KEY.txt but couldn't read it: {e}\n"
                 f"Please check file permissions or recreate the file"
@@ -144,7 +144,7 @@ def get_anthropic_api_key() -> str:
                 key = config.get("anthropic_api_key", "").strip()
                 if key:
                     return key
-        except (json.JSONDecodeError, IOError, OSError) as e:
+        except (json.JSONDecodeError, OSError) as e:
             raise ValueError(
                 f"Found API_CREDENTIALS.json but couldn't parse it: {e}\n"
                 f"Please check file format"
@@ -243,9 +243,9 @@ def _format_cache_control() -> dict:
 
 
 def _format_system_with_cache(
-    system: Union[str, list[dict]],
+    system: str | list[dict],
     cache_system: bool = False
-) -> Union[str, list[dict]]:
+) -> str | list[dict]:
     """
     Format system prompt with optional cache_control.
 
@@ -282,9 +282,9 @@ def _format_system_with_cache(
 
 
 def _format_message_with_cache(
-    content: Union[str, list[dict]],
+    content: str | list[dict],
     cache_content: bool = False
-) -> Union[str, list[dict]]:
+) -> str | list[dict]:
     """
     Format message content with optional cache_control.
 
@@ -319,9 +319,9 @@ def _format_message_with_cache(
 
 # @lat: [[orchestration#Claude API Client]]
 def invoke_claude(
-    prompt: Union[str, list[dict]],
+    prompt: str | list[dict],
     model: str = "claude-sonnet-4-6",
-    system: Union[str, list[dict], None] = None,
+    system: str | list[dict] | None = None,
     max_tokens: int = 4096,
     temperature: float = 1.0,
     streaming: bool = False,
@@ -498,7 +498,7 @@ def invoke_claude(
 
 
 def _build_messages(
-    prompt: Union[str, list[dict]],
+    prompt: str | list[dict],
     cache_prompt: bool = False
 ) -> list[dict]:
     """Build messages list from prompt with optional caching."""
@@ -507,10 +507,10 @@ def _build_messages(
 
 
 def invoke_claude_streaming(
-    prompt: Union[str, list[dict]],
+    prompt: str | list[dict],
     callback: callable = None,
     model: str = "claude-sonnet-4-6",
-    system: Union[str, list[dict], None] = None,
+    system: str | list[dict] | None = None,
     max_tokens: int = 4096,
     temperature: float = 1.0,
     cache_system: bool = False,
@@ -576,12 +576,12 @@ def invoke_claude_streaming(
 
     except anthropic.APIError as e:
         raise ClaudeInvocationError(
-            f"Anthropic API error: {str(e)}",
+            f"Anthropic API error: {e!s}",
             status_code=getattr(e, 'status_code', None),
             details=getattr(e, 'response', None)
         )
     except Exception as e:
-        raise ClaudeInvocationError(f"Unexpected error: {str(e)}")
+        raise ClaudeInvocationError(f"Unexpected error: {e!s}")
 
 
 # @lat: [[orchestration#Parallel Execution]]
@@ -590,7 +590,7 @@ def invoke_parallel(
     model: str = "claude-sonnet-4-6",
     max_tokens: int = 4096,
     max_workers: int = 5,
-    shared_system: Union[str, list[dict], None] = None,
+    shared_system: str | list[dict] | None = None,
     cache_shared_system: bool = False
 ) -> list[str]:
     """
@@ -720,7 +720,7 @@ def invoke_parallel_streaming(
     model: str = "claude-sonnet-4-6",
     max_tokens: int = 4096,
     max_workers: int = 5,
-    shared_system: Union[str, list[dict], None] = None,
+    shared_system: str | list[dict] | None = None,
     cache_shared_system: bool = False
 ) -> list[str]:
     """
@@ -895,7 +895,7 @@ def invoke_parallel_interruptible(
     model: str = "claude-sonnet-4-6",
     max_tokens: int = 4096,
     max_workers: int = 5,
-    shared_system: Union[str, list[dict], None] = None,
+    shared_system: str | list[dict] | None = None,
     cache_shared_system: bool = False
 ) -> list[str]:
     """
@@ -980,7 +980,7 @@ class ConversationThread:
 
     def __init__(
         self,
-        system: Union[str, list[dict], None] = None,
+        system: str | list[dict] | None = None,
         model: str = "claude-sonnet-4-6",
         max_tokens: int = 4096,
         temperature: float = 1.0,
@@ -1012,7 +1012,7 @@ class ConversationThread:
         )
         self.messages: list[dict] = []
 
-    def send(self, user_message: Union[str, list[dict]], cache_history: bool = True) -> str:
+    def send(self, user_message: str | list[dict], cache_history: bool = True) -> str:
         """
         Send a message and get a response.
 
@@ -1158,9 +1158,9 @@ def parse_json_response(raw: str) -> dict:
 
 
 def invoke_claude_json(
-    prompt: Union[str, list[dict]],
+    prompt: str | list[dict],
     model: str = "claude-sonnet-4-6",
-    system: Union[str, list[dict], None] = None,
+    system: str | list[dict] | None = None,
     max_tokens: int = 4096,
     temperature: float = 1.0,
     cache_system: bool = False,
@@ -1212,7 +1212,7 @@ def invoke_claude_json(
     # Try parsing
     try:
         return parse_json_response(raw)
-    except json.JSONDecodeError as first_error:
+    except json.JSONDecodeError:
         if max_parse_retries < 1:
             raise
 

@@ -99,7 +99,7 @@ def test_inventory(test_paths):
             continue
         tests = []
 
-        def scan(body):
+        def scan(body, tests=tests):  # bind per-iteration list (B023)
             for node in body:
                 if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test"):
                     n_assert = sum(isinstance(x, ast.Assert) for x in ast.walk(node))

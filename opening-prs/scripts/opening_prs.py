@@ -13,12 +13,12 @@ import json
 import os
 import urllib.error
 import urllib.request
-from typing import Iterable, List, Tuple
+from collections.abc import Iterable
 
 # The flowing skill is the canonical source. Try the package layout first,
 # fall back to the bare module name (legacy materialized layout).
 try:
-    from flowing import task, Flow, StepState  # type: ignore
+    from flowing import Flow, StepState, task  # type: ignore
 except ImportError:  # pragma: no cover — defensive only
     import importlib.util as _ilu
     import sys as _sys
@@ -143,7 +143,7 @@ def open_pr(
     branch_name: str,
     title: str,
     body: str,
-    files: Iterable[Tuple[str, str]],
+    files: Iterable[tuple[str, str]],
     *,
     base: str = "main",
     mergeable_poll_retries: int = 8,
@@ -154,7 +154,7 @@ def open_pr(
 
     See SKILL.md for full argument and result shape documentation.
     """
-    files_list: List[Tuple[str, str]] = list(files)
+    files_list: list[tuple[str, str]] = list(files)
 
     @task(name="determine_branch")
     def determine_branch():

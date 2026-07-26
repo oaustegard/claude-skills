@@ -2,12 +2,13 @@
 """Utilities for working with YAML frontmatter in SKILL.md files."""
 
 import re
-import yaml
 from pathlib import Path
-from typing import Dict, Tuple, Any
+from typing import Any
+
+import yaml
 
 
-def parse_skill_md(skill_md_path: Path) -> Tuple[Dict[str, Any], str]:
+def parse_skill_md(skill_md_path: Path) -> tuple[dict[str, Any], str]:
     """
     Parse a SKILL.md file into frontmatter dict and body text.
 
@@ -49,7 +50,7 @@ def parse_skill_md(skill_md_path: Path) -> Tuple[Dict[str, Any], str]:
     return frontmatter, body
 
 
-def write_skill_md(skill_md_path: Path, frontmatter: Dict[str, Any], body: str) -> None:
+def write_skill_md(skill_md_path: Path, frontmatter: dict[str, Any], body: str) -> None:
     """
     Write frontmatter and body back to SKILL.md file.
 

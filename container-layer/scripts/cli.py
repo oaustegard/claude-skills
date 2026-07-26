@@ -84,7 +84,7 @@ def cmd_build(args):
         if result.env_vars:
             print(f"  Environment: {len(result.env_vars)} vars set")
     else:
-        print(f"\n✗ Build failed")
+        print("\n✗ Build failed")
         for err in result.errors:
             print(f"  {err}")
         sys.exit(1)
@@ -106,7 +106,7 @@ def cmd_restore(args):
     if result.success:
         print(f"\n✓ Environment ready (tag: {layer.tag})")
     else:
-        print(f"\n✗ Restore failed")
+        print("\n✗ Restore failed")
         for err in result.errors:
             print(f"  {err}")
         sys.exit(1)

@@ -29,8 +29,8 @@ from pathlib import Path
 # Allow imports from repo root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts.frontmatter_utils import parse_skill_md
 from registry.schema import Marketplace, PluginEntry
+from scripts.frontmatter_utils import parse_skill_md
 
 REPO = "oaustegard/claude-skills"
 CATEGORIES_FILE = Path(__file__).resolve().parent / "categories.json"
@@ -86,8 +86,7 @@ def compute_category_version(skill_dirs: list[Path]) -> str:
                 parts = [int(x) for x in v.split(".")[:3]]
                 while len(parts) < 3:
                     parts.append(0)
-                if parts > max_parts:
-                    max_parts = parts
+                max_parts = max(max_parts, parts)
             except ValueError:
                 continue
     return ".".join(str(x) for x in max_parts)

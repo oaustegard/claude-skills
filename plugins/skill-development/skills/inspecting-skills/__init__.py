@@ -17,28 +17,28 @@ Quick Start:
 """
 
 from .scripts import (
-    # Discovery
-    SkillLayout,
-    discover_skill,
-    discover_all_skills,
-    skill_name_to_module,
-    module_to_skill_name,
-    find_skill_by_name,
-    # Indexing
-    Symbol,
     ModuleIndex,
     SkillIndex,
+    # Discovery
+    SkillLayout,
+    # Indexing
+    Symbol,
+    discover_all_skills,
+    discover_skill,
     extract_symbols,
-    index_skill,
-    index_all_skills,
+    find_skill_by_name,
     generate_registry,
     # Importing
     get_skills_root,
+    index_all_skills,
+    index_skill,
+    list_importable_skills,
+    module_to_skill_name,
+    register_skill,
     set_skills_root,
     setup_skill_path,
     skill_import,
-    register_skill,
-    list_importable_skills,
+    skill_name_to_module,
 )
 
 __all__ = [

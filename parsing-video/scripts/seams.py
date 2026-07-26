@@ -12,7 +12,10 @@ Usage:
 
 Reads left-to-right, top-to-bottom: row k = [end of clip k | start of clip k+1].
 """
-import sys, subprocess, tempfile, argparse
+import argparse
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
 
 try:

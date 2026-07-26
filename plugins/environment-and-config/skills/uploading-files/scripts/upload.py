@@ -22,7 +22,7 @@ import subprocess
 import sys
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -78,8 +78,7 @@ def _origin_repo() -> tuple[str, str]:
         path = url.split("/git/", 1)[1]
     if path is None:
         sys.exit(f"error: cannot parse a github owner/repo from origin url: {url}")
-    if path.endswith(".git"):
-        path = path[:-4]
+    path = path.removesuffix(".git")
     owner, _, repo = path.partition("/")
     repo = repo.split("/", 1)[0]  # tolerate trailing path segments
     if not owner or not repo:
@@ -104,7 +103,7 @@ def _session_id() -> str:
             jsonls = sorted(proj.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
             if jsonls:
                 return jsonls[-1].stem
-    return "ts" + datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+    return "ts" + datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
 
 
 def _branch_name() -> str:

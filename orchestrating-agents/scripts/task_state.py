@@ -14,7 +14,6 @@ Thread-safe for use with concurrent task execution.
 import enum
 import threading
 import time
-from typing import Optional
 
 
 # @lat: [[orchestration#Task State Machine]]
@@ -56,12 +55,19 @@ class InvalidTransitionError(Exception):
 
 class TaskInfo:
     """Immutable snapshot of a task's current state."""
-    __slots__ = ("task_id", "state", "attempt", "created_at", "updated_at",
-                 "category", "metadata")
+    __slots__ = (
+        "attempt",
+        "category",
+        "created_at",
+        "metadata",
+        "state",
+        "task_id",
+        "updated_at",
+    )
 
     def __init__(self, task_id: str, state: TaskState, attempt: int,
                  created_at: float, updated_at: float,
-                 category: Optional[str], metadata: Optional[dict]):
+                 category: str | None, metadata: dict | None):
         self.task_id = task_id
         self.state = state
         self.attempt = attempt
@@ -77,8 +83,8 @@ class TaskInfo:
 
 class _TaskRecord:
     """Internal mutable task record (not exposed externally)."""
-    def __init__(self, task_id: str, category: Optional[str] = None,
-                 metadata: Optional[dict] = None):
+    def __init__(self, task_id: str, category: str | None = None,
+                 metadata: dict | None = None):
         self.task_id = task_id
         self.state = TaskState.UNCLAIMED
         self.attempt = 0
@@ -116,8 +122,8 @@ class TaskTracker:
         self._tasks: dict[str, _TaskRecord] = {}
         self.max_retries = max_retries
 
-    def add(self, task_id: str, category: Optional[str] = None,
-            metadata: Optional[dict] = None) -> TaskInfo:
+    def add(self, task_id: str, category: str | None = None,
+            metadata: dict | None = None) -> TaskInfo:
         """
         Register a new task in UNCLAIMED state.
 
@@ -181,7 +187,7 @@ class TaskTracker:
         """Shorthand: RUNNING → COMPLETED."""
         return self.transition(task_id, TaskState.COMPLETED)
 
-    def fail(self, task_id: str, error: Optional[str] = None) -> TaskInfo:
+    def fail(self, task_id: str, error: str | None = None) -> TaskInfo:
         """
         Mark a task as failed. Stores error in metadata.
 
@@ -255,7 +261,7 @@ class TaskTracker:
                 if r.category == category
             ]
 
-    def active_count(self, category: Optional[str] = None) -> int:
+    def active_count(self, category: str | None = None) -> int:
         """
         Count tasks in non-terminal states.
 

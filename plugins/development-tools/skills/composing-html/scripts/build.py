@@ -36,8 +36,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from composer import page                              # noqa: E402
-from templates import REGISTRY                         # noqa: E402
+from composer import page
+
+from templates import REGISTRY
 
 
 def cmd_list(_args) -> int:

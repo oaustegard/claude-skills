@@ -64,3 +64,8 @@ All notable changes to the `mapping-codebases` skill are documented in this file
 
 - Add/Update skill: mapping-codebases
 - Add 'interaction' memory type to remembering skill
+## 0.9.0 — 2026-07-26
+
+Deprecated. Superseded by tree-sitting, which does the same AST extraction at
+runtime without persisting _MAP.md artifacts. `scripts/codemap.py`, `parsers/`,
+and `README.md` removed; release mapping-codebases-v0.8.0 is the archive.

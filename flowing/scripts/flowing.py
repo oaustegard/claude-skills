@@ -42,14 +42,17 @@ import json
 import pickle
 import sys
 import time
+from collections.abc import Callable
 from concurrent.futures import (
     ThreadPoolExecutor,
-    TimeoutError as FuturesTimeoutError,
     as_completed,
+)
+from concurrent.futures import (
+    TimeoutError as FuturesTimeoutError,
 )
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, Optional
+from typing import Any
 
 
 class StepState(Enum):
@@ -66,10 +69,10 @@ class StepResult:
     name: str
     state: StepState
     value: Any = None
-    error: Optional[Exception] = None
+    error: Exception | None = None
     duration_ms: float = 0
     attempts: int = 0
-    step_key: Optional[str] = None  # content-addressed key (set only when journaling)
+    step_key: str | None = None  # content-addressed key (set only when journaling)
     cached: bool = False            # True if this result was replayed from the journal
 
 
@@ -82,12 +85,12 @@ class TaskDef:
     retry: int = 0
     retry_backoff_base_ms: int = 1000
     retry_max_backoff_ms: int = 30_000
-    timeout_s: Optional[float] = None
+    timeout_s: float | None = None
     detached: bool = False
     # v1.1 control-flow primitives
-    when: Optional[Callable] = None         # gate: receives gathered kwargs, returns bool. False -> SKIPPED
-    validate: Optional[Callable] = None     # edge contract: receives gathered kwargs, raises on bad inputs. Raise -> FAILED, no retry
-    retry_until: Optional[Callable] = None  # predicate loop: receives task return value, returns bool. False -> retry (uses retry= budget)
+    when: Callable | None = None         # gate: receives gathered kwargs, returns bool. False -> SKIPPED
+    validate: Callable | None = None     # edge contract: receives gathered kwargs, raises on bad inputs. Raise -> FAILED, no retry
+    retry_until: Callable | None = None  # predicate loop: receives task return value, returns bool. False -> retry (uses retry= budget)
 
     def __call__(self, *args, **kwargs):
         return self.fn(*args, **kwargs)
@@ -120,18 +123,18 @@ def clear_registry() -> None:
 
 # @lat: [[orchestration#DAG Workflow Runner]]
 def task(
-    fn: Optional[Callable] = None,
+    fn: Callable | None = None,
     *,
-    depends_on: Optional[list[TaskDef]] = None,
+    depends_on: list[TaskDef] | None = None,
     retry: int = 0,
     retry_backoff_base_ms: int = 1000,
     retry_max_backoff_ms: int = 30_000,
-    timeout_s: Optional[float] = None,
-    name: Optional[str] = None,
+    timeout_s: float | None = None,
+    name: str | None = None,
     detached: bool = False,
-    when: Optional[Callable] = None,
-    validate: Optional[Callable] = None,
-    retry_until: Optional[Callable] = None,
+    when: Callable | None = None,
+    validate: Callable | None = None,
+    retry_until: Callable | None = None,
 ) -> TaskDef:
     def wrap(f: Callable) -> TaskDef:
         td = TaskDef(
@@ -162,7 +165,7 @@ def _log(msg: str, **kw):
     print(" ".join(parts), file=sys.stderr, flush=True)
 
 
-def _fn_fingerprint(fn: Optional[Callable]) -> str:
+def _fn_fingerprint(fn: Callable | None) -> str:
     """Stable-ish fingerprint of a callable's behaviour.
 
     Prefers bytecode (co_code + stringified co_consts), which changes when the
@@ -330,7 +333,7 @@ def _run_step(td: TaskDef, results: dict[str, StepResult]) -> StepResult:
 # @lat: [[orchestration#DAG Workflow Runner]]
 class Flow:
     def __init__(self, *terminals: TaskDef, max_workers: int = 5, fail_fast: bool = True,
-                 journal_path: Optional[str] = None):
+                 journal_path: str | None = None):
         if not terminals:
             raise ValueError("Flow requires at least one terminal task")
         self.terminals = list(terminals)
@@ -404,7 +407,7 @@ class Flow:
                     self._step_keys[t] = compute_step_key(t, [])
                     remaining.discard(t)
 
-    def _cached_result(self, td: TaskDef) -> Optional[StepResult]:
+    def _cached_result(self, td: TaskDef) -> StepResult | None:
         """Return a replayed SUCCEEDED result if td's step_key is journaled."""
         if not self.journal_path:
             return None

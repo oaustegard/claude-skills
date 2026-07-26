@@ -8,12 +8,9 @@ Cache key = SHA-256 of Containerfile contents, used as the release tag.
 import json
 import os
 import subprocess
-import tempfile
-import urllib.request
 import urllib.error
-from datetime import datetime, timezone
-from typing import Optional
-
+import urllib.request
+from datetime import UTC, datetime
 
 TARBALL_NAME = "layer.tar.gz"
 
@@ -22,10 +19,10 @@ def _gh_api(
     endpoint: str,
     token: str,
     method: str = "GET",
-    data: Optional[bytes] = None,
+    data: bytes | None = None,
     content_type: str = "application/json",
     timeout: int = 30,
-) -> Optional[dict]:
+) -> dict | None:
     """Make a GitHub API request."""
     url = f"https://api.github.com{endpoint}" if endpoint.startswith("/") else endpoint
     
@@ -48,7 +45,7 @@ def _gh_api(
         raise
 
 
-def _find_release(repo: str, tag: str, token: str) -> Optional[dict]:
+def _find_release(repo: str, tag: str, token: str) -> dict | None:
     """Find a release by tag."""
     return _gh_api(f"/repos/{repo}/releases/tags/{tag}", token)
 
@@ -61,7 +58,7 @@ def _create_release(repo: str, tag: str, token: str) -> dict:
     
     payload = json.dumps({
         "tag_name": tag,
-        "name": f"Container Layer {datetime.now(timezone.utc).strftime('%Y-%m-%dT%H%M%SZ')} {tag}",
+        "name": f"Container Layer {datetime.now(UTC).strftime('%Y-%m-%dT%H%M%SZ')} {tag}",
         "body": "Auto-generated container layer cache. Safe to delete.",
         "draft": False,
         "prerelease": True,
@@ -98,7 +95,7 @@ def _upload_asset(upload_url: str, filepath: str, token: str):
         print(f"  Uploaded: {result.get('browser_download_url', 'ok')}")
 
 
-def _find_asset_url(release: dict) -> Optional[str]:
+def _find_asset_url(release: dict) -> str | None:
     """Find the layer tarball asset URL in a release."""
     for asset in release.get("assets", []):
         if asset["name"] == TARBALL_NAME:
@@ -198,7 +195,7 @@ def build_and_push(
         print("  No existing paths to snapshot")
         return
     
-    print(f"  Paths to snapshot:")
+    print("  Paths to snapshot:")
     for p in existing:
         # Get size
         size = subprocess.run(

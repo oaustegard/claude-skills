@@ -24,11 +24,11 @@ it so the index and the query are tokenized identically.
 from __future__ import annotations
 
 import argparse
+import heapq
 import json
 import math
 import re
 import sys
-import heapq
 from collections import defaultdict
 from pathlib import Path
 
