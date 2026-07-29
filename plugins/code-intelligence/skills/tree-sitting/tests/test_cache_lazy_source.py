@@ -8,18 +8,17 @@ results to a fresh parse.
 Run: python -m pytest tests/test_cache_lazy_source.py -v
 """
 
-import sys
-import os
 import json
-import tempfile
+import os
 import shutil
+import sys
+import tempfile
 from pathlib import Path
 
 # Bootstrap parsers before importing engine
 sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 
 from engine import CodeCache, FileEntry
-
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 

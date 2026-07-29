@@ -8,9 +8,10 @@
 from __future__ import annotations
 
 import json
-from . import register
+
 import composer as c
 
+from . import register
 
 # --------------------------------------------------------------------------- #
 # triage_board                                                                #

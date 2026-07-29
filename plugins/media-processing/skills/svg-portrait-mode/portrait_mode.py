@@ -24,11 +24,12 @@ Usage:
     svg, stats = portrait_mode("photo.jpg")
 """
 
+import os
 import sys
+import time
+
 import cv2
 import numpy as np
-import os
-import time
 
 # Pipeline imports
 sys.path.insert(0, '/mnt/skills/user/image-to-svg/scripts')
@@ -614,8 +615,10 @@ def portrait_mode(image_path,
     Returns:
         (svg_string, stats_dict)
     """
-    from pipeline import configure, preprocess, quantize, detect_background, edge_map
-    from flowing import task as flow_task, Flow
+    from pipeline import configure, detect_background, edge_map, quantize
+
+    from flowing import Flow
+    from flowing import task as flow_task
 
     t0 = time.time()
 
@@ -659,9 +662,9 @@ def portrait_mode(image_path,
     if use_landmarks:
         landmarks = _get_face_landmarks(image_path)
         if landmarks:
-            print(f"    Landmarks: 478 points")
+            print("    Landmarks: 478 points")
         else:
-            print(f"    Landmarks: not detected")
+            print("    Landmarks: not detected")
 
     if not focus_targets and landmarks is None:
         face_bbox = _get_face_bbox(image_path)

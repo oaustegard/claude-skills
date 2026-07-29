@@ -5,8 +5,6 @@ Contains only: opcodes, names, Instruction type, program() builder.
 """
 
 from dataclasses import dataclass
-from typing import List
-
 
 # ─── Types ────────────────────────────────────────────────────────
 
@@ -91,7 +89,7 @@ _NAME_TO_OP = {
 }
 
 
-def program(*instrs) -> List[Instruction]:
+def program(*instrs) -> list[Instruction]:
     """Convenience: program(('PUSH', 3), ('PUSH', 5), ('ADD',), ('HALT',))"""
     result = []
     for instr in instrs:

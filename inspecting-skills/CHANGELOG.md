@@ -19,3 +19,6 @@ All notable changes to the `inspecting-skills` skill are documented in this file
 ### Added
 
 - Add skill for cross-skill Python imports (#217)
+## 1.0.3 — 2026-07-26
+
+- Repointed the integration section from mapping-codebases (deprecated) to tree-sitting.

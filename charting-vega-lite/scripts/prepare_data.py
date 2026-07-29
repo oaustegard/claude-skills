@@ -7,12 +7,14 @@ Usage: python prepare_data.py <input_filepath> [--output-format json|csv]
 Output: JSON with data file path, format, and reference metadata
 """
 
+import argparse
 import json
 import sys
-import argparse
 from pathlib import Path
-import pandas as pd
+
 import numpy as np
+import pandas as pd
+
 
 class NumpyEncoder(json.JSONEncoder):
     """JSON encoder that handles numpy types."""

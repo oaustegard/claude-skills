@@ -10,10 +10,11 @@ Returns:
     Exit code 0 on success
 """
 
-import sys
 import subprocess
-import yaml
+import sys
 from pathlib import Path
+
+import yaml
 
 
 def get_skill_md_changes(commit_before: str, commit_after: str) -> list[str]:

@@ -31,7 +31,13 @@ Outputs under WORKDIR:
     montages/   numbered grids the reader views, montage_000.png ...
     manifest.json   maps every global card index -> sheet, crop path, montage
 """
-import argparse, json, os, sys, glob, math
+import argparse
+import glob
+import json
+import math
+import os
+import sys
+
 import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont

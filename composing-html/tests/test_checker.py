@@ -12,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from checker import check_html, has_errors  # noqa: E402
+from checker import check_html, has_errors
 
 
 def _rules(html, **kw):

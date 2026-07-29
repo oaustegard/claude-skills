@@ -35,9 +35,9 @@ Detail levels (tree overview rows show per-file symbol lists with line ranges):
     full    — per-symbol formatter + children + imports [exploring: deep dive]
 """
 
-import sys
-import os
 import argparse
+import os
+import sys
 import time
 
 

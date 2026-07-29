@@ -8,17 +8,14 @@ Runnable standalone:
 """
 
 import os
-import sys
 import tempfile
 import unittest
 from unittest import mock
 
-from . import containerfile
 from .containerfile import (
-    ContainerLayer,
     BuildResult,
+    ContainerLayer,
     compose,
-    content_hash,
     default_layer_name,
 )
 

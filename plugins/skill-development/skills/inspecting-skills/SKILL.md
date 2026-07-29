@@ -2,7 +2,7 @@
 name: inspecting-skills
 description: Discovers and indexes Python code in skills, enabling cross-skill imports. Use when importing functions from other skills or analyzing skill codebases.
 metadata:
-  version: 1.0.2
+  version: 1.0.3
 ---
 
 # Inspecting Skills
@@ -160,15 +160,15 @@ for module in index.modules:
         print(f"  {sym.kind} {sym.name}{sym.signature or ''}")
 ```
 
-## Integration with mapping-codebases
+## Integration with tree-sitting
 
-This skill complements `mapping-codebases` which generates `_MAP.md` files:
+This skill complements `tree-sitting`, which extracts code structure at runtime:
 
-- **mapping-codebases**: Static documentation via tree-sitter, multi-language
+- **tree-sitting**: AST-derived structure via tree-sitter, multi-language
 - **inspecting-skills**: Runtime import support, Python-focused, dynamic discovery
 
 Use both together:
-1. `mapping-codebases` for navigation and code review
+1. `tree-sitting` for navigation and code review
 2. `inspecting-skills` for actual code imports and execution
 
 ## Troubleshooting

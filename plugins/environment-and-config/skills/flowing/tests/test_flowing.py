@@ -9,14 +9,14 @@ Coverage:
 - v1.3: timeout_s enforcement, signature validation, clear_registry
 """
 
-import sys
 import os
+import sys
 import time
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
-from flowing import task, Flow, StepState, clear_registry  # noqa: E402
+from flowing import Flow, StepState, clear_registry, task
 
 
 class TestBackwardCompat(unittest.TestCase):

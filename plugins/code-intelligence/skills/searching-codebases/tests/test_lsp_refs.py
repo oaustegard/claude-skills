@@ -20,8 +20,8 @@ import pytest
 SCRIPTS = Path(__file__).resolve().parent.parent / "scripts"
 sys.path.insert(0, str(SCRIPTS))
 
-import lsp_refs  # noqa: E402
-from lsp_refs import (  # noqa: E402
+import lsp_refs
+from lsp_refs import (
     LspUnavailable,
     definition_sites,
     lsp_query,

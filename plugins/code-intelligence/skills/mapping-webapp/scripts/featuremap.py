@@ -13,26 +13,33 @@ import argparse
 import json
 import sys
 from pathlib import Path
+
+from codecontext import load_cache
 from urllib.parse import urljoin
 
 # Allow running as script or via package import
 if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scripts.discover import (
-    discover_from_code, discover_pages, pages_to_dict, PageInfo,
-    is_webctl_available, should_skip_verify,
-)
-from scripts.analyze import analyze_page, analyze_pages
-from scripts.capture import PageCapture
-from scripts.verify import select_pages_for_verification, verify_pages
+from scripts.analyze import analyze_pages
 from scripts.assemble import write_features_md
-from scripts.staleness import (
-    load_manifest, save_manifest, save_code_manifest,
-    filter_changed_pages, filter_unanalyzed_pages,
-)
 from scripts.auth_instructions import generate_auth_instructions
-from scripts.environment import detect_environment, get_batch_size, batched
+from scripts.capture import PageCapture
+from scripts.discover import (
+    PageInfo,
+    discover_from_code,
+    is_webctl_available,
+    pages_to_dict,
+)
+from scripts.environment import batched, detect_environment, get_batch_size
+from scripts.staleness import (
+    filter_changed_pages,
+    filter_unanalyzed_pages,
+    load_manifest,
+    save_code_manifest,
+    save_manifest,
+)
+from scripts.verify import select_pages_for_verification, verify_pages
 
 
 def parse_args() -> argparse.Namespace:
@@ -64,7 +71,7 @@ Examples:
     )
     parser.add_argument(
         "--codebase", required=True, type=Path,
-        help="Path to the codebase root (must contain _MAP.md files)",
+        help="Path to the codebase root",
     )
     parser.add_argument(
         "--output", type=Path, default=None,
@@ -159,12 +166,11 @@ def main() -> int:
     output_path = args.output or (codebase / "_FEATURES.md")
     screenshots_dir = args.screenshots_dir or (codebase / "screenshots")
 
-    # Validate codebase has _MAP.md
-    root_map = codebase / "_MAP.md"
-    if not root_map.exists():
+    # Validate tree-sitting can scan the codebase
+    if load_cache(codebase) is None:
         print(
-            f"ERROR: No _MAP.md found at {root_map}. "
-            "Run mapping-codebases first.",
+            "ERROR: tree-sitting skill not found. Install it alongside "
+            "mapping-webapp; it supplies the code structure this tool reads.",
             file=sys.stderr,
         )
         return 1
@@ -177,7 +183,7 @@ def main() -> int:
     # ================================================================
     # Phase 1: DISCOVER
     # ================================================================
-    print(f"\nPhase 1: Discovering pages from code structure...")
+    print("\nPhase 1: Discovering pages from code structure...")
 
     # Code-first discovery
     pages = discover_from_code(codebase, args.app_url, max_pages=args.max_pages)
@@ -374,7 +380,7 @@ def main() -> int:
     # ================================================================
     # Phase 4: ASSEMBLE
     # ================================================================
-    print(f"\nPhase 4: Assembling _FEATURES.md...")
+    print("\nPhase 4: Assembling _FEATURES.md...")
 
     # Sort descriptions: documented first, then errors
     all_descriptions.sort(key=lambda d: (bool(d.get("error")), d.get("path", "")))

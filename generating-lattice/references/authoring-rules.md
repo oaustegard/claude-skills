@@ -99,7 +99,7 @@ Use `require-code-mention: true` for test spec files — ensures every leaf sect
 
 Organize by domain concept, not by file structure. A `data.md` file might reference `db.js`, `sync.js`, and `demo.js` because they're all part of the data layer. An `awards.md` file documents the awards engine conceptually even though the implementation spans `awards.js`, `award-config.js`, and parts of `db.js`.
 
-The mapping-codebases `_MAP.md` files already provide file-level structure. lat.md adds the semantic layer on top — explaining WHY things are shaped the way they are and HOW concepts connect across files.
+A tree-sitting scan already provides file-level structure. lat.md adds the semantic layer on top — explaining WHY things are shaped the way they are and HOW concepts connect across files.
 
 ## @lat: Back-links
 

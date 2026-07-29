@@ -37,7 +37,7 @@ def get_anthropic_api_key() -> str:
                 api_key = config.get('anthropic_api_key', '').strip()
                 if api_key:
                     return api_key
-        except (json.JSONDecodeError, IOError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             # If config exists but is malformed, we should know about it
             raise ValueError(
                 f"Error reading config.json: {e}\n"
@@ -88,7 +88,7 @@ def get_google_api_key() -> str:
                 api_key = config.get('google_api_key', '').strip()
                 if api_key:
                     return api_key
-        except (json.JSONDecodeError, IOError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             # If config exists but is malformed, we should know about it
             raise ValueError(
                 f"Error reading config.json: {e}\n"
@@ -155,7 +155,7 @@ def get_github_api_key() -> str:
                 api_key = config.get('github_api_key', '').strip()
                 if api_key:
                     return api_key
-        except (json.JSONDecodeError, IOError) as e:
+        except (OSError, json.JSONDecodeError) as e:
             # If config exists but is malformed, we should know about it
             raise ValueError(
                 f"Error reading config.json: {e}\n"
@@ -229,7 +229,7 @@ if __name__ == "__main__":
             masked = get_api_key_masked(key)
             print(f"✓ {provider_name.capitalize()} API key found: {masked}")
             print(f"  Key length: {len(key)} characters")
-        except ValueError as e:
+        except ValueError:
             print(f"✗ {provider_name.capitalize()} API key not configured")
             # Don't print full error in summary
         print()

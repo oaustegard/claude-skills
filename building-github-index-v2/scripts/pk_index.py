@@ -5,15 +5,13 @@ Produces flat, token-efficient indexes for Claude project knowledge.
 Extracts semantic info from code (AST) and docs (headings).
 """
 
-import json
-import os
+import re
 import sys
 import tarfile
 import tempfile
 import urllib.request
 from collections import defaultdict
 from pathlib import Path
-import re
 
 try:
     from tree_sitter_language_pack import get_parser

@@ -8,7 +8,6 @@ caller's responsibility.
 from __future__ import annotations
 
 from . import register
-import composer as c
 
 
 @register("freeform", summary="Base shell with caller-supplied inner HTML.",

@@ -6,9 +6,9 @@
 
 from __future__ import annotations
 
-from . import register
 import composer as c
 
+from . import register
 
 # --------------------------------------------------------------------------- #
 # feature_explainer                                                           #

@@ -7,6 +7,7 @@ import json
 import sys
 from pathlib import Path
 
+
 def extract_insights(profile_json_path):
     """Extract high-level insights optimized for LLM analysis."""
     with open(profile_json_path, 'r') as f:

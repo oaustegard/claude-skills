@@ -6,13 +6,11 @@ Provides programmatic GitHub operations (read/write/commit/PR) using REST API.
 Designed for claude.ai chat where native git access isn't available.
 """
 
+import base64
 import json
 import os
-import sys
-import base64
 from pathlib import Path
-from typing import Dict, List, Optional
-from urllib import request, error, parse
+from urllib import error, parse, request
 
 
 class GitHubAPIError(Exception):
@@ -24,7 +22,7 @@ class GitHubAPIError(Exception):
         status_code: HTTP status code (if applicable)
         response: Full response data (if available)
     """
-    def __init__(self, message: str, status_code: Optional[int] = None, response: Optional[Dict] = None):
+    def __init__(self, message: str, status_code: int | None = None, response: dict | None = None):
         self.message = message
         self.status_code = status_code
         self.response = response
@@ -63,7 +61,7 @@ def get_github_token() -> str:
                     token = line[len("GH_TOKEN="):].strip().strip('"').strip("'")
                     if token:
                         return token
-        except (IOError, OSError):
+        except OSError:
             pass  # Fall through to other methods
 
     # Pattern 1: Individual key file (recommended)
@@ -73,7 +71,7 @@ def get_github_token() -> str:
             token = key_file.read_text().strip()
             if token:
                 return token
-        except (IOError, OSError) as e:
+        except OSError as e:
             raise ValueError(
                 f"Found GITHUB_API_KEY.txt but couldn't read it: {e}\n"
                 f"Please check file permissions or recreate the file"
@@ -88,7 +86,7 @@ def get_github_token() -> str:
                 token = config.get("github_api_key", "").strip()
                 if token:
                     return token
-        except (json.JSONDecodeError, IOError, OSError) as e:
+        except (json.JSONDecodeError, OSError) as e:
             raise ValueError(
                 f"Found API_CREDENTIALS.json but couldn't parse it: {e}\n"
                 f"Please check file format"
@@ -118,9 +116,9 @@ def get_github_token() -> str:
 def _make_api_request(
     endpoint: str,
     method: str = "GET",
-    data: Optional[Dict] = None,
-    token: Optional[str] = None
-) -> Dict:
+    data: dict | None = None,
+    token: str | None = None
+) -> dict:
     """
     Make authenticated GitHub API request.
 
@@ -261,8 +259,8 @@ def commit_file(
     content: str,
     branch: str,
     message: str,
-    create_branch_from: Optional[str] = None
-) -> Dict:
+    create_branch_from: str | None = None
+) -> dict:
     """
     Commit a single file (create or update).
 
@@ -335,11 +333,11 @@ def commit_file(
 
 def commit_files(
     repo: str,
-    files: List[Dict[str, str]],
+    files: list[dict[str, str]],
     branch: str,
     message: str,
-    create_branch_from: Optional[str] = None
-) -> Dict:
+    create_branch_from: str | None = None
+) -> dict:
     """
     Commit multiple files in a single commit using Git Trees API.
 
@@ -445,7 +443,7 @@ def create_pull_request(
     base: str,
     title: str,
     body: str = ""
-) -> Dict:
+) -> dict:
     """
     Create a pull request.
 
@@ -531,11 +529,11 @@ def _ensure_branch_exists(repo: str, branch: str, create_from: str) -> None:
 # Export main functions
 __all__ = [
     'GitHubAPIError',
-    'get_github_token',
-    'read_file',
     'commit_file',
     'commit_files',
-    'create_pull_request'
+    'create_pull_request',
+    'get_github_token',
+    'read_file'
 ]
 
 
@@ -550,5 +548,5 @@ if __name__ == "__main__":
         print(f"✓ GitHub token found: {masked}")
         print(f"  Token length: {len(token)} characters")
     except ValueError as e:
-        print(f"✗ GitHub token not configured")
+        print("✗ GitHub token not configured")
         print(f"\n{e}")

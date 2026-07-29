@@ -10,9 +10,10 @@ Usage:
     python3 tiling_tree.py "How can we record neural activity?" --depth 3 --criteria "impact,feasibility,novelty"
 """
 
-import sys, json, argparse
+import argparse
+import json
+import sys
 from dataclasses import dataclass, field
-from typing import Optional
 
 # ── Dependency setup ──────────────────────────────────────────────────────────
 
@@ -32,7 +33,7 @@ class Node:
     id: str
     label: str
     definition: str
-    parent_id: Optional[str]
+    parent_id: str | None
     depth: int
     split_criterion: str = ""
     children: list = field(default_factory=list)

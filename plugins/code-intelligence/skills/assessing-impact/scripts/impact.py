@@ -18,14 +18,13 @@ Usage:
     python impact.py /path/to/repo SYMBOL --skip tests,vendor --json
 """
 
-import sys
+import argparse
+import json
 import os
 import re
-import json
-import argparse
-from pathlib import Path
+import sys
 from collections import defaultdict
-
+from pathlib import Path
 
 # Plain-text extensions that tree-sitting doesn't parse but may mention symbols.
 NON_AST_EXTS = {
@@ -66,7 +65,7 @@ def setup_engine():
         sys.exit(2)
     sys.path.insert(0, str(engine_path))
     try:
-        from engine import CodeCache  # noqa: F401
+        from engine import CodeCache
         return CodeCache()
     except ImportError as e:
         print(f"ERROR: tree-sitting engine import failed: {e}", file=sys.stderr)
@@ -394,7 +393,7 @@ def main():
         sys.exit(2)
 
     cache = setup_engine()
-    from engine import DEFAULT_SKIP  # noqa: E402
+    from engine import DEFAULT_SKIP
     skip_set = set(DEFAULT_SKIP)
     if args.skip:
         skip_set.update(s.strip() for s in args.skip.split(',') if s.strip())

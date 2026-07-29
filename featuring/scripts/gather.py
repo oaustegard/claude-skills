@@ -20,9 +20,8 @@ Usage:
 Output: structured markdown to stdout, suitable as LLM prompt input.
 """
 
-import sys
-import os
 import argparse
+import sys
 from pathlib import Path
 
 
@@ -239,8 +238,8 @@ def gather(repo_path: str, skip: set = None, source_budget: int = 8000,
                  f"Source files: {complexity['files']} | "
                  f"Types: {complexity['types']}")
     if complexity['needs_hierarchy']:
-        lines.append(f"**Hierarchy recommended.** This codebase has enough complexity "
-                     f"for sub-feature files.")
+        lines.append("**Hierarchy recommended.** This codebase has enough complexity "
+                     "for sub-feature files.")
         if complexity['decomposition_candidates']:
             lines.append("\nCandidate areas for sub-files (by symbol density):")
             for d, count in complexity['decomposition_candidates']:

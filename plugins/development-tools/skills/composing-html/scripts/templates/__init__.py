@@ -4,7 +4,7 @@ templates via the @register decorator. build.py looks them up here.
 
 from __future__ import annotations
 
-from typing import Callable
+from collections.abc import Callable
 
 REGISTRY: dict[str, dict] = {}
 
@@ -23,13 +23,15 @@ def register(name: str, *, summary: str, spec_keys: dict[str, str]) -> Callable:
 
 
 # Importing the modules below triggers the @register side-effects.
-from . import exploration   # noqa: E402,F401
-from . import review        # noqa: E402,F401
-from . import design        # noqa: E402,F401
-from . import prototype     # noqa: E402,F401
-from . import diagram       # noqa: E402,F401
-from . import deck          # noqa: E402,F401
-from . import research      # noqa: E402,F401
-from . import report        # noqa: E402,F401
-from . import editor        # noqa: E402,F401
-from . import freeform      # noqa: E402,F401
+from . import (
+    deck,  # noqa: F401
+    design,  # noqa: F401
+    diagram,  # noqa: F401
+    editor,  # noqa: F401
+    exploration,  # noqa: F401
+    freeform,  # noqa: F401
+    prototype,  # noqa: F401
+    report,  # noqa: F401
+    research,  # noqa: F401
+    review,  # noqa: F401
+)

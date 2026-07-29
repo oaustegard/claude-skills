@@ -5,9 +5,9 @@
 
 from __future__ import annotations
 
-from . import register
 import composer as c
 
+from . import register
 
 _SLIDE_KINDS = {"title", "section", "content", "quote", "code", "image"}
 

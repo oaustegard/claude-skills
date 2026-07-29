@@ -7,7 +7,6 @@ even when credentials are provided via Playwright's proxy config.
 Usage: Import get_local_proxy_url() and pass result to Playwright's proxy config.
 """
 
-import asyncio
 import base64
 import os
 import socket

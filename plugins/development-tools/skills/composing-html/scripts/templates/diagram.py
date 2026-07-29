@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import sys
 
-from . import register
 import composer as c
 
+from . import register
 
 # --------------------------------------------------------------------------- #
 # svg_figure_sheet                                                            #

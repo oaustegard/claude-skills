@@ -19,29 +19,27 @@ Usage:
     from browsing_bluesky import search_posts  # Works!
 """
 
-import sys
-import os
 import importlib
 import importlib.abc
 import importlib.util
+import sys
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
-from .discover import find_skill_by_name, skill_name_to_module, discover_skill
-
+from .discover import find_skill_by_name, skill_name_to_module
 
 # Default skills root - can be overridden
-_skills_root: Optional[Path] = None
+_skills_root: Path | None = None
 _registered_skills: dict[str, Path] = {}
 
 
-def get_skills_root() -> Optional[Path]:
+def get_skills_root() -> Path | None:
     """Get the currently configured skills root directory."""
     global _skills_root
     return _skills_root
 
 
-def set_skills_root(path: Union[str, Path]) -> None:
+def set_skills_root(path: str | Path) -> None:
     """
     Set the skills root directory.
 
@@ -52,7 +50,7 @@ def set_skills_root(path: Union[str, Path]) -> None:
     _skills_root = Path(path).resolve()
 
 
-def setup_skill_path(skills_root: Union[str, Path, None] = None) -> Path:
+def setup_skill_path(skills_root: str | Path | None = None) -> Path:
     """
     Add skills root to sys.path and enable skill imports.
 
@@ -110,7 +108,7 @@ def setup_skill_path(skills_root: Union[str, Path, None] = None) -> Path:
 # @lat: [[skill-lifecycle#Cross-Skill Imports]]
 def skill_import(
     skill_name: str,
-    symbols: Optional[list[str]] = None
+    symbols: list[str] | None = None
 ) -> Any:
     """
     Import a skill module or specific symbols from it.
@@ -185,7 +183,7 @@ def skill_import(
     return tuple(result)
 
 
-def register_skill(skill_name: str, skill_path: Union[str, Path]) -> None:
+def register_skill(skill_name: str, skill_path: str | Path) -> None:
     """
     Register a skill at a custom path for importing.
 

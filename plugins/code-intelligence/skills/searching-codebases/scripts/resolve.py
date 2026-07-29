@@ -7,14 +7,9 @@ uploaded files, project knowledge files.
 
 import os
 import shutil
-import subprocess
 import tarfile
-import tempfile
 import urllib.request
 import zipfile
-from pathlib import Path
-from typing import Optional
-
 
 WORK_DIR = "/home/claude/code-search-workspace"
 
@@ -57,8 +52,7 @@ def resolve(source: str, branch: str = "main") -> str:
 def _resolve_github(url: str, branch: str) -> str:
     """Download a GitHub repo tarball and extract it."""
     url = url.rstrip("/")
-    if url.endswith(".git"):
-        url = url[:-4]
+    url = url.removesuffix(".git")
 
     parts = url.replace("https://github.com/", "").split("/")
     if len(parts) < 2:
@@ -131,10 +125,7 @@ def _resolve_archive(path: str) -> str:
     if path.endswith(".zip"):
         with zipfile.ZipFile(path) as zf:
             zf.extractall(dest)
-    elif path.endswith((".tar.gz", ".tgz")):
-        with tarfile.open(path) as tf:
-            tf.extractall(dest)
-    elif path.endswith(".tar"):
+    elif path.endswith((".tar.gz", ".tgz")) or path.endswith(".tar"):
         with tarfile.open(path) as tf:
             tf.extractall(dest)
     else:

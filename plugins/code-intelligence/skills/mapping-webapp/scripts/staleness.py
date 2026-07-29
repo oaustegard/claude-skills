@@ -8,6 +8,7 @@ and source tracking (code vs verified) for incremental updates.
 
 import hashlib
 import json
+from datetime import UTC
 from pathlib import Path
 
 from .capture import PageCapture
@@ -51,7 +52,7 @@ def save_manifest(
     Returns:
         Path to the written manifest file.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     # Build description lookup
     desc_by_path: dict[str, dict] = {}
@@ -70,7 +71,7 @@ def save_manifest(
 
     manifest: dict = {
         "app_url": app_url,
-        "updated": datetime.now(timezone.utc).isoformat(),
+        "updated": datetime.now(UTC).isoformat(),
         "version": "0.3.0",
         "pages": {},
     }
@@ -130,14 +131,14 @@ def save_code_manifest(
     Returns:
         Path to the written manifest file.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     old_manifest = load_manifest(codebase)
     old_pages = old_manifest.get("pages", {})
 
     manifest: dict = {
         "app_url": app_url,
-        "updated": datetime.now(timezone.utc).isoformat(),
+        "updated": datetime.now(UTC).isoformat(),
         "version": "0.3.0",
         "pages": {},
     }

@@ -7,9 +7,8 @@ This test suite covers the persistent scan-cache contract (v1, cheap tier):
 Run: python -m pytest tests/test_cache_fingerprint.py -v
 """
 
-import sys
 import os
-import tempfile
+import sys
 import time
 from pathlib import Path
 
@@ -17,6 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 
 from engine import CodeCache
+
 # cache_path_for will be imported from engine after implementation
 
 # ── Fixtures ────────────────────────────────────────────────────────────

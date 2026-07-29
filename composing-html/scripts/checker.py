@@ -25,7 +25,6 @@ from __future__ import annotations
 import html.parser as _hp
 import re
 from dataclasses import dataclass, field
-from typing import Optional
 
 # --------------------------------------------------------------------------- #
 # canonical design tokens (mirror of assets/base.css :root)                   #
@@ -45,10 +44,10 @@ BASE_TOKENS = {
 _COLOR_KEYWORD_OK = {"transparent", "currentcolor", "inherit", "none", "initial", "unset"}
 
 _HEX_RE = re.compile(r"#[0-9a-fA-F]{3,8}\b")
-_FUNC_COLOR_RE = re.compile(r"\b(?:rgb|rgba|hsl|hsla)\s*\(", re.I)
-_VAR_RE = re.compile(r"var\(\s*--([a-z0-9-]+)", re.I)
-_FONT_FAMILY_RE = re.compile(r"font-family\s*:", re.I)
-_FONT_SIZE_RE = re.compile(r"font-size\s*:", re.I)
+_FUNC_COLOR_RE = re.compile(r"\b(?:rgb|rgba|hsl|hsla)\s*\(", re.IGNORECASE)
+_VAR_RE = re.compile(r"var\(\s*--([a-z0-9-]+)", re.IGNORECASE)
+_FONT_FAMILY_RE = re.compile(r"font-family\s*:", re.IGNORECASE)
+_FONT_SIZE_RE = re.compile(r"font-size\s*:", re.IGNORECASE)
 
 
 # --------------------------------------------------------------------------- #
@@ -79,7 +78,7 @@ _VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link",
 class Node:
     tag: str
     attrs: dict
-    parent: Optional["Node"] = None
+    parent: Node | None = None
     children: list = field(default_factory=list)
 
     @property
@@ -155,10 +154,10 @@ def _defined_tokens(html: str, dom: _DOM) -> set:
     """Tokens legitimately available: base palette + --bind-* (created by
     data-bind hooks) + any custom --x declared in an author <style>."""
     defined = set(BASE_TOKENS)
-    for m in re.finditer(r"data-bind\s*=\s*[\"']([a-z0-9_-]+)", html, re.I):
+    for m in re.finditer(r"data-bind\s*=\s*[\"']([a-z0-9_-]+)", html, re.IGNORECASE):
         defined.add("bind-" + m.group(1))
     # author-declared custom properties:  --foo:
-    for m in re.finditer(r"(?<![a-z0-9-])--([a-z0-9-]+)\s*:", html, re.I):
+    for m in re.finditer(r"(?<![a-z0-9-])--([a-z0-9-]+)\s*:", html, re.IGNORECASE):
         defined.add(m.group(1))
     return defined
 
@@ -309,7 +308,7 @@ _RULES = [
 # public                                                                      #
 # --------------------------------------------------------------------------- #
 
-def check_html(html: str, *, fragment: Optional[bool] = None) -> list[Finding]:
+def check_html(html: str, *, fragment: bool | None = None) -> list[Finding]:
     if fragment is None:
         fragment = _is_fragment(html)
     dom = _parse(html)

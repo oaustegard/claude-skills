@@ -9,7 +9,6 @@ Falls back to a fixed-size context window if tree-sitting is unavailable.
 import os
 import sys
 from dataclasses import dataclass
-from typing import List, Optional
 
 
 @dataclass
@@ -22,8 +21,8 @@ class CodeContext:
     node_type: str  # "function", "class", "method"
     name: str
     source: str
-    language: Optional[str] = None
-    signature: Optional[str] = None
+    language: str | None = None
+    signature: str | None = None
 
 
 # Lazily initialized tree-sitting cache
@@ -54,7 +53,7 @@ def _ensure_cache(search_root: str):
 
 
 def expand_match(file_path: str, line_number: int, search_root: str,
-                 signatures_only: bool = True) -> Optional[CodeContext]:
+                 signatures_only: bool = True) -> CodeContext | None:
     """
     Expand a match at file:line into its containing function/class.
 
@@ -75,7 +74,7 @@ def expand_match(file_path: str, line_number: int, search_root: str,
 
 
 def _expand_from_ast(file_path: str, line_number: int, search_root: str,
-                     cache, signatures_only: bool) -> Optional[CodeContext]:
+                     cache, signatures_only: bool) -> CodeContext | None:
     """Expand using tree-sitting's parsed AST symbols."""
     relpath = os.path.relpath(file_path, search_root)
 
@@ -159,7 +158,7 @@ def _expand_from_ast(file_path: str, line_number: int, search_root: str,
 
 
 def _expand_window(file_path: str, line_number: int,
-                   context: int = 10) -> Optional[CodeContext]:
+                   context: int = 10) -> CodeContext | None:
     """Fallback: return a fixed window around the match."""
     try:
         with open(file_path, "r") as f:
@@ -185,7 +184,7 @@ def _expand_window(file_path: str, line_number: int,
     )
 
 
-def deduplicate_contexts(contexts: List[CodeContext]) -> List[CodeContext]:
+def deduplicate_contexts(contexts: list[CodeContext]) -> list[CodeContext]:
     """Remove duplicate expansions (same function from multiple match lines)."""
     seen = set()
     unique = []

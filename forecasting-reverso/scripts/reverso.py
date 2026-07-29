@@ -13,7 +13,6 @@ from __future__ import annotations
 import os
 import urllib.request
 from dataclasses import dataclass
-from typing import Optional
 
 import numpy as np
 from numba import njit
@@ -49,7 +48,7 @@ class ReversoConfig:
         return len(self.module_list)
 
     @classmethod
-    def from_args(cls, args: dict) -> "ReversoConfig":
+    def from_args(cls, args: dict) -> ReversoConfig:
         """Create config from a loaded ``args.json`` dictionary."""
         module_list = [m.strip() for m in args["main_module"].split(",")]
         return cls(
@@ -97,7 +96,7 @@ def softmax(x: np.ndarray, axis: int = -1) -> np.ndarray:
 
 
 def layer_norm(
-    x: np.ndarray, weight: np.ndarray, bias: Optional[np.ndarray], eps: float = 1e-5
+    x: np.ndarray, weight: np.ndarray, bias: np.ndarray | None, eps: float = 1e-5
 ) -> np.ndarray:
     """Layer normalization over the last dimension."""
     mean = x.mean(axis=-1, keepdims=True)
@@ -132,7 +131,7 @@ def simple_rms_norm(x: np.ndarray, eps: float = 1e-6) -> np.ndarray:
 def depthwise_short_conv(
     x: np.ndarray,
     weight: np.ndarray,
-    bias: Optional[np.ndarray] = None,
+    bias: np.ndarray | None = None,
 ) -> np.ndarray:
     """Causal depthwise 1-D convolution (correlation, matching PyTorch Conv1d).
 
@@ -289,8 +288,8 @@ class MLPBlock:
         final_b: np.ndarray,
         norm_w: np.ndarray,
         norm_b: np.ndarray,
-        skip_w: Optional[np.ndarray] = None,
-        skip_b: Optional[np.ndarray] = None,
+        skip_w: np.ndarray | None = None,
+        skip_b: np.ndarray | None = None,
     ):
         self.linear_w = linear_w
         self.linear_b = linear_b
@@ -571,7 +570,7 @@ def _get(weights: dict, key: str) -> np.ndarray:
     return weights[key].astype(np.float32)
 
 
-def _get_optional(weights: dict, key: str) -> Optional[np.ndarray]:
+def _get_optional(weights: dict, key: str) -> np.ndarray | None:
     if key in weights:
         return weights[key].astype(np.float32)
     return None
@@ -736,7 +735,7 @@ def forecast(
     prediction_length: int,
     weights: dict | str,
     model_size: str = "small",
-    config: Optional[ReversoConfig] = None,
+    config: ReversoConfig | None = None,
     flip_equivariant: bool = False,
 ) -> np.ndarray:
     """Zero-shot time series forecast using Reverso.

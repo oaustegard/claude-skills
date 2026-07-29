@@ -12,7 +12,7 @@ description: >-
   tied or lost against naive rg at 4-60x the wall-clock cost. Those tiers
   remain available below but are NOT recommended as a default.
 metadata:
-  version: 2.2.0
+  version: 2.3.0
 ---
 
 # Searching Codebases

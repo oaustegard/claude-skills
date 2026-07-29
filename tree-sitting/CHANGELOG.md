@@ -81,3 +81,7 @@ All notable changes to the `tree-sitting` skill are documented in this file. The
 ### Added
 
 - tree-sitting v0.2.0 — AST navigation + tags.scm extraction (#511)
+## 0.7.1 — 2026-07-26
+
+- Docstrings no longer describe output by analogy to `_MAP.md`, which no longer
+  exists (mapping-codebases deprecated). No behaviour change.

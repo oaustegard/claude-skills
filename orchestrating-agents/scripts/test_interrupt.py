@@ -3,11 +3,14 @@
 
 import sys
 from pathlib import Path
+
 sys.path.append(str(Path(__file__).parent))
 
 import threading
 import time
-from claude_client import invoke_parallel_interruptible, InterruptToken
+
+from claude_client import InterruptToken, invoke_parallel_interruptible
+
 
 def test_interrupt():
     """Test interrupting parallel operations."""

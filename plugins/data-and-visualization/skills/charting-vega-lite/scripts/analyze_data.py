@@ -7,10 +7,10 @@ Output: JSON with data summary and chart recommendations
 
 import json
 import sys
-from pathlib import Path
-import pandas as pd
+
 import numpy as np
-from datetime import datetime
+import pandas as pd
+
 
 class NumpyEncoder(json.JSONEncoder):
     """JSON encoder that handles numpy types and NaN values."""

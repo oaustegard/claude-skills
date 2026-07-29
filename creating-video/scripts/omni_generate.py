@@ -36,9 +36,15 @@ prompts.json: {"1": "prompt text", ...} or
 Writes <out>/scene_<n>.mp4 per scene, plus <out>/results.json
 ({scene: {path, interaction_id}}) and <out>/DONE.
 """
-import os, sys, json, time, base64, argparse, mimetypes
-from pathlib import Path
+import argparse
+import base64
+import json
+import mimetypes
+import os
+import sys
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 
 try:
     import requests

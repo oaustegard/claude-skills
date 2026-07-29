@@ -17,8 +17,9 @@ from __future__ import annotations
 import html
 import json
 import re
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 ASSETS = Path(__file__).resolve().parent.parent / "assets"
 
@@ -138,7 +139,7 @@ def kv_list(pairs: dict[str, Any]) -> str:
     return f'<div>{rows}</div>'
 
 
-def raw(html_string: str) -> "_Raw":
+def raw(html_string: str) -> _Raw:
     """Wrap a string to opt out of HTML escaping in `table` and `callout` cells.
 
     Use this when a cell genuinely needs to contain HTML markup the caller

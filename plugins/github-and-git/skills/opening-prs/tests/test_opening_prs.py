@@ -23,11 +23,13 @@ SKILLS_PARENT = SKILL_ROOT.parent  # repo root
 
 # Wire flowing
 sys.path.insert(0, str(SKILLS_PARENT / "flowing" / "scripts"))
-import flowing as _flowing  # noqa: F401
+import flowing as _flowing
+
 sys.modules.setdefault("flowing", _flowing)
 
 # Load opening_prs by file path
 import importlib.util
+
 spec = importlib.util.spec_from_file_location(
     "opening_prs_under_test", SCRIPTS_DIR / "opening_prs.py"
 )

@@ -37,11 +37,12 @@ Examples:
 
 import argparse
 import json
+import re
+import sys
 import zipfile
 from pathlib import Path
-from typing import List, Dict, Any
-import sys
-import re
+from typing import Any
+
 
 def extract_server_name(server_path: Path) -> str:
     """Extract server name from Python file."""
@@ -55,7 +56,7 @@ def extract_server_name(server_path: Path) -> str:
     # Fallback to filename
     return server_path.stem.replace('_', '-')
 
-def extract_dependencies(requirements_file: Path) -> List[str]:
+def extract_dependencies(requirements_file: Path) -> list[str]:
     """Extract dependencies from requirements.txt."""
     if not requirements_file.exists():
         return []
@@ -75,10 +76,10 @@ def create_manifest(
     author: str | None = None,
     license: str = "MIT",
     homepage: str | None = None,
-    dependencies: List[str] | None = None,
-    env_vars: List[str] | None = None,
-    tags: List[str] | None = None,
-) -> Dict[str, Any]:
+    dependencies: list[str] | None = None,
+    env_vars: list[str] | None = None,
+    tags: list[str] | None = None,
+) -> dict[str, Any]:
     """Create MCPB manifest dictionary."""
     
     server_name = name or extract_server_name(server_path)
@@ -138,9 +139,9 @@ def create_manifest(
 def create_bundle(
     server_path: Path,
     output_path: Path,
-    manifest: Dict[str, Any],
-    include_files: List[str] | None = None,
-    exclude_patterns: List[str] | None = None,
+    manifest: dict[str, Any],
+    include_files: list[str] | None = None,
+    exclude_patterns: list[str] | None = None,
 ) -> None:
     """Create MCPB bundle ZIP file."""
     
@@ -405,7 +406,7 @@ def main():
     print(json.dumps(manifest, indent=2))
     
     print(f"\n✓ Successfully created {output_path}")
-    print(f"\nInstall with:")
+    print("\nInstall with:")
     print(f"  fastmcp install claude-desktop {output_path}")
 
 if __name__ == '__main__':

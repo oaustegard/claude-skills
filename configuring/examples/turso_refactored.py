@@ -10,18 +10,19 @@ This module handles:
 Imports from: state, configuring
 """
 
-import requests
 import json
 import os
 import sys
 import time
+
+import requests
 
 from . import state
 
 # Import from configuring skill (must be on Python path)
 try:
     sys.path.insert(0, '/path/to/claude-skills')  # Adjust path as needed
-    from configuring import get_env, detect_environment
+    from configuring import detect_environment, get_env
 except ImportError:
     # Fallback if configuring skill not available
     from pathlib import Path

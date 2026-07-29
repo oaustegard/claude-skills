@@ -31,3 +31,7 @@
 - Initial release: font-based structural parsing, parallel LLM semantic extraction
 - Genre support: paper, spec, legal
 - Outputs: _MAP.md, .symbols.json, .anchors.json
+## 0.1.3 — 2026-07-26
+
+- Repointed the structural-analogy reference from mapping-codebases (deprecated) to
+  tree-sitting. This skill's own `{stem}_MAP.md` document maps are unchanged.

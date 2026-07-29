@@ -25,7 +25,15 @@ State directory (default /tmp/agybroker): url, code, status, log.
 The whole flow must finish before the CCotw container idle-pauses (a few
 minutes) — a paused container kills the live `agy` process.
 """
-import os, pty, time, select, re, fcntl, termios, struct, sys
+import fcntl
+import os
+import pty
+import re
+import select
+import struct
+import sys
+import termios
+import time
 
 OAUTH_URL_RE = re.compile(rb"https://accounts\.google\.com/o/oauth2/auth[^\s\x1b\"']+")
 

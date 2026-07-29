@@ -11,8 +11,9 @@ Returns:
 """
 
 import sys
-import yaml
 from pathlib import Path
+
+import yaml
 
 
 def extract_version(skill_dir: Path) -> str:

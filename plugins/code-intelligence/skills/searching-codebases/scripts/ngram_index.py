@@ -11,12 +11,9 @@ Architecture:
 import os
 import re
 import sre_parse
-import struct
 import subprocess
 import time
-import zlib
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
 
 from sparse_ngrams import (
     FrequencyWeights,
@@ -24,7 +21,6 @@ from sparse_ngrams import (
     build_covering,
     compute_weights,
     ngram_hash,
-    ngram_text,
     weight_crc32,
 )
 
@@ -65,17 +61,17 @@ class NgramIndex:
 
     def __init__(self, weight_fn=None):
         # n-gram hash → set of file IDs
-        self.postings: Dict[int, Set[int]] = {}
+        self.postings: dict[int, set[int]] = {}
         # file ID → file path
-        self.files: Dict[int, str] = {}
+        self.files: dict[int, str] = {}
         # file path → file ID (reverse lookup)
-        self._path_to_id: Dict[str, int] = {}
+        self._path_to_id: dict[str, int] = {}
         # next file ID
         self._next_id: int = 0
         # weight function
         self._weight_fn = weight_fn or weight_crc32
         # frequency weights (trained from corpus)
-        self._freq_weights: Optional[FrequencyWeights] = None
+        self._freq_weights: FrequencyWeights | None = None
         # stats
         self.stats = {
             "files_indexed": 0,
@@ -96,7 +92,7 @@ class NgramIndex:
         self._path_to_id[path] = fid
         return fid
 
-    def _should_index(self, path: str, skip_dirs: Set[str]) -> bool:
+    def _should_index(self, path: str, skip_dirs: set[str]) -> bool:
         """Check if a file should be indexed."""
         p = Path(path)
 
@@ -126,7 +122,7 @@ class NgramIndex:
     def build(
         self,
         root: str,
-        skip_dirs: Optional[Set[str]] = None,
+        skip_dirs: set[str] | None = None,
         use_frequency_weights: bool = True,
         verbose: bool = False,
     ):
@@ -223,7 +219,7 @@ class NgramIndex:
                   f"{self.stats['unique_ngrams']:,} unique n-grams, "
                   f"{elapsed_ms:.0f}ms")
 
-    def _query_literal(self, literal: bytes) -> Optional[Set[int]]:
+    def _query_literal(self, literal: bytes) -> set[int] | None:
         """
         Query the index with a literal byte string.
         Returns set of candidate file IDs, or None if no n-grams extracted.
@@ -253,7 +249,7 @@ class NgramIndex:
 
         return candidates
 
-    def _eval_plan(self, plan: "QueryPlan") -> Optional[Set[int]]:
+    def _eval_plan(self, plan: "QueryPlan") -> set[int] | None:
         """
         Evaluate a query plan tree against the index.
 
@@ -293,7 +289,7 @@ class NgramIndex:
         root: str,
         max_results: int = 100,
         verbose: bool = False,
-    ) -> List[dict]:
+    ) -> list[dict]:
         """
         Search for a regex pattern. Returns list of matches.
 
@@ -314,7 +310,7 @@ class NgramIndex:
             print(f"Query plan: {plan}")
 
         # Evaluate plan against index
-        candidate_ids: Optional[Set[int]] = None
+        candidate_ids: set[int] | None = None
         if plan is not None:
             candidate_ids = self._eval_plan(plan)
 
@@ -348,7 +344,7 @@ class QueryPlan:
     OR nodes: any child can match (union posting lists)
     LITERAL nodes: leaf — look up in index
     """
-    __slots__ = ("op", "children", "literal")
+    __slots__ = ("children", "literal", "op")
 
     def __init__(self, op: str, children=None, literal: bytes = None):
         self.op = op  # "and", "or", "literal"
@@ -362,7 +358,7 @@ class QueryPlan:
         return f"{self.op.upper()}({kids})"
 
 
-def extract_query_plan(pattern: str) -> Optional[QueryPlan]:
+def extract_query_plan(pattern: str) -> QueryPlan | None:
     """
     Parse a regex and produce a QueryPlan tree preserving AND/OR structure.
 
@@ -381,7 +377,7 @@ def extract_query_plan(pattern: str) -> Optional[QueryPlan]:
     return _simplify(plan)
 
 
-def _build_plan(parsed) -> Optional[QueryPlan]:
+def _build_plan(parsed) -> QueryPlan | None:
     """Recursively build a query plan from parsed regex."""
     parts = []  # AND children from sequential processing
     current = bytearray()
@@ -427,7 +423,7 @@ def _build_plan(parsed) -> Optional[QueryPlan]:
     return QueryPlan("and", children=parts)
 
 
-def _simplify(plan: Optional[QueryPlan]) -> Optional[QueryPlan]:
+def _simplify(plan: QueryPlan | None) -> QueryPlan | None:
     """Flatten nested AND(AND(...)) and OR(OR(...)) nodes."""
     if plan is None:
         return None
@@ -452,7 +448,7 @@ def _simplify(plan: Optional[QueryPlan]) -> Optional[QueryPlan]:
     return QueryPlan(plan.op, children=new_children)
 
 
-def extract_literals(pattern: str) -> List[bytes]:
+def extract_literals(pattern: str) -> list[bytes]:
     """
     Legacy interface: extract flat list of AND-literals from a pattern.
     For simple patterns without alternation — all literals must be present.
@@ -477,11 +473,11 @@ def _collect_and_literals(plan: QueryPlan, out: list):
 
 def verify_candidates(
     pattern: str,
-    candidate_files: List[str],
+    candidate_files: list[str],
     root: str,
     max_results: int = 100,
     verbose: bool = False,
-) -> List[dict]:
+) -> list[dict]:
     """
     Verify candidate files by actually running the regex.
     Uses ripgrep if available, falls back to Python re.
@@ -497,7 +493,7 @@ def verify_candidates(
         return _verify_python(pattern, candidate_files, max_results, verbose)
 
 
-def _find_ripgrep() -> Optional[str]:
+def _find_ripgrep() -> str | None:
     """Find ripgrep binary."""
     for name in ["rg", "ripgrep"]:
         try:
@@ -514,10 +510,10 @@ def _find_ripgrep() -> Optional[str]:
 def _verify_ripgrep(
     rg_path: str,
     pattern: str,
-    files: List[str],
+    files: list[str],
     max_results: int,
     verbose: bool,
-) -> List[dict]:
+) -> list[dict]:
     """Verify candidates using ripgrep for speed."""
     matches = []
 
@@ -562,10 +558,10 @@ def _verify_ripgrep(
 
 def _verify_python(
     pattern: str,
-    files: List[str],
+    files: list[str],
     max_results: int,
     verbose: bool,
-) -> List[dict]:
+) -> list[dict]:
     """Verify candidates using Python re (fallback)."""
     matches = []
     try:
@@ -596,9 +592,9 @@ def _verify_python(
 def _brute_force_search(
     pattern: str,
     root: str,
-    skip_dirs: Set[str],
+    skip_dirs: set[str],
     max_results: int = 100,
-) -> List[dict]:
+) -> list[dict]:
     """
     Brute-force search (no index) for benchmarking comparison.
     Walks all files and matches with ripgrep or Python re.

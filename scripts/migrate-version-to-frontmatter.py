@@ -13,10 +13,11 @@ Usage:
     python migrate-version-to-frontmatter.py --all --dry-run
 """
 
-import sys
 import argparse
+import sys
 from pathlib import Path
-from frontmatter_utils import parse_skill_md, write_skill_md, validate_version_format
+
+from frontmatter_utils import parse_skill_md, validate_version_format, write_skill_md
 
 
 def migrate_skill(skill_dir: Path, dry_run: bool = False) -> bool:

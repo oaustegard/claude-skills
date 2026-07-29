@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """Bluesky API client for browsing posts, users, feeds, firehose, and account analysis."""
 
-import os
-import requests
-import subprocess
 import json
+import os
 import re
-import time
+import subprocess
 import tempfile
-from typing import Optional, List, Dict, Any, Callable
+import time
 from pathlib import Path
+from typing import Any
+
+import requests
 
 BASE = "https://api.bsky.app/xrpc"  # Public AppView for unauthenticated reads
 PDS_BASE = "https://bsky.social/xrpc"  # PDS for authenticated requests
@@ -28,10 +29,10 @@ _TRANSCRIBE_ALIASES = {
 }
 
 # Module-level session cache (memory only, never persisted)
-_session_cache: Dict[str, Any] = {}
+_session_cache: dict[str, Any] = {}
 
 
-def _create_session() -> Optional[Dict[str, Any]]:
+def _create_session() -> dict[str, Any] | None:
     """Create authenticated session using environment credentials.
 
     Looks for BSKY_HANDLE and BSKY_APP_PASSWORD environment variables.
@@ -65,7 +66,7 @@ def _create_session() -> Optional[Dict[str, Any]]:
         return None
 
 
-def _refresh_session() -> Optional[Dict[str, Any]]:
+def _refresh_session() -> dict[str, Any] | None:
     """Refresh an expired access token using the refresh token.
 
     Returns:
@@ -94,7 +95,7 @@ def _refresh_session() -> Optional[Dict[str, Any]]:
         return None
 
 
-def _get_session() -> Optional[Dict[str, Any]]:
+def _get_session() -> dict[str, Any] | None:
     """Get valid session, refreshing if needed.
 
     Access tokens expire after ~2 hours. This function checks if we have
@@ -121,7 +122,7 @@ def _get_session() -> Optional[Dict[str, Any]]:
     return _session_cache
 
 
-def _auth_headers() -> Dict[str, str]:
+def _auth_headers() -> dict[str, str]:
     """Get authorization headers if authenticated session available.
 
     Returns:
@@ -133,7 +134,7 @@ def _auth_headers() -> Dict[str, str]:
     return {}
 
 
-def _get_base_and_headers() -> tuple[str, Dict[str, str]]:
+def _get_base_and_headers() -> tuple[str, dict[str, str]]:
     """Get appropriate base URL and headers based on auth state.
 
     When authenticated, uses PDS endpoint (bsky.social) with auth headers.
@@ -158,7 +159,7 @@ def is_authenticated() -> bool:
     return session is not None and "accessJwt" in session
 
 
-def get_authenticated_user() -> Optional[str]:
+def get_authenticated_user() -> str | None:
     """Get the handle of the currently authenticated user.
 
     Returns:
@@ -176,7 +177,7 @@ def clear_session() -> None:
     _session_cache = {}
 
 
-def get_profile(handle: str) -> Dict[str, Any]:
+def get_profile(handle: str) -> dict[str, Any]:
     """Get user profile info.
 
     Args:
@@ -208,8 +209,8 @@ def get_profile(handle: str) -> Dict[str, Any]:
 def get_user_posts(
     handle: str,
     limit: int = 20,
-    transcribe: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+    transcribe: str | None = None,
+) -> list[dict[str, Any]]:
     """Get recent posts from a user.
 
     Args:
@@ -240,13 +241,13 @@ def get_user_posts(
 # @lat: [[bluesky#API Surface]]
 def search_posts(
     query: str,
-    author: Optional[str] = None,
-    since: Optional[str] = None,
-    until: Optional[str] = None,
-    lang: Optional[str] = None,
+    author: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    lang: str | None = None,
     limit: int = 25,
-    transcribe: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+    transcribe: str | None = None,
+) -> list[dict[str, Any]]:
     """Search posts with advanced filters.
 
     Query can include: from:user mentions:user #tag domain:site lang:xx since:YYYY-MM-DD until:YYYY-MM-DD
@@ -287,8 +288,8 @@ def search_posts(
 def get_feed_posts(
     feed_uri: str,
     limit: int = 20,
-    transcribe: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+    transcribe: str | None = None,
+) -> list[dict[str, Any]]:
     """Get posts from a feed or list.
 
     Accepts:
@@ -332,7 +333,7 @@ def get_feed_posts(
     return _maybe_transcribe_posts(posts, transcribe)
 
 
-def get_trending(limit: int = 10) -> List[Dict[str, Any]]:
+def get_trending(limit: int = 10) -> list[dict[str, Any]]:
     """Get current trending topics with post counts and top actors.
 
     Uses app.bsky.unspecced.getTrends for rich trend data including
@@ -368,7 +369,7 @@ def get_trending(limit: int = 10) -> List[Dict[str, Any]]:
     return results
 
 
-def get_trending_topics(limit: int = 10) -> Dict[str, Any]:
+def get_trending_topics(limit: int = 10) -> dict[str, Any]:
     """Get lightweight list of trending topics and suggestions.
 
     Uses app.bsky.unspecced.getTrendingTopics for a compact overview.
@@ -391,7 +392,7 @@ def get_trending_topics(limit: int = 10) -> Dict[str, Any]:
     r.raise_for_status()
     data = r.json()
 
-    def _parse_topic(t: Dict) -> Dict[str, Any]:
+    def _parse_topic(t: dict) -> dict[str, Any]:
         return {
             "topic": t.get("topic"),
             "display_name": t.get("displayName"),
@@ -406,7 +407,7 @@ def get_trending_topics(limit: int = 10) -> Dict[str, Any]:
 
 
 # @lat: [[bluesky#Firehose Sampling]]
-def sample_firehose(duration: int = 10, filter: Optional[str] = None) -> Dict[str, Any]:
+def sample_firehose(duration: int = 10, filter: str | None = None) -> dict[str, Any]:
     """Sample the Bluesky firehose for trending topics.
 
     Prerequisites: Node.js with ws and https-proxy-agent packages
@@ -442,8 +443,8 @@ def get_thread(
     post_uri_or_url: str,
     depth: int = 6,
     parent_height: int = 80,
-    transcribe: Optional[str] = None,
-) -> Dict[str, Any]:
+    transcribe: str | None = None,
+) -> dict[str, Any]:
     """Get a post with its full thread context (parents and replies).
 
     Args:
@@ -470,8 +471,8 @@ def get_thread(
 def get_quotes(
     post_uri_or_url: str,
     limit: int = 25,
-    transcribe: Optional[str] = None,
-) -> List[Dict[str, Any]]:
+    transcribe: str | None = None,
+) -> list[dict[str, Any]]:
     """Get posts that quote a specific post.
 
     Args:
@@ -492,7 +493,7 @@ def get_quotes(
     return _maybe_transcribe_posts(posts, transcribe)
 
 
-def get_likes(post_uri_or_url: str, limit: int = 50) -> List[Dict[str, Any]]:
+def get_likes(post_uri_or_url: str, limit: int = 50) -> list[dict[str, Any]]:
     """Get users who liked a post.
 
     Args:
@@ -511,7 +512,7 @@ def get_likes(post_uri_or_url: str, limit: int = 50) -> List[Dict[str, Any]]:
     return [_parse_actor(like["actor"]) for like in r.json().get("likes", [])]
 
 
-def get_reposts(post_uri_or_url: str, limit: int = 50) -> List[Dict[str, Any]]:
+def get_reposts(post_uri_or_url: str, limit: int = 50) -> list[dict[str, Any]]:
     """Get users who reposted a post.
 
     Args:
@@ -530,7 +531,7 @@ def get_reposts(post_uri_or_url: str, limit: int = 50) -> List[Dict[str, Any]]:
     return [_parse_actor(a) for a in r.json().get("repostedBy", [])]
 
 
-def get_followers(handle: str, limit: int = 50) -> List[Dict[str, Any]]:
+def get_followers(handle: str, limit: int = 50) -> list[dict[str, Any]]:
     """Get accounts following a user.
 
     Args:
@@ -549,7 +550,7 @@ def get_followers(handle: str, limit: int = 50) -> List[Dict[str, Any]]:
     return [_parse_actor(f) for f in r.json().get("followers", [])]
 
 
-def get_following(handle: str, limit: int = 50) -> List[Dict[str, Any]]:
+def get_following(handle: str, limit: int = 50) -> list[dict[str, Any]]:
     """Get accounts a user follows.
 
     Args:
@@ -568,7 +569,7 @@ def get_following(handle: str, limit: int = 50) -> List[Dict[str, Any]]:
     return [_parse_actor(f) for f in r.json().get("follows", [])]
 
 
-def search_users(query: str, limit: int = 25) -> List[Dict[str, Any]]:
+def search_users(query: str, limit: int = 25) -> list[dict[str, Any]]:
     """Search for users by handle, display name, or bio.
 
     Args:
@@ -595,7 +596,7 @@ def _paginated_graph_fetch(
     endpoint: str,
     result_key: str,
     limit: int = 100
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Fetch paginated graph data (followers/following).
 
     Internal helper to avoid code duplication between get_all_following/get_all_followers.
@@ -635,7 +636,7 @@ def _paginated_graph_fetch(
     return all_accounts[:limit]
 
 
-def get_all_following(handle: str, limit: int = 100) -> List[Dict[str, Any]]:
+def get_all_following(handle: str, limit: int = 100) -> list[dict[str, Any]]:
     """Get all accounts a user follows with pagination.
 
     Unlike get_following() which caps at 100, this handles cursor-based
@@ -656,7 +657,7 @@ def get_all_following(handle: str, limit: int = 100) -> List[Dict[str, Any]]:
     )
 
 
-def get_all_followers(handle: str, limit: int = 100) -> List[Dict[str, Any]]:
+def get_all_followers(handle: str, limit: int = 100) -> list[dict[str, Any]]:
     """Get all accounts following a user with pagination.
 
     Unlike get_followers() which caps at 100, this handles cursor-based
@@ -677,7 +678,7 @@ def get_all_followers(handle: str, limit: int = 100) -> List[Dict[str, Any]]:
     )
 
 
-def extract_post_text(posts: List[Dict[str, Any]]) -> str:
+def extract_post_text(posts: list[dict[str, Any]]) -> str:
     """Extract and concatenate text content from posts.
 
     Args:
@@ -693,7 +694,7 @@ def extract_keywords(
     text: str,
     top_n: int = 10,
     stopwords: str = "en"
-) -> List[str]:
+) -> list[str]:
     """Extract keywords from text using YAKE via extracting-keywords skill.
 
     Requires the extracting-keywords skill to be available with its YAKE venv.
@@ -786,7 +787,7 @@ def analyze_account(
     handle: str,
     posts_limit: int = 20,
     stopwords: str = "en"
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Analyze a single account: fetch profile, posts, and extract keywords.
 
     Args:
@@ -821,14 +822,14 @@ def analyze_account(
 
 
 def analyze_accounts(
-    handles: Optional[List[str]] = None,
-    following: Optional[str] = None,
-    followers: Optional[str] = None,
+    handles: list[str] | None = None,
+    following: str | None = None,
+    followers: str | None = None,
     limit: int = 100,
     posts_per_account: int = 20,
     stopwords: str = "en",
-    exclude_patterns: Optional[List[str]] = None
-) -> List[Dict[str, Any]]:
+    exclude_patterns: list[str] | None = None
+) -> list[dict[str, Any]]:
     """Analyze multiple Bluesky accounts for categorization.
 
     Provide ONE of: handles list, following handle, or followers handle.
@@ -885,7 +886,7 @@ def analyze_accounts(
     return results
 
 
-def _parse_post(post: Dict) -> Dict[str, Any]:
+def _parse_post(post: dict) -> dict[str, Any]:
     """Extract useful fields from post object."""
     record = post.get("record", {})
     author = post.get("author", {})
@@ -911,7 +912,7 @@ def _parse_post(post: Dict) -> Dict[str, Any]:
 
     image_alts = [img.get("alt", "") for img in record_images if img.get("alt")]
 
-    images: List[Dict[str, Any]] = []
+    images: list[dict[str, Any]] = []
     n = max(len(record_images), len(view_images))
     for i in range(n):
         rec_img = record_images[i] if i < len(record_images) else {}
@@ -940,9 +941,9 @@ def _parse_post(post: Dict) -> Dict[str, Any]:
 
 
 def _maybe_transcribe_posts(
-    posts: List[Dict[str, Any]],
-    transcribe: Optional[str],
-) -> List[Dict[str, Any]]:
+    posts: list[dict[str, Any]],
+    transcribe: str | None,
+) -> list[dict[str, Any]]:
     """Fill in `transcription` for images that have no alt text.
 
     Policy (matches the documented contract on every public function that
@@ -990,9 +991,9 @@ def _maybe_transcribe_posts(
 
 
 def _maybe_transcribe_thread(
-    thread_result: Dict[str, Any],
-    transcribe: Optional[str],
-) -> Dict[str, Any]:
+    thread_result: dict[str, Any],
+    transcribe: str | None,
+) -> dict[str, Any]:
     """Walk a parsed thread and transcribe images on every post within it.
 
     Threads recurse through `post`, `parent`, and `replies[]`. We flatten the
@@ -1002,9 +1003,9 @@ def _maybe_transcribe_thread(
     if transcribe is None:
         return thread_result
 
-    flat: List[Dict[str, Any]] = []
+    flat: list[dict[str, Any]] = []
 
-    def _collect(node: Dict[str, Any]) -> None:
+    def _collect(node: dict[str, Any]) -> None:
         if "post" in node:
             flat.append(node["post"])
         if "parent" in node:
@@ -1070,7 +1071,7 @@ def _url_to_post_uri(url: str) -> str:
     return f"at://{did}/app.bsky.feed.post/{rkey}"
 
 
-def _parse_actor(actor: Dict) -> Dict[str, Any]:
+def _parse_actor(actor: dict) -> dict[str, Any]:
     """Extract useful fields from actor object."""
     return {
         "handle": actor.get("handle"),
@@ -1083,7 +1084,7 @@ def _parse_actor(actor: Dict) -> Dict[str, Any]:
     }
 
 
-def _parse_thread(thread: Dict, depth: int = 0) -> Dict[str, Any]:
+def _parse_thread(thread: dict, depth: int = 0) -> dict[str, Any]:
     """Parse thread response into clean structure."""
     result = {}
 

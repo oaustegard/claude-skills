@@ -15,13 +15,12 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent))
 
 from claude_client import (
-    invoke_claude,
-    invoke_parallel,
-    invoke_claude_streaming,
-    invoke_parallel_streaming,
-    invoke_parallel_interruptible,
     InterruptToken,
-    ClaudeInvocationError
+    invoke_claude,
+    invoke_claude_streaming,
+    invoke_parallel,
+    invoke_parallel_interruptible,
+    invoke_parallel_streaming,
 )
 
 
@@ -229,11 +228,11 @@ def test_credentials_fallback():
 
         print(f"✓ API key found: {masked}")
         print(f"  Key length: {len(key)} characters")
-        print(f"  Source: config.json or environment variable\n")
+        print("  Source: config.json or environment variable\n")
         return True
 
     except ValueError as e:
-        print(f"\n⚠ No API key configured:")
+        print("\n⚠ No API key configured:")
         print(f"  {e}\n")
         print("This is expected if you haven't set up credentials yet.")
         return False

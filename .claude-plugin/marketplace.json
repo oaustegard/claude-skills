@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.0725.2051"
+    "version": "2026.0726.1400"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -116,7 +116,7 @@
       "name": "github-and-git",
       "description": "GitHub repository access, CLI operations, indexing, and git workflow tools.",
       "source": "./plugins/github-and-git",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",

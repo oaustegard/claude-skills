@@ -2,7 +2,7 @@
 """
 Phase 3: DESCRIBE — Claude vision API prose generation.
 
-Sends screenshots + accessibility trees + _MAP.md excerpts to Claude API
+Sends screenshots + accessibility trees + tree-sitting code context to Claude API
 to generate behavioral descriptions, interaction inventories, and invariants.
 """
 
@@ -11,6 +11,8 @@ import json
 import os
 import sys
 from pathlib import Path
+
+from codecontext import find_relevant_code_context
 
 from .capture import PageCapture
 
@@ -35,7 +37,7 @@ descriptions. Think: "What must always be true for this page to be correct?" Exa
    - "List shows at most 10 items per page"
    - "Submit button is disabled until all required fields are filled"
 
-4. **Code:** Reference source files that implement this page's behavior. Use the _MAP.md excerpts \
+4. **Code:** Reference source files that implement this page's behavior. Use the code context \
 provided to link features to code. Format: `src/file.js` :linenum
 
 Keep descriptions factual and concise. Do not speculate about features not visible in the screenshot.
@@ -63,62 +65,6 @@ def _load_screenshot_base64(screenshot_path: str) -> str:
     """
     with open(screenshot_path, "rb") as f:
         return base64.standard_b64encode(f.read()).decode("ascii")
-
-
-def _find_relevant_map_excerpts(codebase: Path, page_path: str) -> str:
-    """Find _MAP.md excerpts potentially relevant to a page.
-
-    Searches for _MAP.md files in common UI directories and extracts
-    entries that might relate to the page path.
-
-    Args:
-        codebase: Path to the codebase root.
-        page_path: URL path of the page (e.g., '/dashboard').
-
-    Returns:
-        Concatenated relevant _MAP.md excerpts.
-    """
-    excerpts = []
-
-    # Gather all _MAP.md files
-    map_files = list(codebase.rglob("_MAP.md"))
-
-    # Extract route-relevant keywords from the page path
-    keywords = [
-        seg.lower()
-        for seg in page_path.strip("/").split("/")
-        if seg and len(seg) > 1
-    ]
-
-    if not keywords:
-        keywords = ["index", "home", "app", "main", "landing"]
-
-    for map_file in map_files[:10]:  # Cap to avoid excessive reads
-        try:
-            content = map_file.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
-            continue
-
-        # Check if any keyword appears in this map file
-        content_lower = content.lower()
-        if any(kw in content_lower for kw in keywords):
-            # Include a trimmed version (first 200 lines max)
-            lines = content.splitlines()[:200]
-            rel_path = map_file.relative_to(codebase)
-            excerpts.append(f"### {rel_path}\n" + "\n".join(lines))
-
-    if not excerpts:
-        # Fall back to root _MAP.md
-        root_map = codebase / "_MAP.md"
-        if root_map.exists():
-            try:
-                content = root_map.read_text(encoding="utf-8")
-                lines = content.splitlines()[:100]
-                excerpts.append("### _MAP.md (root)\n" + "\n".join(lines))
-            except (OSError, UnicodeDecodeError):
-                pass
-
-    return "\n\n".join(excerpts) if excerpts else "(no _MAP.md excerpts found)"
 
 
 def _get_api_key() -> str:
@@ -176,7 +122,7 @@ def describe_page(
 
     Args:
         capture: PageCapture with screenshot and accessibility tree.
-        codebase: Path to codebase root for _MAP.md lookup.
+        codebase: Path to codebase root for the tree-sitting scan.
         model: Claude model to use for vision.
 
     Returns:
@@ -200,7 +146,7 @@ def describe_page(
 
     api_key = _get_api_key()
     screenshot_b64 = _load_screenshot_base64(capture.screenshot_path)
-    map_excerpts = _find_relevant_map_excerpts(codebase, capture.page.path)
+    map_excerpts = find_relevant_code_context(codebase, capture.page.path)
 
     prompt = DESCRIBE_PROMPT.format(
         path=capture.page.path,

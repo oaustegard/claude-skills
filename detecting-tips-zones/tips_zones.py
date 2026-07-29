@@ -75,7 +75,7 @@ def load_models(ckpt_dir, tips_root, device="cpu"):
     """
     _ensure_tips_on_path(tips_root)
     import tensorflow as tf
-    import tensorflow_text  # noqa: F401 - registers sentencepiece op
+    import tensorflow_text
     from tips.pytorch import image_encoder, text_encoder
 
     vision_path = os.path.join(ckpt_dir, "tips_v2_oss_b14_vision.npz")

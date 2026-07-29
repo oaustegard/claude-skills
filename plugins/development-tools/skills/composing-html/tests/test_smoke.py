@@ -23,10 +23,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
-import composer as c                       # noqa: E402
-from composer import page, raw, table, callout, css_color, esc  # noqa: E402
-from templates import REGISTRY             # noqa: E402
+from composer import callout, css_color, page, raw, table
 
+from templates import REGISTRY
 
 # --------------------------------------------------------------------------- #
 # helpers                                                                     #
@@ -306,9 +305,11 @@ def test_css_color_rejects_injection():
 
 def test_describe_emits_valid_json():
     """Regression for #8 — the printed skeleton must round-trip via json.loads."""
+    import contextlib
+    import io
     import re
+
     import build as _build_mod
-    import io, contextlib
 
     class _Args:
         pass
@@ -347,6 +348,7 @@ def test_apply_set_preserves_equals_in_value():
 def test_apply_set_loads_file_with_at_prefix():
     """KEY=@FILE loads the file's raw contents — newlines, quotes, all OK."""
     import tempfile
+
     from build import _apply_set
     with tempfile.TemporaryDirectory() as td:
         p = Path(td) / "body.html"
@@ -451,15 +453,16 @@ def _run_directly() -> int:
     fns = [v for k, v in globals().items() if k.startswith("test_") and isinstance(v, types.FunctionType)]
     for fn in fns:
         # Stub `capsys` for the one test that uses it.
-        import io, sys as _sys
+        import io
+        import sys as _sys
         if "capsys" in fn.__code__.co_varnames:
             buf_err = io.StringIO()
             old_err = _sys.stderr
             _sys.stderr = buf_err
             try:
                 class _CS:  # minimal capsys stand-in
-                    def readouterr(self_inner):
-                        return types.SimpleNamespace(out="", err=buf_err.getvalue())
+                    def readouterr(self_inner, _buf=buf_err):
+                        return types.SimpleNamespace(out="", err=_buf.getvalue())
                 fn(_CS())
                 print(f"  ✓ {fn.__name__}")
             except AssertionError as e:

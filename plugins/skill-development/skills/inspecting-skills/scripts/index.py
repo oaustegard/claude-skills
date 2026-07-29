@@ -2,15 +2,14 @@
 index.py - Extract callable symbols from Python files using AST parsing.
 
 Uses Python's stdlib ast module for reliable parsing. Tree-sitter is available
-via mapping-codebases for multi-language support, but stdlib ast is preferred
+via tree-sitting for multi-language support, but stdlib ast is preferred
 for Python-only indexing due to zero external dependencies.
 """
 
 import ast
 import json
+from dataclasses import dataclass, field
 from pathlib import Path
-from dataclasses import dataclass, field, asdict
-from typing import Optional
 
 from .discover import SkillLayout, discover_all_skills, skill_name_to_module
 
@@ -20,9 +19,9 @@ class Symbol:
     """A callable symbol (function, class, method) in a module."""
     name: str
     kind: str                          # "function" | "class" | "method" | "variable"
-    signature: Optional[str] = None    # e.g., "(self, x: int, y: str = 'default')"
-    line: Optional[int] = None         # 1-indexed line number
-    docstring: Optional[str] = None    # First line of docstring
+    signature: str | None = None    # e.g., "(self, x: int, y: str = 'default')"
+    line: int | None = None         # 1-indexed line number
+    docstring: str | None = None    # First line of docstring
     children: list["Symbol"] = field(default_factory=list)  # Methods for classes
 
 
@@ -83,7 +82,7 @@ def get_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str:
     return f"({', '.join(parts)})"
 
 
-def format_arg(arg: ast.arg, default: Optional[ast.expr] = None) -> str:
+def format_arg(arg: ast.arg, default: ast.expr | None = None) -> str:
     """Format a single function argument."""
     name = arg.arg
 
@@ -105,7 +104,7 @@ def format_arg(arg: ast.arg, default: Optional[ast.expr] = None) -> str:
     return name
 
 
-def get_docstring_first_line(node: ast.AST) -> Optional[str]:
+def get_docstring_first_line(node: ast.AST) -> str | None:
     """Extract first line of docstring if present."""
     docstring = ast.get_docstring(node)
     if docstring:
@@ -129,7 +128,7 @@ def extract_symbols(source: str, module_name: str) -> ModuleIndex:
     """
     try:
         tree = ast.parse(source)
-    except SyntaxError as e:
+    except SyntaxError:
         return ModuleIndex(
             file_path="",
             module_name=module_name,
@@ -259,7 +258,7 @@ def index_skill(layout: SkillLayout) -> SkillIndex:
             index = extract_symbols(source, module_name)
             index.file_path = str(relative_path)
             modules.append(index)
-        except Exception as e:
+        except Exception:
             # Skip files that can't be read/parsed
             continue
 
@@ -286,7 +285,7 @@ def index_all_skills(skills_root: Path) -> dict[str, SkillIndex]:
     return {layout.name: index_skill(layout) for layout in layouts}
 
 
-def generate_registry(skills_root: Path, output_path: Optional[Path] = None) -> dict:
+def generate_registry(skills_root: Path, output_path: Path | None = None) -> dict:
     """
     Generate a registry.json file mapping skill names to their exports.
 

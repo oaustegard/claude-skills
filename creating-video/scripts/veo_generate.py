@@ -25,7 +25,11 @@ Usage:
 prompts.json: {"1": "prompt text", "2": "prompt text", ...}
 Writes veo/scene_<n>.mp4 for each, plus veo/DONE and veo/results.json on finish.
 """
-import os, sys, json, time, argparse
+import argparse
+import json
+import os
+import sys
+import time
 from pathlib import Path
 
 try:
@@ -70,7 +74,7 @@ def _req(method, url, hdr, tries=4, **kw):
             if r.status_code >= 500 or r.status_code == 429:
                 raise RuntimeError(f"HTTP {r.status_code}: {(r.text or '')[:120]}")
             return r
-        except Exception as e:
+        except Exception:
             if i == tries - 1:
                 raise
             time.sleep(delay); delay *= 2

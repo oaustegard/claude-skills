@@ -49,8 +49,7 @@ import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Optional
-
+from typing import Any
 
 # ── Bootstrap ───────────────────────────────────────────────────────────────
 
@@ -131,7 +130,7 @@ class Position:
     character: int
 
     @classmethod
-    def from_one_based(cls, line: int, col: int) -> "Position":
+    def from_one_based(cls, line: int, col: int) -> Position:
         """Build a zero-based position from 1-based UI coordinates."""
         return cls(line=line - 1, character=col - 1)
 
@@ -150,7 +149,7 @@ class Location:
     end_char: int
 
     @classmethod
-    def from_lsp(cls, loc: dict) -> "Location":
+    def from_lsp(cls, loc: dict) -> Location:
         # Accept both Location (uri+range) and LocationLink (targetUri+targetRange).
         uri = loc.get("uri") or loc.get("targetUri")
         rng = loc.get("range") or loc.get("targetRange")
@@ -190,7 +189,7 @@ class SymbolInfo:
     kind: int
     kind_name: str
     location: Location
-    container: Optional[str] = None
+    container: str | None = None
 
     def as_dict(self) -> dict:
         return {
@@ -261,7 +260,7 @@ class LSPClient:
     def __init__(
         self,
         root: str,
-        server_cmd: Optional[list[str]] = None,
+        server_cmd: list[str] | None = None,
         auto_install: bool = True,
         auto_root: bool = True,
     ):
@@ -282,9 +281,9 @@ class LSPClient:
             )
         self._server_cmd = server_cmd
         self._auto_install = auto_install
-        self._proc: Optional[subprocess.Popen] = None
-        self._reader: Optional[threading.Thread] = None
-        self._stderr_reader: Optional[threading.Thread] = None
+        self._proc: subprocess.Popen | None = None
+        self._reader: threading.Thread | None = None
+        self._stderr_reader: threading.Thread | None = None
         self._write_lock = threading.Lock()
         self._next_id = 1
         self._id_lock = threading.Lock()
@@ -336,7 +335,7 @@ class LSPClient:
 
     # -- reader loop ---------------------------------------------------------
 
-    def _read_message(self) -> Optional[dict]:
+    def _read_message(self) -> dict | None:
         assert self._proc and self._proc.stdout
         stream = self._proc.stdout
         headers: dict[str, str] = {}
@@ -461,7 +460,7 @@ class LSPClient:
 
     # -- lifecycle -----------------------------------------------------------
 
-    def start(self, init_timeout: float = 30.0) -> "LSPClient":
+    def start(self, init_timeout: float = 30.0) -> LSPClient:
         cmd = self._server_cmd
         if cmd is None:
             server = ensure_pyright(install=self._auto_install)
@@ -575,14 +574,14 @@ class LSPClient:
             except Exception:
                 pass
 
-    def __enter__(self) -> "LSPClient":
+    def __enter__(self) -> LSPClient:
         return self.start()
 
     def __exit__(self, exc_type, exc, tb) -> None:
         self.stop()
 
     @property
-    def pid(self) -> Optional[int]:
+    def pid(self) -> int | None:
         return self._proc.pid if self._proc else None
 
     # -- helpers -------------------------------------------------------------
@@ -629,7 +628,7 @@ class LSPClient:
         result = self._request("textDocument/references", params)
         return _as_locations(result)
 
-    def hover(self, file: str, line: int, col: int) -> Optional[str]:
+    def hover(self, file: str, line: int, col: int) -> str | None:
         """Inferred type / signature string at a zero-based position."""
         self._ensure_open(file)
         result = self._request(
@@ -650,7 +649,7 @@ class LSPClient:
                     self._cv.wait(timeout=0.25)
         return self._diagnostics.get(uri, [])
 
-    def document_symbols(self, file: str) -> list["SymbolInfo"]:
+    def document_symbols(self, file: str) -> list[SymbolInfo]:
         """The symbol outline of one file (classes, functions, methods, ...).
 
         Returns a flat list in document order; nesting is captured via each
@@ -663,7 +662,7 @@ class LSPClient:
         )
         return _flatten_document_symbols(result or [], uri)
 
-    def workspace_symbols(self, query: str) -> list["SymbolInfo"]:
+    def workspace_symbols(self, query: str) -> list[SymbolInfo]:
         """Project-wide fuzzy symbol search (indexes the whole tree).
 
         Empty ``query`` returns every indexed symbol — expensive on large trees.
@@ -685,11 +684,11 @@ class LSPClient:
 
 # ── result coercion ─────────────────────────────────────────────────────────
 
-def _flatten_document_symbols(nodes: list, uri: str) -> list["SymbolInfo"]:
+def _flatten_document_symbols(nodes: list, uri: str) -> list[SymbolInfo]:
     """Flatten a hierarchical DocumentSymbol tree (or flat SymbolInformation list)."""
     out: list[SymbolInfo] = []
 
-    def walk(items: list, container: Optional[str]) -> None:
+    def walk(items: list, container: str | None) -> None:
         for n in items:
             kind = n.get("kind", 0)
             # DocumentSymbol has selectionRange/range + children; SymbolInformation
@@ -725,7 +724,7 @@ def _as_locations(result: Any) -> list[Location]:
     return [Location.from_lsp(item) for item in result]
 
 
-def _hover_text(contents: Any) -> Optional[str]:
+def _hover_text(contents: Any) -> str | None:
     if contents is None:
         return None
     if isinstance(contents, str):

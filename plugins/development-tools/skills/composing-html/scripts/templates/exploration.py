@@ -7,9 +7,9 @@
 
 from __future__ import annotations
 
-from . import register
 import composer as c
 
+from . import register
 
 # --------------------------------------------------------------------------- #
 # comparison_grid                                                             #

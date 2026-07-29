@@ -7,20 +7,21 @@ These tests are for NOT-YET-IMPLEMENTED cache features. TDD red phase.
 All tests WILL FAIL until the cache implementation is complete.
 """
 
-import sys
-import os
 import json
-import time
-import tempfile
+import os
 import shutil
+import sys
+import tempfile
+import time
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 # Bootstrap parsers before importing engine
 sys.path.insert(0, str(Path(__file__).parent.parent / 'scripts'))
 
 import engine
-from engine import CodeCache, Symbol
+from engine import CodeCache
+
 # Not-yet-implemented names: resolve lazily so the module COLLECTS (red-fails per
 # test) instead of erroring at import during TDD red phase.
 cache_path_for = getattr(engine, "cache_path_for", None)

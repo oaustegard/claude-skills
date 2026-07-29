@@ -7,9 +7,8 @@ Detects three common layouts:
 3. Full packages with __init__.py
 """
 
-from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Optional
+from pathlib import Path
 
 
 @dataclass
@@ -20,10 +19,10 @@ class SkillLayout:
     layout_type: str                   # "scripts" | "root" | "package" | "none"
     python_files: list[Path] = field(default_factory=list)
     has_init: bool = False             # Has __init__.py (importable as package)
-    entry_module: Optional[str] = None # Primary module name for import
+    entry_module: str | None = None # Primary module name for import
 
 
-def discover_skill(skill_path: Path) -> Optional[SkillLayout]:
+def discover_skill(skill_path: Path) -> SkillLayout | None:
     """
     Analyze a skill directory to determine its code layout.
 
@@ -92,7 +91,7 @@ def discover_skill(skill_path: Path) -> Optional[SkillLayout]:
 
 def discover_all_skills(
     skills_root: Path,
-    exclude: Optional[set[str]] = None
+    exclude: set[str] | None = None
 ) -> list[SkillLayout]:
     """
     Discover all skills with Python code in a skills repository.
@@ -151,7 +150,7 @@ def module_to_skill_name(module_name: str) -> str:
 def find_skill_by_name(
     name: str,
     skills_root: Path
-) -> Optional[SkillLayout]:
+) -> SkillLayout | None:
     """
     Find a skill by name or module name.
 

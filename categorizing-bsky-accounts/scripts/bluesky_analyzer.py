@@ -9,14 +9,13 @@ Usage:
   python scripts/bluesky_analyzer.py --handles "h1.bsky.social,h2.bsky.social"
 """
 
-import json
-import requests
-import sys
 import argparse
-from typing import List, Dict, Tuple, Optional
-import tempfile
-import subprocess
 import os
+import subprocess
+import sys
+import tempfile
+
+import requests
 
 API_BASE = "https://public.api.bsky.app/xrpc"
 
@@ -24,7 +23,7 @@ API_BASE = "https://public.api.bsky.app/xrpc"
 # API Functions
 # ============================================================================
 
-def get_following(actor: str, limit: int = 100, cursor: Optional[str] = None) -> Tuple[List[Dict], Optional[str]]:
+def get_following(actor: str, limit: int = 100, cursor: str | None = None) -> tuple[list[dict], str | None]:
     """Fetch list of accounts followed by the actor with pagination."""
     url = f"{API_BASE}/app.bsky.graph.getFollows"
     params = {"actor": actor, "limit": min(limit, 100)}
@@ -40,7 +39,7 @@ def get_following(actor: str, limit: int = 100, cursor: Optional[str] = None) ->
         print(f"Error fetching following list: {e}", file=sys.stderr)
         return [], None
 
-def get_followers(actor: str, limit: int = 100, cursor: Optional[str] = None) -> Tuple[List[Dict], Optional[str]]:
+def get_followers(actor: str, limit: int = 100, cursor: str | None = None) -> tuple[list[dict], str | None]:
     """Fetch list of accounts following the actor with pagination."""
     url = f"{API_BASE}/app.bsky.graph.getFollowers"
     params = {"actor": actor, "limit": min(limit, 100)}
@@ -56,7 +55,7 @@ def get_followers(actor: str, limit: int = 100, cursor: Optional[str] = None) ->
         print(f"Error fetching followers list: {e}", file=sys.stderr)
         return [], None
 
-def get_all_following(actor: str, max_limit: int = 100) -> List[Dict]:
+def get_all_following(actor: str, max_limit: int = 100) -> list[dict]:
     """Fetch following with cursor pagination."""
     all_accounts = []
     cursor = None
@@ -75,7 +74,7 @@ def get_all_following(actor: str, max_limit: int = 100) -> List[Dict]:
 
     return all_accounts[:max_limit]
 
-def get_all_followers(actor: str, max_limit: int = 100) -> List[Dict]:
+def get_all_followers(actor: str, max_limit: int = 100) -> list[dict]:
     """Fetch followers with cursor pagination."""
     all_accounts = []
     cursor = None
@@ -94,7 +93,7 @@ def get_all_followers(actor: str, max_limit: int = 100) -> List[Dict]:
 
     return all_accounts[:max_limit]
 
-def get_author_feed(actor: str, limit: int = 20) -> List[Dict]:
+def get_author_feed(actor: str, limit: int = 20) -> list[dict]:
     """Fetch recent posts from an account."""
     url = f"{API_BASE}/app.bsky.feed.getAuthorFeed"
     params = {"actor": actor, "limit": limit, "filter": "posts_no_replies"}
@@ -103,10 +102,10 @@ def get_author_feed(actor: str, limit: int = 20) -> List[Dict]:
         resp = requests.get(url, params=params, timeout=10)
         resp.raise_for_status()
         return resp.json().get("feed", [])
-    except requests.RequestException as e:
+    except requests.RequestException:
         return []
 
-def extract_text_from_posts(posts: List[Dict]) -> str:
+def extract_text_from_posts(posts: list[dict]) -> str:
     """Extract and concatenate text content from posts."""
     texts = []
     for item in posts:
@@ -121,7 +120,7 @@ def extract_text_from_posts(posts: List[Dict]) -> str:
 # Keyword Extraction
 # ============================================================================
 
-def extract_keywords(text: str, top_n: int = 10, language: str = "en") -> List[str]:
+def extract_keywords(text: str, top_n: int = 10, language: str = "en") -> list[str]:
     """Extract keywords using extracting-keywords skill's YAKE venv.
 
     Args:
@@ -215,7 +214,7 @@ for kw, score in keywords:
 # Analysis Functions
 # ============================================================================
 
-def should_exclude(bio: str, keywords: List[str], exclude_patterns: List[str]) -> bool:
+def should_exclude(bio: str, keywords: list[str], exclude_patterns: list[str]) -> bool:
     """Check if account should be excluded based on patterns."""
     if not exclude_patterns:
         return False
@@ -230,7 +229,7 @@ def should_exclude(bio: str, keywords: List[str], exclude_patterns: List[str]) -
     return False
 
 def analyze_account(handle: str, display_name: str, description: str,
-                   post_limit: int = 20, language: str = "en") -> Dict:
+                   post_limit: int = 20, language: str = "en") -> dict:
     """Analyze a single account: fetch posts and extract keywords."""
     posts = get_author_feed(handle, limit=post_limit)
     text = extract_text_from_posts(posts)
@@ -248,7 +247,7 @@ def analyze_account(handle: str, display_name: str, description: str,
 # Input Processing
 # ============================================================================
 
-def get_accounts_from_handles(handles_str: str) -> List[Dict]:
+def get_accounts_from_handles(handles_str: str) -> list[dict]:
     """Parse comma-separated handles and return account list."""
     handles = [h.strip() for h in handles_str.split(',') if h.strip()]
     accounts = []
@@ -262,7 +261,7 @@ def get_accounts_from_handles(handles_str: str) -> List[Dict]:
 
     return accounts
 
-def get_accounts_from_file(file_path: str) -> List[Dict]:
+def get_accounts_from_file(file_path: str) -> list[dict]:
     """Read handles from file (one per line)."""
     accounts = []
 
@@ -340,7 +339,7 @@ Examples:
         return
 
     # Analyze accounts
-    print(f"Analyzing accounts...\n", file=sys.stderr)
+    print("Analyzing accounts...\n", file=sys.stderr)
     results = []
 
     for i, account in enumerate(accounts, 1):
@@ -359,7 +358,7 @@ Examples:
 
         # Apply exclusion filter
         if should_exclude(analysis['bio'], analysis['keywords'], exclude_patterns):
-            print(f"    (excluded)", file=sys.stderr)
+            print("    (excluded)", file=sys.stderr)
             continue
 
         results.append(analysis)

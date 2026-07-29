@@ -21,10 +21,12 @@ SKILL_ROOT = THIS_DIR.parent
 SKILLS_PARENT = SKILL_ROOT.parent
 
 sys.path.insert(0, str(SKILLS_PARENT / "flowing" / "scripts"))
-import flowing as _flowing  # noqa: F401
+import flowing as _flowing
+
 sys.modules.setdefault("flowing", _flowing)
 
 import importlib.util
+
 spec = importlib.util.spec_from_file_location(
     "closing_issues_under_test", SCRIPTS_DIR / "closing_issues.py"
 )

@@ -2,7 +2,7 @@
 name: tree-sitting
 description: AST-powered code navigation via tree-sitter. Auto-scans codebases and provides progressive-disclosure tree views with symbol search, source retrieval, and reference finding. Each invocation is self-contained — no cross-process state. Use when exploring unfamiliar repos, navigating code, or needing fast symbol lookup. Triggers on "map this codebase", "explore repo", "find symbol", "navigate code", "tree-sitter", or when starting work on an unfamiliar repository.
 metadata:
-  version: 0.7.0
+  version: 0.7.1
 ---
 
 # tree-sitting

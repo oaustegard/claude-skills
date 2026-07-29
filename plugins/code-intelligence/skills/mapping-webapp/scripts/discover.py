@@ -2,15 +2,16 @@
 """
 Phase 1: DISCOVER — Code-first page discovery with optional browser crawling.
 
-Primary: discovers pages from codebase structure (_MAP.md, HTML files, route configs).
+Primary: discovers pages from codebase structure (tree-sitting scan, HTML files, route configs).
 Secondary: supplements with browser crawling via webctl when available.
 """
 
-import json
 import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+
+from codecontext import discover_html_files
 from urllib.parse import urljoin, urlparse
 
 
@@ -49,7 +50,7 @@ def discover_from_code(
 
     Finds pages by:
     1. Scanning for HTML files (static sites)
-    2. Parsing _MAP.md for route-like patterns
+    2. Scanning the tree-sitting file list for route-like patterns
     3. Looking for common router/page directory conventions
 
     Args:
@@ -96,9 +97,9 @@ def discover_from_code(
             if len(pages) >= max_pages:
                 break
 
-    # Strategy 3: Parse _MAP.md for page-like entries
+    # Strategy 3: Find page-like entries in the tree-sitting scan
     if len(pages) < max_pages:
-        map_pages = _discover_from_maps(codebase, base_url)
+        map_pages = _discover_from_code(codebase, base_url)
         for page in map_pages:
             _add_page(page)
             if len(pages) >= max_pages:
@@ -246,40 +247,26 @@ def _discover_framework_routes(codebase: Path, base_url: str) -> list[PageInfo]:
     return pages
 
 
-def _discover_from_maps(codebase: Path, base_url: str) -> list[PageInfo]:
-    """Parse _MAP.md files for page-like entries.
-
-    Looks for HTML file references and route patterns in code maps.
+def _discover_from_code(codebase: Path, base_url: str) -> list[PageInfo]:
+    """Find page-like entries from the tree-sitting file scan.
 
     Args:
         codebase: Path to codebase root.
         base_url: Base URL for constructing full URLs.
 
     Returns:
-        List of PageInfo from _MAP.md analysis.
+        List of PageInfo derived from HTML files found in the scan.
     """
     pages = []
     seen = set()
 
-    root_map = codebase / "_MAP.md"
-    if not root_map.exists():
-        return pages
-
-    try:
-        content = root_map.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
-        return pages
-
-    # Look for HTML file references in _MAP.md
-    html_refs = re.findall(r'\b([\w/.-]+\.html?)\b', content)
-    for ref in html_refs:
+    for ref in discover_html_files(codebase):
         if ref in SKIP_PATTERNS:
             continue
         path = "/" + ref
         norm = path.rstrip("/") or "/"
         if norm not in seen:
-            full_url = base_url + path
-            pages.append(PageInfo(url=full_url, path=path, label=""))
+            pages.append(PageInfo(url=base_url + path, path=path, label=""))
             seen.add(norm)
 
     return pages

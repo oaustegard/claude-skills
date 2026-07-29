@@ -26,17 +26,16 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Optional
 
 # Local imports — support both package and direct execution
 try:
+    from .assembler import build_all_prompts, build_synthesis_prompt, collect_results
     from .client import call_claude, call_claude_json, call_parallel
-    from .skill_library import SKILLS, PIPELINE_SKILLS, skill_catalog
-    from .assembler import build_all_prompts, collect_results, build_synthesis_prompt
+    from .skill_library import PIPELINE_SKILLS, SKILLS, skill_catalog
 except ImportError:
+    from assembler import build_all_prompts, build_synthesis_prompt, collect_results
     from client import call_claude, call_claude_json, call_parallel
-    from skill_library import SKILLS, PIPELINE_SKILLS, skill_catalog
-    from assembler import build_all_prompts, collect_results, build_synthesis_prompt
+    from skill_library import PIPELINE_SKILLS, SKILLS, skill_catalog
 
 _ALL_SKILLS = {**SKILLS, **PIPELINE_SKILLS}
 
@@ -145,7 +144,7 @@ def _persist(
     subtask: dict,
     model: str = "claude-sonnet-4-6",
     verbose: bool = False,
-) -> Optional[str]:
+) -> str | None:
     """
     Execute a remember subtask: distill findings and write to long-term memory.
 
@@ -235,7 +234,7 @@ def orchestrate(
     max_tokens: int = 2048,
     synthesis_max_tokens: int = 4096,
     max_workers: int = 5,
-    skills: Optional[dict] = None,
+    skills: dict | None = None,
     persist: bool = False,
     verbose: bool = False,
 ) -> dict:

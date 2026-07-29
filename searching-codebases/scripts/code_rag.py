@@ -4,7 +4,7 @@ code_rag.py — TF-IDF semantic search over codebases
 
 Semantic search layer that bridges natural language intent to actual
 codebase identifiers. Indexes docstrings, comments, function signatures,
-markdown sections, and _MAP.md entries (if present).
+and markdown sections.
 
 Zero dependencies beyond scikit-learn + numpy (pre-installed).
 
@@ -16,19 +16,16 @@ Usage:
     python3 code_rag.py search /path/to/repo "middleware" --rg
 """
 
+import json
 import os
 import re
 import sys
-import json
 import time
-from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Optional
+from pathlib import Path
 
-import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-
 
 # ── Chunk extraction ─────────────────────────────────────────────
 
@@ -155,36 +152,6 @@ def _extract_markdown(filepath: str, rel_path: str) -> list[Chunk]:
             chunks.append(Chunk(
                 file=rel_path, line=start, kind="section",
                 name=heading, text=text, end_line=len(lines),
-            ))
-
-    return chunks
-
-
-def _extract_map_entries(filepath: str, rel_path: str) -> list[Chunk]:
-    """Extract file entries from _MAP.md files (if present in the repo).
-    
-    Each ### file heading becomes a chunk with the function signatures and
-    class hierarchies as searchable text.
-    """
-    try:
-        with open(filepath, "r", errors="replace") as f:
-            content = f.read()
-    except OSError:
-        return []
-
-    chunks = []
-    sections = re.split(r'^### (.+)$', content, flags=re.MULTILINE)
-
-    for i in range(1, len(sections), 2):
-        filename = sections[i].strip()
-        body = sections[i + 1] if i + 1 < len(sections) else ""
-
-        if len(body.strip()) > 20:
-            map_dir = str(Path(rel_path).parent)
-            source_path = f"{map_dir}/{filename}" if map_dir != "." else filename
-            chunks.append(Chunk(
-                file=source_path, line=1, kind="map_entry",
-                name=filename, text=f"{filename} {body}",
             ))
 
     return chunks
@@ -430,8 +397,8 @@ EXTRACTORS = {
 class Index:
     """TF-IDF index over code chunks."""
     chunks: list[Chunk] = field(default_factory=list)
-    vectorizer: Optional[TfidfVectorizer] = None
-    matrix: Optional[object] = None
+    vectorizer: TfidfVectorizer | None = None
+    matrix: object | None = None
     build_time_ms: float = 0
     repo_path: str = ""
 
@@ -450,9 +417,7 @@ class Index:
                 rel = os.path.relpath(fpath, repo_path)
                 ext = Path(fname).suffix.lower()
 
-                if fname == "_MAP.md":
-                    self.chunks.extend(_extract_map_entries(fpath, rel))
-                elif ext in EXTRACTORS:
+                if ext in EXTRACTORS:
                     self.chunks.extend(EXTRACTORS[ext](fpath, rel))
 
         if not self.chunks:

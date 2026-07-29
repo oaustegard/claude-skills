@@ -1,19 +1,19 @@
 ---
 name: mapping-webapp
-description: Generate behavioral/feature documentation for web apps using code-first analysis. Reads source code and _MAP.md files to produce _FEATURES.md, with optional visual verification via browser automation. Companion to mapping-codebases. Use when documenting app behavior, creating feature inventories, generating behavioral ground truth for agents, or before modifying UI code. Triggers on "map features", "document app behavior", "feature inventory", "what does this app do".
+description: Generate behavioral/feature documentation for web apps using code-first analysis. Reads source code via tree-sitting to produce _FEATURES.md, with optional visual verification via browser automation. Companion to tree-sitting. Use when documenting app behavior, creating feature inventories, generating behavioral ground truth for agents, or before modifying UI code. Triggers on "map features", "document app behavior", "feature inventory", "what does this app do".
 metadata:
-  version: 0.3.0
+  version: 0.4.0
 ---
 
 # Mapping Webapp
 
-Generate `_FEATURES.md` files documenting what a web app *does* — screens, flows, states, behavioral invariants. Companion to `mapping-codebases` which documents code *structure*.
+Generate `_FEATURES.md` files documenting what a web app *does* — screens, flows, states, behavioral invariants. Companion to `tree-sitting`, which surfaces code *structure*.
 
 **v0.3.0: Code-first architecture.** The code IS the ground truth; screenshots are supplementary verification.
 
 ## Prerequisites
 
-1. **mapping-codebases** must have run first (`_MAP.md` files exist)
+1. **tree-sitting** must be installed (structure is scanned at runtime)
 2. **Claude API key** available (via `api-credentials` skill or `ANTHROPIC_API_KEY` env var)
 3. *Optional:* **webctl** for visual verification (not required for `--code-only`)
 
@@ -38,7 +38,7 @@ python /mnt/skills/user/mapping-webapp/scripts/featuremap.py \
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--app-url` | required | Base URL of the web app |
-| `--codebase` | required | Path to repo root (must have `_MAP.md` files) |
+| `--codebase` | required | Path to repo root |
 | `--output` | `<codebase>/_FEATURES.md` | Output path |
 | `--max-pages` | `100` | Cap on pages to discover |
 | `--code-only` | `false` | Skip all vision — code analysis only |
@@ -57,7 +57,7 @@ python /mnt/skills/user/mapping-webapp/scripts/featuremap.py \
 Discovers pages from **code structure**, not browser crawling:
 - Scans for HTML files (static sites)
 - Detects framework routing conventions (Next.js, SvelteKit, etc.)
-- Parses `_MAP.md` for page references
+- Scans the codebase for page references
 - Supplements with `--routes` for manual seeding
 
 No browser required for discovery.
@@ -65,7 +65,7 @@ No browser required for discovery.
 ### Phase 2: ANALYZE
 Reads source code for each discovered page and uses Claude API (text, not vision) to generate behavioral descriptions:
 - Finds relevant source files (HTML + referenced JS/CSS)
-- Includes `_MAP.md` excerpts for code context
+- Includes tree-sitting excerpts for code context
 - Produces: what the user sees, interactions, invariants, code references
 
 **Code-derived descriptions are usable standalone.** Vision is enrichment, not requirement.
@@ -143,11 +143,12 @@ App URL: https://example.com
 
 ## Relationship to CLAUDE.md
 
-`_FEATURES.md` is the behavioral source of truth. Combined with `_MAP.md` (structural):
+`_FEATURES.md` is the behavioral source of truth. Structure is not persisted
+alongside it — it is derived on demand:
 
-1. `mapping-codebases` → `_MAP.md` (structural)
+1. `tree-sitting` → structure, scanned at runtime
 2. `mapping-webapp` → `_FEATURES.md` (behavioral)
-3. Merge both into CLAUDE.md architecture/concepts sections
+3. Merge the behavioral layer into CLAUDE.md architecture/concepts sections
 
 ## Limitations
 

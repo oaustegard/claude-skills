@@ -6,7 +6,7 @@ Combines all page descriptions (code-derived and/or vision-verified),
 screenshots, and metadata into a single _FEATURES.md document.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .capture import PageCapture
@@ -92,7 +92,7 @@ def assemble_features_md(
     if not app_name:
         app_name = urlparse(app_url).netloc if app_url else "App"
 
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S%z")
+    now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%S%z")
 
     # Build capture lookup by path
     capture_by_path: dict[str, PageCapture] = {}

@@ -18,7 +18,15 @@ Usage:
     --limit   only process the first N tiles (smoke test)
     --model   model id (default claude-haiku-4-5-20251001)
 """
-import argparse, base64, csv, json, os, sys, time, urllib.request, urllib.error
+import argparse
+import base64
+import csv
+import json
+import os
+import sys
+import time
+import urllib.error
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 API_URL = "https://api.anthropic.com/v1/messages"

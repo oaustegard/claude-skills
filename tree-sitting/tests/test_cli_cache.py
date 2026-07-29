@@ -7,11 +7,8 @@ Run: python -m pytest tests/test_cli_cache.py -v
 Or:  cd /home/user/claude-skills/tree-sitting && python -m pytest tests/test_cli_cache.py -v
 """
 
-import sys
 import os
 import subprocess
-import tempfile
-import shutil
 from pathlib import Path
 
 

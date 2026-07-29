@@ -9,7 +9,8 @@ from pathlib import Path
 # Add module to path
 sys.path.append(str(Path(__file__).parent))
 
-from claude_client import invoke_claude, invoke_parallel, ConversationThread
+from claude_client import ConversationThread, invoke_claude, invoke_parallel
+
 
 def test_cache_system():
     """Test system prompt caching"""

@@ -3,9 +3,11 @@
 
 import sys
 from pathlib import Path
+
 sys.path.append(str(Path(__file__).parent))
 
 from claude_client import invoke_claude_streaming, invoke_parallel_streaming
+
 
 def test_basic_streaming():
     """Test basic streaming with callback."""

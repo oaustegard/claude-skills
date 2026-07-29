@@ -40,3 +40,13 @@
 ### Added
 
 - v0.2.0 — bidirectional anchoring as core mechanism (#497)
+## 0.4.0 — 2026-07-26
+
+- Switched the structural-scan dependency from mapping-codebases (deprecated) to
+  tree-sitting. Phase 1 now derives the symbol inventory at runtime instead of
+  reading committed `_MAP.md` files.
+- `suggest_backlinks.py`: symbol lookup rebuilt on tree-sitting's AST scan
+  (`build_symbol_map` replaces `parse_map_files`); lookup interface unchanged.
+- Removed `annotate_maps.py` and Phase 4b. It decorated `_MAP.md` headers, which
+  no longer exist. Source-to-doc back-links (`@lat:` comments) are unaffected and
+  `lat check` still validates both directions.

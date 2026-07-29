@@ -5,14 +5,13 @@ Parses source files, caches ASTs in memory, and provides query APIs.
 Designed to be held in a long-lived process (MCP server) for fast queries.
 """
 
-import os
 import fnmatch
 import hashlib
 import json
+import os
 import tempfile
-from pathlib import Path
 from dataclasses import dataclass, field
-from typing import Optional
+from pathlib import Path
 
 # Lazy load — parsers loaded on demand from bundled .so files.
 # We deliberately do NOT depend on tree-sitter-language-pack: its 1.6.x
@@ -25,7 +24,7 @@ _parsers: dict = {}
 _PARSERS_DIR = Path(__file__).parent.parent / 'parsers'
 
 
-def _so_path(lang: str) -> Optional[Path]:
+def _so_path(lang: str) -> Path | None:
     """Resolve a language name to its bundled .so path, or None if not bundled."""
     # Grammar filenames follow libtree_sitter_<lang>.so and export a
     # matching tree_sitter_<lang> symbol.
@@ -43,7 +42,8 @@ def _load_language(lang: str):
         return None
 
     try:
-        from ctypes import CDLL, c_void_p, c_char_p, py_object, pythonapi
+        from ctypes import CDLL, c_char_p, c_void_p, py_object, pythonapi
+
         from tree_sitter import Language
     except ImportError:
         return None
@@ -146,8 +146,8 @@ class Symbol:
     file: str  # relative path
     line: int
     end_line: int
-    signature: Optional[str] = None
-    doc: Optional[str] = None
+    signature: str | None = None
+    doc: str | None = None
     children: list['Symbol'] = field(default_factory=list)
 
     def to_dict(self, include_children=True) -> dict:
@@ -173,7 +173,7 @@ class Symbol:
         Reconstructs one level of children (to_dict stores one level).
         """
         children = []
-        if 'children' in d and d['children']:
+        if d.get('children'):
             for child_dict in d['children']:
                 children.append(Symbol.from_dict(child_dict))
 
@@ -233,8 +233,7 @@ def _first_doc_line(text: str) -> str:
     text = text.strip()
     # Strip comment markers
     for prefix in ('/**', '/*', '///', '//', '#'):
-        if text.startswith(prefix):
-            text = text[len(prefix):]
+        text = text.removeprefix(prefix)
     text = text.rstrip('*/').strip()
     for line in text.split('\n'):
         line = line.strip().lstrip('*#/').strip()
@@ -243,7 +242,7 @@ def _first_doc_line(text: str) -> str:
     return ''
 
 
-def _preceding_doc(siblings: list, idx: int, source: bytes) -> Optional[str]:
+def _preceding_doc(siblings: list, idx: int, source: bytes) -> str | None:
     """Get doc comment preceding siblings[idx]."""
     if idx <= 0:
         return None
@@ -258,7 +257,7 @@ def _preceding_doc(siblings: list, idx: int, source: bytes) -> Optional[str]:
     return result if result else None
 
 
-def _python_docstring(node, source: bytes) -> Optional[str]:
+def _python_docstring(node, source: bytes) -> str | None:
     """Extract docstring from Python function/class body."""
     for child in node.children:
         if child.type == 'block':
@@ -444,7 +443,7 @@ def _extract_go(tree, source: bytes, relpath: str) -> list[Symbol]:
     symbols = []
     receiver_methods: dict[str, list[Symbol]] = {}  # type_name -> [method Symbols]
 
-    def func_sig(node, skip_receiver: bool = False) -> Optional[str]:
+    def func_sig(node, skip_receiver: bool = False) -> str | None:
         params = None
         result = None
         seen_pl = 0
@@ -564,7 +563,7 @@ def _extract_rust(tree, source: bytes, relpath: str) -> list[Symbol]:
     symbols = []
     impl_methods: dict[str, list[Symbol]] = {}  # type_name -> [method Symbols]
 
-    def func_sig(node) -> Optional[str]:
+    def func_sig(node) -> str | None:
         params = None
         ret = None
         for c in node.children:
@@ -637,9 +636,7 @@ def _extract_rust(tree, source: bytes, relpath: str) -> list[Symbol]:
                 elif c.type == 'generic_type':
                     for sc in c.children:
                         if sc.type == 'type_identifier':
-                            if saw_for:
-                                impl_type = _get_text(sc, source)
-                            elif impl_type is None:
+                            if saw_for or impl_type is None:
                                 impl_type = _get_text(sc, source)
                             break
                 elif c.type == 'declaration_list' and impl_type:
@@ -681,13 +678,13 @@ def _extract_typescript(tree, source: bytes, relpath: str) -> list[Symbol]:
     """Extract symbols from TypeScript/JavaScript AST with signatures and class hierarchy."""
     symbols = []
 
-    def return_type(node) -> Optional[str]:
+    def return_type(node) -> str | None:
         for c in node.children:
             if c.type in ('type_annotation', 'type_predicate_annotation'):
                 return _get_text(c, source).lstrip(': ').strip()
         return None
 
-    def func_sig(node) -> Optional[str]:
+    def func_sig(node) -> str | None:
         params = next((_get_text(c, source) for c in node.children
                        if c.type == 'formal_parameters'), None)
         if params:
@@ -877,7 +874,7 @@ def _extract_markdown(tree, source: bytes, relpath: str) -> list[Symbol]:
     """Extract heading outline from Markdown AST as hierarchical symbols."""
     symbols = []
 
-    def extract_section(node) -> Optional[Symbol]:
+    def extract_section(node) -> Symbol | None:
         heading = None
         children = []
         for c in node.children:
@@ -1167,8 +1164,7 @@ def _strip_doc_comment(text: str) -> str:
     text = text.strip()
     # Try each comment style
     for prefix in ('/**', '/*', '///', '//', '#'):
-        if text.startswith(prefix):
-            text = text[len(prefix):]
+        text = text.removeprefix(prefix)
     text = text.rstrip('*/').strip()
     # Return first meaningful line
     for line in text.split('\n'):
@@ -1315,8 +1311,8 @@ def extract_imports(tree, source: bytes, lang: str) -> list[str]:
 class FileEntry:
     path: str       # relative path
     lang: str
-    source: Optional[bytes]  # Can be None for lazy loading from cache
-    tree: Optional[object]   # tree-sitter Tree; can be None for lazy loading
+    source: bytes | None  # Can be None for lazy loading from cache
+    tree: object | None   # tree-sitter Tree; can be None for lazy loading
     symbols: list[Symbol]
     imports: list[str]
 
@@ -1325,7 +1321,7 @@ class CodeCache:
     """In-memory cache of parsed source files and extracted symbols."""
 
     def __init__(self):
-        self.root: Optional[Path] = None
+        self.root: Path | None = None
         self.files: dict[str, FileEntry] = {}  # relpath -> FileEntry
         self._symbol_index: dict[str, list[Symbol]] = {}  # name -> [Symbol, ...]
 
@@ -1441,7 +1437,7 @@ class CodeCache:
                             self._symbol_index.setdefault(sym.name, []).append(sym)
                             for child in sym.children:
                                 self._symbol_index.setdefault(child.name, []).append(child)
-                    except Exception as e:
+                    except Exception:
                         errors += 1
 
             # Write cache if caching is enabled
@@ -1479,7 +1475,7 @@ class CodeCache:
         try:
             with open(cache_path, 'r') as f:
                 cache_data = json.load(f)
-        except (json.JSONDecodeError, IOError, OSError):
+        except (json.JSONDecodeError, OSError):
             # Bad JSON or unreadable file
             return False
 
@@ -1658,7 +1654,7 @@ class CodeCache:
         display = dirpath or str(self.root.name) if self.root else '.'
         lines.append(f"# {display}/")
         if subdirs:
-            lines.append(f"\n## Directories")
+            lines.append("\n## Directories")
             for sd in sorted(subdirs):
                 subpath = f"{dirpath}/{sd}" if dirpath else sd
                 file_count = sum(1 for r in self.files if r.startswith(subpath + '/'))
@@ -1698,7 +1694,7 @@ class CodeCache:
                     src_path = self.root / entry.path
                     source = src_path.read_bytes()
                 else:
-                    return f"Cannot load source: no root context"
+                    return "Cannot load source: no root context"
             except OSError:
                 return f"Cannot read source file: {entry.path}"
 

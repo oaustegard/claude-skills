@@ -10,19 +10,18 @@ All functions maintain backward compatibility with existing invoke_parallel
 interfaces — new parameters are optional with sensible defaults.
 """
 
-import time
 import threading
-from typing import Callable, Optional, Union
+import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from claude_client import (
-    invoke_claude,
     ClaudeInvocationError,
     StallDetector,
     _format_system_with_cache,
+    invoke_claude,
 )
-from task_state import TaskTracker, TaskState, TERMINAL_STATES
-
+from task_state import TaskTracker
 
 # ---------------------------------------------------------------------------
 # Task 4: Exponential Backoff
@@ -58,14 +57,14 @@ def compute_backoff_delay(
 
 # @lat: [[orchestration#Orchestration Layer]]
 def invoke_with_retry(
-    prompt: Union[str, list[dict]],
+    prompt: str | list[dict],
     *,
     max_retries: int = 3,
     base_delay_ms: float = 1000.0,
     max_delay_ms: float = 10000.0,
     is_continuation: bool = False,
     model: str = "claude-sonnet-4-6",
-    system: Union[str, list[dict], None] = None,
+    system: str | list[dict] | None = None,
     max_tokens: int = 4096,
     temperature: float = 1.0,
     **kwargs,
@@ -129,15 +128,15 @@ def invoke_with_retry(
 def invoke_parallel_with_reconciliation(
     prompts: list[dict],
     *,
-    reconcile: Optional[Callable[[list[dict], "TaskTracker"], list[dict]]] = None,
+    reconcile: Callable[[list[dict], "TaskTracker"], list[dict]] | None = None,
     model: str = "claude-sonnet-4-6",
     max_tokens: int = 4096,
     max_workers: int = 5,
-    shared_system: Union[str, list[dict], None] = None,
+    shared_system: str | list[dict] | None = None,
     cache_shared_system: bool = False,
     max_retries: int = 3,
-    stall_timeout: Optional[float] = None,
-    on_stall: Optional[Callable] = None,
+    stall_timeout: float | None = None,
+    on_stall: Callable | None = None,
 ) -> list[str | None]:
     """
     Parallel invocations with reconciliation, retry, and stall detection.
@@ -310,7 +309,7 @@ class ConcurrencyLimiter:
     def __init__(
         self,
         global_limit: int = 10,
-        category_limits: Optional[dict[str, int]] = None,
+        category_limits: dict[str, int] | None = None,
     ):
         self._lock = threading.Lock()
         self.global_limit = global_limit
@@ -320,7 +319,7 @@ class ConcurrencyLimiter:
         for cat, limit in self.category_limits.items():
             self._category_semaphores[cat] = threading.Semaphore(limit)
 
-    def _get_category_semaphore(self, category: Optional[str]) -> Optional[threading.Semaphore]:
+    def _get_category_semaphore(self, category: str | None) -> threading.Semaphore | None:
         if not category:
             return None
         with self._lock:
@@ -329,7 +328,7 @@ class ConcurrencyLimiter:
                 self._category_semaphores[category] = threading.Semaphore(limit)
             return self._category_semaphores[category]
 
-    def acquire(self, category: Optional[str] = None, timeout: float = None) -> bool:
+    def acquire(self, category: str | None = None, timeout: float = None) -> bool:
         """
         Acquire execution slot (blocks until available or timeout).
 
@@ -351,7 +350,7 @@ class ConcurrencyLimiter:
 
         return True
 
-    def release(self, category: Optional[str] = None) -> None:
+    def release(self, category: str | None = None) -> None:
         """Release an execution slot."""
         cat_sem = self._get_category_semaphore(category)
         if cat_sem:
@@ -365,13 +364,13 @@ def invoke_parallel_managed(
     model: str = "claude-sonnet-4-6",
     max_tokens: int = 4096,
     max_workers: int = 5,
-    shared_system: Union[str, list[dict], None] = None,
+    shared_system: str | list[dict] | None = None,
     cache_shared_system: bool = False,
     max_retries: int = 3,
-    reconcile: Optional[Callable] = None,
-    concurrency_limiter: Optional[ConcurrencyLimiter] = None,
-    stall_timeout: Optional[float] = None,
-    on_stall: Optional[Callable] = None,
+    reconcile: Callable | None = None,
+    concurrency_limiter: ConcurrencyLimiter | None = None,
+    stall_timeout: float | None = None,
+    on_stall: Callable | None = None,
 ) -> list[str | None]:
     """
     Full-featured parallel invocations with all Symphony patterns.
