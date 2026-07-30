@@ -2,7 +2,7 @@
 name: invoking-gemini
 description: Invokes Google Gemini models for structured outputs, image generation, multi-modal tasks, and Google-specific features. Use when users request Gemini, image generation, structured JSON output, Google API integration, or cost-effective parallel processing.
 metadata:
-  version: 0.7.0
+  version: 0.7.1
 ---
 
 # Invoking Gemini
@@ -160,6 +160,26 @@ result = invoke_with_structured_output(
 )
 print(result.title)  # "1984"
 ```
+
+**Nested models are supported.** Gemini's `responseSchema` rejects `$ref`/`$defs`,
+which pydantic emits for every nested model, so the client inlines them before
+sending:
+
+```python
+class Finding(BaseModel):
+    claim: str
+    confidence: Literal["high", "medium", "low"]
+    note: str | None = None
+
+class Analysis(BaseModel):
+    findings: list[Finding]     # nested — inlined for you
+    gaps: list[str]
+```
+
+**Budget output generously.** Thinking tokens count against `max_output_tokens`
+(default 32768). Too low and the JSON truncates mid-object, which surfaces as a
+pydantic parse error rather than a length error — the client now detects
+`finishReason=MAX_TOKENS` and says so explicitly.
 
 ## Parallel Invocation
 
