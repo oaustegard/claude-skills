@@ -2,6 +2,44 @@
 
 All notable changes to the `orchestrating-agents` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.5.0] - 2026-07-30
+
+### Changed
+
+- Surface routing rewritten as a three-surface matrix (claude.ai / Cowork /
+  Claude Code) against three engines (native subagents / Gemini via CF AI
+  Gateway / this skill's httpx fan-out). Previously the block knew only two
+  surfaces and had no Gemini row. Primary discriminator is now whether an
+  `Agent`/`Task`/`Workflow` tool is callable, rather than filesystem inspection.
+- Cowork documented as its own surface, including plugin-declared subagents
+  (`agents/*.md`, frontmatter fields, `plugin:agent` naming) and the security
+  restriction that `hooks`, `mcpServers`, and `permissionMode` are refused in
+  plugin-shipped agents — a declared agent inherits the session's MCP
+  connections and cannot bring its own.
+- Setup no longer instructs storing `ANTHROPIC_API_KEY.txt` in project
+  knowledge. Credentials must arrive by a path the shell reads directly.
+
+### Added
+
+- Gemini-via-Cloudflare as an explicit option on **all** surfaces, not just
+  claude.ai — for mechanical-but-large work and for model-family diversity in
+  judge panels. Mechanics stay in `invoking-gemini`; the three failure modes
+  that bite are named here (stale `flash` alias, `thinking_level='minimal'` for
+  mechanical work, BYOK through the gateway).
+- "Review is not delegable" stated as a cross-surface rule, with the note that
+  cross-model review tools keep their own model config.
+- See Also split into routing companions (`agent-routing`, `invoking-gemini`,
+  `subagent-delegation-protocol`) versus this skill's own internals.
+
+### Fixed
+
+- `project_read` warned against for credentials on every surface: small docs are
+  returned inline, and the documented "large text is written to a local file"
+  branch does not fire even at 64 KB (measured 2026-07-30). Writing is safe —
+  `project_write` with `local_path` keeps contents out of context — reading is
+  not.
+- Token Efficiency claim corrected from "~800 tokens" to ~2k.
+
 ## [0.4.0] - 2026-04-08
 
 ### Added
