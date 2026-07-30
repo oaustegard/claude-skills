@@ -1,5 +1,30 @@
 # invoking-gemini - Changelog
 
+## 2026-07-29
+
+### Fixed — nested Pydantic models raised a bare HTTP 400
+- `_pydantic_to_schema()` returned pydantic's `model_json_schema()` nearly
+  verbatim, which emits `$defs` + `$ref` for every nested model. Gemini's
+  `responseSchema` does not support `$ref`/`$defs`, so **any** model containing
+  another model (`list[Finding]`, the common case) produced a 400 with no usable
+  body, burned three retries, and returned `None`. Flat single-level models
+  worked, which is why this went unnoticed. Refs are now inlined and the
+  keywords Gemini rejects are stripped recursively rather than only at the top
+  level (`title`, `default`, `additionalProperties`, `discriminator`, `examples`,
+  `const`).
+- `Optional[X]` / `anyOf` is now translated to the non-null branch plus
+  `nullable: true` instead of being passed through as `anyOf`, which Gemini also
+  rejects.
+- 4xx responses now raise `_NonRetriableAPIError` carrying the **response body**.
+  `raise_for_status()` discarded it, and Gemini puts the only useful diagnostic
+  there — which schema keyword it refused. 4xx is deterministic, so it no longer
+  burns the retry budget either.
+- `invoke_with_structured_output()` gained `max_output_tokens` (default 32768).
+  Thinking tokens count against the output budget, so a small cap truncated the
+  JSON mid-object and surfaced as a pydantic `EOF while parsing` that reads like
+  a schema error. `finishReason=MAX_TOKENS` is now detected and reported as
+  truncation.
+
 ## 2026-07-21
 
 ### Added — audio (and video) input

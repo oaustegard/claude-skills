@@ -281,10 +281,18 @@ def _cf_request(
                     f"HTTP {response.status_code} from CF AI Gateway "
                     f"(likely egress proxy, not Gemini): {preview!r}"
                 )
+            if 400 <= response.status_code < 500:
+                # raise_for_status() discards the body, and Gemini puts the ONLY
+                # useful diagnostic there — e.g. which schema keyword it rejected.
+                # A 4xx is deterministic, so mark it non-retriable too.
+                preview = (response.text or '')[:600]
+                raise _NonRetriableAPIError(
+                    f"HTTP {response.status_code} from Gemini: {preview}"
+                )
             response.raise_for_status()
             return response.json()
-        except MediaInputError:
-            raise  # deterministic input error — retrying cannot help
+        except (MediaInputError, _NonRetriableAPIError):
+            raise  # deterministic error — retrying cannot help
         except Exception as e:
             if attempt == max_retries - 1:
                 raise
@@ -313,8 +321,32 @@ def _extract_text(response: dict) -> str | None:
         return None
 
 
+def _check_truncation(response: dict) -> None:
+    """Raise if the model hit the output cap, instead of letting json.loads fail.
+
+    A truncated structured response is invalid JSON, so the symptom is a
+    JSONDecodeError / pydantic "EOF while parsing" that looks like a schema
+    problem. finishReason says what actually happened.
+    """
+    try:
+        reason = response["candidates"][0].get("finishReason")
+    except (KeyError, IndexError, TypeError):
+        return
+    if reason in ("MAX_TOKENS", "MAX_OUTPUT_TOKENS"):
+        raise _NonRetriableAPIError(
+            "Gemini hit maxOutputTokens before finishing the JSON object "
+            "(finishReason=MAX_TOKENS). Raise max_output_tokens — thinking "
+            "tokens count against the same budget."
+        )
+
+
 class MediaInputError(ValueError):
     """Invalid media input. Deterministic — never worth retrying."""
+
+
+class _NonRetriableAPIError(RuntimeError):
+    """A 4xx from Gemini. Deterministic (bad schema, bad request) — retrying
+    only hides the response body, which is the one thing worth reading."""
 
 
 # Extensions mimetypes.guess_type() gets wrong or misses, per Gemini's accepted
@@ -371,18 +403,63 @@ def _build_contents(prompt: str, image_path: str | None) -> list:
     return [{"parts": parts}]
 
 
+#: Keywords Gemini's responseSchema rejects outright. Pydantic emits all of
+#: these; leaving any of them in produces a bare HTTP 400 with no usable body.
+_SCHEMA_STRIP_KEYS = ("$schema", "$defs", "title", "default", "additionalProperties",
+                      "discriminator", "examples", "const")
+
+
+def _inline_refs(node, defs: dict):
+    """Resolve $ref against $defs and strip Gemini-unsupported keywords, recursively.
+
+    Gemini's responseSchema is NOT full JSON Schema: it rejects $ref/$defs
+    entirely. Pydantic emits a $ref for every nested model, so any model with a
+    nested model (the common case — List[SomeModel]) produced a bare HTTP 400
+    that the retry loop then burned three attempts on before returning None.
+    Flat single-level models worked, which is why this hid for so long.
+    """
+    if isinstance(node, dict):
+        if "$ref" in node:
+            name = node["$ref"].split("/")[-1]
+            target = defs.get(name)
+            if target is None:
+                # Unresolvable ref — better a permissive object than a 400.
+                return {"type": "object"}
+            return _inline_refs(target, defs)
+        out = {}
+        for k, v in node.items():
+            if k in _SCHEMA_STRIP_KEYS:
+                continue
+            if k == "anyOf":
+                # Gemini has no anyOf. Optional[X] becomes [X, null]; take the
+                # first non-null branch and mark it nullable instead.
+                branches = [b for b in v if b.get("type") != "null"]
+                if branches:
+                    resolved = _inline_refs(branches[0], defs)
+                    if len(branches) < len(v):
+                        resolved["nullable"] = True
+                    out.update(resolved)
+                continue
+            out[k] = _inline_refs(v, defs)
+        return out
+    if isinstance(node, list):
+        return [_inline_refs(x, defs) for x in node]
+    return node
+
+
 def _pydantic_to_schema(model_class: type) -> dict:
-    """Convert a Pydantic model class to a Gemini-compatible JSON schema dict."""
+    """Convert a Pydantic model class to a Gemini-compatible JSON schema dict.
+
+    Handles nested models: pydantic's $defs/$ref indirection is inlined, because
+    Gemini's responseSchema does not support it.
+    """
     try:
         schema = model_class.model_json_schema()  # Pydantic v2
     except AttributeError:
         schema = model_class.schema()  # Pydantic v1
 
-    # Strip metadata keys that Gemini rejects
-    for key in ("$schema", "title"):
-        schema.pop(key, None)
-
-    return schema
+    defs = schema.get("$defs") or schema.get("definitions") or {}
+    return _inline_refs(schema, defs)
 
 
 # ---------------------------------------------------------------------------
@@ -548,8 +625,8 @@ def invoke_gemini(
                 response = model_instance.generate_content(content)
                 return response.text
 
-        except MediaInputError:
-            raise  # deterministic input error — retrying cannot help
+        except (MediaInputError, _NonRetriableAPIError):
+            raise  # deterministic error — retrying cannot help
         except Exception as e:
             if attempt < max_retries - 1:
                 wait_time = 2 ** attempt
@@ -667,8 +744,8 @@ def generate_image(
             print(f"Image saved to {output_path}")
             return {"path": output_path, "caption": caption}
 
-        except MediaInputError:
-            raise  # deterministic input error — retrying cannot help
+        except (MediaInputError, _NonRetriableAPIError):
+            raise  # deterministic error — retrying cannot help
         except Exception as e:
             if attempt < max_retries - 1:
                 wait_time = 2 ** attempt
@@ -721,6 +798,7 @@ def invoke_with_structured_output(
     model: str = DEFAULT_MODEL,
     temperature: float = 0.7,
     image_path: str | None = None,
+    max_output_tokens: int | None = 32768,
 ) -> object | None:
     """
     Invoke Gemini with structured (JSON schema) output using a Pydantic model.
@@ -758,7 +836,14 @@ def invoke_with_structured_output(
                     "responseMimeType": "application/json",
                     "responseSchema": schema,
                 }
+                # Thinking tokens count against this budget, so a default sized
+                # for the visible answer truncates the JSON mid-object and
+                # surfaces as a confusing JSONDecodeError rather than a length
+                # error. Default generously.
+                if max_output_tokens:
+                    gen_cfg["maxOutputTokens"] = max_output_tokens
                 response = _cf_request(model_id, contents, gen_cfg, cf_creds)
+                _check_truncation(response)
                 text = _extract_text(response)
                 if text:
                     json_data = json.loads(text)
@@ -782,8 +867,8 @@ def invoke_with_structured_output(
                 json_data = json.loads(response.text)
                 return pydantic_model(**json_data)
 
-        except MediaInputError:
-            raise  # deterministic input error — retrying cannot help
+        except (MediaInputError, _NonRetriableAPIError):
+            raise  # deterministic error — retrying cannot help
         except Exception as e:
             if attempt < max_retries - 1:
                 wait_time = 2 ** attempt
