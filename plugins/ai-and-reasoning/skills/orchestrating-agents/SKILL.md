@@ -1,26 +1,78 @@
 ---
 name: orchestrating-agents
-description: Orchestrates parallel API instances, delegated sub-tasks, and multi-agent workflows with streaming and tool-enabled delegation patterns. Use for parallel analysis, multi-perspective reviews, or complex task decomposition.
+description: Orchestrates parallel API instances, delegated sub-tasks, and multi-agent workflows with streaming and tool-enabled delegation patterns. Routes by surface — native subagents in Cowork and Claude Code, httpx fan-out on claude.ai — and covers Gemini delegation via the Cloudflare AI Gateway on every surface. Use for parallel analysis, multi-perspective reviews, or complex task decomposition.
 metadata:
-  version: 0.4.1
+  version: 0.5.0
 ---
 
 ## SURFACE ROUTING — read first
 
-This skill hand-rolls subagent orchestration via raw Anthropic API calls. A
-managed runtime now does the same job. Which one to use depends on your surface:
+Fan-out has three possible engines. Which exist depends on where you are running.
+**Pick the engine before writing any orchestration code.**
 
-- **In Claude Code (incl. CCotw): use the native runtime, NOT this skill.** If you
-  can invoke `/deep-research`, trigger a run with the `workflow` keyword, set
-  `/effort ultracode`, or spawn Task subagents — do that instead. The runtime gives
-  16-concurrent / 1000-agent ceilings, an approval gate, adversarial cross-review,
-  and in-session resume that this skill would otherwise reimplement badly. Dynamic
-  workflows shipped in research preview (Claude Code v2.1.154+, 2026).
-- **In claude.ai chat or the bare API (no workflow runtime): use this skill.**
-  Parallel API instances over httpx is the only fan-out path here. Proceed below.
+| Engine | claude.ai | Cowork | Claude Code / CCotw |
+|---|:---:|:---:|:---:|
+| Native subagents (`Agent` / `Task` / `Workflow`) | ✗ | ✓ | ✓ |
+| Gemini via CF AI Gateway (`invoking-gemini`) | ✓ | ✓ | ✓ |
+| This skill's httpx fan-out (raw Anthropic API) | ✓ | last resort | last resort |
 
-Discriminator: do you have a native subagent/Task tool or a workflow command? Yes
-→ native. No → this skill. Never reimplement the runtime where it already exists.
+**Primary discriminator — check the tool list, not the filesystem.** If an `Agent`,
+`Task`, or `Workflow` tool is callable, native subagents exist. That single fact
+decides the row. Everything below is elaboration.
+
+### If native subagents exist (Cowork, Claude Code, CCotw)
+
+**Use them. Do not hand-roll from this skill.** The managed runtime gives
+16-concurrent / 1000-agent ceilings, an approval gate, adversarial cross-review,
+and in-session resume — all of which this skill would reimplement worse. Route
+model and effort per **`agent-routing`** (calibrated on 300 measured Haiku calls);
+do not re-derive that here.
+
+Cowork adds one option Claude Code doesn't: subagents can be **declared** rather
+than spawned ad hoc, as `agents/*.md` in a plugin — frontmatter `name`,
+`description`, `model`, `effort`, `maxTurns`, `tools`, `disallowedTools`,
+`skills`, `memory`, `background`, `isolation: worktree`. They appear as
+`plugin-name:agent-name`. Note `hooks`, `mcpServers`, and `permissionMode` are
+refused in plugin agents for security, so a declared agent inherits the session's
+MCP connections and cannot bring its own.
+
+Reach back into this skill on those surfaces only for what the runtime lacks:
+inter-agent messaging (`AgentPool`), stall detection, or a long-lived
+`ConversationThread`.
+
+### If native subagents do NOT exist (claude.ai chat and project sessions)
+
+Two engines, and **Gemini is the default** — see `subagent-delegation-protocol`
+in ops. Use this skill's httpx fan-out when you specifically want Claude-family
+output, multi-turn threads with cached history, or inter-agent messaging.
+
+### Gemini via Cloudflare — available on every surface
+
+Even where native subagents exist, Gemini is the right call for
+mechanical-but-large work (extractions, ports, boilerplate, schema transforms)
+and for a genuinely independent second opinion in a judge panel — a different
+model family fails differently, which is the whole point of a panel.
+
+Call mechanics live in **`invoking-gemini`**; do not duplicate them here. Three
+things that bite:
+
+- Pass the **explicit model string** `gemini-3.6-flash`. The `flash` alias still
+  resolves to 3.5 until that plugin's model table regenerates.
+- `thinking_level` is a string in `{minimal, low, medium, high}`, default
+  `medium`. Set `minimal` for mechanical generation or the model silently spends
+  its output budget reasoning — symptom is an empty or truncated response.
+- Credentials come from the CF AI Gateway config, BYOK. Requests route through
+  the gateway rather than Google directly.
+
+### Non-negotiable on all surfaces
+
+**Review is not delegable.** Diff security- and protocol-critical paths
+line-by-line against source, run syntax/lint checks, live-test whatever is
+network-testable. Delegated output ships only after your own review, regardless
+of which model produced it or which engine ran it.
+
+Cross-model review tools (`challenge`, `verify_patch`) keep their own model
+config, often deliberately a Claude. This routing does not silently repoint them.
 
 # Orchestrating Agents
 
@@ -321,20 +373,24 @@ pool.spawn("sub-sub", parent="sub-analyst")  # depth=3, raises ValueError
    uv pip install anthropic
    ```
 
-2. Configure API key via project knowledge file:
+2. Configure the API key **as a file the shell reads directly** — never as
+   something a tool call returns.
 
-   **Option 1 (recommended): Individual file**
-   - Create document: `ANTHROPIC_API_KEY.txt`
-   - Content: Your API key (e.g., `sk-ant-api03-...`)
+   On claude.ai the project's files are mounted at `/mnt/project`, so the key can
+   be sourced without ever entering context:
 
-   **Option 2: Combined file**
-   - Create document: `API_CREDENTIALS.json`
-   - Content:
-     ```json
-     {
-       "anthropic_api_key": "sk-ant-api03-..."
-     }
-     ```
+   ```bash
+   set -a; . /mnt/project/ANTHROPIC.env 2>/dev/null; set +a
+   ```
+
+   ⚠️ **Do not use `project_read` to fetch a credential, on any surface.** Small
+   docs are returned *inline*, so the key lands in the transcript — verified
+   2026-07-30: the documented "large text is written to a local file" branch does
+   not fire even at 64 KB. In Cowork there is no `/mnt/project` mount at all and
+   no safe read path, so the key must arrive by a route the shell can read
+   (synced skill directory, or fetched by a script from the CF config store).
+   Writing is safe in both directions — `project_write` with `local_path` keeps
+   contents out of context — but reading is not.
 
    Get your API key: https://console.anthropic.com/settings/keys
 
@@ -415,9 +471,23 @@ For detailed caching workflows and best practices, see [references/workflows.md]
 
 ## Token Efficiency
 
-This skill uses ~800 tokens when loaded but enables powerful multi-agent patterns that can dramatically improve complex analysis quality and speed.
+Loading this skill costs roughly 2k tokens. On surfaces with native subagents the
+routing table at the top is usually all you need — read it, spawn natively, and
+skip the rest of the file.
 
 ## See Also
+
+**Routing companions — read these before choosing an engine:**
+
+- `agent-routing` skill — model + effort selection for **native** subagents
+  (Haiku/Sonnet/Opus, cascades, verifier gates). Calibrated on measured data.
+  Applies to Cowork and Claude Code; explicitly not to claude.ai.
+- `invoking-gemini` skill — call mechanics for the CF AI Gateway path, model
+  table, and `thinking_level` semantics.
+- `subagent-delegation-protocol` (ops config) — why Gemini is the claude.ai
+  default, the Sonnet fallback config, and the non-delegable-review rule.
+
+**This skill's own internals:**
 
 - [references/function-reference.md](references/function-reference.md) - Full signatures for every function this skill exposes
 - [references/api-reference.md](references/api-reference.md) - Anthropic API details: models, rate limits, caching
