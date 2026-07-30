@@ -4,6 +4,13 @@ All notable changes to the `orchestrating-agents` skill are documented in this f
 
 ## [0.5.0] - 2026-07-30
 
+### Other
+
+- orchestrating-agents v0.5.0 — three-surface routing, Gemini via CF, credential-handling fix (#749)
+- Deprecate mapping-codebases; adopt ruff 0.16.0 baseline (#747)
+
+## [0.5.0] - 2026-07-30
+
 ### Changed
 
 - Surface routing rewritten as a three-surface matrix (claude.ai / Cowork /
