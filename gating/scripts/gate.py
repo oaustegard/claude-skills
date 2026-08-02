@@ -44,6 +44,7 @@ class _Check:
     label: str
     detail: str
     kind: str  # "anchor" | "bracket" | "check" | "known-bad"
+    covers: tuple[str, ...] = ()  # known-bad only: checks it exercises
 
 
 @dataclass
@@ -58,9 +59,10 @@ class Gate:
 
     # -- primitives --------------------------------------------------------
 
-    def check(self, ok: bool, label: str, detail: str = "", *, kind: str = "check") -> bool:
+    def check(self, ok: bool, label: str, detail: str = "", *,
+              kind: str = "check", covers: tuple[str, ...] = ()) -> bool:
         """Record a plain boolean check."""
-        self.checks.append(_Check(bool(ok), label, detail, kind))
+        self.checks.append(_Check(bool(ok), label, detail, kind, covers))
         return bool(ok)
 
     def anchor(self, label: str, *, measured: float, published: float,
@@ -78,28 +80,55 @@ class Gate:
             f"rel={rel:.2e} tol={rel_tol:.0e}", kind="anchor")
 
     def bracket(self, label: str, *, value: float, lo: float, hi: float,
-                why: str = "") -> bool:
-        """Assert lo < value < hi.
+                why: str = "", lo_inclusive: bool = False,
+                hi_inclusive: bool = False) -> bool:
+        """Assert lo < value < hi, or <= at either edge.
 
         Two-sided by construction.  A one-sided check passes for a value that
         collapsed as readily as for one that is right, which is how an
         implementation that silently does nothing gets certified.
+
+        **Use the inclusive flag when an edge is ATTAINABLE.**  A theoretical
+        bound is frequently reachable, and reaching it is optimal, not a
+        failure.  A strict bound then reports red on the best possible result:
+        a randomized-Hadamard rotation maps a coordinate spike to exactly
+        ±1/sqrt(d), the information-theoretic floor for max|coord|, so
+        `lo=1/sqrt(d)` rejected a perfect rotation and blocked a run.  Ask of
+        each edge: can the subject legitimately sit exactly here?  If yes, make
+        it inclusive.
         """
-        ok = lo < value < hi
+        lo_ok = (lo <= value) if lo_inclusive else (lo < value)
+        hi_ok = (value <= hi) if hi_inclusive else (value < hi)
+        lo_op = "<=" if lo_inclusive else "<"
+        hi_op = "<=" if hi_inclusive else "<"
         suffix = f" — {why}" if why else ""
-        return self.check(ok, label,
-                          f"{lo:.6g} < {value:.6g} < {hi:.6g}{suffix}",
+        return self.check(lo_ok and hi_ok, label,
+                          f"{lo:.6g} {lo_op} {value:.6g} {hi_op} {hi:.6g}{suffix}",
                           kind="bracket")
 
-    def known_bad(self, label: str, *, rejected: bool, detail: str = "") -> bool:
+    def known_bad(self, label: str, *, rejected: bool, detail: str = "",
+                  covers: tuple[str, ...] = ()) -> bool:
         """Register a case the gate MUST reject, and whether it did.
 
         Build the bad case out of the same machinery the real subject uses and
         break it the way it would plausibly break — an under-trained model, a
         dropped term, an off-by-one — not a nonsense input that anything would
         catch.  A known-bad that is too obviously bad certifies nothing.
+
+        **Validate it at the configuration it will actually run in.**  A
+        known-bad tuned on a small/fast setting can stop being bad at full
+        size: an "untrained" grid built from one Lloyd iteration was genuinely
+        zero-gain at m=2/K=16 and earned a real +0.10 dB at m=8/K=65536, where
+        a single iteration relocates ~63,000 empty cells toward the mode.  It
+        passed the fast gate and certified nothing about the real one.
+
+        `covers` names the check labels (or substrings of them) this case
+        exercises.  Supplying it turns "we have a known-bad" into "we know
+        WHICH checks have been shown to fire", which is a different and much
+        stronger claim — see `report()`.
         """
-        return self.check(rejected, label, detail, kind="known-bad")
+        return self.check(rejected, label, detail, kind="known-bad",
+                          covers=tuple(covers))
 
     def note(self, text: str) -> None:
         """Record a number worth seeing that is not itself pass/fail."""
@@ -154,6 +183,29 @@ class Gate:
                   "thing\nthis gate cannot catch (g.coverage(...)); if you truly "
                   "believe there is\nnothing, say that explicitly.", file=w)
             return 2
+        # Known-bad REACH.  "We have a known-bad" and "we know which checks
+        # have been shown to fire" are different claims, and only the second
+        # is worth much.  An audit of a real gate found its single known-bad
+        # exercised 1 of 8 checks -- and the check the whole result rested on
+        # ACCEPTED the same bad case.  That gate reported PASS.
+        substantive = [c for c in self.checks if c.kind != "known-bad"]
+        if any(kb.covers for kb in self.known_bads):
+            claimed = [t for kb in self.known_bads for t in kb.covers]
+            reached = {c.label for c in substantive
+                       if any(t in c.label for t in claimed)}
+            unreached = [c.label for c in substantive if c.label not in reached]
+            print(f"\n  known-bad reach: {len(reached)}/{len(substantive)} "
+                  f"checks exercised by a known-bad", file=w)
+            for lab in unreached[:12]:
+                print(f"    [unreached] {lab}", file=w)
+            if len(unreached) > 12:
+                print(f"    ... and {len(unreached) - 12} more", file=w)
+        else:
+            print(f"\n  known-bad reach: UNDECLARED — {len(self.known_bads)} "
+                  f"known-bad(s), none naming the checks they exercise.\n"
+                  f"  Pass covers=(...) to known_bad() to turn 'we have one' "
+                  f"into 'we know which checks fire'.", file=w)
+
         print(f"\nPASSED — {len(self.checks)} checks, "
               f"{len(self.known_bads)} known-bad rejected, "
               f"{len(self.limits)} coverage limit(s) stated.", file=w)

@@ -134,6 +134,28 @@ directions. Neither is the answer; together they are a bracket.
 
 ---
 
+## An anchor is also where a *magnitude* comes from
+
+Anchors are usually discussed as sources of correctness — is this value right?
+They are equally the only source of **practical significance**: is a difference
+big enough to care about?
+
+A threshold derived from measurement noise answers "is this effect real". It
+cannot answer "is this effect worth having", and the two diverge badly when the
+things being compared are similar: a paired estimator's standard error shrinks
+as the arms converge, so a 3-sigma margin can approach zero and admit an effect
+three orders of magnitude below anything that matters.
+
+So when a check exists to certify that something *helps*, it needs two floors:
+
+- a **statistical** floor from measured noise — the effect is not sampling luck;
+- a **practical** floor from an anchor — the effect is at least as large as
+  <published method / theoretical gain / the smallest difference that would
+  change a decision>.
+
+State which anchor supplies the second one. If none does, say so as a coverage
+limit: "this check certifies the effect is real, not that it is useful."
+
 ## Anchor hygiene
 
 - **Write the source next to the number.** `0.0716821  # Conway & Sloane,
