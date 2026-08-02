@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.0730.2014"
+    "version": "2026.0802.1208"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -24,6 +24,7 @@
         "challenging",
         "convening-experts",
         "down-skilling",
+        "gating",
         "generative-thinking",
         "invoking-antigravity",
         "invoking-gemini",
