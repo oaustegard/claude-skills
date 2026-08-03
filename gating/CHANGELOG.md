@@ -2,6 +2,12 @@
 
 All notable changes to the `gating` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.2.0] - 2026-08-03
+
+### Other
+
+- gating 0.2.0: lessons from the first substantial use of the skill (#752)
+
 ## [0.2.0] - 2026-08-02
 
 Lessons from the first substantial use of the skill — auditing and rebuilding
