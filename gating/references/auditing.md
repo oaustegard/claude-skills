@@ -56,6 +56,22 @@ python3 scripts/mutate.py --target src/thing.py -- <your gate command>
 
 Every survivor is a behaviour nothing checks.
 
+**First, disable any on-disk cache the subject keeps.** If the code under test
+caches artifacts keyed on the *problem* (`grid_m8_K65536.npz`) rather than on
+the *method*, a mutation of the producing code changes nothing observable: the
+gate loads the pre-mutation artifact and reports green. Every mutation to the
+trainer then "survives" for a reason that has nothing to do with the gate, and
+the survivor count is noise. Point the cache at a temporary directory for the
+mutation run. This is the same anti-pattern the gate section warns about, and
+it is far more damaging here because it inflates rather than hides.
+
+**Budget for it.** `mutate.py` runs the gate command once per mutation, so a
+90-second gate over 100 sites is two and a half hours. That pressure is what
+produces a fast gate variant — which is fine, as long as you remember that a
+known-bad validated only in the fast variant may not be bad at full size, and
+that the fast variant's reduced dimensions may make whole classes of mutation
+unobservable. Record which ones in the gate's stated coverage limits.
+
 **Reading the report.** Survivors cluster, and the cluster is the diagnosis:
 
 - Survivors on one function → that function is untested. Usually the fix is
@@ -71,7 +87,18 @@ Every survivor is a behaviour nothing checks.
 **Legitimate survivors exist.** Equivalent mutants (a change with no
 observable effect), and code genuinely outside the gate's remit. Do not chase
 them to zero — move them to the gate's stated coverage limits, which converts
-an invisible hole into a written one.
+an invisible hole into a written one. Write down *why* each is equivalent: an
+unexplained survivor and an equivalent mutant look identical in a report, and
+six months later nobody can tell which they are looking at.
+
+**Survivor line numbers are ephemeral — pin permanent fixtures by content.**
+The report says `grids.py:166`, and that reference is correct for exactly as
+long as nobody edits the file above line 166. If you promote survivors into a
+standing fixture (recommended — see the meta-check below), locate each target
+by a unique snippet of the line, not by its number. A fixture pinned by line
+survived until an upstream refactor shifted one file by ~50 lines, then failed
+with "line 206 does not contain '*'" — an error about the fixture, not about
+the subject, which is the most confusing kind to receive.
 
 ---
 
