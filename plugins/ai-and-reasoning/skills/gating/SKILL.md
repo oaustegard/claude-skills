@@ -2,7 +2,7 @@
 name: gating
 description: Build and audit deterministic verification gates — checks that block a pipeline and can be shown to go red. Use when writing a calibration gate, CI check, validation script, or pre-publication check for a numeric or empirical result; when a result is about to be published, acted on, or merged and a plausible-but-wrong value would survive review; when asking whether an existing test suite, linter rule, or check could actually fail; and when a check suite passes first try, passes suspiciously often, or was written by the same process that produced the thing it checks. Triggers on "verification loop", "calibration gate", "can this check fail", "known-bad", "negative control", "sanity check my results", "is this test actually testing anything".
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # gating
@@ -28,6 +28,21 @@ ever tells you the code still does what it did. See `references/anchors.md`.
 plausibly break, run the gate, confirm red. Until you have done this you have
 not shown the gate works — you have shown it runs. This is the obligation
 people skip, because a passing gate feels like evidence.
+
+Two things about known-bads that are easy to get wrong:
+
+- **Validate it at the configuration it will run in.** A case tuned on a small
+  or fast setting can stop being bad at full size. An "untrained" grid built
+  from one Lloyd iteration was genuinely zero-gain at m=2/K=16 and earned a
+  real +0.10 dB at m=8/K=65536, where one iteration relocates ~63,000 empty
+  cells toward the mode. It passed the fast gate and certified nothing about
+  the real one. This matters more than it sounds, because `mutate.py` needs a
+  fast gate variant and it is tempting to validate everything there.
+- **Measure its *reach*.** One known-bad is the floor, not the goal. Name which
+  checks it exercises (`known_bad(..., covers=(...))`); the harness prints the
+  checks no known-bad reaches. An audited gate had a single known-bad covering
+  1 of 8 checks — and the check its whole result rested on *accepted* the same
+  bad case.
 
 **3. A written statement of what it cannot catch.** Coverage holes are
 invisible from inside a green run: the gate is silent about the thing it does
@@ -61,6 +76,18 @@ silently does nothing gets certified.
 how much it moves, put the threshold outside that. A tolerance picked for
 comfort tends to land wider than the defect you are trying to catch, and then
 it swallows it.
+
+**Then check it is not too tight to mean anything.** The opposite failure is
+real and less obvious: a margin can be statistically impeccable and practically
+empty. A *paired* estimator — scoring both arms on one shared sample so the
+common fluctuation cancels — is the right way to measure a difference, and its
+standard error *shrinks as the two arms converge*. So "beats the baseline by
+3 se" degenerates: a codebook perturbed by N(0, 1e-3) gained +0.0001 dB against
+a 3-se margin of 1.2e-06 and was accepted, while real ones gained 0.35–1.41 dB.
+The check certified *the effect is real*, not *the effect is worth having*.
+Those are different assertions and need different thresholds — and the second
+one has to come from an anchor (there, a published lattice codebook), never
+from the estimator, which knows nothing about what magnitude would matter.
 
 **Build the known-bad and confirm red.** Then run `scripts/mutate.py` for the
 failures you did not think of.
@@ -116,6 +143,8 @@ convincingly they impersonate a working gate.
 | **Comparing against your own previous output** | Regenerated goldens ratify drift. If the golden came from the code under test, it is a changelog, not an oracle. |
 | **A cache keyed on the problem rather than the method** | `cache[(m, K)]` cannot notice that the code producing the value changed. Version-stamp the artifact and delete on mismatch instead of trusting. |
 | **A self-matching predicate** | `until ! pgrep -f trainer` never exits, because the watching shell's own argv contains `trainer`. Worse, a malformed variant exits immediately and reports the job finished while it runs. Wait on a PID. |
+| **A margin that is significant but not meaningful** | A threshold derived purely from estimator noise certifies that an effect is *real*, not that it is *worth having* — and a paired estimator's noise shrinks as the arms converge, so the margin can approach zero. Pair every noise-derived floor with a magnitude an anchor says would matter. |
+| **A strict bracket at an attainable optimum** | A theoretical bound is often reachable, and reaching it is the best possible outcome. A strict edge then goes red on a perfect result and blocks real work. Ask of each edge whether the subject can legitimately sit exactly there. |
 | **A gate written by whatever produced the artifact** | Shared assumptions produce shared blind spots, and the convention both inherited is the one neither questions. Anchors are the defence, because an anchor is the one input the producer did not choose. |
 
 ## Division of labour
@@ -134,6 +163,18 @@ This skill is for results and pipelines where the failure mode is a
 check go red?* They are complements and they miss different things: an
 adversarial reviewer will not recompute your constants, and a gate will not
 notice that your framing is wrong.
+
+**A gate checks correctness, and cannot check comparability.** If two arms of a
+comparison are each individually correct but not *comparably implemented*, no
+anchor and no mutant will see it: nothing is broken, so nothing goes red. A
+published ablation reported one transform 11–24× slower than another and
+carried a caveat saying the number was implementation-bound; both arms passed
+every correctness check, and the real finding — one arm was a tuned BLAS call
+and the other an interpreted loop — was found by a human reviewer months of
+gate-work later. Related: **performance claims have no anchor in this
+framework at all.** There is no published constant for how fast your code
+should be. Wall-clock belongs to benchmarking discipline (matched
+implementation effort, min-of-trials, stated hardware), not to gating.
 
 One caution about pairing them. A same-model reviewer is an independent
 *context*, not an independent *reviewer* — it shares your priors, so the
