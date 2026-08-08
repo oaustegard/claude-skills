@@ -129,6 +129,80 @@ class UserService:
     assert find_method.doc == 'Find a user.'
 
 
+def test_python_decorated_functions():
+    """Decorated defs must not vanish.
+
+    Python wraps ``@deco``-ed definitions in a ``decorated_definition`` node.
+    A walk matching only ``function_definition`` drops them silently, which is
+    how ``recall``/``remember`` went missing from an indexed module whose whole
+    public API carries a decorator.
+    """
+    syms = parse_and_extract('python', b'''
+import functools
+
+@functools.cache
+def cached(name: str) -> str:
+    """Cached greeting."""
+    return name
+
+@app.route("/x")
+@auth_required
+def multi_decorated(a, b):
+    """Two decorators."""
+    return a
+
+def plain():
+    pass
+
+@decorator
+def _private_decorated():
+    pass
+''')
+    assert 'cached' in names(syms)
+    assert 'multi_decorated' in names(syms)
+    assert 'plain' in names(syms)
+    # The private filter still applies through the wrapper.
+    assert '_private_decorated' not in names(syms)
+
+    cached = find(syms, 'cached')
+    assert cached.kind == 'function'
+    assert cached.signature == '(name: str)'
+    assert cached.doc == 'Cached greeting.'
+    # Position is the `def` line, not the decorator line — callers seed a
+    # language server from it and need the line the token is on.
+    assert cached.line == 5
+
+
+def test_python_decorated_class_and_methods():
+    syms = parse_and_extract('python', b'''
+@dataclass
+class Config:
+    """Settings."""
+
+    @property
+    def name(self) -> str:
+        """The name."""
+        return self._name
+
+    @staticmethod
+    def build(raw: dict) -> "Config":
+        return Config()
+
+    def plain(self):
+        pass
+''')
+    cfg = find(syms, 'Config')
+    assert cfg.kind == 'class'
+    assert cfg.doc == 'Settings.'
+    method_names = [c.name for c in cfg.children]
+    assert 'name' in method_names
+    assert 'build' in method_names
+    assert 'plain' in method_names
+    name_method = next(c for c in cfg.children if c.name == 'name')
+    assert name_method.signature == '(self)'
+    assert name_method.doc == 'The name.'
+
+
 # ── C extractor ──────────────────────────────────────────────────────────
 
 def test_c_functions():
