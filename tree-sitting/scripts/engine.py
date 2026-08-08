@@ -280,10 +280,34 @@ def _python_docstring(node, source: bytes) -> str | None:
 
 # ─── Extractors ───────────────────────────────────────────────────────────
 
+def _unwrap_decorated(node):
+    """Return the def/class inside a ``decorated_definition``, else the node.
+
+    Python's grammar wraps ``@deco\\ndef f(): ...`` in a ``decorated_definition``
+    whose payload is the real ``function_definition`` / ``class_definition``. A
+    walk that matches only the bare types drops every decorated symbol, which in
+    practice is much of a module's public API surface.
+
+    The unwrapped node is deliberately what gets recorded, so ``line`` points at
+    the ``def`` rather than at the first decorator. Callers that seed a language
+    server from these positions (searching-codebases ``--refs``/``--def``) need
+    the line the symbol token is actually on.
+
+    The other extractors survive wrapper nodes already: ``_extract_generic``
+    recurses two levels, and the JS path unwraps ``export_statement`` explicitly.
+    Python's extractor is the only non-recursing one, so it needs this.
+    """
+    if node.type == 'decorated_definition':
+        for c in node.children:
+            if c.type in ('function_definition', 'class_definition'):
+                return c
+    return node
+
+
 def _extract_python(tree, source: bytes, relpath: str) -> list[Symbol]:
     symbols = []
     module = tree.root_node
-    children = list(module.children)
+    children = [_unwrap_decorated(n) for n in module.children]
     for i, node in enumerate(children):
         if node.type == 'function_definition':
             name = next((_get_text(c, source) for c in node.children if c.type == 'identifier'), '')
@@ -303,7 +327,7 @@ def _extract_python(tree, source: bytes, relpath: str) -> list[Symbol]:
                 # Extract methods
                 for child in node.children:
                     if child.type == 'block':
-                        for sc in child.children:
+                        for sc in (_unwrap_decorated(c) for c in child.children):
                             if sc.type == 'function_definition':
                                 mname = next((_get_text(c, source) for c in sc.children if c.type == 'identifier'), '')
                                 if mname:
