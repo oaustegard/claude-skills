@@ -2,6 +2,32 @@
 
 All notable changes to the `orchestrating-agents` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.6.0] - 2026-08-12
+
+### Fixed
+
+- **Surface routing no longer claims the native runtime lacks inter-agent
+  messaging.** The "reach back into this skill for what the runtime lacks" line
+  listed `AgentPool` messaging alongside stall detection and
+  `ConversationThread`. Claude Code and Cowork ship `SendMessage` and
+  `ListAgents`; `AgentPool` reimplements them worse. The skill previously
+  mentioned neither tool anywhere, so a reader following it would hand-roll a
+  fan-out for messaging the runtime already provides.
+
+### Added
+
+- Native inter-agent messaging subsection under the native-subagents branch,
+  covering four behaviors measured 2026-08-12 that the official docs do not
+  state: the incoming envelope's `from` attribute is the agent *type* and fails
+  as a reply address; subagents have no `ListAgents` at all, making the topology
+  a star through the main conversation rather than a mesh; delivery queues and
+  never interrupts a running tool; and a send resumes a completed agent with
+  full context that the agent cannot detect, at transcript-replay cost.
+- Note that `anthropics/claude-code#48160` and `ruvnet/ruflo#2028` report
+  subagents cannot originate `SendMessage`, contradicted by a CCotw measurement
+  on 2026-08-12 — flagged as environment-dependent and to be verified locally
+  rather than designed around.
+
 ## [0.5.0] - 2026-07-30
 
 ### Other
