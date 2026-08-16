@@ -4,6 +4,12 @@ All notable changes to the `declauding` skill are documented in this file. The f
 
 ## [0.1.1] - 2026-08-16
 
+### Other
+
+- declauding v0.1.1 — add README, --skip-quoted, and the fixes that missed #755 (#756)
+
+## [0.1.1] - 2026-08-16
+
 ### Added
 
 - `README.md`. Missing from 0.1.0: the commits carrying it landed on the branch after the merge and were lost when the branch was deleted.
