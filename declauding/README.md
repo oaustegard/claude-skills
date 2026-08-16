@@ -4,16 +4,17 @@ Removes LLM prose tics from a draft and returns plain human technical prose. The
 input is text; the output is either the rewritten text or an annotated HTML diff
 showing every edit with its original and its reason.
 
-Almost every tic it catches is one move: **the sentence is built to make the
-reader feel a finding arrive, instead of stating the finding.** The register
-catalogues the shapes that move takes. The fix is always the same: put a real
-subject in the subject slot, say the thing, stop.
+The register has two halves. Entries 1 to 23 are one move: **the sentence is
+built to make the reader feel a finding arrive, instead of stating the finding.**
+The fix is always the same: put a real subject in the subject slot, say the
+thing, stop. Entries 24 to 36 are the flatter slop patterns, where nothing is
+being staged and the prose is running on defaults.
 
 See [`SKILL.md`](SKILL.md) for the workflow, the overcorrection guard and the
 earned-exception table. See [`references/register.md`](references/register.md)
 for the catalogue. See [`CHANGELOG.md`](CHANGELOG.md) for version history.
 
-## Two modes
+## Two output modes
 
 | Mode | Output | Use for |
 |---|---|---|
@@ -23,11 +24,16 @@ for the catalogue. See [`CHANGELOG.md`](CHANGELOG.md) for version history.
 The annotated file has a toggle that hides the marks, so the same artifact
 serves as both the review and the result. No build step, no CDN, no server.
 
+Three call shapes change what comes back: pasted text returns the rewrite plus a
+short change list, file mode rewrites in place and reports a summary, and
+embedded mode (another agent calling this as one step) returns the final text
+and nothing else.
+
 ## Tics it catches
 
-Twenty-three entries in the register, grouped by mechanism rather than by
-phrase, since phrase blocklists miss the next paraphrase. The ones that show
-up in nearly every draft:
+Thirty-six entries. The first 23 are grouped by mechanism rather than by phrase,
+since phrase blocklists miss the next paraphrase. The ones that show up in nearly
+every draft:
 
 | Tic | Example |
 |---|---|
@@ -40,8 +46,32 @@ up in nearly every draft:
 | Straw-man knockdown | *"It thinks twice as long" is the obvious reading, and it is wrong.* |
 | Fragment cadence | *Six legs. One GPU, one server build, one sampler, one question set.* |
 
-Each entry carries the surface tell, why it is a tic, the fix, and a real
-before-and-after taken from a published draft.
+Entries 24 to 36 come from the Wikipedia AI Cleanup project's *Signs of AI
+writing*, by way of [blader/humanizer](https://github.com/blader/humanizer).
+They cover the register that shows up in encyclopedic summary, product copy,
+README boilerplate and pasted chat:
+
+| Tic | Example |
+|---|---|
+| Copula avoidance | *Gallery 825 serves as the exhibition space and boasts 3,000 square feet.* |
+| Participle tail | *…resonates with the region's beauty, symbolizing bluebonnets, reflecting the community's connection.* |
+| Forced triad | *keynote sessions, panel discussions, and networking opportunities* |
+| Elegant variation | *The protagonist… the main character… the central figure…* |
+| False range | *from the Big Bang to the cosmic web, from stars to dark matter* |
+| Inline-header list | *- **Performance:** Performance has been enhanced through optimized algorithms.* |
+| Chatbot residue | *I hope this helps! Let me know if you'd like me to expand on any section.* |
+| Filler and hedge stacking | *It could potentially possibly be argued that…* |
+| Speculative gap-filling | *…not publicly available, suggesting she maintains a low profile.* |
+| Diff-anchored documentation | *This function was added to replace the previous approach…* |
+| Subjectless fragment | *No configuration file needed. The results are preserved automatically.* |
+
+Each entry carries the surface tell, why it is a tic, the fix, and a
+before-and-after. The first 23 come from a real published draft; the second block
+keeps the Wikipedia specimens.
+
+Several of the second block are phrase lists rather than mechanisms, which is a
+real limitation and is stated as one in the register. They earn their place by
+being cheap to check.
 
 ## The linter
 
@@ -53,8 +83,13 @@ python3 scripts/declaude_lint.py DOC.md --skip-quoted # ignore quoted specimens
 ```
 
 Stdlib only. It flags the lexical tells with line numbers and categories, plus
-header shape, one-line-paragraph beats, fragment runs, em-dash density and
+header shape, Title Case headings, one-line-paragraph beats, fragment runs,
+inline-header bullets, em-dash density, curly-quote and emoji counts, and
 sentence-length monotony.
+
+`--skip-quoted` blanks blockquotes, table rows, code (fenced and inline),
+`*italic*` spans and `<q>` elements while preserving line numbers. Use it on any
+document that quotes bad prose as a specimen, this README included.
 
 It finds candidates and does not decide. Every hit still needs the
 sentence-level test, and no regex reaches a staged paragraph shape or a staged
@@ -66,11 +101,11 @@ as a pre-commit hook.
 ## False positives
 
 `tests/sample-clean.md` is human-written prose and must lint to zero.
-`tests/sample-tics.md` is a corpus of real specimens and currently reports 29
-candidates across 12 categories.
+`tests/sample-tics.md` is a corpus of real specimens and currently reports 58
+candidates across 23 categories.
 
 ```sh
-python3 scripts/declaude_lint.py tests/sample-tics.md    # 29 candidates
+python3 scripts/declaude_lint.py tests/sample-tics.md    # 58 candidates
 python3 scripts/declaude_lint.py tests/sample-clean.md   # 0
 ```
 
@@ -117,11 +152,43 @@ reports zero, bump `metadata.version`.
 Add a phrase to the register after two sightings in real drafts. One sighting
 can be a choice; two is a habit.
 
+## It must not invent specifics
+
+The fix for a vague sentence is a specific one, which is exactly how a register
+pass fabricates. *Experts believe it plays a crucial role* may become *the
+sources here do not say who studies it*, or may be cut. It may not become
+*researchers at Lanzhou University*. No name, number, date, quote or citation
+enters the rewrite unless the source or the author put it there. Stance and
+opinion are voice and stay; a factual claim the author did not make is a defect
+even when the result reads more human.
+
+## The author's own writing wins
+
+Given a sample of the author's writing, match its habits and let it override the
+rules here, including the em-dash density guard. Scrubbing a tell that is
+actually someone's voice makes the text less like them and no more human.
+
 ## Provenance
 
-Built from a register pass on an external benchmark post (2026-08-16), where 34
-passages carried about 45 tic instances across ten shapes. Every specimen in the
-register and the test corpus comes from a real published draft.
+Entries 1 to 23 came from a register pass on an external benchmark post
+(2026-08-16), where 34 passages carried about 45 tic instances across ten shapes.
+Every specimen in that half comes from a real published draft.
+
+Entries 24 to 36 came from a comparison against
+[blader/humanizer](https://github.com/blader/humanizer) (v2.9.1, MIT), which
+packages the Wikipedia AI Cleanup project's
+[Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing)
+as a portable skill. Measured before porting: a probe file of 19 humanizer
+specimens produced 2 candidates from this linter, neither for the right reason.
+It now produces 33 across 13 categories. The no-fabrication rule, the
+voice-sample precedence, the embedded invocation mode and the "leave these alone"
+list are also from that skill.
+
+The two skills cover different halves of the problem and both remain worth
+reading. Humanizer is broader on encyclopedic and promotional slop and ships as a
+harness-neutral single file; this one goes deeper on the staging mechanisms,
+ships a linter with a false-positive budget, and treats a tic as a signal that
+the sentence may also be factually wrong.
 
 ## Complements
 

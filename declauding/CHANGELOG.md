@@ -2,6 +2,57 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.2.0] - 2026-08-16
+
+Absorbs what a comparison against [blader/humanizer](https://github.com/blader/humanizer)
+v2.9.1 (MIT) showed this skill was missing. Humanizer packages the Wikipedia AI
+Cleanup project's *Signs of AI writing*; its coverage of encyclopedic and chatbot
+slop is broader than the two vocabulary entries this register had.
+
+Measured before porting: a probe of 19 humanizer specimens produced 2 candidates
+from `declaude_lint.py`, neither for the right reason. It now produces 33 across
+13 categories.
+
+### Added
+
+- Register entries 24 to 36, in a second block that names itself as a different
+  family from the staging mechanisms: copula avoidance, participle tail, forced
+  triad, elegant variation, false range, inline-header list, typographic tells,
+  chatbot residue, filler and hedge stacking, speculative gap-filling,
+  diff-anchored documentation, subjectless fragment, predicate-position
+  hyphenation. The block states that several of them are phrase lists rather than
+  mechanisms and will leak.
+- "Do not invent specifics" in `SKILL.md`, and a fourth failure mode in workflow
+  step 5. De-vaguing a sentence is how a register pass fabricates, and the skill
+  previously warned only against changing claims, not against supplying a name or
+  number the source does not have.
+- Voice-sample precedence. A sample of the author's writing outranks every rule
+  here, including the em-dash density guard.
+- Three invocation modes: pasted text, file, and embedded (another agent calling
+  this as one step, which returns text and nothing else).
+- "Leave these alone" section: the positive signals of human writing, and the
+  things that are not tells on their own.
+- Linter rules for the new lexical entries, plus Title Case heading detection and
+  document-level curly-quote and emoji counts. Eleven new categories.
+- 13 new specimens in `tests/sample-tics.md`, which now reports 58 candidates
+  across 23 categories. `tests/sample-clean.md` stays at 0.
+
+### Changed
+
+- Content preservation now licenses structural rearrangement: every claim
+  survives, but paragraphs may merge or split and depth need not be uniform.
+
+### Fixed
+
+- `--skip-quoted` blanked spans before lines, so a bold marker inside a table
+  cell could mis-pair the italic regex across lines and leave that row's
+  specimens visible. It also never blanked code, so a tell quoted in backticks
+  reported as a hit. Fenced blocks and inline spans are blanked now, and the
+  line pass runs first.
+- The emoji count included U+2190 to U+21FF and U+2300 to U+23FF, so a plain
+  arrow or a technical symbol in ordinary prose reported as decoration.
+  Narrowed to the emoji-presentation blocks.
+
 ## [0.1.1] - 2026-08-16
 
 ### Other

@@ -337,6 +337,267 @@ drop, "exactly" where the contrast already carries it.
 
 ---
 
+# Encyclopedic and chatbot patterns
+
+Entries 1 to 23 are staging mechanisms: a sentence built so the reader feels a
+finding arrive. Entries 24 to 36 are a different family. They come from the
+Wikipedia AI Cleanup project's *Signs of AI writing*, by way of the
+[humanizer](https://github.com/blader/humanizer) skill, and they show up in the
+flatter registers — encyclopedic summary, product copy, README boilerplate,
+pasted chat transcripts — where the writing is not staging anything, just
+running on defaults.
+
+Several of these are surface patterns rather than mechanisms, which is a real
+limitation: a phrase list misses the next paraphrase, and entries 30 and 31 in
+particular are lists. They stay because they are cheap to check and they fire on
+text nobody would otherwise re-read.
+
+---
+
+## 24. Copula avoidance
+
+**Tell:** "serves as", "stands as", "represents", "marks", "boasts", "features",
+"offers" where "is" or "has" would do.
+
+**Why:** the elaborate verb adds a beat of ceremony and usually a claim the
+source does not make. "Serves as" implies purpose; "is" states a fact.
+
+**Fix:** use the copula.
+
+> was: *Gallery 825 serves as LAAA's exhibition space. The gallery features four
+> separate spaces and boasts over 3,000 square feet.*
+> now: *Gallery 825 is LAAA's exhibition space. It has four rooms totalling 3,000
+> square feet.*
+
+---
+
+## 25. Participle tail
+
+**Tell:** a clause tacked onto the end of a sentence with a present participle —
+"highlighting", "underscoring", "emphasizing", "reflecting", "symbolizing",
+"showcasing", "ensuring", "fostering", "contributing to", "encompassing".
+
+**Why:** the tail asserts significance the sentence has not earned, and it is
+almost always unsourced. Two or three stacked in one sentence is the strongest
+single tell in this family.
+
+**Fix:** cut the tail. If the claim inside it is real and sourced, make it its
+own sentence.
+
+> was: *The temple's palette resonates with the region's natural beauty,
+> symbolizing Texas bluebonnets and the Gulf of Mexico, reflecting the
+> community's deep connection to the land.*
+> now: *The temple is painted blue, green and gold, colours chosen to evoke
+> Texas bluebonnets and the Gulf of Mexico.*
+
+---
+
+## 26. Forced triad
+
+**Tell:** three parallel items where the content has two or five — "keynote
+sessions, panel discussions, and networking opportunities", "innovation,
+inspiration, and industry insights".
+
+**Why:** three reads as complete, so the model pads to three or truncates to
+three. The count is chosen by rhythm rather than by the content.
+
+**Fix:** list what there is. Two items is a normal number.
+
+> was: *The event features keynote sessions, panel discussions, and networking
+> opportunities.*
+> now: *The event has talks and panels, with time between them to talk to people.*
+
+**Earned when** there are genuinely three things.
+
+---
+
+## 27. Elegant variation
+
+**Tell:** the same referent renamed on every mention — protagonist, main
+character, central figure, hero; the model, the system, the network, the
+architecture.
+
+**Why:** repetition penalties push the next token away from the word already
+used. Human technical writers repeat the noun, because a second name for a thing
+reads as a second thing.
+
+**Fix:** pick the noun and keep it. Repetition is clarity here, not a defect.
+
+> was: *The protagonist faces many challenges. The main character must overcome
+> obstacles. The central figure eventually triumphs.*
+> now: *The protagonist faces many challenges and eventually wins.*
+
+---
+
+## 28. False range
+
+**Tell:** "from X to Y" where X and Y are not endpoints of any scale — "from the
+Big Bang to dark matter", "from startups to enterprises", "from onboarding to
+retention".
+
+**Why:** the construction promises a spectrum and delivers two examples, so it
+implies coverage the sentence does not have.
+
+**Fix:** list the items, or name the actual range with its actual endpoints.
+
+> was: *Our journey has taken us from the singularity of the Big Bang to the
+> grand cosmic web, from the birth of stars to the dance of dark matter.*
+> now: *The book covers the Big Bang, star formation and current theories about
+> dark matter.*
+
+---
+
+## 29. Inline-header list
+
+**Tell:** bullets that open with a bolded label and a colon, where the label
+restates the first words of the item — `- **Performance:** Performance has been
+improved`.
+
+**Why:** it is an outline rendered as prose. The labels carry no information the
+sentences do not, and the shape survives from the model's plan into the output.
+
+**Fix:** write the paragraph, or cut the labels and keep the bullets, or keep the
+labels only where they are a real index (a term being defined, an option name).
+
+> was: *- **Performance:** Performance has been enhanced through optimized
+> algorithms.*
+> now: *Load times dropped after the index moved off the hot path.*
+
+---
+
+## 30. Typographic tells
+
+**Tell:** bold scattered mid-sentence on phrases that are not terms; Title Case
+On Every Word Of A Heading; emoji as bullet or heading decoration; curly quotes
+in a plain-text or code context.
+
+**Why:** none of these is wrong on its own, and each has an innocent source
+(Word, a CMS, a house style). They matter as a cluster, and they matter most in
+documents where the surrounding convention is clearly different.
+
+**Fix:** bold for terms on first use and nothing else; sentence case in headings;
+no emoji unless the document already uses them; straight quotes in anything a
+program will read.
+
+**Not a tell on its own.** Curly quotes are the default in most editors, and one
+bolded term is normal writing.
+
+---
+
+## 31. Chatbot residue
+
+**Tell:** the conversational wrapper left in the pasted text — "Great question",
+"Certainly", "You're absolutely right", "I hope this helps", "Let me know if
+you'd like", "Would you like me to", "Want me to give examples", "Here is an
+overview of".
+
+**Why:** it is correspondence, not content. It reaches the document because
+someone pasted a reply rather than an artifact.
+
+**Fix:** delete. There is no rewrite; the sentence has no content.
+
+---
+
+## 32. Filler and hedge stacking
+
+**Tell:** phrases that expand without adding — "in order to", "due to the fact
+that", "at this point in time", "in the event that", "has the ability to", "it is
+important to note that"; and hedges in series — "could potentially possibly",
+"might arguably suggest".
+
+**Why:** each is a token-cheap way to sound careful. Stacked hedges do not make a
+claim more careful, only harder to hold to.
+
+**Fix:** "to", "because", "now", "if", "can". One hedge carries all the
+uncertainty three of them do.
+
+> was: *It could potentially possibly be argued that the policy might have some
+> effect on outcomes.*
+> now: *The policy may affect outcomes.*
+
+**Do not overcorrect.** A hedge with content ("on the two runs that finished") is
+a caveat and stays. See the Overcorrection section of `SKILL.md`.
+
+---
+
+## 33. Speculative gap-filling
+
+**Tell:** "while specific details are limited", "based on available information",
+"not publicly available", "maintains a low profile", "keeps personal details
+private", "likely grew up", "it is believed that", "as of my last update".
+
+**Why:** two tells with one cause. The model cannot find a source, writes a
+sentence about not finding one, then fills the gap with the stock guess. The
+guess is unsourced and the meta-sentence is about the model, not the subject.
+
+**Fix:** say what is not known, or cut the sentence. Never dress the guess as
+fact.
+
+> was: *Information about her early life is not publicly available, suggesting
+> she maintains a low profile. She likely grew up in a middle-class household.*
+> now: *Her early life is not documented in the sources used here.*
+
+---
+
+## 34. Diff-anchored documentation
+
+**Tell:** documentation or a code comment that narrates a change rather than
+describing the thing — "this function was added to replace", "we now use", "the
+previous approach was", "this has been updated to".
+
+**Why:** the document is being written from the diff that produced it, so it
+reads coherently only to someone who knows what the last commit did. Six months
+later nobody does.
+
+**Fix:** describe the current state. The change belongs in the commit message or
+the changelog, which are version-scoped by design.
+
+> was: *This function was added to replace the previous approach of iterating
+> through all items, which caused quadratic performance.*
+> now: *Looks up items through a hash map, so cost is constant per item rather
+> than quadratic in the list length.*
+
+---
+
+## 35. Subjectless fragment
+
+**Tell:** a claim with the actor removed — "No configuration file needed", "The
+results are preserved automatically", "Changes applied on save".
+
+**Why:** the reader cannot tell who does the thing, which matters most in exactly
+the documents where these appear: who preserves the results, and can I rely on
+it? Related to abstraction agency (entry 4), which puts the wrong subject in the
+slot rather than none.
+
+**Fix:** name the actor.
+
+> was: *No configuration file needed. The results are preserved automatically.*
+> now: *You do not need a config file. The runner writes results to `out/` when
+> the job exits.*
+
+**Earned when** the register is genuinely clipped throughout — release notes, a
+feature table, a CLI help string.
+
+---
+
+## 36. Predicate-position hyphenation
+
+**Tell:** a compound modifier keeping its hyphen after the noun — "the report is
+high-quality", "the team is cross-functional", "the pipeline is end-to-end".
+
+**Why:** the model hyphenates the pair uniformly wherever it appears. Human
+writers hyphenate attributively and mostly drop it in the predicate.
+
+**Fix:** keep the hyphen before the noun, drop it after.
+
+> was: *The team is cross-functional and the report is data-driven.*
+> now: *The team is cross functional and the report is data driven.*
+
+**Minor.** One instance proves nothing; a document that hyphenates every pair in
+both positions is a cluster member.
+
+---
+
 ## Quick self-check before shipping an edit
 
 1. Does any sentence exist to make a finding feel bigger than it is?
@@ -347,3 +608,7 @@ drop, "exactly" where the contrast already carries it.
 6. Does the last paragraph paraphrase the subtext of the piece?
 7. Did the edit remove content, change a claim, or add hedging?
 8. Does the result still sound like a person with opinions?
+9. Does any sentence end in a participle tail that asserts significance?
+10. Does the rewrite contain a fact, name, number, date or citation that is not
+    in the source? A fabrication is a defect even when it sounds more human than
+    the vague original.
