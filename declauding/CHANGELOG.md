@@ -2,6 +2,22 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.2.1] - 2026-08-16
+
+### Added
+
+- Register entry 37, dressed metaphor: a figure of speech standing in for a
+  mechanism you could have named ("wearing the costume of", "dressed up as",
+  visceral imagery on a mundane observation). Entry 6 covers the locational
+  special case; this is the general one. The entry states that no regex reaches
+  it, and both its specimens shipped past a clean lint report, one of them into
+  a patch headed for another project.
+- Lint rule for mid-paragraph `X is A, not B`. The existing rule anchors on
+  end-of-line, so it caught the construction only as a closer.
+- Three specimens for entry 37 in `tests/sample-tics.md`, which now reports 62
+  candidates across 24 categories. Two of the three are invisible to the linter
+  by design, which is the entry's point.
+
 ## [0.2.0] - 2026-08-16
 
 ### Other

@@ -25,6 +25,7 @@ RULES: list[tuple[str, str, str]] = [
     ("negation-first", r"\bthe\s+(?:problem|failure|issue|point|question|bug|risk)\s+(?:wasn't|isn't|was not|is not)\b", "the problem wasn't X"),
     ("negation-first", r"[.!?]\s+Not\s+(?:that|because|a|an|the)\b[^.]{0,60}\.", "trailing 'Not X.' fragment"),
     ("negation-first", r",\s*not\s+[a-z][^.]{0,40}\.\s*$", "X, not Y closer"),
+    ("negation-first", r"\b(?:is|are|was|were)\s+[a-z]{3,20},\s*not\s+[a-z]{3,20}\.", "X is A, not B — mid-paragraph, check the reader was holding B"),
 
     # --- significance designation -------------------------------------------
     ("significance", r"\bthe\s+(?:real|actual|true|useful|interesting|important|key)\s+(?:question|problem|issue|point|reason|answer|finding|story|move|tool|test|variable|number)\b", "the real/actual X"),

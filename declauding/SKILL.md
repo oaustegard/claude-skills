@@ -2,7 +2,7 @@
 name: declauding
 description: Removes LLM prose tics from drafts — staged reveals, "it's not X, it's Y", significance tags, abstraction agency, coy headers, fragment cadence, plus the flatter slop patterns (copula avoidance, participle tails, forced triads, chatbot residue, filler and hedging) — and returns plain human technical prose. Use when text needs editing for register, when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make this sound human", "remove the tics/claudisms", or asks for a voice/register pass on a post, README, report, PR description or essay. Also use before publishing any draft Claude wrote. Produces either clean prose or an annotated HTML diff showing every edit with its original and reason.
 metadata:
-  version: 0.2.0
+  version: 0.2.1
 ---
 
 # Declauding
@@ -54,7 +54,8 @@ performing having had the thought?* Say the thing.
 Entries 24 to 36 are a second family — the flatter encyclopedic and chatbot
 patterns, where nothing is being staged and the writing is just running on
 defaults. Copula avoidance, participle tails, forced triads, chatbot residue.
-Different mechanism, same pass.
+Different mechanism, same pass. Entry 37 is back in the staging family and sits
+last only because it arrived last.
 
 ## The author's own writing outranks this skill
 
