@@ -57,10 +57,9 @@ write one note that names each.
 **Name the tic from the register's vocabulary.** The reader should finish with
 a vocabulary, not forty unrelated opinions.
 
-**Say why this instance is a tic**, not what the category means. "The reader
-never proposed the wrong answer" is a general truth; "the previous paragraph
-proposed quantization, so this contrast is earned" is a note about the text in
-front of you.
+**Say why this instance is a tic.** Explaining the category teaches nothing. *The reader never proposed the wrong answer* is a general
+truth. *The previous paragraph proposed quantization, so this contrast is
+earned* is a note about the text in front of you.
 
 **Note the earned exceptions where they survive.** When a negation or a short
 closer stays in, mark it and say what made it legitimate. The contrast between
@@ -71,8 +70,8 @@ than either alone.
 notes inflates the count and fragments the reading.
 
 **Report contradictions in their own note, marked.** Use `<aside class="ed
-flag"><b>factual</b> …</aside>`. Do not fix them in the rewrite. The author
-decides which version is true.
+flag"><b>factual</b> …</aside>`. Do not fix them in the rewrite, since only the
+author can say which version is true.
 
 ## Structure of the page
 
