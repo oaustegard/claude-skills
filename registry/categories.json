@@ -98,7 +98,8 @@
     "social-and-lifestyle": {
       "description": "Social media browsing, content analysis, music control, and everyday utility tools.",
       "skills": [
-        "browsing-bluesky",
+        "atprotoing",
+      "browsing-bluesky",
         "categorizing-bsky-accounts",
         "controlling-spotify",
         "making-waffles",
