@@ -38,7 +38,7 @@ RULES: list[tuple[str, str, str]] = [
     # --- abstraction agency --------------------------------------------------
     ("agency", r"\b(?:the\s+)?(?:table|chart|graph|data|numbers?|median|mean|metric|figure|plot|log|code|result|headline)\s+(?:shows?|hides?|tells?|reveals?|says?|proves?|admits?|knows?|wants?)\b", "inanimate subject acting"),
     ("agency", r"\b(?:is|are|was|were)\s+doing\s+the\s+work\b", "X is doing the work"),
-    ("agency", r"\b(?:earns?|demands?|wants?|buys?|deserves?)\s+(?:its|their|the)\s+\w+", "abstraction earning something"),
+    ("agency", r"(?<!\bI )(?<!\byou )(?<!\bwe )(?<!\bthey )\b(?:earns?|demands?|buys?|deserves?)\s+(?:its|their|the)\s+\w+", "abstraction earning something"),
     ("agency", r"\b(?:truncation|quantization|rescoring|compression|optimization|abstraction|complexity|scalability)\s+(?:cuts?|adds?|breaks?|solves?|reranks?|is a concern)\b", "nominalization as agent"),
     ("agency", r"\b(?:about to|going to)\s+discover\b", "tool personified"),
 
@@ -116,6 +116,17 @@ CATEGORY_ORDER = [
 COMPILED = [(cat, re.compile(pat, re.I | re.M), note) for cat, pat, note in RULES]
 
 
+def _blank_quoted(text: str) -> str:
+    """Blank out quoted specimens, preserving line numbering."""
+    def blank(m: re.Match) -> str:
+        return "\n" * m.group(0).count("\n")
+
+    text = re.sub(r"(?<!\*)\*[^*]+\*(?!\*)", blank, text)      # *italic*, may wrap lines
+    text = re.sub(r"<q>.*?</q>", blank, text, flags=re.S)
+    return "\n".join("" if ln.lstrip().startswith((">", "|")) else ln
+                      for ln in text.splitlines())
+
+
 def scan_lines(text: str) -> list[dict]:
     hits: list[dict] = []
     lines = text.splitlines()
@@ -184,6 +195,9 @@ def _fragment_runs(text: str) -> list[dict]:
 def scan_density(text: str) -> list[dict]:
     out = []
     body = re.sub(r"```.*?```", "", text, flags=re.S)
+    # headings, table rows and list bullets are not sentences
+    body = "\n".join(ln for ln in body.splitlines()
+                      if not ln.lstrip().startswith(("#", "|", "-", "*", ">")))
     words = len(body.split()) or 1
 
     dashes = len(re.findall(r"—|(?<= )--(?= )", body))
@@ -216,9 +230,13 @@ def main() -> int:
     ap.add_argument("path", help="file to scan, or - for stdin")
     ap.add_argument("--json", action="store_true", help="machine-readable output")
     ap.add_argument("--quiet-slop", action="store_true", help="hide the slop/editorializing/time categories")
+    ap.add_argument("--skip-quoted", action="store_true",
+                    help="ignore blockquotes, *italic* spans and table cells — use on docs that quote bad prose as specimens")
     args = ap.parse_args()
 
     text = sys.stdin.read() if args.path == "-" else Path(args.path).read_text(encoding="utf-8")
+    if args.skip_quoted:
+        text = _blank_quoted(text)
 
     hits = scan_lines(text) + scan_density(text)
     if args.quiet_slop:
