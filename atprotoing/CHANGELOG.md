@@ -6,6 +6,12 @@ All notable changes to the `atprotoing` skill are documented in this file. The f
 
 ### Added
 
+- AppView-independent ATProto reads (#758)
+
+## [0.1.0] - 2026-08-16
+
+### Added
+
 - Initial release, written during the 2026-08-16 Bluesky AppView outage.
 - Transport resolver routing each read to a source that survives independently:
   PDS for repo records, Constellation for backlinks, `plc.directory` and the
