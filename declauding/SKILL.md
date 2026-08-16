@@ -19,7 +19,7 @@ Two output modes:
 
 Almost every tic in `references/register.md` is a version of the same move:
 **the sentence is built to make the reader feel a finding arrive, instead of
-stating the finding.** Staging, not stating.
+stating the finding.**
 
 The generative test, applied per sentence: *am I saying the thing, or
 performing having had the thought?* Say the thing.
@@ -28,8 +28,8 @@ performing having had the thought?* Say the thing.
 
 **1. Read the whole piece before editing anything.** Tics carry factual errors.
 A sentence written to sound important is disproportionately likely to be wrong,
-because it was built for shape rather than for accuracy — designations like "the
-X that answers the real question" frequently designate the wrong X, and the
+because it was built for shape rather than for accuracy. Designations of the form
+*the X that answers the real question* frequently designate the wrong X, and the
 draft itself often contradicts them a paragraph later. Note contradictions now;
 they are the most valuable thing this pass produces.
 
@@ -61,8 +61,8 @@ what preceded it? delete it).
 - Mush. See Overcorrection below.
 
 **6. Report factual problems separately.** Never silently fix a contradiction
-found while editing. The author needs to know their draft disagreed with itself,
-and which version is true is their call, not the editor's.
+found while editing. The author needs to know their draft disagreed with
+itself, and only they can say which version is true.
 
 ## Overcorrection
 
@@ -108,7 +108,8 @@ Rules that make the annotation useful rather than decorative:
   an assertion.
 - Name the tic using the register's vocabulary so the reader accumulates a
   vocabulary rather than 40 unrelated opinions.
-- Say why *this instance* is a tic, not what the category means in general.
+- Say why *this instance* is a tic. Explaining the category teaches nothing
+  about the text in front of the reader.
 - Mark what was kept and why. A pass that only flags failures teaches avoidance.
 - Bundle stacked tics into one note per passage. Do not split a sentence into
   four notes to inflate the count.
