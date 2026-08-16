@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.0816.1351"
+    "version": "2026.0816.2001"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -206,6 +206,7 @@
       "license": "MIT",
       "category": "Social And Lifestyle",
       "keywords": [
+        "atprotoing",
         "browsing-bluesky",
         "categorizing-bsky-accounts",
         "controlling-spotify",
