@@ -4,6 +4,12 @@ All notable changes to the `declauding` skill are documented in this file. The f
 
 ## [0.2.0] - 2026-08-16
 
+### Other
+
+- declauding v0.2.0 — absorb the encyclopedic and chatbot register from humanizer (#760)
+
+## [0.2.0] - 2026-08-16
+
 Absorbs what a comparison against [blader/humanizer](https://github.com/blader/humanizer)
 v2.9.1 (MIT) showed this skill was missing. Humanizer packages the Wikipedia AI
 Cleanup project's *Signs of AI writing*; its coverage of encyclopedic and chatbot
