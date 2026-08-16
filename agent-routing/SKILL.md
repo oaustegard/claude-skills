@@ -4,7 +4,7 @@ description: Decide which model (Haiku/Sonnet/Opus) and effort level each subage
 compatibility: Designed for Claude Code / Claude Code on the Web — assumes an orchestrator with Agent/Workflow subagent tools exposing per-call model and effort options. Not applicable to claude.ai chat use.
 metadata:
   author: Oskar Austegard and Claude (Fable 5)
-  version: "1.3.0"
+  version: "1.4.0"
 ---
 
 # Agent Routing — model + effort selection for subagents
@@ -27,12 +27,17 @@ routing; that one engineers the prompt.
 
 ## Context handoff — routing picks the tier; the prompt carries the context
 
-Subagents inherit nothing: not the conversation, not loaded skills, not the
-existence of artifacts already on disk. Every index, scan output, artifact
-path, or tool-invocation recipe the orchestrator relies on must be serialized
-into the subagent's prompt (or written to a file the prompt points at).
-Otherwise the agent falls back to blind rediscovery — and the tier premium is
-spent on crawling, not judgment. A Sonnet with no handoff wastes more than a
+Subagents do not inherit the conversation — but they are not blank either.
+Measured 2026-08-16 (CCotw Workflow node, run `wf_125b7073-75f`): a node asked
+what context it held reported the full project layer — system prompt, CLAUDE.md
+/ project instructions — and zero knowledge of the conversation that spawned
+it. The split: the project kernel travels automatically; everything the
+orchestrator learned or produced in-session does not — not loaded-skill state,
+not scan output, not the existence of artifacts already on disk. Every index,
+artifact path, or tool-invocation recipe the orchestrator relies on must be
+serialized into the subagent's prompt (or written to a file the prompt points
+at). Otherwise the agent falls back to blind rediscovery — and the tier premium
+is spent on crawling, not judgment. A Sonnet with no handoff wastes more than a
 Haiku with a good procedure.
 
 This is the context-side twin of down-skilling: that skill engineers the
@@ -47,6 +52,19 @@ Evidence: 2026-07-16, four Sonnet Explore agents launched onto a 2,300-file
 repo without the handoff opened with `ls` crawls despite a full tree-sitter
 symbol index sitting on disk; relaunched with per-agent index slices + the
 verbatim tool command + anti-crawl rules, discovery cost dropped to ~zero.
+
+**The inherited kernel is a fixed per-node cost — budget fan-outs as
+N × kernel.** The project layer rides along whether the sub-task needs it or
+not: two trivial Haiku nodes measured 67,085 subagent tokens total (~33k each)
+under a heavy CLAUDE.md (same 2026-08-16 run). For small checkable items the
+kernel dwarfs the task, so batch them — one agent handling ten items pays one
+kernel, ten agents pay ten. Two corollaries: (1) the shared-prefix caching note
+below gets the kernel as a byte-stable shared lead for free, which softens but
+does not erase the N× cost; (2) the inheritance runs one way — a prompt can add
+context to a node, but nothing strips the kernel per-node, so a sub-task that
+needs isolation from the project's own vocabulary cannot get it inside the
+session. Measured once, on a CCotw Workflow node; verify on other surfaces
+before leaning on the exact numbers.
 
 ## Routing table
 
