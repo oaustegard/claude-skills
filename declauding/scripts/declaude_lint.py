@@ -174,8 +174,10 @@ TITLE_CASE_SKIP = {
     "a", "an", "and", "as", "at", "but", "by", "for", "from", "in", "into",
     "nor", "of", "on", "onto", "or", "over", "the", "to", "up", "via", "with",
 }
+# Emoji-presentation blocks only. An earlier version included U+2190-U+21FF and
+# U+2300-U+23FF, so a plain -> arrow or a technical symbol reported as decoration.
 EMOJI_RE = re.compile(
-    "[\U0001F000-\U0001FAFF←-⇿⌀-➿⬀-⯿️]"
+    "[\U0001F300-\U0001FAFF☀-➿]|.️"
 )
 
 CATEGORY_ORDER = [
@@ -200,6 +202,8 @@ def _blank_quoted(text: str) -> str:
     # leaving the row's own specimens visible to the scanner.
     text = "\n".join("" if ln.lstrip().startswith((">", "|")) else ln
                      for ln in text.splitlines())
+    text = re.sub(r"```.*?```", blank, text, flags=re.S)       # fenced code
+    text = re.sub(r"`[^`\n]+`", blank, text)                   # inline code span
     text = re.sub(r"(?<!\*)\*[^*]+\*(?!\*)", blank, text)      # *italic*, may wrap lines
     return re.sub(r"<q>.*?</q>", blank, text, flags=re.S)
 

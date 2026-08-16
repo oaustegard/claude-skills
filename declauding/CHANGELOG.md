@@ -42,6 +42,17 @@ from `declaude_lint.py`, neither for the right reason. It now produces 33 across
 - Content preservation now licenses structural rearrangement: every claim
   survives, but paragraphs may merge or split and depth need not be uniform.
 
+### Fixed
+
+- `--skip-quoted` blanked spans before lines, so a bold marker inside a table
+  cell could mis-pair the italic regex across lines and leave that row's
+  specimens visible. It also never blanked code, so a tell quoted in backticks
+  reported as a hit. Fenced blocks and inline spans are blanked now, and the
+  line pass runs first.
+- The emoji count included U+2190 to U+21FF and U+2300 to U+23FF, so a plain
+  arrow or a technical symbol in ordinary prose reported as decoration.
+  Narrowed to the emoji-presentation blocks.
+
 ## [0.1.1] - 2026-08-16
 
 ### Other

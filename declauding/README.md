@@ -87,6 +87,10 @@ header shape, Title Case headings, one-line-paragraph beats, fragment runs,
 inline-header bullets, em-dash density, curly-quote and emoji counts, and
 sentence-length monotony.
 
+`--skip-quoted` blanks blockquotes, table rows, code (fenced and inline),
+`*italic*` spans and `<q>` elements while preserving line numbers. Use it on any
+document that quotes bad prose as a specimen, this README included.
+
 It finds candidates and does not decide. Every hit still needs the
 sentence-level test, and no regex reaches a staged paragraph shape or a staged
 closer, so **a clean report means nothing on its own.**
