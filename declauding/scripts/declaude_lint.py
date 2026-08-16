@@ -100,17 +100,91 @@ RULES: list[tuple[str, str, str]] = [
     # --- staging (more) ------------------------------------------------------
     ("staging", r"\b(?:here|this)\s+is\s+what\s+[^.]{0,60}\blooks?\s+like\b", "here is what X looks like"),
     ("staging", r"\bthen\s+the\s+(?:useful|real|interesting)\s+question\b", "heralding your own question"),
+
+    # ===== entries 24-36: encyclopedic and chatbot patterns ==================
+
+    # --- copula avoidance ----------------------------------------------------
+    ("copula", r"\b(?:serves?|stands?|acts?)\s+as\s+(?:a|an|the)\b", "serves as — use is"),
+    ("copula", r"\bboasts?\s+(?:a|an|the|over|more than|some|\d)", "boasts — use has"),
+    ("copula", r"\b(?:it|which|that|the\s+\w+)\s+features\s+(?:a|an|the|over|\d)", "features — use has"),
+    ("copula", r"\b(?:represents|marks)\s+(?:a|an|the)\s+(?:shift|turning point|milestone|step|departure|moment)\b", "represents a shift"),
+
+    # --- participle tail -----------------------------------------------------
+    ("participle", r",\s*(?:highlight|underscor|emphasiz|reflect|symboliz|showcas|ensur|foster|cultivat|encompass|solidif|cement|underlin)\w*ing\b", "participle tail asserting significance"),
+    ("participle", r",\s*contributing\s+to\b", "participle tail asserting significance"),
+
+    # --- false range ---------------------------------------------------------
+    ("false-range", r"\bfrom\s+[^,.;]{3,45}\s+to\s+[^,.;]{3,45},\s*from\s+", "stacked from-X-to-Y ranges"),
+    ("false-range", r"\b(?:everything|anything|ranging)\s+from\b[^.]{0,60}\bto\b", "false range — list the items"),
+
+    # --- inline-header list --------------------------------------------------
+    ("list-shape", r"^\s*[-*+]\s+\*\*[^*\n]{2,45}\*\*\s*:", "inline-header bullet — the label restates the item"),
+    ("list-shape", r"^\s*[-*+]\s+\*\*[^*\n]{2,45}:\*\*", "inline-header bullet — the label restates the item"),
+
+    # --- chatbot residue -----------------------------------------------------
+    ("chatbot", r"\b(?:great|excellent|good)\s+question\b", "chatbot residue"),
+    ("chatbot", r"\byou'?re\s+absolutely\s+right\b", "chatbot residue"),
+    ("chatbot", r"\bI\s+hope\s+this\s+helps\b", "chatbot residue"),
+    ("chatbot", r"\blet\s+me\s+know\s+if\s+you'?d\b", "chatbot residue"),
+    ("chatbot", r"\b(?:would|do)\s+you\s+(?:like|want)\s+me\s+to\b", "chatbot residue"),
+    ("chatbot", r"\bwant\s+me\s+to\s+(?:give|show|expand|continue|explain)\b", "chatbot residue"),
+    ("chatbot", r"\b(?:should|shall)\s+I\s+continue\b", "chatbot residue"),
+    ("chatbot", r"^\s*(?:Certainly|Of course|Absolutely)[!,]", "chatbot residue"),
+    ("chatbot", r"\bhere\s+is\s+an\s+overview\s+of\b", "chatbot residue"),
+
+    # --- filler and hedge stacking -------------------------------------------
+    ("filler", r"\bin\s+order\s+to\b", "in order to — use to"),
+    ("filler", r"\bdue\s+to\s+the\s+fact\s+that\b", "due to the fact that — use because"),
+    ("filler", r"\bat\s+this\s+point\s+in\s+time\b", "at this point in time — use now"),
+    ("filler", r"\bin\s+the\s+event\s+that\b", "in the event that — use if"),
+    ("filler", r"\bhas\s+the\s+ability\s+to\b", "has the ability to — use can"),
+    ("filler", r"\bit\s+is\s+important\s+to\s+note\s+that\b", "delete the frame, keep the claim"),
+    ("filler", r"\b(?:could|might|may|can)\s+(?:potentially|possibly|arguably|conceivably)\b", "stacked hedges — one carries the uncertainty"),
+    ("filler", r"\bpotentially\s+possibly\b", "stacked hedges"),
+
+    # --- speculative gap-filling ---------------------------------------------
+    ("gap-fill", r"\bmaintains?\s+a\s+low\s+profile\b", "stock filler for an absent source"),
+    ("gap-fill", r"\bkeeps?\s+(?:personal\s+)?details?\s+private\b", "stock filler for an absent source"),
+    ("gap-fill", r"\b(?:is|are)\s+not\s+publicly\s+available\b", "say what is not known, or cut"),
+    ("gap-fill", r"\bbased\s+on\s+(?:the\s+)?available\s+information\b", "meta-sentence about the search, not the subject"),
+    ("gap-fill", r"\bas\s+of\s+my\s+last\s+(?:update|training)\b", "knowledge-cutoff disclaimer"),
+    ("gap-fill", r"\bdetails\s+(?:about|are)[^.]{0,50}\b(?:limited|scarce|not\s+extensively)\b", "meta-sentence about the search"),
+    ("gap-fill", r"\bit\s+is\s+believed\s+that\b", "unsourced guess"),
+    ("gap-fill", r"\blikely\s+(?:grew\s+up|studied|began|started|attended)\b", "unsourced guess about a person"),
+
+    # --- diff-anchored documentation -----------------------------------------
+    ("diff-anchored", r"\b(?:was|were)\s+added\s+to\s+(?:replace|fix|handle|support)\b", "documents the change, not the thing"),
+    ("diff-anchored", r"\bthe\s+(?:previous|old|former)\s+(?:approach|implementation|version|behaviour|behavior|method)\b", "documents the change, not the thing"),
+    ("diff-anchored", r"\bhas\s+(?:since\s+)?been\s+(?:updated|changed|replaced|refactored)\s+to\b", "documents the change, not the thing"),
+    ("diff-anchored", r"\bwe\s+now\s+(?:use|do|call|store|write)\b", "documents the change, not the thing"),
+
+    # --- subjectless fragment ------------------------------------------------
+    ("subjectless", r"\bNo\s+\w+(?:\s+\w+){0,2}\s+(?:needed|required)\s*[.!]", "subjectless claim — name the actor"),
+    ("subjectless", r"\b(?:is|are)\s+\w+ed\s+automatically\b", "subjectless claim — who does it?"),
+
+    # --- predicate-position hyphenation --------------------------------------
+    ("hyphenation", r"\b(?:is|are|was|were|feels?|seems?)\s+(?:high-quality|cross-functional|data-driven|end-to-end|real-time|long-term|well-known|client-facing|decision-making|third-party|open-source)\b", "drop the hyphen after the noun"),
 ]
 
 HEADER_RE = re.compile(r"^\s{0,3}(#{1,6})\s+(.+?)\s*$")
 COY_HEADER_RE = re.compile(r"^(?:what|why|how)\b(?!.*\?$)", re.I)
 VERDICT_HEADER_RE = re.compile(r"\b(?:is|are|isn'?t|aren'?t|was|wasn'?t|does|doesn'?t|actually|really|wrong|right|matters|counts)\b", re.I)
 
+TITLE_CASE_SKIP = {
+    "a", "an", "and", "as", "at", "but", "by", "for", "from", "in", "into",
+    "nor", "of", "on", "onto", "or", "over", "the", "to", "up", "via", "with",
+}
+EMOJI_RE = re.compile(
+    "[\U0001F000-\U0001FAFF←-⇿⌀-➿⬀-⯿️]"
+)
+
 CATEGORY_ORDER = [
     "negation-first", "significance", "agency", "deferred-noun", "locator",
     "staging", "rhetorical-q", "self-grading", "humility", "throat-clearing",
     "rtfm", "dev-cliche", "slop", "editorializing", "time-inflation",
-    "header", "cadence", "density",
+    "copula", "participle", "false-range", "list-shape", "chatbot", "filler",
+    "gap-fill", "diff-anchored", "subjectless", "hyphenation",
+    "header", "typography", "cadence", "density",
 ]
 
 COMPILED = [(cat, re.compile(pat, re.I | re.M), note) for cat, pat, note in RULES]
@@ -121,10 +195,13 @@ def _blank_quoted(text: str) -> str:
     def blank(m: re.Match) -> str:
         return "\n" * m.group(0).count("\n")
 
+    # Blockquotes and table rows go first. Doing this after the span pass let a
+    # bold marker inside a table cell mis-pair the italic regex across lines,
+    # leaving the row's own specimens visible to the scanner.
+    text = "\n".join("" if ln.lstrip().startswith((">", "|")) else ln
+                     for ln in text.splitlines())
     text = re.sub(r"(?<!\*)\*[^*]+\*(?!\*)", blank, text)      # *italic*, may wrap lines
-    text = re.sub(r"<q>.*?</q>", blank, text, flags=re.S)
-    return "\n".join("" if ln.lstrip().startswith((">", "|")) else ln
-                      for ln in text.splitlines())
+    return re.sub(r"<q>.*?</q>", blank, text, flags=re.S)
 
 
 def scan_lines(text: str) -> list[dict]:
@@ -156,6 +233,14 @@ def scan_lines(text: str) -> list[dict]:
             elif not title.endswith("?") and VERDICT_HEADER_RE.search(title) and len(title.split()) > 3:
                 hits.append({"line": i, "category": "header",
                              "note": "thesis-shaped header — states a verdict instead of labelling",
+                             "match": title[:90]})
+            words = title.split()
+            minor = [w for w in words[1:] if w.lower() not in TITLE_CASE_SKIP]
+            if len(words) > 3 and minor and all(
+                w[:1].isupper() and not w.isupper() for w in minor
+            ):
+                hits.append({"line": i, "category": "typography",
+                             "note": "Title Case heading — sentence case unless the document says otherwise",
                              "match": title[:90]})
 
         # drama line break: very short standalone paragraph
@@ -213,6 +298,20 @@ def scan_density(text: str) -> list[dict]:
         out.append({"line": 0, "category": "density",
                     "note": f"{len(frags)} of {len(sentences)} sentences are <=5 words — check for fragment cadence",
                     "match": "fragment density"})
+
+    curly = len(re.findall(r"[“”‘’]", body))
+    if curly:
+        out.append({"line": 0, "category": "typography",
+                    "note": f"{curly} curly quote characters — straight quotes in anything a program reads. "
+                            "Not a tell on its own: most editors curl by default",
+                    "match": "curly quotes"})
+
+    emoji = EMOJI_RE.findall(text)
+    if emoji:
+        out.append({"line": 0, "category": "typography",
+                    "note": f"{len(emoji)} emoji — decoration on headings and bullets is a tell "
+                            "unless the document already uses them",
+                    "match": "".join(sorted(set(emoji))[:12])})
 
     lens = [len(s.split()) for s in sentences]
     if len(lens) > 20:
