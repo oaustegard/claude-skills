@@ -1,0 +1,349 @@
+# The register
+
+Every entry: the **tell** (surface pattern to scan for), why it is a tic, the
+**fix**, and a real before/after. Entries are grouped by mechanism because the
+lexical bans always leak — new phrasings arrive faster than a phrase list grows.
+Scan at the sentence level, not the phrase level.
+
+---
+
+## 1. Staged reveal (the root)
+
+A sentence is **staged** when it withholds, contrasts, or significance-tags to
+manufacture a beat. It is **stated** when it lands content in subject-verb-object.
+Most entries below are special cases of this one.
+
+Generative test, per sentence: *stating or staging?*
+
+---
+
+## 2. Negation-first reveal
+
+**Tell:** says what something is NOT before saying what it is — "It's not that X,
+it's that Y", "The problem wasn't A. It was B.", "not because P — because Q",
+"X, not Y" as a closer, "doesn't just X, it Y's".
+
+**Why:** the reader never proposed the wrong answer. You supplied it so you could
+knock it down, which converts a plain fact into a small drama in which you are
+right.
+
+**Fix:** state what it is. If the contrast is genuinely informative, keep it in
+one clause.
+
+> was: *It is not a wrong answer. It is a non-answer. Counting it as a failure is
+> the conservative choice, and it is what these numbers do.*
+> now: *It is a non-answer rather than a wrong answer, and these numbers count it
+> as a failure, which is the conservative choice.*
+
+**Earned when** the reader was actually holding the wrong answer — the previous
+paragraph proposed it, or it is the obvious default in the field. Then the
+negation does work.
+
+---
+
+## 3. Significance designation
+
+**Tell:** "the real X", "the actual question", "the part that matters", "the part
+that transfers", "the useful question", "the detail that makes the point", "the
+most interesting number", "the one thing nobody said", "here's the thing", "and
+that's the interesting part", "and it has a name here".
+
+**Why:** it ranks your own sentences for the reader instead of writing a sentence
+worth ranking first. The reader decides what is interesting.
+
+**Fix:** delete the designation and state the content. If the content cannot
+carry itself, the problem is the content.
+
+> was: *Nobody had checked whether it could still think. It is the leg that
+> answers the actual question.*
+> now: *Earlier testing measured its size and not its accuracy, so this run is
+> the first accuracy number for it.*
+
+**Watch for reuse.** Emphasis is a budget. The same designation twice in one
+piece ("the part that matters" / "the part that transfers") is no longer
+emphasis, and reuse is the easiest instance to catch.
+
+---
+
+## 4. Abstraction agency
+
+**Tell:** a non-agent in the subject slot doing something — "the table shows it",
+"the median hides it", "the data tells us", "the failure modes live in different
+places", "the metric lies", "quantization is a concern", "truncation cuts
+compute", "the tool is about to discover", "the joke does the work an argument
+would have to".
+
+**Why:** nothing in the sentence has hands. Nominalized verbs and inanimate
+objects get the subject slot, and the actual actor disappears.
+
+**Fix:** put a real agent in subject position — a person, a named artifact, a
+concrete thing — and let the verb be a verb.
+
+> was: *Median hides it: the middle of every distribution is similar.*
+> now: *The middle of every distribution is similar.*
+
+> was: *Truncation cuts compute natively.*
+> now: *A shorter vector is a shorter dot product.*
+
+---
+
+## 5. Deferred noun
+
+**Tell:** a placeholder where the noun belongs — "One thing is not flat", "The
+sixth is not", "There was just one problem", "That is the variable...", "What X
+means" — when the actual noun and number were available.
+
+**Why:** points at the content instead of writing it, forcing the reader down a
+line to collect what could have been in the subject slot.
+
+**Fix:** name it, with its number.
+
+> was: *Five of those six rows are one cluster. The sixth is not.*
+> now: *Five legs pass 77 to 81 of the 92 and exhaust 6 to 9. fit-17g passes 62
+> and exhausts 21.*
+
+---
+
+## 6. Structural-metaphor locator
+
+**Tell:** "the seam where...", "the hinge", "the joint", "the fault line", "the
+leg that...", "the place where it breaks down", "X is doing the work that Y
+would".
+
+**Why:** makes an ordinary observation sound like architecture you uncovered.
+Usually stacks with abstraction agency.
+
+**Fix:** name the plain mechanism.
+
+> was: *It's the seam where the laugh is doing the work an argument would have to.*
+> now: *The piece never engages the bull case; the joke covers the gap.*
+
+---
+
+## 7. Coy and thesis-shaped headers
+
+**Tell:** a header that states a verdict ("The default was wrong", "The one gap
+that does clear the bar") or hides its contents ("What 'exhausted' means", "What
+the data actually shows", "Why it matters"). Also any comma in a header — an
+appositive, participle or relative clause ("The obvious follow-up, measured";
+"The catch, which is not small").
+
+**Why:** headers are navigation. A header that could top three different sections
+is a thesis, not a label. No real person puts sentence clauses in a headline.
+
+**Fix:** name the content as a flat noun phrase. Or, if the definition is the
+point, make the header the definition.
+
+> was: *What "exhausted" means* → now: *Exhausted cases*
+> was: *The one gap that does clear the bar* → now: *The 2.876-bit gap*
+
+**Test:** read the header alone, as a table-of-contents entry. Does it tell you
+what is in the section?
+
+---
+
+## 8. Suspense construction
+
+**Tell:** a paragraph ending on a colon that introduces the culprit on the next
+line; a sentence that withholds the noun to force a break; "1, 2, and then 3 —
+the killer"; "Then the part that almost killed it."; "But here's where it gets
+interesting."
+
+**Why:** suspense is a fiction technique. In technical writing it costs the
+reader time to buy the writer a beat.
+
+**Fix:** state the finding when you have it.
+
+---
+
+## 9. Drama line break
+
+**Tell:** a single sentence alone on its own line as a gravitas beat — "It isn't.",
+"That is not a result.", "And then everything broke."
+
+**Why:** whitespace is being used as a drum roll.
+
+**Fix:** put the sentence back in its paragraph. **Earned** for a real pivot: new
+actor, category shift, time jump.
+
+---
+
+## 10. Rhetorical question plus fragment answer
+
+**Tell:** "So how does it fail?" / "Mostly by not finishing." — asking the reader
+something in order to answer it yourself.
+
+**Why:** two beats where none are needed, and it stages the writer as a guide
+walking the reader through a discovery.
+
+**Fix:** one declarative. *"fit-17g fails mostly by not finishing."*
+
+---
+
+## 11. Straw-man knockdown
+
+**Tell:** quoting a wrong reading attributed to the reader, then rejecting it —
+*"It thinks twice as long" is the obvious reading of that, and it is wrong.*
+
+**Why:** the negation-first shape wearing a costume. The correction is the same
+length without the invented interlocutor.
+
+**Fix:** give the correction directly. *"That median does not mean it thinks twice
+as long. On the questions it finishes..."*
+
+---
+
+## 12. Aphoristic closer
+
+**Tell:** a final sentence that compresses the paragraph into a contrast, moral,
+or quotable line — "It is the kind of number that looks like evidence and is
+not", "The bridge was the move, not novel math", "Verifier > judge by a wide
+margin", "the failure that looks like diligence", "X is the load-bearing part".
+
+**Why:** it restates what the paragraph already established, in a shape built to
+be quoted. It also grades your own argument.
+
+**Fix:** delete it. If the paragraph needs it, the paragraph is not working.
+Where a landing is genuinely wanted, land on a fact: *"Default retries are back
+to 3."*
+
+---
+
+## 13. Self-grading
+
+**Tell:** "earned, not asserted", "this isn't just X, it's genuinely Y", "to be
+clear, this is rigorous because", "That is what the data shows", "That
+distinction changes what you would predict", "not a relabel", "worth noting", "a
+distinction worth keeping separate".
+
+**Why:** narrates the epistemic status of your own reasoning instead of reasoning.
+If the point is earned, the reader can see it.
+
+**Fix:** make the point and stop.
+
+---
+
+## 14. Performed humility
+
+**Tell:** "Their phrasing for it is better than mine", "This might be a small
+thing, but", "I'm not sure this is worth writing up, but", "Probably nobody cares,
+but", "classic me".
+
+**Why:** a bow. It asks for credit for modesty and weakens the piece.
+
+**Fix:** if it is worth publishing, publish it straight. Attribution without
+ranking: *"from a conversation with X"*.
+
+---
+
+## 15. Staccato fragment cadence
+
+**Tell:** three or more fragments in series for rhythm — *Six legs. One GPU, one
+server build, one sampler, one question set.* — or parallel fragment pairs, *Most
+questions it handles at a normal length. A subset runs away and hits the wall.*
+
+**Why:** rhythm engineering. The content is a list; the drumbeat is decoration.
+
+**Fix:** one sentence. *"Six legs, all on the same GPU with the same server build,
+sampler and question set."*
+
+---
+
+## 16. Em-dash gotcha
+
+**Tell:** a clause after an em-dash that delivers the punch, especially at the end
+of a paragraph.
+
+**Why:** the dash stages the beat. Em-dashes for genuine inline asides are fine
+and human; the tic is the dash-as-drum-roll.
+
+**Fix:** if the clause is the point, make it the sentence. Also: count em-dashes.
+More than roughly one per 150 words reads as machine-written regardless of what
+each one is doing.
+
+---
+
+## 17. Throat-clearing and process narration
+
+**Tell:** "I want to talk about", "In this post, I'll cover", "Let me explain",
+"First, some background", "Before I get into it", "Let me consult my memories",
+"Storing this before I answer", "First I'll X, then Y".
+
+**Why:** preamble wearing a competence badge. The reader sees the result, not the
+procedure.
+
+**Fix:** start where you would start with no preamble budget.
+
+---
+
+## 18. RTFM as revelation
+
+**Tell:** "It turns out that", "I finally discovered", "Hidden in the API",
+"Buried in the docs" — followed by standard documented behaviour.
+
+**Fix:** if the finding is that you missed something obvious, say that.
+
+---
+
+## 19. Generic-developer vocabulary
+
+**Tell:** footgun, shot itself in the foot, almost killed it, fell apart, rabbit
+hole, yak shaving, belt-and-suspenders, load-bearing (as metaphor), moving the
+needle, first-class citizen, under the hood, magic, just works, sane defaults.
+
+**Why:** the writer reached for the easy phrase instead of the accurate one. The
+accurate phrase is usually shorter.
+
+---
+
+## 20. Slop vocabulary
+
+**Tell:** delve, tapestry, testament to, navigate the complexities, in today's
+fast-paced, it's important to note, landscape (figurative), realm, robust,
+seamless, leverage (as verb), utilize, crucial, pivotal, myriad, plethora, elevate,
+unlock, harness, embark, dive deep, at the end of the day, that said.
+
+**Why:** these do not signal a tic so much as an absence of choice. Replace with
+the specific word.
+
+---
+
+## 21. Sanitized quotes
+
+**Tell:** reported speech where the verb is "expressed", "indicated", "voiced
+concern about".
+
+**Fix:** if they said "WTF", write "WTF".
+
+---
+
+## 22. Time-scale inflation
+
+**Tell:** vague durations on recent work — "a month ago", "for a long time", "all
+year", "recently", "yesterday" — when the real timeline is hours or days.
+
+**Fix:** check the timestamp, or drop the time framing. The pull toward narrative
+time is strong and needs an empirical counter.
+
+---
+
+## 23. Editorializing modifiers
+
+**Tell:** adjectives that pre-load the verdict the piece is supposed to reach —
+"aggressive", "surprising", "impressive", "brutal", "collapse" for a 15-point
+drop, "exactly" where the contrast already carries it.
+
+**Fix:** let the number be the adjective.
+
+---
+
+## Quick self-check before shipping an edit
+
+1. Does any sentence exist to make a finding feel bigger than it is?
+2. Does any sentence tell the reader which sentence matters?
+3. Is anything in a subject slot that cannot act?
+4. Does any header state a verdict, hide its contents, or contain a comma?
+5. Is any noun deferred that was available?
+6. Does the last paragraph paraphrase the subtext of the piece?
+7. Did the edit remove content, change a claim, or add hedging?
+8. Does the result still sound like a person with opinions?
