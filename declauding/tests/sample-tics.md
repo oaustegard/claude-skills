@@ -80,3 +80,11 @@ This function was added to replace the previous approach of iterating through al
 No configuration file needed. The results are preserved automatically.
 
 The cross-functional team is cross-functional, the report is high-quality, and the methodology is data-driven.
+
+## Dressed metaphor (entry 37, no regex reaches it)
+
+That is information loss wearing the costume of a style fix.
+
+But it's the seam where the laugh is doing the work an argument would have to.
+
+The reframe is earned, not asserted, because every time we pushed on a mechanism the hard part squirted out.
