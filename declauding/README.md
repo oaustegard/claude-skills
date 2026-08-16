@@ -8,7 +8,8 @@ The register has two halves. Entries 1 to 23 are one move: **the sentence is
 built to make the reader feel a finding arrive, instead of stating the finding.**
 The fix is always the same: put a real subject in the subject slot, say the
 thing, stop. Entries 24 to 36 are the flatter slop patterns, where nothing is
-being staged and the prose is running on defaults.
+being staged and the prose is running on defaults. Entry 37 returns to the first
+half and sits last because it arrived last.
 
 See [`SKILL.md`](SKILL.md) for the workflow, the overcorrection guard and the
 earned-exception table. See [`references/register.md`](references/register.md)
@@ -31,9 +32,9 @@ and nothing else.
 
 ## Tics it catches
 
-Thirty-six entries. The first 23 are grouped by mechanism rather than by phrase,
-since phrase blocklists miss the next paraphrase. The ones that show up in nearly
-every draft:
+Thirty-seven entries. The first 23, and entry 37, are grouped by mechanism rather
+than by phrase, since phrase blocklists miss the next paraphrase. The ones that
+show up in nearly every draft:
 
 | Tic | Example |
 |---|---|
@@ -45,6 +46,7 @@ every draft:
 | Aphoristic closer | *It is the kind of number that looks like evidence and is not.* |
 | Straw-man knockdown | *"It thinks twice as long" is the obvious reading, and it is wrong.* |
 | Fragment cadence | *Six legs. One GPU, one server build, one sampler, one question set.* |
+| Dressed metaphor | *That is information loss wearing the costume of a style fix.* |
 
 Entries 24 to 36 come from the Wikipedia AI Cleanup project's *Signs of AI
 writing*, by way of [blader/humanizer](https://github.com/blader/humanizer).
@@ -101,11 +103,11 @@ as a pre-commit hook.
 ## False positives
 
 `tests/sample-clean.md` is human-written prose and must lint to zero.
-`tests/sample-tics.md` is a corpus of real specimens and currently reports 58
-candidates across 23 categories.
+`tests/sample-tics.md` is a corpus of real specimens and currently reports 62
+candidates across 24 categories.
 
 ```sh
-python3 scripts/declaude_lint.py tests/sample-tics.md    # 58 candidates
+python3 scripts/declaude_lint.py tests/sample-tics.md    # 62 candidates
 python3 scripts/declaude_lint.py tests/sample-clean.md   # 0
 ```
 

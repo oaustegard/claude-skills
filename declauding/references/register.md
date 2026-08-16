@@ -598,6 +598,39 @@ both positions is a cluster member.
 
 ---
 
+# 37. Dressed metaphor
+
+Back in the staging family, not the encyclopedic one, and numbered last because
+it arrived last.
+
+**Tell:** a figure of speech standing in for a mechanism you could have named —
+"wearing the costume of", "dressed up as", "in a new hat", "is X in Y's
+clothing", plus visceral or lurid imagery on a mundane observation. Entry 6 is
+the special case where the figure is *locational* ("the seam where"); this is the
+general one.
+
+**Why:** the figure feels vivid, so it reads as insight, and it usually replaces
+the plain description rather than adding to it. The accurate phrase is almost
+always shorter and less pleased with itself.
+
+**Fix:** describe the mechanism.
+
+> was: *That is information loss wearing the costume of a style fix.*
+> now: *The edit removes content while looking like it removed only style.*
+
+> was: *every time we pushed on a mechanism the hard part squirted out.*
+> now: *each mechanism we examined had the same difficulty underneath it.*
+
+**Earned when** the metaphor is the clearest available description and no plain
+noun fits. Delete the ones doing significance work, not the ones doing work.
+
+**No regex reaches this one.** `declaude_lint.py` cannot see it, and a phrase
+list for it would be three entries long and obsolete by the next draft. It is
+caught on the sentence pass or not at all. Both specimens above shipped past a
+clean lint report.
+
+---
+
 ## Quick self-check before shipping an edit
 
 1. Does any sentence exist to make a finding feel bigger than it is?
