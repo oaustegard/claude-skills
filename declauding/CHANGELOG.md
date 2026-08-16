@@ -4,6 +4,12 @@ All notable changes to the `declauding` skill are documented in this file. The f
 
 ## [0.2.1] - 2026-08-16
 
+### Other
+
+- declauding 0.2.1 — register entry 37, dressed metaphor (#761)
+
+## [0.2.1] - 2026-08-16
+
 ### Added
 
 - Register entry 37, dressed metaphor: a figure of speech standing in for a
