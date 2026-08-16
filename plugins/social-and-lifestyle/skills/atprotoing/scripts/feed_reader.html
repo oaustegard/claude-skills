@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="ai-disclosure" content="ai-assisted">
+<title>Bluesky Following Feed</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script type="importmap">
+{
+  "imports": {
+    "preact": "https://esm.sh/*preact@10.23.1",
+    "preact/": "https://esm.sh/*preact@10.23.1/",
+    "htm": "https://esm.sh/*htm@3.1.1",
+    "htm/preact": "https://esm.sh/*htm@3.1.1/preact"
+  }
+}
+</script>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; }
+  .post-text { overflow-wrap: anywhere; word-break: break-word; }
+  .avatar-wrap {
+    position: relative; width: 36px; height: 36px; border-radius: 50%;
+    overflow: hidden; flex-shrink: 0; display: flex;
+    align-items: center; justify-content: center;
+    font-weight: 600; font-size: 0.875rem; color: white;
+  }
+  .avatar-wrap img { position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; opacity: 0; transition: opacity .15s; }
+  .avatar-wrap img.loaded { opacity: 1; }
+  .avatar-sm { width: 20px; height: 20px; font-size: .65rem; }
+  .ctx-card { opacity: .72; }
+  .thread-rail { border-left: 2px solid #e5e7eb; }
+</style>
+<script>
+  window.FEED = /*__FEED_DATA__*/null;
+  window.avatarHue = function (str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    return Math.abs(hash) % 360;
+  };
+</script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+<div id="app"><div style="padding:2rem;color:#888">Loading…</div></div>
+
+<script type="module">
+import { render } from 'preact';
+import { useState, useMemo, useEffect, useRef } from 'preact/hooks';
+import { html } from 'htm/preact';
+
+const D = window.FEED;
+
+// ── helpers ───────────────────────────────────────────────────────────────
+
+function timeAgo(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000), h = Math.floor(diff / 3600000);
+  if (m < 1) return 'now';
+  if (h < 1) return m + 'm';
+  return h + 'h';
+}
+const hhmm = iso => new Date(iso).toISOString().slice(11, 16) + 'Z';
+const postUrl = p => 'https://bsky.app/profile/' + p.did + '/post/' + p.rkey;
+const when = p => p.at_event || p.at;
+
+function DynImg({ url, alt, styleObj, cls }) {
+  const ref = useRef(null);
+  useEffect(() => { if (ref.current && url) ref.current.setAttribute('src', url); }, [url]);
+  return html`<img ref=${ref} alt=${alt || ''} class=${cls || ''} style=${styleObj || {}}
+    onError=${e => e.target.style.display = 'none'} />`;
+}
+
+function Avatar({ author, small }) {
+  const hue = window.avatarHue(author.did || author.handle || '');
+  const letter = (author.name || author.handle || '?')[0].toUpperCase();
+  const cover = { position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' };
+  return html`
+    <div class=${'avatar-wrap' + (small ? ' avatar-sm' : '')} style=${'background:hsl(' + hue + ',60%,45%)'}>
+      <span>${letter}</span>
+      ${author.avatar && html`<${DynImg} url=${author.avatar} cls="loaded" styleObj=${cover} />`}
+    </div>`;
+}
+
+// Facets arrive as resolved character ranges; the raw record has only byte
+// ranges and shortened display text, so without them a link is dead text.
+function PostText({ text, facets, cls }) {
+  if (!text) return null;
+  if (!facets || !facets.length) return html`<p class=${cls}>${text}</p>`;
+  const out = [];
+  let cur = 0;
+  facets.forEach((f, i) => {
+    if (f.s > cur) out.push(text.slice(cur, f.s));
+    out.push(html`<a key=${i} href=${f.uri} target="_blank" rel="noopener"
+      class="text-sky-600 hover:underline break-words">${text.slice(f.s, f.e)}</a>`);
+    cur = f.e;
+  });
+  if (cur < text.length) out.push(text.slice(cur));
+  return html`<p class=${cls}>${out}</p>`;
+}
+
+function Embed({ embed }) {
+  if (!embed) return null;
+  if (embed.kind === 'images') {
+    return html`
+      <div class=${'mt-2 grid gap-1 rounded-lg overflow-hidden ' +
+        (embed.images.length > 1 ? 'grid-cols-2' : 'grid-cols-1')}>
+        ${embed.images.map((im, i) => html`
+          <a key=${i} href=${im.full} target="_blank" rel="noopener" class="block">
+            <${DynImg} url=${im.thumb} alt=${im.alt} cls="w-full object-cover max-h-48"
+              styleObj=${{ aspectRatio: im.ar, objectFit: 'cover', width: '100%' }} />
+          </a>`)}
+      </div>`;
+  }
+  if (embed.kind === 'video') {
+    return html`
+      <div class="mt-2 relative rounded-lg overflow-hidden bg-black"
+        style=${'aspect-ratio:' + embed.ar + ';max-height:300px'}>
+        <${DynImg} url=${embed.thumb} alt="Video" cls="w-full h-full"
+          styleObj=${{ width: '100%', height: '100%', objectFit: 'cover', opacity: .8 }} />
+        <div class="absolute inset-0 flex items-center justify-center">
+          <div class="bg-black bg-opacity-60 rounded-full w-12 h-12 flex items-center justify-center">
+            <span style="font-size:1.5rem">▶</span></div>
+        </div>
+      </div>`;
+  }
+  if (embed.kind === 'link') {
+    return html`
+      <a href=${embed.uri} target="_blank" rel="noopener"
+        class="block mt-2 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 overflow-hidden no-underline">
+        ${embed.thumb && html`<${DynImg} url=${embed.thumb} cls="w-full object-cover max-h-32"
+          styleObj=${{ width: '100%', objectFit: 'cover', maxHeight: '8rem' }} />`}
+        <div class="p-2">
+          <div class="text-xs font-semibold text-gray-800 post-text">${embed.title}</div>
+          ${embed.desc && html`<div class="text-xs text-gray-500 post-text mt-0.5 line-clamp-2">${embed.desc}</div>`}
+          <div class="text-xs text-gray-400 mt-1 truncate">${embed.uri}</div>
+        </div>
+      </a>`;
+  }
+  return null;
+}
+
+function Quoted({ q }) {
+  if (!q) return null;
+  return html`
+    <a href=${postUrl(q)} target="_blank" rel="noopener"
+      class="block mt-2 rounded-lg border border-gray-200 bg-white p-2 hover:bg-gray-50 no-underline">
+      <div class="flex items-center gap-1.5 mb-1">
+        <${Avatar} author=${q} small=${true} />
+        <span class="text-xs font-semibold text-gray-700">${q.name || q.handle}</span>
+        <span class="text-xs text-gray-400">@${q.handle}</span>
+      </div>
+      <${PostText} text=${q.text} facets=${q.facets} cls="text-xs text-gray-700 post-text" />
+      <${Embed} embed=${q.embed} />
+    </a>`;
+}
+
+// ── clustering: conversation, not chronology ─────────────────────────────
+
+function cluster(posts) {
+  const byUri = new Map();
+  posts.forEach(p => { if (!byUri.has(p.uri)) byUri.set(p.uri, p); });
+  const groups = new Map();
+  posts.forEach(p => {
+    let key = p.root || p.uri;
+    if (!byUri.has(key)) key = byUri.has(p.parent) ? p.parent : p.uri;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(p);
+  });
+  const out = [];
+  for (const [key, members] of groups) {
+    const kids = new Map();
+    const roots = [];
+    members.forEach(p => {
+      if (p.parent && members.some(m => m.uri === p.parent) && p.parent !== p.uri) {
+        if (!kids.has(p.parent)) kids.set(p.parent, []);
+        kids.get(p.parent).push(p);
+      } else roots.push(p);
+    });
+    const build = p => ({ post: p, kids: (kids.get(p.uri) || [])
+      .sort((a, b) => when(a).localeCompare(when(b))).map(build) });
+    const tree = roots.sort((a, b) => when(a).localeCompare(when(b))).map(build);
+    const latest = members.reduce((m, p) => when(p) > m ? when(p) : m, '');
+    const live = members.filter(p => !p.ctx).length;
+    out.push({ key, tree, latest, size: live, members });
+  }
+  return out.sort((a, b) => b.latest.localeCompare(a.latest));
+}
+
+// ── cards ────────────────────────────────────────────────────────────────
+
+function Card({ node, depth }) {
+  const p = node.post;
+  const [open, setOpen] = useState(true);
+  const kids = node.kids || [];
+  return html`
+    <div class=${depth ? 'mt-2 pl-3 thread-rail' : ''}>
+      <div class=${'rounded-lg border border-gray-200 bg-white p-3 ' + (p.ctx ? 'ctx-card' : '')}>
+        ${p.repost && html`
+          <div class="text-xs text-gray-500 mb-1.5 flex items-center gap-1">
+            <span>🔁</span>
+            <span>reposted by ${p.repost.name || p.repost.handle}</span>
+          </div>`}
+        <div class="flex items-start gap-2">
+          <${Avatar} author=${p} />
+          <div class="min-w-0 flex-1">
+            <div class="flex items-baseline gap-1.5 flex-wrap">
+              <span class="text-sm font-semibold text-gray-900">${p.name || p.handle}</span>
+              <span class="text-xs text-gray-400">@${p.handle}</span>
+              <a href=${postUrl(p)} target="_blank" rel="noopener"
+                class="text-xs text-gray-400 hover:text-sky-600 no-underline"
+                title=${when(p)}>· ${hhmm(when(p))} (${timeAgo(when(p))})</a>
+              ${p.ctx && html`<span class="text-xs px-1.5 rounded bg-gray-100 text-gray-500">context — outside window</span>`}
+              ${kids.length > 0 && html`
+                <button onClick=${() => setOpen(!open)}
+                  class="text-xs text-gray-400 hover:text-sky-600 ml-auto">
+                  ${open ? '▾' : '▸'} ${kids.length}</button>`}
+            </div>
+            <${PostText} text=${p.text} facets=${p.facets} cls="text-sm text-gray-800 post-text mt-1" />
+            <${Embed} embed=${p.embed} />
+            <${Quoted} q=${p.quote} />
+          </div>
+        </div>
+      </div>
+      ${open && kids.map(k => html`<${Card} node=${k} depth=${depth + 1} />`)}
+    </div>`;
+}
+
+function Cluster({ c }) {
+  return html`
+    <div class="mb-4">
+      ${c.size > 1 && html`
+        <div class="text-xs text-gray-400 mb-1 pl-1">
+          ${c.size} posts in conversation</div>`}
+      ${c.tree.map(n => html`<${Card} node=${n} depth=${0} />`)}
+    </div>`;
+}
+
+// ── app ──────────────────────────────────────────────────────────────────
+
+function App() {
+  const [mode, setMode] = useState('all');
+  const [q, setQ] = useState('');
+  const [author, setAuthor] = useState('');
+
+  const live = D.posts.filter(p => !p.ctx);
+  const authors = useMemo(() => {
+    const m = new Map();
+    live.forEach(p => m.set(p.handle, (m.get(p.handle) || 0) + 1));
+    return [...m].sort((a, b) => b[1] - a[1]);
+  }, []);
+
+  const clusters = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    const keep = D.posts.filter(p => {
+      if (p.ctx) return true;
+      const kind = p.repost ? 'repost' : (p.parent ? 'reply' : 'post');
+      if (mode === 'media' ? !p.embed : (mode !== 'all' && kind !== mode)) return false;
+      if (author && p.handle !== author) return false;
+      if (term && !((p.text + ' ' + p.handle + ' ' + (p.name || '')).toLowerCase().includes(term)))
+        return false;
+      return true;
+    });
+    const liveUris = new Set(keep.filter(p => !p.ctx).map(p => p.uri));
+    // context posts survive only when something they anchor did
+    const pruned = keep.filter(p => !p.ctx || keep.some(x => !x.ctx && (x.parent === p.uri)));
+    return cluster(pruned).filter(c => c.size > 0);
+  }, [mode, q, author]);
+
+  const shown = clusters.reduce((n, c) => n + c.size, 0);
+  const chip = (id, label) => html`
+    <button onClick=${() => setMode(id)}
+      class=${'px-2.5 py-1 rounded-full text-xs border ' + (mode === id
+        ? 'bg-sky-600 text-white border-sky-600'
+        : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-100')}>${label}</button>`;
+
+  return html`
+    <div class="max-w-2xl mx-auto p-4">
+      <header class="mb-4">
+        <h1 class="text-xl font-bold text-gray-900">Following feed — last ${D.hours}h</h1>
+        <p class="text-xs text-gray-500 mt-0.5">
+          ${D.actor.handle} · ${D.cutoff.slice(11, 16)}–${D.now.slice(11, 16)}Z ${D.now.slice(0, 10)}
+          · ${live.length} posts from ${authors.length} accounts
+          · ${D.resolved}/${D.follows} follows readable
+          · rebuilt from PDS records, no AppView
+        </p>
+      </header>
+
+      <div class="sticky top-0 bg-gray-50 pt-1 pb-2 z-10">
+        <div class="flex gap-1.5 flex-wrap items-center">
+          ${chip('all', 'all')} ${chip('post', 'originals')} ${chip('reply', 'replies')}
+          ${chip('repost', 'reposts')} ${chip('media', 'media')}
+          <input value=${q} onInput=${e => setQ(e.target.value)} placeholder="filter…"
+            class="flex-1 min-w-[8rem] px-2 py-1 text-xs border border-gray-300 rounded-md" />
+          <select value=${author} onChange=${e => setAuthor(e.target.value)}
+            class="px-2 py-1 text-xs border border-gray-300 rounded-md bg-white max-w-[10rem]">
+            <option value="">all accounts</option>
+            ${authors.map(([h, n]) => html`<option value=${h}>${h} (${n})</option>`)}
+          </select>
+        </div>
+        <div class="text-xs text-gray-400 mt-1">${shown} posts · ${clusters.length} conversations</div>
+      </div>
+
+      ${clusters.map(c => html`<${Cluster} key=${c.key} c=${c} />`)}
+      ${!clusters.length && html`<div class="text-sm text-gray-500 p-6 text-center">Nothing matches.</div>`}
+
+      <footer class="mt-6 pt-3 border-t border-gray-200 text-xs text-gray-500 space-y-1">
+        <div><strong>Coverage.</strong> ${D.resolved} of ${D.follows} follows resolved;
+          ${D.gone} dead repos, ${D.other} transient failures.</div>
+        ${D.blocked.length > 0 && html`
+          <div><strong>Egress-blocked PDSes</strong> (their posts are missing):
+            ${D.blocked.join(', ')}</div>`}
+        <div>Ordering uses each record's client-set <code>createdAt</code> — approximate,
+          not attested. No mutes, blocks, or feed-generator ranking: that logic is
+          AppView-only, so this is the raw Following graph.</div>
+      </footer>
+    </div>`;
+}
+
+render(html`<${App} />`, document.getElementById('app'));
+</script>
+</body>
+</html>

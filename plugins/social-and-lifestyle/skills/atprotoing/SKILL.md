@@ -2,7 +2,7 @@
 name: atprotoing
 description: Read Bluesky/ATProto without depending on Bluesky's AppView — interactions on a user's posts, thread replies, any repo's records, and layer-by-layer outage diagnosis. Use when bsky.app or the AppView is down or slow, when a Bluesky read returns timeouts or 5xx, when asked who liked/replied/quoted/reposted something, when pulling live Bluesky context cheaply, or when reading records straight from a PDS. Complements browsing-bluesky, which routes everything through the AppView and fails when it does.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # ATProtoing
@@ -23,6 +23,7 @@ are large and re-reading them into context defeats the purpose.
 
 | Command | Answers |
 |---|---|
+| `feed [actor] [--hours 3] [--html PATH]` | The Following timeline, threaded |
 | `status [--actor X]` | Which layer is broken right now |
 | `interactions <actor> [--hours 8] [--scan 100]` | Who liked/replied/reposted/quoted recent posts |
 | `thread <at-uri>` | Replies to a post |
@@ -41,6 +42,16 @@ PDS for anything a repo owns — it is authoritative and had no outage.
 | Who interacted with a URI | Constellation (`constellation.microcosm.blue`) |
 | handle ↔ DID ↔ PDS | `plc.directory`, entryway `resolveHandle` |
 | Search, feed generators, chat | AppView only — **no substitute; say so** |
+
+`feed` is the one composite read: there is no AppView-free `getTimeline`, so it
+rebuilds the Following timeline from follows → PLC → each followee's PDS, then
+hydrates what the AppView would have inlined — facet byte-ranges to character
+ranges, blob CIDs to `cdn.bsky.app` URLs, quote and parent URIs to fetched
+records — and threads the result by reply root. `--html` writes a self-contained
+Preact reader (same components as `austegard.com/bsky/thread-reader.html`), so a
+feed request is **one call**, not a fan-out the caller re-derives by hand.
+Ranking, mutes, and blocks live in the AppView and are absent by construction:
+this is the raw follow graph.
 
 Constellation is the persistent index. Do not rebuild one locally: it already
 indexes the whole network, is operated independently of Bluesky PLC, and is

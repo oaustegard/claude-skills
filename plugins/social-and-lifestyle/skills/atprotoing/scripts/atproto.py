@@ -394,6 +394,12 @@ def main(argv=None):
     s = sub.add_parser("thread", help="replies to a post, via Constellation + PDSes")
     s.add_argument("uri")
 
+    s = sub.add_parser("feed", help="following timeline, rebuilt from PDSes")
+    s.add_argument("actor", nargs="?", default="austegard.com")
+    s.add_argument("--hours", type=float, default=3.0)
+    s.add_argument("--html", metavar="PATH", help="write the threaded reader here")
+    s.add_argument("--no-reposts", action="store_true")
+
     s = sub.add_parser("records", help="any collection from any repo")
     s.add_argument("actor")
     s.add_argument("collection")
@@ -425,6 +431,15 @@ def main(argv=None):
                                   for x in r], indent=2))
             else:
                 print(fmt_thread(r))
+        elif a.cmd == "feed":
+            from feed import build, fmt, to_html
+            d = build(a.actor, a.hours, want_reposts=not a.no_reposts)
+            if a.html:
+                print(to_html(d, a.html))
+            if as_json:
+                print(json.dumps(d, indent=1))
+            elif not a.html:
+                print(fmt(d))
         elif a.cmd == "records":
             r = records(a.actor, a.collection, limit=a.limit, conn=conn)
             print(json.dumps(r, indent=2) if as_json else fmt_posts(r))
