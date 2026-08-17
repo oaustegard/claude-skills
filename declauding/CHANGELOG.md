@@ -2,6 +2,17 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.3.0] - 2026-08-16
+
+### Added
+
+- `scripts/declaude_review.py` — stage-2 structural pass. Extracts headers, opening and closing sentences, and isolated one-sentence paragraphs, then judges only those against the structural entries in `references/register.md`. Gemini or Anthropic key, `--emit-prompt` fallback, `--slots` for extraction only.
+- `tests/sample-structure.md` and `tests/sample-structure.html` — regression fixtures built from headers that shipped past the linter.
+
+### Fixed
+
+- `declaude_lint.py` now flattens HTML before scanning. `HEADER_RE` matched markdown headings only, so every header rule was silent on an HTML draft — three thesis-shaped headers, a comma-clause header and a coy header shipped past a clean report. Masthead `.subtitle` / `.eyebrow` / `.post-meta` elements are scanned as headings.
+
 ## [0.2.1] - 2026-08-16
 
 ### Other

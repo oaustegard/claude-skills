@@ -2,7 +2,7 @@
 name: declauding
 description: Removes LLM prose tics from drafts — staged reveals, "it's not X, it's Y", significance tags, abstraction agency, coy headers, fragment cadence, plus the flatter slop patterns (copula avoidance, participle tails, forced triads, chatbot residue, filler and hedging) — and returns plain human technical prose. Use when text needs editing for register, when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make this sound human", "remove the tics/claudisms", or asks for a voice/register pass on a post, README, report, PR description or essay. Also use before publishing any draft Claude wrote. Produces either clean prose or an annotated HTML diff showing every edit with its original and reason.
 metadata:
-  version: 0.2.1
+  version: 0.3.0
 ---
 
 # Declauding
@@ -83,12 +83,44 @@ they are the most valuable thing this pass produces.
 
 ```
 python3 scripts/declaude_lint.py DRAFT.md
+python3 scripts/declaude_lint.py DRAFT.html      # HTML is flattened automatically
 ```
 
 It flags greppable tells with line numbers and categories. It has no judgment —
 it finds candidates, it does not decide. Everything it flags still needs the
 sentence-level test, and it misses every tic that is structural rather than
 lexical. Treat a clean lint report as meaningless on its own.
+
+HTML input is flattened before scanning: `<h1>`–`<h6>` become headings so the
+header rules see them, and a `.subtitle`, `.eyebrow` or `.post-meta` element is
+treated as a heading too, because a subtitle is a header by every test that
+matters. Force with `--html`, disable with `--no-html`. Reported line numbers
+refer to the flattened view.
+
+Lint every string that reaches the reader, not only the body file. Page titles,
+subtitles and deck headers are prose, and a builder that takes them as CLI
+arguments rather than from the file will hide them from this scan.
+
+**2b. Run the structural review.**
+
+```
+python3 scripts/declaude_review.py DRAFT.md
+```
+
+It extracts the slots regex cannot judge — every header, the opening sentence,
+each closing sentence, isolated one-sentence paragraphs — and sends only those
+to a model with the structural entries from `references/register.md`. Slots
+rather than the whole document, because the payload stays small enough to run
+on every draft. Use `--emit-prompt` where no API key is available, `--slots` to
+see the extraction alone.
+
+Run it in a context that did not write the draft. A model reviewing its own
+prose is the actor that chose the words.
+
+For a full-document register review against a named voice signature — positive
+markers, drift across the piece, imposter test — use the `challenging` skill's
+`prose-register` profile instead. This script is the cheap pass; that one is
+the thorough one.
 
 **3. Sentence pass.** For every sentence, in order: stating or staging? Load
 `references/register.md` for the catalogue of tells and their fixes.

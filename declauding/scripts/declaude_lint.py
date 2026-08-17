@@ -167,6 +167,47 @@ RULES: list[tuple[str, str, str]] = [
     ("hyphenation", r"\b(?:is|are|was|were|feels?|seems?)\s+(?:high-quality|cross-functional|data-driven|end-to-end|real-time|long-term|well-known|client-facing|decision-making|third-party|open-source)\b", "drop the hyphen after the noun"),
 ]
 
+HTML_HEADING_RE = re.compile(r"<h([1-6])\b[^>]*>(.*?)</h\1>", re.S | re.I)
+HTML_MASTHEAD_RE = re.compile(
+    r'<[^>]+class="[^"]*\b(subtitle|eyebrow|post-meta)\b[^"]*"[^>]*>(.*?)</', re.S | re.I)
+HTML_BLOCK_RE = re.compile(r"<(p|li|figcaption|summary)\b[^>]*>(.*?)</\1>", re.S | re.I)
+HTML_DROP_RE = re.compile(r"<(script|style|pre|code)\b.*?</\1>", re.S | re.I)
+HTML_ENTITIES = {"&nbsp;": " ", "&amp;": "&", "&lt;": "<", "&gt;": ">",
+                 "&quot;": '"', "&#39;": "'", "&#8212;": "\u2014", "&mdash;": "\u2014"}
+
+
+def looks_like_html(text: str) -> bool:
+    head = text[:4000].lower()
+    return "<html" in head or "<!doctype html" in head or bool(HTML_HEADING_RE.search(text))
+
+
+def _detag(fragment: str) -> str:
+    out = re.sub(r"<[^>]+>", " ", fragment)
+    for ent, ch in HTML_ENTITIES.items():
+        out = out.replace(ent, ch)
+    return re.sub(r"\s+", " ", out).strip()
+
+
+def html_to_lines(text: str) -> str:
+    """Flatten HTML into the line-oriented prose the rules expect.
+
+    Headings become markdown headings so the header rules see them, and
+    composing-html's masthead classes are treated as headings too — a subtitle
+    is a header by every test that matters. Line numbers refer to this
+    flattened view, not the source file.
+    """
+    text = HTML_DROP_RE.sub(" ", text)
+    parts: list[tuple[int, str]] = []
+    for m in HTML_HEADING_RE.finditer(text):
+        parts.append((m.start(), "#" * int(m.group(1)) + " " + _detag(m.group(2))))
+    for m in HTML_MASTHEAD_RE.finditer(text):
+        parts.append((m.start(), "## " + _detag(m.group(2))))
+    for m in HTML_BLOCK_RE.finditer(text):
+        parts.append((m.start(), _detag(m.group(2))))
+    lines = [t for _, t in sorted(parts) if t.strip(" #")]
+    return "\n\n".join(lines) + "\n"
+
+
 HEADER_RE = re.compile(r"^\s{0,3}(#{1,6})\s+(.+?)\s*$")
 COY_HEADER_RE = re.compile(r"^(?:what|why|how)\b(?!.*\?$)", re.I)
 VERDICT_HEADER_RE = re.compile(r"\b(?:is|are|isn'?t|aren'?t|was|wasn'?t|does|doesn'?t|actually|really|wrong|right|matters|counts)\b", re.I)
@@ -336,9 +377,14 @@ def main() -> int:
     ap.add_argument("--quiet-slop", action="store_true", help="hide the slop/editorializing/time categories")
     ap.add_argument("--skip-quoted", action="store_true",
                     help="ignore blockquotes, *italic* spans and table cells — use on docs that quote bad prose as specimens")
+    ap.add_argument("--html", action="store_true",
+                    help="force HTML flattening (headings, masthead subtitle, block prose)")
+    ap.add_argument("--no-html", action="store_true", help="never flatten; scan the raw source")
     args = ap.parse_args()
 
     text = sys.stdin.read() if args.path == "-" else Path(args.path).read_text(encoding="utf-8")
+    if args.html or (not args.no_html and looks_like_html(text)):
+        text = html_to_lines(text)
     if args.skip_quoted:
         text = _blank_quoted(text)
 
