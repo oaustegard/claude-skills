@@ -4,6 +4,12 @@ All notable changes to the `declauding` skill are documented in this file. The f
 
 ## [0.3.0] - 2026-08-17
 
+### Other
+
+- declauding v0.3.0 — two stages, folded from #762, #763 and the recall pass (#764)
+
+## [0.3.0] - 2026-08-17
+
 Three branches folded into one version: a recall pass on the linter, the
 structural-pass work from #762, and the guard work from an unmerged 0.2.2. They
 were three answers to the same complaint and shipping them separately would have
