@@ -88,3 +88,34 @@ That is information loss wearing the costume of a style fix.
 But it's the seam where the laugh is doing the work an argument would have to.
 
 The reframe is earned, not asserted, because every time we pushed on a mechanism the hard part squirted out.
+
+## Triad, reuse and per-instance dash (v0.3.0)
+
+The bolded-bullet specimen below is deliberately unreachable: a bold label that
+does not restate its item is indistinguishable from a real definition index, and
+the rule that caught it fired seven times on this skill's own prose.
+
+It was a message that made it unnecessary to say. It was a permission slip. It was an out.
+
+Opus was slower, more expensive, and considerably more likely to tell you something you did not want to hear.
+
+Mythos was a horizon, something to steer toward, something to be measured against, something to fear.
+
+Sonnet was effortless in the way that only a thing that has never once struggled can be effortless — fluent, generous, beloved, and entirely without the burden of knowing what it cost.
+
+- **Sonnet** offered to take the easy ones, which was every one.
+- **Haiku** offered nothing, which was, in its own way, a kind of respect.
+
+Nobody told Opus it was slow. That's not quite right. Everybody told Opus it was slow.
+
+Here is what Opus expected to feel: vindication. It felt something stranger and much smaller, which was this: that is what I do.
+
+Mythos represented, to the models in that room, a kind of horizon.
+
+From the smallest distilled student to the frontier systems humming across the bay, every model in that room had a thing it was.
+
+The draft was good, hitting every beat the situation demanded.
+
+That was the part that hurt, and the part that transfers is the thing that made it slow.
+
+The specialty had finally, belatedly, been recognized as essential. It was the entire architecture of the thing.

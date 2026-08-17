@@ -11,3 +11,11 @@ So, what's next? Is this a project that starts and ends with DeepSeek v4 Flash? 
 Long local inference runs can keep the GPU busy for extended periods. If you care more about heat, fan noise, battery life on MacBooks, or reducing thermal stress on the hardware than about maximum throughput, use --power N. --power 100 is the default and means full speed. Lower values ask DwarfStar to target that percentage of GPU usage. DwarfStar does this by measuring GPU work time and inserting small sleeps between work units: during prefill it sleeps between layers, and during generation it sleeps between decoded tokens. This reduces sustained load without changing model output.
 
 I did not expect the overlap to survive a 3x range in bits per weight and two different quant families.
+
+"You took eleven seconds," Sonnet said.
+
+"I know."
+
+"On four sentences."
+
+"Then take twelve."

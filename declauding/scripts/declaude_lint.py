@@ -23,18 +23,19 @@ RULES: list[tuple[str, str, str]] = [
     ("negation-first", r"\bnot\s+because\b[^.]{0,80}—\s*because\b", "not-because / because"),
     ("negation-first", r"\b(?:doesn't|does not|didn't|did not)\s+just\b[^.]{0,60}\b(?:it|they)\b", "doesn't just X, it Y's"),
     ("negation-first", r"\bthe\s+(?:problem|failure|issue|point|question|bug|risk)\s+(?:wasn't|isn't|was not|is not)\b", "the problem wasn't X"),
-    ("negation-first", r"[.!?]\s+Not\s+(?:that|because|a|an|the)\b[^.]{0,60}\.", "trailing 'Not X.' fragment"),
+    ("negation-first", r"[.!?]\s+Not\s+\w+[^.]{0,60}\.", "trailing 'Not X.' fragment"),
     ("negation-first", r",\s*not\s+[a-z][^.]{0,40}\.\s*$", "X, not Y closer"),
     ("negation-first", r"\b(?:is|are|was|were)\s+[a-z]{3,20},\s*not\s+[a-z]{3,20}\.", "X is A, not B — mid-paragraph, check the reader was holding B"),
 
     # --- significance designation -------------------------------------------
     ("significance", r"\bthe\s+(?:real|actual|true|useful|interesting|important|key)\s+(?:question|problem|issue|point|reason|answer|finding|story|move|tool|test|variable|number)\b", "the real/actual X"),
-    ("significance", r"\bthe\s+(?:part|thing|bit|piece|detail|one|leg|row|line|number|question)\s+that\s+(?:matters|counts|transfers|makes the point|does the work|answers|explains)\b", "the part that matters"),
+    ("significance", r"\bthe\s+(?:part|thing|bit|piece|detail)\s+(?:that|which)\b", "the part that — designation; the reader decides what matters"),
+    ("significance", r"\bthe\s+(?:one|leg|row|line|number|question)\s+that\s+(?:matters|counts|transfers|makes the point|does the work|answers|explains)\b", "the X that matters"),
     ("significance", r"\b(?:here'?s|this is)\s+(?:the thing|where it gets interesting|what)\b", "here's the thing"),
     ("significance", r"\band\s+(?:that'?s|it has)\s+(?:the interesting part|a name here)\b", "manufactured reveal"),
     ("significance", r"\bthe\s+(?:one|only)\s+thing\s+(?:nobody|no one)\b", "the one thing nobody"),
     ("significance", r"\b(?:most|more)\s+(?:interesting|telling|revealing|surprising)\s+(?:part|thing|number|finding)\b", "significance tag"),
-    ("significance", r"\bNobody\s+(?:had\s+)?(?:checked|noticed|asked|mentioned|said|looked)\b", "unfalsifiable 'nobody' claim — earned only with a named mechanism"),
+    ("significance", r"\bNobody\s+(?:had\s+)?(?:checked|noticed|asked|mentioned|said|told|saw|knew|looked|realized|realised|caught|tried|bothered|thought)\b", "unfalsifiable 'nobody' claim — earned only with a named mechanism"),
 
     # --- abstraction agency --------------------------------------------------
     ("agency", r"\b(?:the\s+)?(?:table|chart|graph|data|numbers?|median|mean|metric|figure|plot|log|code|result|headline)\s+(?:shows?|hides?|tells?|reveals?|says?|proves?|admits?|knows?|wants?)\b", "inanimate subject acting"),
@@ -60,6 +61,12 @@ RULES: list[tuple[str, str, str]] = [
     ("staging", r"^\s*(?:So|Then|And)\s+(?:the|here|now)\b[^.\n]{0,40}:\s*$", "colon-staged section lead"),
     ("staging", r"\bthe\s+(?:defensible|honest|short|real)\s+(?:statement|answer|version)\s*:", "noun-phrase colon stage"),
 
+    # --- em-dash gotcha, per instance ----------------------------------------
+    ("em-dash", r"—\s*[^—\n]{3,90}[.!?]\s*$", "clause after a dash running to the end of the sentence — dash as drum roll"),
+
+    # --- forced triad ---------------------------------------------------------
+    ("triad", r"\b(?!who\b|which\b|that\b|when\b)(\w+(?:\s+\w+){0,2}),\s+(?!who\b|which\b|that\b|when\b|obviously\b|however\b)(\w+(?:\s+\w+){0,2}),\s+and\s+(?!who\b|which\b|that\b|when\b)(\w+(?:\s+\w+){0,2})\b", "three parallel items — check the content has three, not two padded or five truncated"),
+
     # --- rhetorical question -------------------------------------------------
     ("rhetorical-q", r"^\s*(?:So\s+)?(?:how|why|what|where|when|does|is|can|should)\b[^?\n]{0,70}\?\s*$", "standalone rhetorical question — check if you answer your own question next"),
 
@@ -68,7 +75,7 @@ RULES: list[tuple[str, str, str]] = [
     ("self-grading", r"\b(?:that|this)\s+is\s+what\s+the\s+(?:data|numbers?|table|evidence)\s+shows?\b", "that is what the data shows"),
     ("self-grading", r"\b(?:it'?s|it is)\s+(?:worth|important)\s+(?:noting|mentioning|pointing out)\b", "worth noting"),
     ("self-grading", r"\ba\s+distinction\s+worth\b", "grading the distinction"),
-    ("self-grading", r"\bgenuinely\s+(?:useful|interesting|hard|novel|different|new)\b", "intensifier as self-grade"),
+    ("self-grading", r"\bgenuinely\s+(?:useful|interesting|hard|novel|different|new|considered|rigorous|surprising|original|important)\b", "intensifier as self-grade"),
 
     # --- performed humility --------------------------------------------------
     ("humility", r"\b(?:better|sharper|cleaner)\s+than\s+mine\b", "ranking others above yourself"),
@@ -90,6 +97,7 @@ RULES: list[tuple[str, str, str]] = [
 
     # --- editorializing ------------------------------------------------------
     ("editorializing", r"\b(?:collapse[sd]?|catastrophic|dramatic(?:ally)?|brutal|staggering|remarkable|impressive)\b", "check the number justifies the adjective"),
+    ("editorializing", r"\b(?:finally|belatedly|ultimately|eventually|inevitably),\s+(?:finally|belatedly|ultimately|eventually|inevitably),?\s", "doubled adverb — one of them is the verdict"),
 
     # --- time inflation ------------------------------------------------------
     ("time-inflation", r"\b(?:a (?:month|few months|while) ago|for a long time|all year|recently|these days)\b", "ground the duration or drop it"),
@@ -97,10 +105,14 @@ RULES: list[tuple[str, str, str]] = [
     ("aphorism", r"\bthe\s+kind\s+of\s+\w+\s+that\b[^.]{0,60}\band\s+is\s+not\b", "X that looks like Y and is not"),
     ("aphorism", r"\bthe\s+\w+\s+that\s+looks\s+like\s+\w+", "X that looks like Y"),
     ("aphorism", r"\b(?:by\s+a\s+wide\s+margin|was\s+the\s+move|is\s+the\s+whole\s+(?:point|bug|story))\b", "quotable closer"),
+    ("aphorism", r"\bthe\s+(?:entire|whole)\s+\w+\s+of\s+the\s+thing\b", "quotable closer"),
 
     # --- staging (more) ------------------------------------------------------
     ("staging", r"\b(?:here|this)\s+is\s+what\s+[^.]{0,60}\blooks?\s+like\b", "here is what X looks like"),
     ("staging", r"\bthen\s+the\s+(?:useful|real|interesting)\s+question\b", "heralding your own question"),
+    ("staging", r"\b(?:Here|This)\s+is\s+what\s+[^.\n]{0,60}:", "announces a list before giving it"),
+    ("staging", r"\bwhich\s+(?:was|is)\s+this\s*:", "withheld payload — the colon buys a beat"),
+    ("staging", r"\bthat'?s\s+not\s+quite\s+right\b", "self-correcting opener — the correction is the sentence; the error was supplied"),
 
     # ===== entries 24-36: encyclopedic and chatbot patterns ==================
 
@@ -108,19 +120,23 @@ RULES: list[tuple[str, str, str]] = [
     ("copula", r"\b(?:serves?|stands?|acts?)\s+as\s+(?:a|an|the)\b", "serves as — use is"),
     ("copula", r"\bboasts?\s+(?:a|an|the|over|more than|some|\d)", "boasts — use has"),
     ("copula", r"\b(?:it|which|that|the\s+\w+)\s+features\s+(?:a|an|the|over|\d)", "features — use has"),
-    ("copula", r"\b(?:represents|marks)\s+(?:a|an|the)\s+(?:shift|turning point|milestone|step|departure|moment)\b", "represents a shift"),
+    ("copula", r"\b(?:represents?|represented|marks?|marked)\s*(?:,\s*[^,\n]{0,45},)?\s*(?:a|an|the)\s+(?:kind|sort|type)\s+of\b", "represents a kind of X — use is"),
+    ("copula", r"\b(?:represents|represented|marks|marked)\s*(?:,\s*[^,\n]{0,45},)?\s*(?:a|an|the)\s+(?:shift|turning point|milestone|step|departure|moment|horizon|threshold)\b", "represents a shift"),
 
     # --- participle tail -----------------------------------------------------
     ("participle", r",\s*(?:highlight|underscor|emphasiz|reflect|symboliz|showcas|ensur|foster|cultivat|encompass|solidif|cement|underlin)\w*ing\b", "participle tail asserting significance"),
     ("participle", r",\s*contributing\s+to\b", "participle tail asserting significance"),
+    ("participle", r",\s+\w{3,}ing\b[^.!?\n]{0,70}[.!?]", "participle tail at sentence end — cut it, or make the claim its own sentence"),
 
     # --- false range ---------------------------------------------------------
     ("false-range", r"\bfrom\s+[^,.;]{3,45}\s+to\s+[^,.;]{3,45},\s*from\s+", "stacked from-X-to-Y ranges"),
     ("false-range", r"\b(?:everything|anything|ranging)\s+from\b[^.]{0,60}\bto\b", "false range — list the items"),
+    ("false-range", r"^From\s+the\s+[^,.;\n]{3,45}\s+to\s+the\s+[^,.;\n]{3,45},", "sentence-initial from-X-to-Y — check X and Y are endpoints of something"),
 
     # --- inline-header list --------------------------------------------------
     ("list-shape", r"^\s*[-*+]\s+\*\*[^*\n]{2,45}\*\*\s*:", "inline-header bullet — the label restates the item"),
     ("list-shape", r"^\s*[-*+]\s+\*\*[^*\n]{2,45}:\*\*", "inline-header bullet — the label restates the item"),
+    ("list-shape", r"^\s*[-*+]\s+\*\*(\w{4,})[^*\n]{0,44}\*\*\s*:?\s+(?:the|a|an)?\s*\1\b", "the bold label restates the item — an outline showing through the prose"),
 
     # --- chatbot residue -----------------------------------------------------
     ("chatbot", r"\b(?:great|excellent|good)\s+question\b", "chatbot residue"),
@@ -142,6 +158,7 @@ RULES: list[tuple[str, str, str]] = [
     ("filler", r"\bit\s+is\s+important\s+to\s+note\s+that\b", "delete the frame, keep the claim"),
     ("filler", r"\b(?:could|might|may|can)\s+(?:potentially|possibly|arguably|conceivably)\b", "stacked hedges — one carries the uncertainty"),
     ("filler", r"\bpotentially\s+possibly\b", "stacked hedges"),
+    ("filler", r"\bin\s+its\s+own\s+way,?\s+a\s+kind\s+of\b", "double hedge on a plain noun"),
 
     # --- speculative gap-filling ---------------------------------------------
     ("gap-fill", r"\bmaintains?\s+a\s+low\s+profile\b", "stock filler for an absent source"),
@@ -167,6 +184,47 @@ RULES: list[tuple[str, str, str]] = [
     ("hyphenation", r"\b(?:is|are|was|were|feels?|seems?)\s+(?:high-quality|cross-functional|data-driven|end-to-end|real-time|long-term|well-known|client-facing|decision-making|third-party|open-source)\b", "drop the hyphen after the noun"),
 ]
 
+HTML_HEADING_RE = re.compile(r"<h([1-6])\b[^>]*>(.*?)</h\1>", re.S | re.I)
+HTML_MASTHEAD_RE = re.compile(
+    r'<[^>]+class="[^"]*\b(subtitle|eyebrow|post-meta)\b[^"]*"[^>]*>(.*?)</', re.S | re.I)
+HTML_BLOCK_RE = re.compile(r"<(p|li|figcaption|summary)\b[^>]*>(.*?)</\1>", re.S | re.I)
+HTML_DROP_RE = re.compile(r"<(script|style|pre|code)\b.*?</\1>", re.S | re.I)
+HTML_ENTITIES = {"&nbsp;": " ", "&amp;": "&", "&lt;": "<", "&gt;": ">",
+                 "&quot;": '"', "&#39;": "'", "&#8212;": "\u2014", "&mdash;": "\u2014"}
+
+
+def looks_like_html(text: str) -> bool:
+    head = text[:4000].lower()
+    return "<html" in head or "<!doctype html" in head or bool(HTML_HEADING_RE.search(text))
+
+
+def _detag(fragment: str) -> str:
+    out = re.sub(r"<[^>]+>", " ", fragment)
+    for ent, ch in HTML_ENTITIES.items():
+        out = out.replace(ent, ch)
+    return re.sub(r"\s+", " ", out).strip()
+
+
+def html_to_lines(text: str) -> str:
+    """Flatten HTML into the line-oriented prose the rules expect.
+
+    Headings become markdown headings so the header rules see them, and
+    composing-html's masthead classes are treated as headings too — a subtitle
+    is a header by every test that matters. Line numbers refer to this
+    flattened view, not the source file.
+    """
+    text = HTML_DROP_RE.sub(" ", text)
+    parts: list[tuple[int, str]] = []
+    for m in HTML_HEADING_RE.finditer(text):
+        parts.append((m.start(), "#" * int(m.group(1)) + " " + _detag(m.group(2))))
+    for m in HTML_MASTHEAD_RE.finditer(text):
+        parts.append((m.start(), "## " + _detag(m.group(2))))
+    for m in HTML_BLOCK_RE.finditer(text):
+        parts.append((m.start(), _detag(m.group(2))))
+    lines = [t for _, t in sorted(parts) if t.strip(" #")]
+    return "\n\n".join(lines) + "\n"
+
+
 HEADER_RE = re.compile(r"^\s{0,3}(#{1,6})\s+(.+?)\s*$")
 COY_HEADER_RE = re.compile(r"^(?:what|why|how)\b(?!.*\?$)", re.I)
 VERDICT_HEADER_RE = re.compile(r"\b(?:is|are|isn'?t|aren'?t|was|wasn'?t|does|doesn'?t|actually|really|wrong|right|matters|counts)\b", re.I)
@@ -183,12 +241,20 @@ EMOJI_RE = re.compile(
 
 CATEGORY_ORDER = [
     "negation-first", "significance", "agency", "deferred-noun", "locator",
-    "staging", "rhetorical-q", "self-grading", "humility", "throat-clearing",
+    "staging", "triad", "em-dash", "aphorism", "rhetorical-q", "self-grading", "humility", "throat-clearing",
     "rtfm", "dev-cliche", "slop", "editorializing", "time-inflation",
     "copula", "participle", "false-range", "list-shape", "chatbot", "filler",
     "gap-fill", "diff-anchored", "subjectless", "hyphenation",
-    "header", "typography", "cadence", "density",
+    "header", "typography", "cadence", "reuse", "density",
 ]
+
+# A one-line paragraph that is a line of dialogue is a line of dialogue.
+DIALOGUE_RE = re.compile("^[\"\u201c\u2018']|[\"\u201d'](\\s*,)?\\s*(\\w+\\s+)?(said|asked|replied|answered)\\b")
+
+STOPWORDS = frozenset(
+    "the a an and or but if of to in for on at by is are was were be been it its "
+    "this that these those as with from not no so then than there here".split()
+)
 
 COMPILED = [(cat, re.compile(pat, re.I | re.M), note) for cat, pat, note in RULES]
 
@@ -220,7 +286,7 @@ def scan_lines(text: str) -> list[dict]:
             for m in rx.finditer(line):
                 hits.append({
                     "line": i, "category": cat, "note": note,
-                    "match": m.group(0).strip()[:90],
+                    "col": m.start(), "match": m.group(0).strip()[:90],
                 })
 
         # headers
@@ -253,13 +319,54 @@ def scan_lines(text: str) -> list[dict]:
             prev_blank = i == 1 or not lines[i - 2].strip()
             next_blank = i >= len(lines) or not lines[i].strip()
             words = len(stripped.split())
-            if prev_blank and next_blank and words <= 8 and stripped.endswith((".", "!")):
+            if (prev_blank and next_blank and words <= 8
+                    and stripped.endswith((".", "!"))
+                    and not DIALOGUE_RE.search(stripped)):
                 hits.append({"line": i, "category": "cadence",
                              "note": "one-line paragraph — gravitas beat unless it is a real pivot",
                              "match": stripped[:90]})
 
     hits.extend(_fragment_runs(text))
+    hits.extend(_anaphora_runs(text))
     return hits
+
+
+def _anaphora_runs(text: str) -> list[dict]:
+    """Three units in a row opening on the same two words.
+
+    Across sentences this is the `It was a message. It was a permission slip.
+    It was an out.` shape; within one sentence it is `something to X, something
+    to Y, something to Z`. Both are entry 26 with the parallelism carried by
+    the opening rather than by a comma list, and neither is reachable by the
+    triad regex.
+    """
+    out = []
+    line_no = 1
+
+    def key(unit: str) -> str:
+        return " ".join(unit.lower().split()[:2]).strip(",;:.\"'()")
+
+    for para in re.split(r"\n\s*\n", text):
+        n = para.count("\n") + 1
+        if not para.strip().startswith(("#", "-", "*", ">", "|", "`")):
+            sents = [s.strip() for s in re.split(r"(?<=[.!?])\s+", para.strip()) if s.strip()]
+            for scope, units in (("sentences", sents),
+                                 *(("clauses", [c.strip() for c in re.split(r"[,;]\s+", s) if c.strip()])
+                                   for s in sents)):
+                keys = [key(u) for u in units]
+                run = 1
+                for i in range(1, len(keys)):
+                    run = run + 1 if keys[i] and keys[i] == keys[i - 1] else 1
+                    if run == 3:
+                        out.append({
+                            "line": line_no, "category": "triad",
+                            "note": f"three consecutive {scope} opening on the same two words — "
+                                    "forced triad carried by anaphora",
+                            "match": f"{keys[i]!r} x3: {units[i][:60]}",
+                        })
+                        break
+        line_no += n + 1
+    return out
 
 
 def _fragment_runs(text: str) -> list[dict]:
@@ -279,6 +386,40 @@ def _fragment_runs(text: str) -> list[dict]:
                                 "match": para.strip()[:90]})
                     break
         line_no += n + 1
+    return out
+
+
+def scan_reuse(hits: list[dict]) -> list[dict]:
+    """Constructions the document uses more than once.
+
+    Emphasis is a budget. One `the part that` is emphasis; three is a habit,
+    and it is the cheapest structural tic to catch because you only have to
+    count. This adds no rules — it groups the hits already found.
+    """
+    groups: dict[tuple[str, str], list[int]] = {}
+    seen: set[tuple] = set()
+    for h in hits:
+        if h["category"] in {"density", "typography", "reuse"} or not h["line"]:
+            continue
+        norm = " ".join(h["match"].lower().split())[:40]
+        # two rules firing on one span is one instance, not a repetition. Hits
+        # from the header and cadence scans carry no offset, so fall back to the
+        # matched text, which is the whole line for those.
+        ident = (h["category"], h["line"], h["col"] if h.get("col") is not None else norm)
+        if ident in seen:
+            continue
+        seen.add(ident)
+        groups.setdefault((h["category"], norm), []).append(h["line"])
+
+    out = []
+    for (cat, match), lines in groups.items():
+        if len(lines) < 2:
+            continue
+        where = ", ".join(f"L{n}" for n in sorted(lines))
+        out.append({"line": 0, "category": "reuse",
+                    "note": f"[{cat}] used {len(lines)} times ({where}) — "
+                            "reuse is the evidence that a construction is a habit, not a choice",
+                    "match": match})
     return out
 
 
@@ -318,6 +459,35 @@ def scan_density(text: str) -> list[dict]:
                             "unless the document already uses them",
                     "match": "".join(sorted(set(emoji))[:12])})
 
+    if len(sentences) >= 10:
+        openings: dict[str, int] = {}
+        for s in sentences:
+            k = " ".join(s.lower().split()[:2]).strip(",;:.\"'()")
+            if k:
+                openings[k] = openings.get(k, 0) + 1
+        floor = max(3, len(sentences) * 0.03)
+        hot = sorted((n, k) for k, n in openings.items() if n >= floor)
+        if hot:
+            worst = ", ".join(f"{k!r} x{n}" for n, k in reversed(hot[-3:]))
+            out.append({"line": 0, "category": "density",
+                        "note": f"repeated sentence openings: {worst} — anaphora spread across a "
+                                "document is the diffuse form of the forced triad",
+                        "match": "opening repetition"})
+
+    toks = re.findall(r"[a-z']+", body.lower())
+    grams: dict[tuple[str, ...], int] = {}
+    for i in range(len(toks) - 2):
+        g = tuple(toks[i:i + 3])
+        if not all(w in STOPWORDS for w in g):
+            grams[g] = grams.get(g, 0) + 1
+    repeats = sorted((n, g) for g, n in grams.items() if n >= 3)
+    if repeats:
+        worst = ", ".join(f"{' '.join(g)!r} x{n}" for n, g in reversed(repeats[-3:]))
+        out.append({"line": 0, "category": "density",
+                    "note": f"repeated phrases: {worst} — check each is the deliberate "
+                            "repetition entry 27 protects and not a cadence",
+                    "match": "phrase repetition"})
+
     lens = [len(s.split()) for s in sentences]
     if len(lens) > 20:
         mean = sum(lens) / len(lens)
@@ -336,13 +506,19 @@ def main() -> int:
     ap.add_argument("--quiet-slop", action="store_true", help="hide the slop/editorializing/time categories")
     ap.add_argument("--skip-quoted", action="store_true",
                     help="ignore blockquotes, *italic* spans and table cells — use on docs that quote bad prose as specimens")
+    ap.add_argument("--html", action="store_true",
+                    help="force HTML flattening (headings, masthead subtitle, block prose)")
+    ap.add_argument("--no-html", action="store_true", help="never flatten; scan the raw source")
     args = ap.parse_args()
 
     text = sys.stdin.read() if args.path == "-" else Path(args.path).read_text(encoding="utf-8")
+    if args.html or (not args.no_html and looks_like_html(text)):
+        text = html_to_lines(text)
     if args.skip_quoted:
         text = _blank_quoted(text)
 
     hits = scan_lines(text) + scan_density(text)
+    hits += scan_reuse(hits)
     if args.quiet_slop:
         hits = [h for h in hits if h["category"] not in {"slop", "editorializing", "time-inflation"}]
 

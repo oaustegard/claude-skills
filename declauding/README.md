@@ -86,8 +86,28 @@ python3 scripts/declaude_lint.py DOC.md --skip-quoted # ignore quoted specimens
 
 Stdlib only. It flags the lexical tells with line numbers and categories, plus
 header shape, Title Case headings, one-line-paragraph beats, fragment runs,
-inline-header bullets, em-dash density, curly-quote and emoji counts, and
+forced triads in both their comma-list and anaphora forms, inline-header bullets
+whose label restates the item, per-instance em-dash drum rolls, em-dash density,
+repeated sentence openings and phrases, curly-quote and emoji counts, and
 sentence-length monotony.
+
+The `reuse` block groups the hits the scan already produced and reports any
+construction used more than once. It adds no rules and costs nothing, and reuse
+is the strongest available evidence that a construction is a habit rather than a
+choice: one `the part that` is emphasis, three is a tic.
+
+HTML is flattened before scanning, so `<h1>`–`<h6>` and masthead
+`.subtitle` / `.eyebrow` / `.post-meta` elements reach the header rules. Before
+0.3.0 every header rule was silent on an HTML draft.
+
+`scripts/declaude_review.py` is stage 2. It extracts the slots regex cannot judge
+— headers, the opening sentence, each closing sentence, isolated one-sentence
+paragraphs — and sends only those to a model with the structural register
+entries. Slots rather than the whole document, so it is cheap enough to run every
+time. The two stages are complementary rather than redundant: stage 1 catches the
+verdict header deterministically and over-flags commas that belong to citations,
+stage 2 reads the comma in context and catches the aphoristic closer that no
+regex reaches.
 
 `--skip-quoted` blanks blockquotes, table rows, code (fenced and inline),
 `*italic*` spans and `<q>` elements while preserving line numbers. Use it on any
@@ -103,17 +123,22 @@ as a pre-commit hook.
 ## False positives
 
 `tests/sample-clean.md` is human-written prose and must lint to zero.
-`tests/sample-tics.md` is a corpus of real specimens and currently reports 62
-candidates across 24 categories.
+`tests/sample-tics.md` is a corpus of real specimens and currently reports 91
+candidates across 28 categories.
 
 ```sh
-python3 scripts/declaude_lint.py tests/sample-tics.md    # 62 candidates
+python3 scripts/declaude_lint.py tests/sample-tics.md    # 91 candidates
 python3 scripts/declaude_lint.py tests/sample-clean.md   # 0
+python3 scripts/declaude_lint.py SKILL.md --skip-quoted  # 7, all checked
+python3 scripts/declaude_lint.py tests/sample-structure.html   # 10, HTML path
+python3 scripts/declaude_review.py tests/sample-structure.md --slots
 ```
 
-Two rules are deliberately tuned down to hold that zero, so the linter misses
-some real coy headers. A linter that fires on good writing gets ignored, and
-then it catches nothing.
+Several rules are deliberately tuned down to hold that zero, so the linter misses
+some real coy headers and some real inline-header bullets. A linter that fires on
+good writing gets ignored, and then it catches nothing. This skill's own prose is
+the second clean corpus: a rule that fires seven times on `SKILL.md` is a bad
+rule, and one did.
 
 ## Overcorrection
 
@@ -129,9 +154,13 @@ rather than left to judgment:
 - Sentence length varies with content. Uniformity is its own tell.
 - Digression and mild informality are human. Symmetry and antithesis are not.
 
-Several banned shapes have an earned form, tabulated in `SKILL.md`. *X rather
-than Y* is legitimate when the reader was genuinely holding Y; it is staged when
-you supplied Y so you could reject it.
+Every entry fires on a shape, and a shape sometimes carries a claim. Cutting it
+then removes content while looking like it removed only style. `SKILL.md`
+tabulates the earned form of 17 of the 37 entries, and names what hides inside a
+watched phrase: superlatives, rankings, simultaneity, scope words, and the
+condition attached to a hedge. *X rather than Y* is legitimate when the reader
+was genuinely holding Y; it is staged when you supplied Y so you could reject
+it.
 
 ## Tics carry factual errors
 
