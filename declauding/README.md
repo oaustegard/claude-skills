@@ -129,9 +129,13 @@ rather than left to judgment:
 - Sentence length varies with content. Uniformity is its own tell.
 - Digression and mild informality are human. Symmetry and antithesis are not.
 
-Several banned shapes have an earned form, tabulated in `SKILL.md`. *X rather
-than Y* is legitimate when the reader was genuinely holding Y; it is staged when
-you supplied Y so you could reject it.
+Every entry fires on a shape, and a shape sometimes carries a claim. Cutting it
+then removes content while looking like it removed only style. `SKILL.md`
+tabulates the earned form of 17 of the 37 entries, and names what hides inside a
+watched phrase: superlatives, rankings, simultaneity, scope words, and the
+condition attached to a hedge. *X rather than Y* is legitimate when the reader
+was genuinely holding Y; it is staged when you supplied Y so you could reject
+it.
 
 ## Tics carry factual errors
 

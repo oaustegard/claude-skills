@@ -185,8 +185,9 @@ walking the reader through a discovery.
 **Tell:** quoting a wrong reading attributed to the reader, then rejecting it —
 *"It thinks twice as long" is the obvious reading of that, and it is wrong.*
 
-**Why:** the negation-first shape wearing a costume. The correction is the same
-length without the invented interlocutor.
+**Why:** entry 2's negation-first shape with an invented interlocutor supplying
+the negated half. The correction is the same length without them. (This sentence
+used to read "the negation-first shape wearing a costume", which is entry 37.)
 
 **Fix:** give the correction directly. *"That median does not mean it thinks twice
 as long. On the questions it finishes..."*
@@ -390,6 +391,9 @@ own sentence.
 > now: *The temple is painted blue, green and gold, colours chosen to evoke
 > Texas bluebonnets and the Gulf of Mexico.*
 
+**Earned when** the clause carries a sourced claim. Then it is the shape that is
+wrong, not the content: promote it to its own sentence rather than cutting it.
+
 ---
 
 ## 26. Forced triad
@@ -427,6 +431,9 @@ reads as a second thing.
 > obstacles. The central figure eventually triumphs.*
 > now: *The protagonist faces many challenges and eventually wins.*
 
+**Earned when** the second term names a genuinely different thing. Check that the
+referents really are identical before collapsing them.
+
 ---
 
 ## 28. False range
@@ -445,6 +452,9 @@ implies coverage the sentence does not have.
 > now: *The book covers the Big Bang, star formation and current theories about
 > dark matter.*
 
+**Earned when** the endpoints are real: "from 2 to 8 bits", "from onboarding to
+offboarding". A range with a scale under it is a range.
+
 ---
 
 ## 29. Inline-header list
@@ -462,6 +472,9 @@ labels only where they are a real index (a term being defined, an option name).
 > was: *- **Performance:** Performance has been enhanced through optimized
 > algorithms.*
 > now: *Load times dropped after the index moved off the hot path.*
+
+**Earned when** the label is a real index rather than a restatement: a term being
+defined, an option or flag name, a case name in a table of cases.
 
 ---
 
@@ -550,7 +563,10 @@ reads coherently only to someone who knows what the last commit did. Six months
 later nobody does.
 
 **Fix:** describe the current state. The change belongs in the commit message or
-the changelog, which are version-scoped by design.
+the changelog.
+
+**Earned when** the document is version-scoped by design — a changelog, release
+notes, a migration guide, an upgrade path. Narrating the change is the job there.
 
 > was: *This function was added to replace the previous approach of iterating
 > through all items, which caused quadratic performance.*
@@ -645,3 +661,7 @@ clean lint report.
 10. Does the rewrite contain a fact, name, number, date or citation that is not
     in the source? A fabrication is a defect even when it sounds more human than
     the vague original.
+11. Does the rewrite drop a claim the source made? Check claim by claim, not
+    paragraph by paragraph. Superlatives, rankings, simultaneity, scope words and
+    the condition attached to a hedge all sit inside phrasings this register
+    cuts, and the paragraph looks intact after they go.

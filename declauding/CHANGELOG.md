@@ -2,6 +2,31 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.2.2] - 2026-08-16
+
+Brings the guard up to the register. Entries 24 to 37 arrived in 0.2.0 and 0.2.1
+without any of the protection entries 1 to 23 already had, and the sharper
+version of that protection had been written for another project rather than this
+one.
+
+### Added
+
+- Earned exceptions covers 17 of the 37 entries, in two tables, with the entry
+  number on every row. It covered 5, all from the first block, while the second
+  block carried its exceptions as prose buried inside individual entries.
+- The paragraph naming what hides inside a watched phrase: superlatives,
+  rankings, simultaneity, scope words, and the condition attached to a hedge.
+- A dropped-claim check in workflow step 5 and as self-check 11, asked as a
+  question and answered claim by claim. A dropped superlative leaves the
+  paragraph looking intact, which is why a read-through misses it.
+- `Earned when` notes on entries 25, 27, 28, 29 and 34, which had none.
+
+### Fixed
+
+- Entry 11 explained itself with "the negation-first shape wearing a costume",
+  which is entry 37. The skill cannot ban a shape in one entry and use it in
+  another.
+
 ## [0.2.1] - 2026-08-16
 
 ### Added
