@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - '.uploads/**.zip'
+      - '.uploads/**.skill'
   workflow_dispatch:
 
 permissions:
