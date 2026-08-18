@@ -3,6 +3,9 @@ set -e
 
 # Process skill uploads from the .uploads/ directory
 # This script is called by the skill-upload.yml GitHub Actions workflow
+#
+# Accepts .zip and .skill bundles. A .skill is an ordinary zip under a different
+# extension (see creating-kb/scripts/zipstore.js), so unzip handles both.
 
 # Check if this is a manual trigger (workflow_dispatch) or automatic (push)
 EVENT_NAME="${GITHUB_EVENT_NAME:-push}"
@@ -10,50 +13,50 @@ EVENT_NAME="${GITHUB_EVENT_NAME:-push}"
 if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
   echo "========================================="
   echo "Manual workflow trigger detected"
-  echo "Will process all zip files in .uploads/"
+  echo "Will process all .zip and .skill bundles in .uploads/"
   echo "========================================="
   echo ""
 else
-  # For push events, only process zip files that were added or modified
+  # For push events, only process bundles that were added or modified
   # Use HEAD~1 as fallback if before commit is not available
   BEFORE_COMMIT="${GITHUB_BEFORE_COMMIT:-}"
   if [ -z "$BEFORE_COMMIT" ] || ! git rev-parse --verify "$BEFORE_COMMIT" >/dev/null 2>&1; then
     BEFORE_COMMIT="HEAD~1"
   fi
 
-  ADDED_OR_MODIFIED=$(git diff --name-status "$BEFORE_COMMIT" HEAD 2>/dev/null | grep -E '^(A|M)\s+\.uploads/.*\.zip$' || true)
+  ADDED_OR_MODIFIED=$(git diff --name-status "$BEFORE_COMMIT" HEAD 2>/dev/null | grep -E '^(A|M)\s+\.uploads/.*\.(zip|skill)$' || true)
 
   if [ -z "$ADDED_OR_MODIFIED" ]; then
     echo "========================================="
-    echo "No zip files were added or modified in this push."
-    echo "Only deletions or non-zip changes detected."
+    echo "No skill bundles were added or modified in this push."
+    echo "Only deletions or unrelated changes detected."
     echo "Exiting gracefully."
     echo "========================================="
     exit 0
   fi
 
-  echo "Detected zip file changes:"
+  echo "Detected skill bundle changes:"
   echo "$ADDED_OR_MODIFIED"
   echo ""
 fi
 
-# Find all zip files in .uploads directory
-ZIP_FILES=$(find .uploads -name "*.zip" -type f 2>/dev/null || true)
+# Find all skill bundles in .uploads directory
+UPLOAD_FILES=$(find .uploads -type f \( -name "*.zip" -o -name "*.skill" \) 2>/dev/null || true)
 
-if [ -z "$ZIP_FILES" ]; then
+if [ -z "$UPLOAD_FILES" ]; then
   echo "========================================="
-  echo "No .zip files found in .uploads directory."
+  echo "No .zip or .skill files found in .uploads directory."
   echo "This is normal if:"
-  echo "  - Zip files were already processed"
-  echo "  - Zip files were manually deleted"
-  echo "  - Only non-zip files were modified"
+  echo "  - Bundles were already processed"
+  echo "  - Bundles were manually deleted"
+  echo "  - Only unrelated files were modified"
   echo "Exiting gracefully."
   echo "========================================="
   exit 0
 fi
 
 # Count how many files we're processing
-FILE_COUNT=$(echo "$ZIP_FILES" | wc -l)
+FILE_COUNT=$(echo "$UPLOAD_FILES" | wc -l)
 echo "Found $FILE_COUNT skill(s) to process"
 
 # Configure git once for all operations
@@ -66,17 +69,23 @@ MAIN_BRANCH=$(git branch --show-current)
 # Get the script directory for calling generate-readme.py
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Process each zip file
+# Process each bundle
 COUNTER=1
-echo "$ZIP_FILES" | while IFS= read -r ZIP_FILE; do
+echo "$UPLOAD_FILES" | while IFS= read -r UPLOAD_FILE; do
   echo ""
   echo "========================================="
-  echo "Processing skill $COUNTER of $FILE_COUNT: $ZIP_FILE"
+  echo "Processing skill $COUNTER of $FILE_COUNT: $UPLOAD_FILE"
   echo "========================================="
 
-  # Extract the zip file
+  # Extract the bundle (.skill is a zip, so unzip handles both extensions)
   TEMP_DIR=$(mktemp -d)
-  unzip "$ZIP_FILE" -d "$TEMP_DIR/extracted_skill"
+  if ! unzip -tqq "$UPLOAD_FILE" >/dev/null 2>&1; then
+    echo "Error: $UPLOAD_FILE is not a valid zip archive."
+    echo "A .skill bundle must be an ordinary zip; re-package and re-upload."
+    rm -rf "$TEMP_DIR"
+    exit 1
+  fi
+  unzip "$UPLOAD_FILE" -d "$TEMP_DIR/extracted_skill"
   echo "Extracted files:"
   ls -R "$TEMP_DIR/extracted_skill"
 
@@ -94,13 +103,13 @@ echo "$ZIP_FILES" | while IFS= read -r ZIP_FILE; do
   # Remove ._* files (macOS resource forks)
   find "$EXTRACTED_PATH" -name "._*" -type f -delete 2>/dev/null || true
 
-  # Handle case where zip contains a single root directory
+  # Handle case where the bundle contains a single root directory
   # Count items in extracted path (excluding __MACOSX which we just removed)
   ITEM_COUNT=$(find "$EXTRACTED_PATH" -mindepth 1 -maxdepth 1 | wc -l)
   if [ "$ITEM_COUNT" -eq 1 ]; then
     SINGLE_ITEM=$(find "$EXTRACTED_PATH" -mindepth 1 -maxdepth 1)
     if [ -d "$SINGLE_ITEM" ]; then
-      echo "Zip contains single root directory, using it as base path"
+      echo "Bundle contains single root directory, using it as base path"
       EXTRACTED_PATH="$SINGLE_ITEM"
     fi
   fi
@@ -110,7 +119,7 @@ echo "$ZIP_FILES" | while IFS= read -r ZIP_FILE; do
   # Validate: Check for SKILL.md
   SKILL_MD_PATH="$EXTRACTED_PATH/SKILL.md"
   if [ ! -f "$SKILL_MD_PATH" ]; then
-    echo "Error: SKILL.md not found in $ZIP_FILE!"
+    echo "Error: SKILL.md not found in $UPLOAD_FILE!"
     echo "Expected at: $SKILL_MD_PATH"
     rm -rf "$TEMP_DIR"
     exit 1
@@ -152,20 +161,20 @@ if match:
 
   # Path Traversal Check
   if find "$EXTRACTED_PATH" -type f | grep -q '/\.\./'; then
-    echo "Error: Path traversal detected in $ZIP_FILE"
+    echo "Error: Path traversal detected in $UPLOAD_FILE"
     rm -rf "$TEMP_DIR"
     exit 1
   fi
 
   # File Type Check - Block compiled executables, binaries, and nested archives
   # Scripts (.sh, .py, .bat, etc.) are allowed since they're reviewable text files
-  BLOCKED_EXTENSIONS=("exe" "dll" "so" "dylib" "bin" "app" "jar" "zip" "tar" "gz" "7z" "rar" "dmg" "iso" "msi" "deb" "rpm")
+  BLOCKED_EXTENSIONS=("exe" "dll" "so" "dylib" "bin" "app" "jar" "zip" "skill" "tar" "gz" "7z" "rar" "dmg" "iso" "msi" "deb" "rpm")
   for file in $(find "$EXTRACTED_PATH" -type f); do
     extension="${file##*.}"
     # Convert to lowercase for comparison
     extension_lower=$(echo "$extension" | tr '[:upper:]' '[:lower:]')
     if [[ " ${BLOCKED_EXTENSIONS[@]} " =~ " ${extension_lower} " ]]; then
-      echo "Error: Blocked file type found in $ZIP_FILE: $file"
+      echo "Error: Blocked file type found in $UPLOAD_FILE: $file"
       echo "Blocked extensions: executables, binaries, archives, and system scripts"
       rm -rf "$TEMP_DIR"
       exit 1
@@ -176,7 +185,7 @@ if match:
   MAX_FILES=1000
   EXTRACTED_FILE_COUNT=$(find "$EXTRACTED_PATH" -type f | wc -l)
   if [ "$EXTRACTED_FILE_COUNT" -gt "$MAX_FILES" ]; then
-    echo "Error: Too many files in $ZIP_FILE (max $MAX_FILES)"
+    echo "Error: Too many files in $UPLOAD_FILE (max $MAX_FILES)"
     rm -rf "$TEMP_DIR"
     exit 1
   fi
@@ -207,10 +216,10 @@ if match:
   ln -sf "../../$SKILL_DIR_NAME" ".claude/skills/$SKILL_DIR_NAME"
   echo "✓ Symlink created: .claude/skills/$SKILL_DIR_NAME -> ../../$SKILL_DIR_NAME"
 
-  # Add the new skill files, symlink, and remove the original zip file
+  # Add the new skill files, symlink, and remove the original bundle
   git add "$SKILL_DIR_NAME"
   git add .claude/skills/"$SKILL_DIR_NAME"
-  git rm "$ZIP_FILE"
+  git rm "$UPLOAD_FILE"
 
   git commit -m "feat(skills): Add/Update skill: $SKILL_NAME"
   git push origin "$BRANCH_NAME"
@@ -220,7 +229,7 @@ if match:
     --title "feat(skills): Add/Update skill: $SKILL_NAME" \
     --body "Automated skill upload for **$SKILL_NAME**.
 
-*This PR was generated automatically from the file \`$ZIP_FILE\`.*
+*This PR was generated automatically from the file \`$UPLOAD_FILE\`.*
 
 Please review the skill contents, especially \`SKILL.md\`, before merging."
 
