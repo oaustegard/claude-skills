@@ -1,70 +1,51 @@
 ---
 name: agent-routing
-description: Decide which model (Haiku/Sonnet/Opus) and effort level each subagent gets, when to cascade cheap-first behind a verifier, and how to run improvement loops safely (evaluator-as-selector, stop on regression). Covers the Managed Agents effort mechanics (per-agent effort levels, cost lever) and how to watch a subagent fan-out stream live so loop and escalation gates have something to observe. Use when spawning subagents via the Agent or Workflow tools, when fanning out more than a handful of agents, or when the user asks which model or effort a task should route to. Routing heuristics grounded in measured calibration data (references/calibration-2026-07-15.md), not vibes; the Managed Agents API specifics are operational, not calibrated.
+description: Decide which model, effort level, and cascade shape each subagent gets, and how to keep improvement loops safe (evaluator-as-selector, stop on regression). Routes on measured cost-per-completed-task rather than per-token price, because a tier's token count varies more by task shape than price varies across tiers. Covers per-model effort semantics, the concision lever, cascade preconditions, context handoff, and watching a subagent fan-out live. Use when spawning subagents via the Agent or Workflow tools, when fanning out more than a handful of agents, or when asked which model or effort a task should get. Grounded in measured calibration (references/calibration-2026-07-15.md) plus a 2026-08 coding-cost study; Managed Agents API specifics are operational, not calibrated.
 compatibility: Designed for Claude Code / Claude Code on the Web — assumes an orchestrator with Agent/Workflow subagent tools exposing per-call model and effort options. Not applicable to claude.ai chat use.
 metadata:
-  author: Oskar Austegard and Claude (Fable 5)
-  version: "1.4.0"
+  author: Oskar Austegard and Claude
+  version: "2.0.0"
 ---
 
-# Agent Routing — model + effort selection for subagents
+# Agent Routing — model, effort, and cascade selection
 
-Before spawning any subagent, answer one question: **is the task mechanically
-checkable, or does it require judgment?** Checkable → Haiku at `effort: 'low'`
-behind a verifier. Judgment → up-tier. The routing table refines this split; the
-rest of the skill governs cascades and loops.
+## The rule that decides everything
 
-**Do not up-tier checkable work "to be safe."** Measured Haiku 4.5 failure on
-every checkable task family tested is ≈0, at `effort: 'low'`, with
-chain-of-thought suppressed (evidence: references/calibration-2026-07-15.md).
-The burden of proof is on routing *up*: reflexive up-tiering costs 3–5× for
-safety that the data says is imaginary. Spend effort, not tier, and only where
-reasoning depth demonstrably falls short.
+**Cost is output tokens × output price.** Prices span ~5× across tiers. Token
+counts span up to **7× within a single tier** depending on task shape. The shape
+therefore decides more than the tier does, and *routing on the per-token discount
+gets the answer backwards*.
 
-To turn a judgment-shaped task INTO a Haiku-executable one (explicit procedures,
-n-shot examples), use the sibling `down-skilling` skill. This skill decides the
-routing; that one engineers the prompt.
+Measured 2026-08-17, 14 spec-dense Python modules graded by hidden tests, all
+tiers at equal quality where noted:
 
-## Context handoff — routing picks the tier; the prompt carries the context
+| arm | tok/task | pass | $/task | vs opus |
+|---|---|---|---|---|
+| haiku-solo | 20,051 | 14/14 | $0.1007 | **1.30×** |
+| haiku + concision | 13,342 | 12/14 | $0.0672 | 1.01× |
+| opus-solo | 3,001 | 14/14 | $0.0774 | 1.00× |
+| sonnet-base | 4,687 | 14/14 | $0.0478 | 0.62× |
+| sonnet + concision | 2,951 | 13/14 | $0.0305 | 0.42× |
+| **sonnet cascade** (below) | — | **14/14** | **$0.0315** | **0.41×** |
 
-Subagents do not inherit the conversation — but they are not blank either.
-Measured 2026-08-16 (CCotw Workflow node, run `wf_125b7073-75f`): a node asked
-what context it held reported the full project layer — system prompt, CLAUDE.md
-/ project instructions — and zero knowledge of the conversation that spawned
-it. The split: the project kernel travels automatically; everything the
-orchestrator learned or produced in-session does not — not loaded-skill state,
-not scan output, not the existence of artifacts already on disk. Every index,
-artifact path, or tool-invocation recipe the orchestrator relies on must be
-serialized into the subagent's prompt (or written to a file the prompt points
-at). Otherwise the agent falls back to blind rediscovery — and the tier premium
-is spent on crawling, not judgment. A Sonnet with no handoff wastes more than a
-Haiku with a good procedure.
+Haiku is 5× cheaper per token and cost **30% more per solved task** than Opus,
+because it emitted 6.7× the tokens. Prices: Haiku 4.5 $1/$5, Sonnet 5 $2/$10,
+Opus 5 $5/$25 per MTok.
 
-This is the context-side twin of down-skilling: that skill engineers the
-*procedure* into the prompt; this rule makes the *artifacts and tools* travel
-with it. Checklist per spawn: (1) artifact paths + how to query them, (2) tool
-commands verbatim (interpreter path included — subagents don't know your
-venv), (3) explicit anti-patterns ("no `ls`/glob discovery"), (4) an output
-spec. Skills that orchestrate fan-outs should embed this (see
-`exploring-codebases` for the worked exploration case).
+## Two questions before spawning
 
-Evidence: 2026-07-16, four Sonnet Explore agents launched onto a 2,300-file
-repo without the handoff opened with `ls` crawls despite a full tree-sitter
-symbol index sitting on disk; relaunched with per-agent index slices + the
-verbatim tool command + anti-crawl rules, discovery cost dropped to ~zero.
+1. **Is the output short or long?** Short = a schema instance, a label, an answer,
+   a small patch. Long = a module, a document, a plan, a review.
+2. **Is it mechanically checkable, or does it need judgment?**
 
-**The inherited kernel is a fixed per-node cost — budget fan-outs as
-N × kernel.** The project layer rides along whether the sub-task needs it or
-not: two trivial Haiku nodes measured 67,085 subagent tokens total (~33k each)
-under a heavy CLAUDE.md (same 2026-08-16 run). For small checkable items the
-kernel dwarfs the task, so batch them — one agent handling ten items pays one
-kernel, ten agents pay ten. Two corollaries: (1) the shared-prefix caching note
-below gets the kernel as a byte-stable shared lead for free, which softens but
-does not erase the N× cost; (2) the inheritance runs one way — a prompt can add
-context to a node, but nothing strips the kernel per-node, so a sub-task that
-needs isolation from the project's own vocabulary cannot get it inside the
-session. Measured once, on a CCotw Workflow node; verify on other surfaces
-before leaning on the exact numbers.
+| | short output | long output |
+|---|---|---|
+| **checkable** | `haiku` @ `low` + verifier | `sonnet` @ `medium` + concision + verifier |
+| **judgment** | `sonnet` @ `medium` | `sonnet`/`opus` @ `high` |
+
+Output length is the discriminator because it is what the verbosity multiplier
+multiplies. Haiku's premium is invisible on a 200-token JSON object and ruinous on
+a 700-token module that costs it 13,000 tokens of thinking to produce.
 
 ## Routing table
 
@@ -74,137 +55,220 @@ before leaning on the exact numbers.
 | Closed-form computation, state tracking, multi-hop lookup | `haiku` | `low` | deterministic check |
 | Constraint-bound generation (exact counts, required tokens, lipograms) | `haiku` | `low` | mechanical checker |
 | Bulk scans/greps, per-file summaries, fan-out reads | `haiku` | `low` | sample audit |
-| Code edits with tests available | `haiku` first | `low`–`medium` | run the tests |
+| **Code generation from a spec; any long structured artifact** | **`sonnet`** | **`medium`** | run the tests |
+| Code edits with tests available | `sonnet` | `medium` | run the tests |
 | Judging / scoring another model's output | `sonnet`+ | `medium` | — (judge ≠ worker) |
 | Ambiguity resolution, novel synthesis, architecture, taste | `sonnet`/`opus` | `high` | human or panel |
 | Long-horizon multi-step agentic work, cross-file reasoning | `sonnet`/`opus` | `high`/`xhigh` | milestone checks |
 
-## Effort mechanics (Managed Agents)
+Haiku holds the top four rows on merit: 240/240 measured across nested modular
+arithmetic, 30-hop chains, 25-operation state tracking, trap-laden word math, and
+5-constraint generation — at `effort: low`, some with CoT suppressed
+(references/calibration-2026-07-15.md). **Do not up-tier short checkable work "to be
+safe"**; there is no measured benefit and it costs 3–5×. The burden of proof is on
+routing up.
 
-Effort is set **on the agent, not per session** — an `effort` inside a
-per-session `model` override is silently ignored. Levels are `low`, `medium`,
-`high`, `xhigh`, `max` (bare string or `{"type": "high"}`); not every model
-accepts every level, and an invalid pair is rejected at agent-create. The create
-response echoes the resolved config — if `effort` comes back `None`, the org's
-beta header (`managed-agents-2026-04-01`) doesn't carry the feature: the field
-was dropped, not rejected, so check the echo before assuming a level took.
+Haiku loses the generation rows on cost alone, not capability — it scored 14/14 on
+the same suite Opus swept.
 
-Effort is the per-role cost lever — higher levels let Claude spend more tokens
-per inference call — so buy depth only for judgment-heavy roles and drop triage
-or formatting roles to `low` without touching the expensive role's budget. This
-is the same split the table encodes; effort tunes within a tier, tier is the
-coarse knob. Calibration null result: effort had no measurable effect on Haiku's
-checkable tasks (Exp. 2 — `low` and `high` both 20/20), which is why the rule is
-spend effort only where reasoning depth *demonstrably* falls short, never
-by default.
+## Effort is model-specific — verify per model before reusing a level
 
-## Cascade (default composition)
+Measured 2026-08-17 via per-message `output_tokens_details.thinking_tokens`,
+thinking as a share of output on identical prompts:
 
-When a near-free verifier exists, compose instead of choosing a tier up front:
+| model | `low` | `medium` |
+|---|---|---|
+| Sonnet 5 | **2.9%** | 47.7% (61.7% without concision) |
+| Haiku 4.5 | **88–91%** | 88–91% |
+
+`low` is a near kill-switch on Sonnet and a mild trim on Haiku. Sonnet at `low`
+dropped 14/14 → 10/14; Haiku at `low` shed only ~26% of its tokens. So:
+
+- **Tune Sonnet with the prompt, not the effort knob.** `medium` is the working
+  floor; `low` overshoots into thinking-off.
+- **Tune Haiku with the prompt too**, because the knob barely moves it.
+- Effort is set **on the agent, not per session** — an `effort` inside a per-session
+  `model` override is silently ignored. Levels: `low`, `medium`, `high`, `xhigh`,
+  `max`. Not every model accepts every level; an invalid pair is rejected at
+  agent-create. The create response echoes the resolved config — if `effort` returns
+  `None`, the org's beta header (`managed-agents-2026-04-01`) doesn't carry the
+  feature and the field was dropped, not rejected.
+- Buy depth only for judgment-heavy roles; drop triage and formatting roles to `low`
+  without touching the expensive role's budget.
+
+## The concision lever, and its limit
+
+Adding one instruction — *this is routine work; do not deliberate at length, do not
+enumerate test cases or weigh alternative designs; write it directly* — cut output
+**37% on Sonnet** and **27% on Haiku**, at no quality cost. It composes with effort.
+Use it on every long-output generation spawn.
+
+**Then stop.** Thinking below a model's natural level is load-bearing, and cutting
+into it buys tokens with correctness:
+
+- An engineered suppression prompt (positive framing, bounded budget, n-shot
+  exemplar) cut Haiku 35% and **halved** its pass rate, 8/9 → 4/9. Within that arm,
+  passing runs thought **1.9×** more than failing runs.
+- Sonnet at `low` (2.9% thinking) fell 14/14 → 10/14.
+- Priced per *passing* result the suppressed arms were **more** expensive: 22,143
+  tokens vs 17,126 for the un-engineered prompt.
+
+A targeted checklist ("enumerate the spec's rejection rules first") helps only when
+it names the actual failure mode: it took one validation-heavy task from 15,220 to
+9,634 tokens at equal quality, and took a semantics-heavy task from 3/3 to **0/3**.
+Misnaming the failure mode is worse than not intervening.
+
+## Cascade
+
+**Precondition, checked first: is the cheap tier actually cheaper per task?** The
+first rung is never free, so a cascade pays only when the cheap tier's *measured*
+cost per completed task is below the destination's. Verbosity can erase a price
+discount outright — Haiku at $0.067/task against Sonnet's $0.031 made
+`haiku → sonnet` worse than Sonnet alone **regardless of `p_fail`**: the attempt
+cost 2× the destination's entire job. Compute this before designing the ladder.
+
+**Second precondition: no verifier ⇒ no cascade.** Route by the table instead;
+silent cheap-tier errors compound with nothing to catch them.
+
+The shape that worked (measured, 14/14 at 0.41× Opus):
 
 ```
-result = haiku(task, effort=low)
-if verify(result) fails:  result = sonnet(task)      # escalate on evidence
-if verify(result) fails:  result = opus(task)         # rare
+result = sonnet(task, effort=low, concise)          # rung 1: 10/14, $0.0155
+if verify(result) fails:
+    result = sonnet(task, effort=medium, concise,   # rung 2: fixed 12/12
+                    prior=result, failure=test_output)
 ```
 
-Input-cost ratio is Haiku 1× · Sonnet 3× · Opus 5×. Expected cascade cost ≈
-`c_haiku + p_fail × c_sonnet`, so the cascade beats Sonnet-direct while Haiku's
-failure rate stays below ~2/3, and beats Opus-direct below ~4/5 (derivation in
-the reference). Every checkable task measured has Haiku failure ≈0, so the
-cascade is nearly pure savings.
+Rungs can be **the same model at different effort** — often better than a tier jump,
+because it keeps rung 1 genuinely cheap.
 
-**No verifier ⇒ no cascade.** Route by the table instead, because silent Haiku
-errors compound downstream with nothing to catch them.
+**Carry the prior attempt and the raw failure output into the retry.** Informed retry
+fixed **12/12**; a blind re-attempt fixed **9/12** and failed one task *identically
+across all three replicates* — a systematic blind spot re-rolling never escapes. The
+extra input averaged 866 tokens, **5.9%** of the retry's cost. Input is 1/5 the price
+of output, so context is nearly free relative to thinking.
 
-**Shared-prefix caching cuts the fan-out multiplier (unmeasured, conditional).**
-When N subagents share a byte-stable prefix — the *fixed* part of the handoff
-(tool commands, procedure, anti-patterns), not the per-agent index slices, which
-by design differ — that prefix is reusable by prefix caching *where the
-orchestration surface exposes it*, pulling the shared portion's input cost toward
-a read-discount rate and strengthening the cheap-first / fan-out bias. Keep
-per-agent dynamic content at the tail so it doesn't invalidate the shared lead.
-This is prompt-construction economics, not from the calibration battery, and it
-assumes the surface caches subagent prefixes — verify that before relying on it
-(the effort/pricing numbers above are measured; this is not).
+**Don't pay a frontier model to write guidance.** An Opus diagnosis added zero over
+raw test output in two independent tests, at ~$0.15/task. The failing test already
+says what the orchestrator would say.
+
+**Verify content, not envelope.** Strip fences, preambles, and trailing commentary
+before checking; hard-fail only on semantic content and log envelope deviations as
+soft. Two Haiku runs returned 7/7 and 6/6 correct fields while both wrapping output
+in a markdown fence the prompt forbade — a verifier keying on `raw.startswith('{')`
+would have escalated both for zero content error. Spurious escalation is a cascade
+failure mode, not a safety margin.
+
+**Judgment tasks fail in a shape checkers miss.** Asked to rebut a stakeholder's
+"spend is down 66%" off a partial-month extract, Haiku killed the bad conclusion but
+normalized per calendar day across a 40%-weekend window and missed a model-mix
+confound — while passing every mechanical check available (word count, prose form,
+internal arithmetic consistency). The cheap tier fails as *right headline, missed
+confound*. This is why judgment rows route up rather than cascade.
+
+## Context handoff — routing picks the tier; the prompt carries the context
+
+Subagents inherit nothing: not the conversation, not loaded skills, not the existence
+of artifacts already on disk. Every index, scan output, artifact path, or tool recipe
+must be serialized into the prompt (or a file the prompt points at). Otherwise the
+agent falls back to blind rediscovery and the tier premium is spent on crawling. **A
+Sonnet with no handoff wastes more than a Haiku with a good procedure.**
+
+Per spawn: (1) artifact paths + how to query them, (2) tool commands verbatim,
+interpreter path included — subagents don't know your venv, (3) explicit
+anti-patterns ("no `ls`/glob discovery"), (4) an output spec.
+
+Evidence: 2026-07-16, four Sonnet Explore agents launched onto a 2,300-file repo
+without the handoff opened with `ls` crawls despite a full tree-sitter symbol index
+sitting on disk; relaunched with per-agent index slices, the verbatim command, and
+anti-crawl rules, discovery cost dropped to ~zero.
+
+To convert a judgment-shaped task into a cheap-tier-executable one (explicit
+procedures, n-shot examples), use the sibling `down-skilling` skill. This skill
+decides the routing; that one engineers the prompt.
+
+**Shared-prefix caching cuts the fan-out multiplier** (unmeasured, conditional). When
+N subagents share a byte-stable prefix — the *fixed* handoff, not the per-agent
+slices — prefix caching can pull that portion toward a read-discount rate *where the
+orchestration surface exposes it*. Keep per-agent content at the tail. Verify your
+surface caches subagent prefixes before relying on it.
 
 ## Loop discipline
 
-Never blind-loop. Re-applying the same prompt to a model's own output is the
-identity at best (an LLM call already unrolls its reasoning depth internally) and
-regression-then-freeze at worst — in calibration, a re-looped haiku broke its
-own middle line on iteration 2 and froze on the broken text for every iteration
-after. Loops only pay when an out-of-band evaluator scores each iteration.
+Never blind-loop. Re-applying a prompt to a model's own output is the identity at
+best — an LLM call already unrolls its reasoning internally — and
+regression-then-freeze at worst: a re-looped haiku broke its own middle line on
+iteration 2 and froze on the broken text for every iteration after.
 
-1. **Loop only with an out-of-band evaluator** — ground truth, mechanical
-   checker, or an up-tier judge scoring every iteration.
-2. **Select, don't trust the last:** `final = argmax_r eval(answer_r)`. Never
-   ship iteration N just because it's newest.
-3. **Stop on first regression.** If `eval(r) < eval(r-1)`, stop — loops froze on
-   degraded output rather than recovering, so early-stop risk beats drift risk.
-4. **Loop for diversity, not depth.** Vary the prompt/angle per iteration to
-   explore; identical re-application converges instantly.
-5. **"Improve this" with no headroom is the danger zone.** It pressures the model
-   to change something; without a selector, that change ships.
+1. **Loop only with an out-of-band evaluator** — ground truth, mechanical checker, or
+   an up-tier judge scoring every iteration.
+2. **Select, don't trust the last:** `final = argmax_r eval(answer_r)`.
+3. **Stop on first regression.** If `eval(r) < eval(r-1)`, stop; loops froze on
+   degraded output rather than recovering.
+4. **Loop for diversity, not depth.** Vary the angle per iteration; identical
+   re-application converges instantly.
+5. **"Improve this" with no headroom is the danger zone.** It pressures the model to
+   change something; without a selector, that change ships.
 
 ## Judge rules
 
-- Judge model ≠ worker model; judge at least one tier up (Sonnet judging Haiku,
-  Opus judging Sonnet). Same-model self-assessment is untested — don't assume it.
-- Prefer mechanical checkers over judges wherever a spec can be executed (word
-  counts, schemas, tests, regex): free, deterministic, zero judge tokens.
-- Judges are for rubric quality, not arithmetic — don't ask Sonnet to verify a
-  sum a Python one-liner can check.
+- Judge model ≠ worker model; judge at least one tier up. Same-model self-assessment
+  is untested.
+- Prefer mechanical checkers wherever a spec can be executed (counts, schemas, tests,
+  regex): free, deterministic, zero judge tokens.
+- Judges are for rubric quality, not arithmetic — don't ask a model to verify a sum a
+  Python one-liner can check.
 
 ## Escalation triggers (route up despite the table)
 
 - The verifier fails twice at the same tier.
 - The task requires weighing trade-offs with no checkable ground truth.
-- Output will be shipped verbatim to a human without review.
+- Output ships verbatim to a human without review.
 - The subagent must plan its own multi-step tool strategy over many turns.
+- The task spans multiple sources that may disagree and must be reconciled.
 
 ## Observing the fan-out — you can't govern what you can't watch
 
-Loop discipline (stop-on-regression, select-don't-trust-last) and the escalation
-triggers (verifier failed twice) all assume you can see a subagent's work *while
-it runs*. By default you can't: the session-level stream previews only the
-primary (coordinator) thread, and a subagent's output lands only after its whole
-turn buffers — a two-minute researcher shows nothing for two minutes.
+Stop-on-regression and "verifier failed twice" assume you can see a subagent's work
+*while it runs*. By default you can't: the session stream previews only the primary
+thread, and a subagent's output lands only after its whole turn buffers.
 
-Close the gap with one stream per thread. Read the session stream for the
-coordinator; on every `session.thread_created` (it carries `session_thread_id`
-and `agent_name`), attach a watcher to that child's stream
-(`GET /v1/sessions/{id}/threads/{thread_id}/stream`, with `event_deltas`) in a
-background thread. Four rules keep it honest:
+Attach one stream per thread. Read the session stream for the coordinator; on every
+`session.thread_created` (carrying `session_thread_id` and `agent_name`), attach a
+watcher to `GET /v1/sessions/{id}/threads/{thread_id}/stream` with `event_deltas`.
 
 - **Preview is a scratch buffer; the buffered event is the record.** Deltas are
-  best-effort and shed under load, so concatenated deltas are a *prefix* of the
-  final text, not necessarily the whole. Reconcile by a single replace when the
-  buffered `agent.message` arrives; the SDK's `accumulate_managed_agents_event`
-  folds start / delta / record into one snapshot. One accumulator per connection.
-- **No replay.** A stream opened after a request started gets no deltas for that
-  in-flight request, and reconnects never replay missed deltas — attach on
-  `thread_created` or miss the child's first response.
-- **Coordination events live on the primary thread** — `session.thread_created`
-  (spawn), `agent.thread_message_sent` (handoff), `agent.thread_message_received`
-  (child reports back). Child tool calls cross-posted to the primary carry
-  `session_thread_id`; skip them, the child's own watcher shows them.
-- **Terminate cleanly.** Watchers exit on `session.thread_status_idle`; the main
-  loop on `session.status_idle` — print the stop reason when it isn't `end_turn`,
-  and break on terminated-status events, so a session stuck on a tool
-  confirmation or out of retries ends the run instead of hanging it.
+  best-effort and shed under load, so concatenated deltas are a *prefix* of the final
+  text. Reconcile by a single replace when the buffered `agent.message` arrives; the
+  SDK's `accumulate_managed_agents_event` folds start/delta/record into one snapshot.
+  One accumulator per connection. (The same trap appears offline: per-message usage
+  records in transcripts include streaming partials — take the **max** per message
+  id, or you undercount tokens ~2×.)
+- **No replay.** A stream opened after a request started gets no deltas for it, and
+  reconnects never replay — attach on `thread_created` or miss the first response.
+- **Coordination events live on the primary thread** — `session.thread_created`,
+  `agent.thread_message_sent`, `agent.thread_message_received`. Child tool calls
+  cross-posted to the primary carry `session_thread_id`; skip them.
+- **Terminate cleanly.** Watchers exit on `session.thread_status_idle`; the main loop
+  on `session.status_idle` — print the stop reason when it isn't `end_turn`, and
+  break on terminated-status events.
 
-Operational, not calibrated (multi-turn agentic tool use is on the "not
-measured" list below). Source: Anthropic Managed Agents notebook
-`CMA_watch_subagents_live` (beta `managed-agents-2026-04-01`); full streaming
-contract in [events and streaming](https://platform.claude.com/docs/en/managed-agents/events-and-streaming#event-deltas).
+Operational, not calibrated. Source: Anthropic Managed Agents notebook
+`CMA_watch_subagents_live` (beta `managed-agents-2026-04-01`); contract in
+[events and streaming](https://platform.claude.com/docs/en/managed-agents/events-and-streaming#event-deltas).
 
-## Recalibrate when
+## Measure before trusting this
 
-- **The task is off the measured battery.** No deterministic task has made Haiku
-  fail yet, so the cliff is past what's been probed — test harder instances
-  before trusting Haiku on a genuinely novel task family.
-- **The work is multi-turn agentic tool use.** That was not calibrated; treat the
-  table's up-tier rows there as prior, not measurement.
-- **A model rev bumps.** Re-run the battery (generators + scorer described in
-  references/calibration-2026-07-15.md) before trusting the table.
+Everything above is measured on two batteries: a 300-call deterministic calibration
+(references/calibration-2026-07-15.md) and a 14-task hidden-test coding suite
+(2026-08-17, ~190 subagent runs). Re-measure when:
+
+- **A model or price revision lands.** Both the verbosity multipliers and the
+  cost table above invert on either.
+- **The task family is off both batteries.** No deterministic task has made Haiku
+  fail on correctness yet, so the capability cliff is past what's been probed.
+- **Output length differs materially** from what was measured. The whole cost model
+  keys on token volume; a 10× longer artifact re-opens the tier question.
+- **You need pass-rate differences of 1–2 tasks.** Run-to-run variance swamps them:
+  two runs of the same model on the same 14 tasks produced disjoint failure sets and
+  a 23% token gap. Token deltas are trustworthy; small pass-rate deltas are not.
