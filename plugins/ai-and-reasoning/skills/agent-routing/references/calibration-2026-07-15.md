@@ -61,10 +61,20 @@ Notes:
 
 ## Pricing basis (2026-07, per MTok in/out)
 
-Haiku 4.5 $1/$5 · Sonnet 5 $3/$15 ($2/$10 intro through 2026-08-31) ·
-Opus 4.8 $5/$25. Cascade break-even: Haiku-first beats Sonnet-direct while
-p_fail(Haiku) < 1 − c_H/c_S ≈ 2/3; beats Opus-direct while < 4/5 (verifier
-assumed near-free, which held — all Experiment 2 scoring was local Python).
+Haiku 4.5 $1/$5 · Sonnet 5 **$2/$10** · Opus 5 $5/$25.
+
+**Superseded 2026-08-17:** this section previously read Sonnet 5 at $3/$15 with
+$2/$10 as an intro rate expiring 2026-08-31. $2/$10 is now the standing price
+(user-confirmed). Any analysis computed at $3/$15 understates Sonnet by ~1/3.
+
+The `p_fail`-only break-even formerly stated here (Haiku-first beats Sonnet-direct
+while `p_fail(Haiku) < 1 − c_H/c_S ≈ 2/3`) is **wrong in the general case**. It
+assumes `c_H < c_S` per task, which holds only when outputs are short. On
+long-output work Haiku's verbosity inverts it: measured 2026-08-17, Haiku cost
+$0.067/task against Sonnet's $0.031, so Haiku-first loses at *every* `p_fail`,
+including zero. Check cost-per-task first; see the cascade precondition in
+SKILL.md. The verifier-is-near-free assumption still holds — all Experiment 2
+scoring was local Python.
 
 ## What has NOT been measured
 
@@ -72,6 +82,8 @@ assumed near-free, which held — all Experiment 2 scoring was local Python).
 - Multi-turn agentic tool-use quality per tier.
 - Same-model self-judging reliability.
 - Haiku at higher K (>5 simultaneous constraints) or longer state chains.
+- Multi-source consistency/reconciliation (do two extracts of the same period
+  agree?). One anecdote favors up-tiering; untested.
 
 Re-run: generators + scorer live in the session scratchpad pattern
 (`gen.py`/`gen2.py`/`gen3.py`, `score.py`); regenerate with new seeds and a
