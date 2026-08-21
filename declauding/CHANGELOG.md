@@ -2,6 +2,39 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.4.0] - 2026-08-21
+
+### Added
+
+- **Entry 38, announce-then-deliver.** A counted noun-phrase label standing in
+  front of the content it names: "One factual note, not fixed:", "Two things I
+  did not do.", "One judgment call left alone." The label carries nothing the
+  content does not, and the fix is usually to delete it and start with the
+  thing. Four `announce` rules in `declaude_lint.py` reach the regular forms;
+  the bare "One note:" shape is left alone because a pattern for it over-fires
+  on legitimate list intros.
+
+  Found by an author flagging it in this skill's own output — an annotated
+  register pass whose frame prose used the shape nine times, twice as a section
+  header, in a document whose central finding was bad headers. None of the
+  existing entries covered it: entry 5 is a placeholder *in* the subject slot,
+  entry 17 narrates the writer's procedure rather than labelling the content,
+  entry 29 is the bulleted cousin, and the `staging` rule at
+  "announces a list before giving it" targets demonstratives (`Here is what X:`)
+  rather than counted labels.
+
+  Fired before trusting: 6 of 6 specimens caught, 6 of 6 negatives silent
+  (including luria's "One decision, one thing." and the corrected form "One note
+  I did not fix:"). Dropping the qualifier requirement from the first rule
+  over-fires on the aphorism, which is what holds the precision. Zero new hits
+  across all four existing test corpora.
+
+### Fixed
+
+- Register entry 37, *Dressed metaphor*, was written `# 37.` where every other
+  entry is `## N.`, so it rendered as an H1 and fell out of any `^## [0-9]`
+  count. Unrelated to the above; picked up while editing the file.
+
 ## [0.3.0] - 2026-08-17
 
 ### Other

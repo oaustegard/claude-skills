@@ -119,3 +119,29 @@ The draft was good, hitting every beat the situation demanded.
 That was the part that hurt, and the part that transfers is the thing that made it slow.
 
 The specialty had finally, belatedly, been recognized as essential. It was the entire architecture of the thing.
+
+## Announce-then-deliver (entry 38)
+
+One factual note, not fixed: both sentences assert what people generally do, and
+nothing in the source supports either.
+
+Two things I did not do. The em-dash rate runs high in every file, so I left it.
+
+One judgment call left alone. The triad reads as deliberate enumeration.
+
+The exception, worth restating because it cuts against the rule: a principle's
+title is a claim.
+
+Flagged by neither rule, and worth saying why it works: it tells you the size of
+the commitment.
+
+One caveat, unresolved: the alias map recovers nothing.
+
+Negatives that must stay silent — a real list intro, an aphorism, and the
+corrected form of the tic itself:
+
+Three shapes, and the fix differs for each:
+
+One decision, one thing.
+
+One note I did not fix: the count is off by two.
