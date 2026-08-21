@@ -631,7 +631,7 @@ both positions is a cluster member.
 
 ---
 
-# 37. Dressed metaphor
+## 37. Dressed metaphor
 
 Back in the staging family, not the encyclopedic one, and numbered last because
 it arrived last.
@@ -661,6 +661,43 @@ noun fits. Delete the ones doing significance work, not the ones doing work.
 list for it would be three entries long and obsolete by the next draft. It is
 caught on the sentence pass or not at all. Both specimens above shipped past a
 clean lint report.
+
+---
+
+## 38. Announce-then-deliver
+
+**Tell:** a counted noun-phrase label with a clipped qualifier, standing before
+the content it names — "One factual note, not fixed:", "Two things I did not
+do.", "One judgment call left alone.", "The exception, worth restating:", "and
+worth saying why it works:".
+
+**Why:** the label carries nothing the content does not. It buys the writer a
+beat to compose in and costs the reader a clause before the subject arrives. A
+person either writes the label the way they would say it — "One note I did not
+fix" — or, more often, just states the thing.
+
+Distinct from entry 5, where a placeholder sits *in* the subject slot; here a
+whole announcement sits *in front of* the sentence and the real subject is fine.
+Distinct from entry 17, which narrates the writer's procedure rather than
+labelling the content. Entry 29 is the bulleted cousin: same restating label,
+rendered as a bold lead-in instead of a standalone phrase.
+
+**Fix:** delete the announcement and start with the content. Where a label is
+genuinely needed, write it as speech, not as a caption.
+
+> was: *One factual note, not fixed: X and Y both assert what people generally
+> do. Nothing in the repo supports either.*
+> now: *Two sentences assert what people generally do, and nothing in the repo
+> supports either: X and Y.*
+
+**Earned when** the count is real navigation over a list the reader will scan —
+"Three shapes, and the fix differs for each:" ahead of an actual three-item
+list. The test is whether deleting the label loses anything.
+
+**Watch the reuse.** Measured nine times in one 40 KB document, including twice
+as a section header, in a piece whose own subject was bad headers. A writer who
+reaches for this once reaches for it throughout; the linter's `reuse` block is
+the cheapest way to see it.
 
 ---
 

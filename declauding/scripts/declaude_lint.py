@@ -49,6 +49,16 @@ RULES: list[tuple[str, str, str]] = [
     ("deferred-noun", r"\bThe\s+(?:second|third|fourth|fifth|sixth|seventh|other|last)\s+(?:is|isn't|is not|does|doesn't)\b\s*[.,]", "pointer instead of name"),
     ("deferred-noun", r"\bThere\s+(?:was|is)\s+(?:just\s+)?one\s+(?:problem|catch|issue|wrinkle)\b", "there was just one problem"),
 
+    # --- announce-then-deliver (entry 38) -------------------------------------
+    # A counted label standing in front of the content it names. Partially
+    # reachable: the appositive-qualifier form is regular, the bare "One note:"
+    # form is not without over-firing on legitimate list intros.
+    ("announce", r"^(?:One|Two|Three|Four|A single|The one)\s+[a-z][\w -]{2,30},\s+(?:not|un\w+|left|stated|worth|flagged|still|so far)\b[^.:;]{0,25}[:.]", "counted label announcing the content it precedes"),
+    ("announce", r"\b(?:One|Two|Three|Four)\s+things?\s+(?:I|we)\s+(?:did|didn'?t|have|haven'?t|will|won'?t)\b[^.:;]{0,20}[:.]", "announcing a list of what you did before doing it"),
+    ("announce", r"\band\s+worth\s+(?:saying|noting|restating|repeating|mentioning|a\s+look)\b[^.]{0,25}:", "'and worth saying why' — say why"),
+    ("announce", r"^(?:One|Two|Three|Four)\s+[a-z][\w -]{2,25}\s+(?:left\s+(?:alone|aside|open|unfixed)|unresolved|unfixed|untouched|not\s+fixed)\s*[.:]", "counted label with a participle qualifier, no comma"),
+    ("announce", r"^The\s+\w+,\s+(?:worth|stated|noted|flagged|measured|left)\s+\w+[^.:;]{0,45}:", "appositive caption before the content"),
+
     # --- structural-metaphor locator ----------------------------------------
     ("locator", r"\bthe\s+(?:seam|hinge|joint|fault[- ]line|crux|linchpin|leg|place)\s+where\b", "structural-metaphor locator"),
     ("locator", r"\bload[- ]bearing\b", "load-bearing as metaphor"),
@@ -240,7 +250,7 @@ EMOJI_RE = re.compile(
 )
 
 CATEGORY_ORDER = [
-    "negation-first", "significance", "agency", "deferred-noun", "locator",
+    "negation-first", "significance", "agency", "deferred-noun", "announce", "locator",
     "staging", "triad", "em-dash", "aphorism", "rhetorical-q", "self-grading", "humility", "throat-clearing",
     "rtfm", "dev-cliche", "slop", "editorializing", "time-inflation",
     "copula", "participle", "false-range", "list-shape", "chatbot", "filler",
