@@ -4,6 +4,12 @@ All notable changes to the `declauding` skill are documented in this file. The f
 
 ## [0.4.0] - 2026-08-21
 
+### Other
+
+- declauding 0.4.0: entry 38, announce-then-deliver (#769)
+
+## [0.4.0] - 2026-08-21
+
 ### Added
 
 - **Entry 38, announce-then-deliver.** A counted noun-phrase label standing in
