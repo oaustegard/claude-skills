@@ -54,6 +54,14 @@ Initial release.
 - Single flat _FEATURES.md format
 - CI integration example
 
+## [0.4.0] - 2026-08-22
+
+### Other
+
+- featuring: fix source=None crash on cache hit, add --orient (#770)
+- Deprecate mapping-codebases; adopt ruff 0.16.0 baseline (#747)
+- Remove _MAP.md files, direct agents to tree-sitting for code navigation (#545)
+
 ## [0.3.0] - 2026-04-08
 
 ### Added
