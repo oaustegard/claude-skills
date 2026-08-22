@@ -9,7 +9,7 @@ description: >-
   or needs to understand a codebase's purpose before modifying it. Complements
   tree-sitting (structural) with semantic (why/what-for) layer.
 metadata:
-  version: 0.3.0
+  version: 0.4.0
 ---
 
 # Featuring
@@ -33,6 +33,13 @@ uv venv /home/claude/.venv 2>/dev/null
 uv pip install tree-sitter-language-pack --python /home/claude/.venv/bin/python
 ```
 
+tree-sitting caches its scan to `/tmp/treesit-cache`, keyed by repo path plus
+skip set. That cache persists symbols and imports but NOT file source, so a
+cache HIT returns `source=None`. `gather.py` re-reads those files from disk;
+do not assume `entry.source` is populated if you write against the engine
+directly. (Before this was handled, gather crashed on its second run against a
+repo while the first succeeded — diagnosed 2026-08-22.)
+
 For quick structural orientation before running gather.py, use tree-sitting's CLI:
 
 ```bash
@@ -53,6 +60,17 @@ after all features are understood — not first.
 /home/claude/.venv/bin/python /mnt/skills/user/featuring/scripts/gather.py /path/to/repo \
   --skip tests,.github,node_modules --source-budget 8000
 ```
+
+**`--orient` when you are not writing the file.** The full output is a complete
+symbol inventory — 5,697 lines on a 71k-line repo — and it exists so a
+`_FEATURES.md` can cite every symbol. When the deliverable is your own
+understanding (a review, an orientation read), pass `--orient`: complexity
+assessment, decomposition ranking, directory tree and entry points, and nothing
+else. ~115 lines. Reaching for `head` on the full output means `--orient` was
+the right mode.
+
+Pass 1 of THIS skill is the case that wants the full output — you are about to
+write the inventory down.
 
 Read the gather output. Before writing anything, form a hypothesis:
 

@@ -90,13 +90,30 @@ $PYTHON $TREESIT /tmp/$REPO 'refs:Config'
 
 ### 3. Feature synthesis
 
+**Pick the mode from your DELIVERABLE, before you run it.**
+
+| Your deliverable | Command | Size |
+|---|---|---|
+| Your own understanding — a review, an orientation read, answering a question | `--orient` | ~115 lines |
+| A written `_FEATURES.md` that must cite every symbol | full output | thousands of lines |
+
 ```bash
-$PYTHON $GATHER /tmp/$REPO \
-  --skip tests,.github,node_modules --source-budget 8000
+# Default. Complexity assessment, decomposition ranking, directory tree, entry points.
+$PYTHON $GATHER /tmp/$REPO --skip tests,.github,node_modules --orient
+
+# Only when you are about to WRITE the inventory into a file:
+$PYTHON $GATHER /tmp/$REPO --skip tests,.github,node_modules --source-budget 8000
 ```
 
 Output includes a "Candidate areas for sub-files (by symbol density)"
 list near the top — that's your drill-target picker, ranked.
+
+**Never pipe the full output through `head`.** If you are about to truncate it,
+`--orient` was the correct mode and you have paid for thousands of lines you
+will not read. Diagnosed 2026-08-22 on a FreeToken review: a 5,697-line gather
+was cut at line 120, and every finding in that review came from `treesit`
+drilling and targeted reads instead. `--orient` returns the 115 lines that were
+actually used. The full mode's symbol inventory exists to be CITED, not read.
 
 ### 4. Reason about the combined output
 
