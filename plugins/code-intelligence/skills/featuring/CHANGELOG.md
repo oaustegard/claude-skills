@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.4.0 (2026-08-22)
+
+### Fixed: gather.py crashed on the second run against a repo
+tree-sitting's `/tmp/treesit-cache` persists symbols and imports but not file
+source, so every cache HIT returned `entry.source = None`. `identify_key_files`
+(`len(entry.source)`) and the Key Source Excerpts emitter
+(`entry.source.decode(...)`) both used it unguarded. A cold run succeeded and
+wrote the cache; the next run with the same repo + skip set exited 1 with a
+TypeError, which read as flakiness. `_source_bytes()` now falls back to reading
+the file from disk. Verified cold/warm output is byte-identical.
+
+### New: `--orient`
+Emits the orientation header only — complexity assessment, decomposition
+ranking, directory tree, entry points — and stops before the symbol inventory.
+~115 lines against 5,697 for the full output on a 71k-line repo. Use it whenever
+the deliverable is your own understanding rather than a written `_FEATURES.md`.
+The full mode now prints its own line count first when the output exceeds 400
+lines, so the cost of not using `--orient` is visible before the scroll.
+
 ## 0.2.0 (2026-03-31)
 
 ### Hierarchical features support
@@ -34,6 +53,14 @@ Initial release.
 - check.py: drift detection (broken refs, dead features, uncovered symbols)
 - Single flat _FEATURES.md format
 - CI integration example
+
+## [0.4.0] - 2026-08-22
+
+### Other
+
+- featuring: fix source=None crash on cache hit, add --orient (#770)
+- Deprecate mapping-codebases; adopt ruff 0.16.0 baseline (#747)
+- Remove _MAP.md files, direct agents to tree-sitting for code navigation (#545)
 
 ## [0.3.0] - 2026-04-08
 

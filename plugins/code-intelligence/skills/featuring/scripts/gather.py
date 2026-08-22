@@ -97,7 +97,26 @@ def classify_symbols(cache, area_prefix=None) -> dict:
     return categories
 
 
-def identify_key_files(cache, source_budget: int, area_prefix=None) -> list:
+def _source_bytes(repo_path, relpath, entry) -> bytes:
+    """Raw bytes of one scanned file.
+
+    ``entry.source`` is populated only on a COLD scan: tree-sitting's on-disk
+    cache (/tmp/treesit-cache) persists lang/symbols/imports and deliberately
+    drops source, so every cache HIT hands back ``source=None``. Both call sites
+    here used it unguarded, which made gather.py crash on its SECOND run against
+    the same repo+skip set while the first succeeded -- diagnosed 2026-08-22,
+    reproduced A/B/C: cold rc=0 (5697 lines), warm rc=1 (TypeError).
+    Re-read from disk on the miss; return b"" if the file is gone.
+    """
+    if entry is not None and entry.source is not None:
+        return entry.source
+    try:
+        return (Path(repo_path) / relpath).read_bytes()
+    except OSError:
+        return b""
+
+
+def identify_key_files(cache, source_budget: int, area_prefix=None, repo_path=None) -> list:
     """Pick files worth reading source from, within a token budget."""
     file_scores = []
     for relpath, entry in cache.files.items():
@@ -119,7 +138,7 @@ def identify_key_files(cache, source_budget: int, area_prefix=None) -> list:
                 score += 1
 
         if score > 0:
-            source_len = len(entry.source)
+            source_len = len(_source_bytes(repo_path, relpath, entry))
             file_scores.append((relpath, score, source_len))
 
     file_scores.sort(key=lambda x: x[1], reverse=True)
@@ -196,7 +215,7 @@ def format_symbol_brief(sym, indent=0) -> str:
 
 
 def gather(repo_path: str, skip: set = None, source_budget: int = 8000,
-           area: str = None) -> str:
+           area: str = None, orient: bool = False) -> str:
     """Scan a codebase and produce structured output for feature synthesis.
 
     Args:
@@ -204,6 +223,11 @@ def gather(repo_path: str, skip: set = None, source_budget: int = 8000,
         skip: Directory names to skip
         source_budget: Approximate char budget for source excerpts
         area: Optional subdirectory to focus on (for sub-feature generation)
+        orient: Stop after the orientation header (complexity assessment,
+            decomposition ranking, directory tree, entry points) and omit the
+            full symbol inventory. ~115 lines instead of thousands. Use when the
+            deliverable is your own understanding; use the full output only when
+            you are writing a _FEATURES.md that must cite every symbol.
     """
     cache = setup_engine()
 
@@ -217,7 +241,7 @@ def gather(repo_path: str, skip: set = None, source_budget: int = 8000,
         area_prefix = None
 
     categories = classify_symbols(cache, area_prefix)
-    key_files = identify_key_files(cache, source_budget, area_prefix)
+    key_files = identify_key_files(cache, source_budget, area_prefix, repo_path)
     complexity = compute_complexity(cache, area_prefix)
 
     lines = []
@@ -260,6 +284,15 @@ def gather(repo_path: str, skip: set = None, source_budget: int = 8000,
             lines.append(format_symbol_brief(sym))
         lines.append("")
 
+    # Everything above is the orientation header: what this repo is, where it is
+    # dense, and where execution starts. Everything below is the full symbol
+    # inventory, which exists to be CITED in a _FEATURES.md -- not read end to end.
+    if orient:
+        lines.append(f"_Orientation only ({len(categories['public_api'])} public symbols and "
+                     f"{len(categories['types'])} types withheld). Re-run without --orient "
+                     f"to emit the full inventory._")
+        return "\n".join(lines)
+
     # ── Public API (grouped by file)
     if categories['public_api']:
         lines.append("## Public API")
@@ -295,7 +328,7 @@ def gather(repo_path: str, skip: set = None, source_budget: int = 8000,
             entry = cache.files.get(filepath)
             if not entry:
                 continue
-            source_text = entry.source.decode('utf-8', errors='replace')
+            source_text = _source_bytes(repo_path, filepath, entry).decode('utf-8', errors='replace')
             source_lines = source_text.split('\n')
             if len(source_lines) > 150:
                 excerpt = '\n'.join(source_lines[:150])
@@ -340,10 +373,22 @@ def main():
                         help='Focus on a specific subdirectory (for sub-feature generation)')
     parser.add_argument('--source-budget', type=int, default=8000,
                         help='Approximate char budget for source excerpts (default: 8000)')
+    parser.add_argument('--orient', action='store_true',
+                        help='Orientation header only (~115 lines): complexity, decomposition '
+                             'ranking, directory tree, entry points. Omits the symbol inventory. '
+                             'Use this unless you are writing a _FEATURES.md.')
     args = parser.parse_args()
 
     skip = set(args.skip.split(',')) if args.skip else None
-    print(gather(args.repo, skip=skip, source_budget=args.source_budget, area=args.area))
+    out = gather(args.repo, skip=skip, source_budget=args.source_budget,
+                 area=args.area, orient=args.orient)
+    if not args.orient and out.count("\n") > 400:
+        # Diagnosed 2026-08-22 (FreeToken review): a 5,697-line gather was piped
+        # through `head -120` and the rest paid for and discarded. Say the size up
+        # front so the cost of NOT using --orient is visible before the scroll.
+        print(f"<!-- {out.count(chr(10)) + 1} lines. Reading only the top? "
+              f"Re-run with --orient. -->")
+    print(out)
 
 
 if __name__ == '__main__':
