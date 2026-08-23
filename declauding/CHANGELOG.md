@@ -2,6 +2,25 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.5.1] - 2026-08-23
+
+### Changed
+
+- README brought current. It described 37 entries and two register halves, which
+  was already stale by one before this release — 0.4.0 added entry 38 without
+  updating it. Now three groups, 42 entries, a table for 39 to 42, refreshed
+  corpus counts, and the provenance of the new block.
+- Nominalized-header check scoped to a prepositional tail ("Authorship in a
+  sourced child") or a two-word modifier plus abstraction ("Spawn availability").
+  A bare one-word nominalization is a legitimate label for a term the document
+  defines, and the first cut fired on this skill's own `## Overcorrection` and
+  `## Calibration`.
+
+### Added
+
+- Earned-exception rows in `SKILL.md` for entries 39 to 41, including the
+  one-word-label carve-out the header check now honors.
+
 ## [0.5.0] - 2026-08-23
 
 ### Other

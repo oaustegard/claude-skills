@@ -2,7 +2,7 @@
 name: declauding
 description: Removes LLM prose tics from drafts — staged reveals, "it's not X, it's Y", significance tags, abstraction agency, coy headers, fragment cadence, plus the flatter slop patterns (copula avoidance, participle tails, forced triads, chatbot residue, filler and hedging) — and returns plain human technical prose. Use when text needs editing for register, when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make this sound human", "remove the tics/claudisms", or asks for a voice/register pass on a post, README, report, PR description or essay. Also use before publishing any draft Claude wrote. Produces either clean prose or an annotated HTML diff showing every edit with its original and reason.
 metadata:
-  version: 0.5.0
+  version: 0.5.1
 ---
 
 # Declauding
@@ -244,6 +244,14 @@ Encyclopedic shapes, entries 24 to 36:
 | False range (28) | X and Y are not endpoints of any scale | A real range with real endpoints |
 | Inline-header list (29) | The label restates the item | The label is a real index: a term being defined, an option name, a case name |
 | Typographic tells (30) | Bold, emoji or Title Case scattered mechanically | Bold on a term at first use; the document already uses emoji; a house style requires Title Case |
+
+Reference-prose shapes, entries 39 to 42:
+
+| Shape | Banned when | Earned when |
+|---|---|---|
+| Welded epigram (39) | The second clause restates the first as a maxim | Both clauses carry distinct facts a reader can act on |
+| Latinate state verb (40) | Register formality for a program doing nothing | The word is the system's own documented state — a queue whose states are `waiting` and `held` |
+| Nominalized header (41) | It names a topic area instead of the content | The noun is a term this document defines, standing alone as its label — "Overcorrection", "Provenance" |
 | Filler and hedging (32) | Hedges stack and none names a condition | One hedge names a real condition: "on the two runs that finished" |
 | Diff-anchored (34) | The doc narrates the change that produced it | The document is version-scoped by design: changelogs, release notes, migration guides |
 | Subjectless fragment (35) | The actor is known and matters | The register is clipped throughout — release notes, a feature table, a CLI help string |
