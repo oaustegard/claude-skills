@@ -4,6 +4,12 @@ All notable changes to the `declauding` skill are documented in this file. The f
 
 ## [0.5.1] - 2026-08-23
 
+### Other
+
+- declauding 0.5.1: bring the README current, scope the header check (#772)
+
+## [0.5.1] - 2026-08-23
+
 ### Changed
 
 - README brought current. It described 37 entries and two register halves, which
