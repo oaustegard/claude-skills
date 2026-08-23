@@ -196,7 +196,7 @@ RULES: list[tuple[str, str, str]] = [
     ("aphorism", r",\s*(?:so|and)\s+nothing\s+\w+s\b[^.]{0,40}\.", "welded epigram — 'and nothing X's' closer"),
 
     # --- spec-ese (entry 40) --------------------------------------------------
-    ("spec-ese", r"\bThat\s+(?:child|session|process|container|job|worker|request|instance|delegate)\b", "demonstrative subject for a thing already named — use 'it'"),
+    ("spec-ese", r"(?:^|[.!?]\s+)That\s+(?:child|session|process|container|job|worker|request|instance|delegate)\b(?!'s)", "demonstrative subject for a thing already named — use 'it'"),
     ("spec-ese", r"\bdoes\s+not\s+itself\b", "reflexive-emphatic formality"),
     ("spec-ese", r"\b(?:idles?|sits?|waits?)\s+awaiting\b", "latinate state verb plus participle tail"),
     ("spec-ese", r"\bawaiting\s+(?:input|instructions|a\s+\w+|the\s+\w+)\b", "awaiting — say what the reader has to do"),
