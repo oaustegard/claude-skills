@@ -190,6 +190,23 @@ RULES: list[tuple[str, str, str]] = [
     ("subjectless", r"\bNo\s+\w+(?:\s+\w+){0,2}\s+(?:needed|required)\s*[.!]", "subjectless claim — name the actor"),
     ("subjectless", r"\b(?:is|are)\s+\w+ed\s+automatically\b", "subjectless claim — who does it?"),
 
+    # --- welded epigram (entry 39) -------------------------------------------
+    ("aphorism", r",\s*so\s+(?:a|an|the|it|they|you)\s+[^.]{0,50}\bnever\b[^.]{0,40}\.", "welded epigram — second clause restates the first as a maxim"),
+    ("aphorism", r",\s*and\s+(?:the|its)\s+(?:failure|error|cost|risk|difference|effect|result|damage|loss)\s+[^.]{0,40}\bis\b[^.]{0,30}\.", "welded epigram — second clause generalizes the first"),
+    ("aphorism", r",\s*(?:so|and)\s+nothing\s+\w+s\b[^.]{0,40}\.", "welded epigram — 'and nothing X's' closer"),
+
+    # --- spec-ese (entry 40) --------------------------------------------------
+    ("spec-ese", r"(?:^|[.!?]\s+)That\s+(?:child|session|process|container|job|worker|request|instance|delegate)\b(?!'s)", "demonstrative subject for a thing already named — use 'it'"),
+    ("spec-ese", r"\bdoes\s+not\s+itself\b", "reflexive-emphatic formality"),
+    ("spec-ese", r"\b(?:idles?|sits?|waits?)\s+awaiting\b", "latinate state verb plus participle tail"),
+    ("spec-ese", r"\bawaiting\s+(?:input|instructions|a\s+\w+|the\s+\w+)\b", "awaiting — say what the reader has to do"),
+    ("spec-ese", r"\b(?:holds|carries|comprises|obtains)\s+no\s+\w+", "latinate state verb — say what is not there"),
+    ("spec-ese", r"\bnever\s+carries\s+a\b", "latinate state verb for a permission or flag"),
+
+    # --- contents-list standfirst (entry 42) ----------------------------------
+    ("announce", r"^[^.\n]{10,90},\s*plus\s+the\s+\w+", "'X, plus Y' standfirst — a contents list shaped as a sentence"),
+    ("announce", r",\s*(?:plus|and)\s+the\s+\w+\s+(?:the|that|which)\s+\w+\s+(?:leaves?|skips?|misses?|omits?)\b", "coy reduced relative — name what is in it"),
+
     # --- predicate-position hyphenation --------------------------------------
     ("hyphenation", r"\b(?:is|are|was|were|feels?|seems?)\s+(?:high-quality|cross-functional|data-driven|end-to-end|real-time|long-term|well-known|client-facing|decision-making|third-party|open-source)\b", "drop the hyphen after the noun"),
 ]
@@ -239,6 +256,11 @@ HEADER_RE = re.compile(r"^\s{0,3}(#{1,6})\s+(.+?)\s*$")
 COY_HEADER_RE = re.compile(r"^(?:what|why|how)\b(?!.*\?$)", re.I)
 VERDICT_HEADER_RE = re.compile(r"\b(?:is|are|isn'?t|aren'?t|was|wasn'?t|does|doesn'?t|actually|really|wrong|right|matters|counts)\b", re.I)
 
+NOMINAL_HEADER_RE = re.compile(
+    r"^(?:[A-Z]\w*\s+){0,2}\w+(?:ship|tion|sion|ment|ance|ence|ity|ness)\b"
+    r"(?:\s+(?:in|of|for|between|across|under)\b|\s*$)", re.I)
+GERUND_HEADER_RE = re.compile(r"^\w+ing\s+(?:a|an|the)\b", re.I)
+
 TITLE_CASE_SKIP = {
     "a", "an", "and", "as", "at", "but", "by", "for", "from", "in", "into",
     "nor", "of", "on", "onto", "or", "over", "the", "to", "up", "via", "with",
@@ -254,7 +276,7 @@ CATEGORY_ORDER = [
     "staging", "triad", "em-dash", "aphorism", "rhetorical-q", "self-grading", "humility", "throat-clearing",
     "rtfm", "dev-cliche", "slop", "editorializing", "time-inflation",
     "copula", "participle", "false-range", "list-shape", "chatbot", "filler",
-    "gap-fill", "diff-anchored", "subjectless", "hyphenation",
+    "gap-fill", "diff-anchored", "subjectless", "hyphenation", "spec-ese",
     "header", "typography", "cadence", "reuse", "density",
 ]
 
@@ -314,6 +336,11 @@ def scan_lines(text: str) -> list[dict]:
             elif not title.endswith("?") and VERDICT_HEADER_RE.search(title) and len(title.split()) > 3:
                 hits.append({"line": i, "category": "header",
                              "note": "thesis-shaped header — states a verdict instead of labelling",
+                             "match": title[:90]})
+            elif NOMINAL_HEADER_RE.match(title) or GERUND_HEADER_RE.match(title):
+                hits.append({"line": i, "category": "header",
+                             "note": "nominalized header — names a topic area, not the content "
+                                     "(the standard overcorrection from a verdict header)",
                              "match": title[:90]})
             words = title.split()
             minor = [w for w in words[1:] if w.lower() not in TITLE_CASE_SKIP]

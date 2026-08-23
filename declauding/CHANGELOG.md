@@ -2,6 +2,26 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.5.0] - 2026-08-23
+
+### Added
+
+- Entry 39, welded epigram — a maxim joined to a fact with "and" or "so", inside
+  one sentence. Entry 12 only catches the paragraph-final form.
+- Entry 40, spec-ese — demonstrative subjects, reflexive emphatics, and latinate
+  state verbs ("idles", "holds no", "awaiting input") for a program doing nothing.
+- Entry 41, nominalized header — the standard overcorrection from entry 7.
+  Fleeing a verdict header into an abstraction passes entry 7's regex and fails
+  its table-of-contents test.
+- Entry 42, contents-list standfirst — "X, plus the Y the docs leave out".
+- `spec-ese` lint category, three new `aphorism` and two new `announce` patterns,
+  and a nominalized/gerund header check.
+- Two self-check questions covering the welded epigram and the read-aloud test.
+
+Diagnosed on a create_session reference artifact whose four section headers were
+all rewritten from verdict-shaped into nominalized by a single declauding pass,
+after which the linter reported the document clean.
+
 ## [0.4.0] - 2026-08-21
 
 ### Other
