@@ -145,3 +145,17 @@ Three shapes, and the fix differs for each:
 One decision, one thing.
 
 One note I did not fix: the count is off by two.
+
+## Entries 39-42 specimens
+
+The create_session parameter surface, plus the behavior the schema leaves out.
+
+That child holds no repository and waits for input.
+
+The rest of the surface depends on this parameter, and the failure it prevents is silent.
+
+Omit it and the child idles awaiting input.
+
+Entries the caller does not itself hold are dropped, so a child never carries a grant its parent lacks.
+
+## GitHub authorship in a sourced child

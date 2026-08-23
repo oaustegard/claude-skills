@@ -701,12 +701,121 @@ the cheapest way to see it.
 
 ---
 
+## 39. Welded epigram
+
+**Tell:** a factual clause joined by `and` or `so` to a second clause that
+restates it as a general truth — ", so a child never carries a grant its parent
+lacks", ", and the failure it prevents is silent", ", and nothing errors". The
+second clause typically contains no concrete noun and would read as true of any
+system, not this one.
+
+**Why:** the first clause says what happens; the second says what it means, in a
+shape built to be quoted. It also loses precision, because a maxim has to drop
+the conditions that made the mechanism specific. *A child never carries a grant
+its parent lacks* is vaguer than the rule it paraphrases, and a reader cannot
+act on it.
+
+**Fix:** keep the clause that says what happens. Delete the one that says what it
+means.
+
+> was: *Entries the caller does not itself hold are dropped, so a child never
+> carries a grant its parent lacks.*
+> now: *List a tool you do not have yourself and it is dropped.*
+
+> was: *The rest of the surface depends on this parameter, and the failure it
+> prevents is silent.*
+> now: *Leave it out and nothing errors — the child just comes up bare.*
+
+Distinct from entry 12, which is a whole sentence at the end of a paragraph.
+This one hides inside a single sentence, mid-paragraph, and survives a pass that
+is only checking closers.
+
+---
+
+## 40. Spec-ese
+
+**Tell:** the register of a standards document rather than of a person
+explaining something. Demonstrative subject where "it" would do ("That child
+holds no repository"); reflexive emphatics ("does not itself hold"); latinate
+state verbs for a program doing nothing ("idles", "holds", "carries", "awaits");
+participle tails on those verbs ("awaiting input"); passive with the actor
+displaced into a subordinate clause.
+
+**Why:** it reads as translated from a schema. The formality signals precision
+without adding any — every specimen below says less than its plain rewrite,
+because the plain rewrite names who does the thing.
+
+**Fix:** use "it". Use the verb you would say aloud. Name the reader as the actor
+where the reader is the actor.
+
+> was: *That child holds no repository and waits for input.*
+> now: *It comes up with no repo and does nothing until you send it a message.*
+
+> was: *Omit it and the child idles awaiting input.*
+> now: *Leave it out and the session just sits there.*
+
+**Earned when** the term is the system's own — a queue whose documented states
+are `waiting` and `held`, a flag literally named `AWAIT`. Then it is a
+quotation, not a register choice.
+
+---
+
+## 41. Nominalized header
+
+**Tell:** a header whose head noun is an abstraction — "GitHub authorship in a
+sourced child", "Spawn availability", "Channels between siblings", "Detecting a
+parked child". Shapes to scan for: `<-ship/-tion/-ment/-ance/-ity noun> in|of|for
+<thing>`, and a bare gerund standing in for the sentence the section actually
+makes.
+
+**Why:** it names a topic area instead of the content, so it fails entry 7's
+table-of-contents test while passing entry 7's regex. A reader scanning
+"Spawn availability" learns that the section is about spawning, which they knew.
+
+**Fix:** name the concrete thing, or ask the reader's question.
+
+> was: *GitHub authorship in a sourced child* → now: *Who the delegate posts as*
+> was: *Spawn availability* → now: *When create_session fails*
+
+**This is the standard overcorrection from entry 7.** Diagnosed 2026-08-23: a
+draft's four verdict-shaped section headers ("A sourced child signs GitHub
+writes as the token owner", "There is no reply channel between siblings") were
+all rewritten into nominalizations in a single pass, and the linter then
+reported the document clean. Fleeing a verdict into an abstraction is not a fix.
+The target is a concrete label, and both failures miss it in opposite
+directions.
+
+---
+
+## 42. Contents-list standfirst
+
+**Tell:** a subtitle or opening line built as `<noun phrase>, plus <noun
+phrase>` — "The create_session parameter surface, plus the behavior the schema
+leaves out". Variants: "…, and what it means for X", "…, and the N things you
+need to know". The second half is usually a coy reduced relative that claims
+value without naming any ("the behavior the schema leaves out", "the part the
+docs skip").
+
+**Why:** it is a table of contents wearing a sentence, and the second half is a
+significance tag (entry 3) in disguise — it tells the reader the withheld
+material is worth having rather than saying what it is.
+
+**Fix:** say what the page contains, or drop the subtitle. A reference does not
+need one.
+
+> was: *The create_session parameter surface, plus the behavior the schema
+> leaves out.*
+> now: *Every parameter, and four behaviors that only show up in practice.*
+
+---
+
 ## Quick self-check before shipping an edit
 
 1. Does any sentence exist to make a finding feel bigger than it is?
 2. Does any sentence tell the reader which sentence matters?
 3. Is anything in a subject slot that cannot act?
-4. Does any header state a verdict, hide its contents, or contain a comma?
+4. Does any header state a verdict, hide its contents, contain a comma, or
+   name an abstraction instead of the content?
 5. Is any noun deferred that was available?
 6. Does the last paragraph paraphrase the subtext of the piece?
 7. Did the edit remove content, change a claim, or add hedging?
@@ -715,7 +824,9 @@ the cheapest way to see it.
 10. Does the rewrite contain a fact, name, number, date or citation that is not
     in the source? A fabrication is a defect even when it sounds more human than
     the vague original.
-11. Does the rewrite drop a claim the source made? Check claim by claim, not
+11. Does any sentence weld a maxim onto a fact with "and" or "so"?
+12. Would you say it aloud in those words, or is it schema prose?
+13. Does the rewrite drop a claim the source made? Check claim by claim, not
     paragraph by paragraph. Superlatives, rankings, simultaneity, scope words and
     the condition attached to a hedge all sit inside phrasings this register
     cuts, and the paragraph looks intact after they go.
