@@ -4,6 +4,12 @@ All notable changes to the `declauding` skill are documented in this file. The f
 
 ## [0.5.0] - 2026-08-23
 
+### Other
+
+- declauding 0.5.0: entries 39-42 (#771)
+
+## [0.5.0] - 2026-08-23
+
 ### Added
 
 - Entry 39, welded epigram — a maxim joined to a fact with "and" or "so", inside
