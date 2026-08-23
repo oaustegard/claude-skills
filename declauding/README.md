@@ -4,12 +4,14 @@ Removes LLM prose tics from a draft and returns plain human technical prose. The
 input is text; the output is either the rewritten text or an annotated HTML diff
 showing every edit with its original and its reason.
 
-The register has two halves. Entries 1 to 23 are one move: **the sentence is
-built to make the reader feel a finding arrive, instead of stating the finding.**
-The fix is always the same: put a real subject in the subject slot, say the
-thing, stop. Entries 24 to 36 are the flatter slop patterns, where nothing is
-being staged and the prose is running on defaults. Entry 37 returns to the first
-half and sits last because it arrived last.
+The register has three groups. Entries 1 to 23, 37 and 38 are one move: **the
+sentence is built to make the reader feel a finding arrive, instead of stating
+the finding.** The fix is always the same: put a real subject in the subject
+slot, say the thing, stop. Entries 24 to 36 are the flatter slop patterns, where
+nothing is being staged and the prose is running on defaults. Entries 39 to 42
+are the register of reference prose — schema formality, and maxims welded onto
+facts. Numbering is chronological within the file, so a group is not a
+contiguous range.
 
 See [`SKILL.md`](SKILL.md) for the workflow, the overcorrection guard and the
 earned-exception table. See [`references/register.md`](references/register.md)
@@ -32,9 +34,9 @@ and nothing else.
 
 ## Tics it catches
 
-Thirty-seven entries. The first 23, and entry 37, are grouped by mechanism rather
-than by phrase, since phrase blocklists miss the next paraphrase. The ones that
-show up in nearly every draft:
+Forty-two entries. All of them except part of the 24-to-36 block are grouped by
+mechanism rather than by phrase, since phrase blocklists miss the next
+paraphrase. The ones that show up in nearly every draft:
 
 | Tic | Example |
 |---|---|
@@ -66,6 +68,21 @@ README boilerplate and pasted chat:
 | Speculative gap-filling | *…not publicly available, suggesting she maintains a low profile.* |
 | Diff-anchored documentation | *This function was added to replace the previous approach…* |
 | Subjectless fragment | *No configuration file needed. The results are preserved automatically.* |
+
+Entries 39 to 42 came from a reference document — an API page, where the prose is
+describing a system rather than making an argument. The staging entries mostly do
+not fire on that kind of writing, and these four do:
+
+| Tic | Example |
+|---|---|
+| Welded epigram | *…are dropped, so a child never carries a grant its parent lacks.* |
+| Spec-ese | *That child holds no repository and waits for input.* |
+| Nominalized header | *GitHub authorship in a sourced child* |
+| Contents-list standfirst | *The parameter surface, plus the behavior the schema leaves out.* |
+
+Entry 41 is the overcorrection from entry 7 and is written up as one. A verdict
+header rewritten into an abstraction passes entry 7's regex and still fails entry
+7's own test.
 
 Each entry carries the surface tell, why it is a tic, the fix, and a
 before-and-after. The first 23 come from a real published draft; the second block
@@ -123,16 +140,22 @@ as a pre-commit hook.
 ## False positives
 
 `tests/sample-clean.md` is human-written prose and must lint to zero.
-`tests/sample-tics.md` is a corpus of real specimens and currently reports 91
-candidates across 28 categories.
+`tests/sample-tics.md` is a corpus of real specimens and currently reports 114
+candidates across 30 categories.
 
 ```sh
-python3 scripts/declaude_lint.py tests/sample-tics.md    # 91 candidates
+python3 scripts/declaude_lint.py tests/sample-tics.md    # 114 candidates
 python3 scripts/declaude_lint.py tests/sample-clean.md   # 0
-python3 scripts/declaude_lint.py SKILL.md --skip-quoted  # 7, all checked
+python3 scripts/declaude_lint.py SKILL.md --skip-quoted  # 8, all checked
+python3 scripts/declaude_lint.py README.md --skip-quoted # 6, all checked
 python3 scripts/declaude_lint.py tests/sample-structure.html   # 10, HTML path
 python3 scripts/declaude_review.py tests/sample-structure.md --slots
 ```
+
+One of the eight on `SKILL.md` is the `reuse` detector catching three parallel
+table labels ("Staging shapes, entries…", "Encyclopedic shapes, entries…",
+"Reference-prose shapes, entries…"). Three labels in a table series is the
+deliberate repetition entry 27 protects, so it stays.
 
 Several rules are deliberately tuned down to hold that zero, so the linter misses
 some real coy headers and some real inline-header bullets. A linter that fires on
@@ -156,7 +179,7 @@ rather than left to judgment:
 
 Every entry fires on a shape, and a shape sometimes carries a claim. Cutting it
 then removes content while looking like it removed only style. `SKILL.md`
-tabulates the earned form of 17 of the 37 entries, and names what hides inside a
+tabulates the earned form of 20 of the 42 entries, and names what hides inside a
 watched phrase: superlatives, rankings, simultaneity, scope words, and the
 condition attached to a hedge. *X rather than Y* is legitimate when the reader
 was genuinely holding Y; it is staged when you supplied Y so you could reject
@@ -214,6 +237,12 @@ specimens produced 2 candidates from this linter, neither for the right reason.
 It now produces 33 across 13 categories. The no-fabrication rule, the
 voice-sample precedence, the embedded invocation mode and the "leave these alone"
 list are also from that skill.
+
+Entries 39 to 42 came from a `create_session` reference artifact (2026-08-23)
+that had already been through a 0.4.0 pass and reported clean. Two of its section
+headers were flagged as verdict-shaped, all four were rewritten into
+nominalizations, and the linter then passed the result — which is entry 41, and
+the reason the entry names itself as an overcorrection.
 
 The two skills cover different halves of the problem and both remain worth
 reading. Humanizer is broader on encyclopedic and promotional slop and ships as a

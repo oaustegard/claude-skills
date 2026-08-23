@@ -256,9 +256,14 @@ HEADER_RE = re.compile(r"^\s{0,3}(#{1,6})\s+(.+?)\s*$")
 COY_HEADER_RE = re.compile(r"^(?:what|why|how)\b(?!.*\?$)", re.I)
 VERDICT_HEADER_RE = re.compile(r"\b(?:is|are|isn'?t|aren'?t|was|wasn'?t|does|doesn'?t|actually|really|wrong|right|matters|counts)\b", re.I)
 
+_NOM = r"(?:ship|tion|sion|ment|ance|ence|ity|ness)"
+# Fires on a nominalization with a prepositional tail ("Authorship in a sourced
+# child") or a two-word modifier+abstraction label ("Spawn availability"). A bare
+# one-word nominalization is a legitimate label for a term the document defines
+# — "Overcorrection", "Calibration", "Provenance" — and must not fire.
 NOMINAL_HEADER_RE = re.compile(
-    r"^(?:[A-Z]\w*\s+){0,2}\w+(?:ship|tion|sion|ment|ance|ence|ity|ness)\b"
-    r"(?:\s+(?:in|of|for|between|across|under)\b|\s*$)", re.I)
+    r"^(?:(?:\w+\s+){0,2}\w+" + _NOM + r"\s+(?:in|of|for|between|across|under)\b"
+    r"|\w+\s+\w+" + _NOM + r"\s*$)", re.I)
 GERUND_HEADER_RE = re.compile(r"^\w+ing\s+(?:a|an|the)\b", re.I)
 
 TITLE_CASE_SKIP = {
