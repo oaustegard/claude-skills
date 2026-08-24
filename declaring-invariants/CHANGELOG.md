@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.2.0 — 2026-08-24
+
+A second claim form, because an enumeration is structurally blind to its own
+domain narrowing. It loops whatever the registry currently holds, so removing a
+member leaves it green over the ones that remain. Raised by Yep; reproduced on
+`oaustegard/remex` before being believed, and the reproduction is worse than the
+report. Substituting `"xyz"` for `"none"` in both spellings of the rotation
+domain — keeping cardinality, keeping the two spellings in agreement — left the
+domain floor, the enumeration and the parity check all green. Five passing tests
+over a registry that had quietly stopped supporting a rotation every index on
+disk was written with. The floor is a cardinality check and cannot see a member
+swapped for another.
+
+`# totality: ratchet — <why>` marks a hand-list as a deliberate floor. Unlike
+`partial`, which excuses a hand-list, `ratchet` asserts one, and the linter
+checks the pin rather than taking the marker's word for it. Two new findings:
+`ratchet-broken` names a pinned member the registry no longer contains, detected
+statically before any test runs, and `unratcheted` names a registry enumerated
+live with nothing pinning its membership. `sampled-domain` no longer fires on a
+marked ratchet — a hand list is sometimes the right answer, on purpose.
+
+A ratchet pins every registry it is a floor for, not just the nearest one, since
+a domain is often spelled twice. `claims.py` reports a ratchet claim as pinning
+its registries rather than copying them, and a ratcheted registry is no longer
+`unanchored`.
+
+Verified on remex under the same substitution: `ratchet-broken` naming `'none'`
+statically, and the ratchet test red while the other five pass.
+
+55 tests, up from 45.
+
 ## 0.1.0 — 2026-08-24
 
 First release. Two scripts, one idea: a test that enumerates a domain must loop

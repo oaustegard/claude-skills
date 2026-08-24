@@ -226,7 +226,12 @@ class Reachability(unittest.TestCase):
 
 
 class NoFloor(unittest.TestCase):
-    """Measured on `remex`: firing on every local produced 27 noise findings."""
+    """Measured on `remex`: firing on every local produced 27 noise findings.
+
+    A live enumeration also raises `unratcheted` — nothing pins the domain
+    against narrowing — so these expectations carry both kinds. That pairing is
+    the point rather than an accident; see `Ratchet` below.
+    """
 
     SRC = 'ROTATION_CODES = {"haar": 0, "rht": 1, "none": 2}\n'
 
@@ -250,7 +255,7 @@ class NoFloor(unittest.TestCase):
                         assert k
             """,
         })
-        self.assertEqual(kinds(f), ["no-floor"])
+        self.assertEqual(kinds(f), ["no-floor", "unratcheted"])
         self.assertIn("`CLASS`", f[0].detail)
         self.assertNotIn("_spec", f[0].detail)
 
@@ -265,7 +270,7 @@ class NoFloor(unittest.TestCase):
                 def test_x(r): assert r
             """,
         })
-        self.assertEqual(kinds(f), ["no-floor"])
+        self.assertEqual(kinds(f), ["no-floor", "unratcheted"])
 
     def test_a_floor_on_the_local_alias_counts(self):
         f = scan_files(**{
@@ -282,7 +287,7 @@ class NoFloor(unittest.TestCase):
                 def test_x(r): assert r
             """,
         })
-        self.assertEqual(kinds(f), [])
+        self.assertEqual(kinds(f), ["unratcheted"])
 
     def test_an_ordinary_local_is_not_a_domain(self):
         """`for q in queries` over a numpy array is not an enumeration."""
@@ -427,6 +432,108 @@ class SkipDirs(unittest.TestCase):
                 f"a registry under {name}/ reached the report",
             )
 
+
+class Ratchet(unittest.TestCase):
+    """Enumeration and a hand-list are complementary, not a ladder.
+
+    An enumeration loops whatever the domain currently holds, so it is
+    structurally blind to the domain NARROWING. Measured on `oaustegard/remex`:
+    substituting one member for another, keeping cardinality and keeping a
+    second spelling of the domain in agreement, left the domain floor, the
+    enumeration and the parity check all green while a supported rotation
+    silently left. Raised by Yep, 2026-08-24; reproduced before being believed.
+    """
+
+    SRC = 'ROTATION_CODES = {"haar": 0, "rht": 1, "none": 2}\n'
+    SHRUNK = 'ROTATION_CODES = {"haar": 0, "rht": 1, "xyz": 2}\n'
+
+    def _tree(self, src, marker="# totality: ratchet — these three shipped"):
+        return {
+            "pkg/mod.py": src,
+            "pkg/tests/test_it.py": f"""
+                from pkg.mod import ROTATION_CODES
+
+                {marker}
+                def test_pinned():
+                    for shipped in ("haar", "rht", "none"):
+                        assert shipped in ROTATION_CODES
+            """,
+        }
+
+    def test_an_intact_ratchet_is_silent(self):
+        self.assertEqual(kinds(scan_files(**self._tree(self.SRC))), [])
+
+    def test_a_member_leaving_breaks_the_ratchet_and_is_named(self):
+        f = scan_files(**self._tree(self.SHRUNK))
+        self.assertEqual(kinds(f), ["ratchet-broken"])
+        self.assertEqual(f[0].missing, ["none"])
+        self.assertEqual(f[0].registry, "ROTATION_CODES")
+
+    def test_a_full_hand_list_is_not_a_sample_with_or_without_the_marker(self):
+        """Pinning the WHOLE domain is not a sampling oracle in either case."""
+        self.assertEqual(
+            kinds(scan_files(**self._tree(self.SRC, marker="# ordinary"))), [])
+
+    def test_without_the_marker_a_subset_reads_as_a_copy(self):
+        """The marker is what separates a deliberate floor from a sample."""
+        tree = {
+            "pkg/mod.py": self.SRC,
+            "pkg/tests/test_it.py": """
+                from pkg.mod import ROTATION_CODES
+
+                def test_pinned():
+                    for shipped in ("haar", "rht"):
+                        assert shipped in ROTATION_CODES
+            """,
+        }
+        self.assertEqual(kinds(scan_files(**tree)), ["sampled-domain"])
+        tree["pkg/tests/test_it.py"] = tree["pkg/tests/test_it.py"].replace(
+            "                def test_pinned",
+            "                # totality: ratchet — the two that shipped first\n"
+            "                def test_pinned")
+        self.assertEqual(kinds(scan_files(**tree)), [])
+
+    def test_a_partial_ack_does_not_earn_ratchet_checking(self):
+        """`partial` excuses a hand-list; only `ratchet` asserts one."""
+        f = scan_files(**self._tree(self.SHRUNK, marker="# totality: partial — two of three"))
+        self.assertEqual(kinds(f), [])
+
+    def test_an_enumeration_with_no_ratchet_is_reported(self):
+        f = scan_files(**{
+            "pkg/mod.py": self.SRC,
+            "pkg/tests/test_it.py": """
+                from pkg.mod import ROTATION_CODES
+
+                def test_floor(): assert len(ROTATION_CODES) >= 3
+
+                def test_x():
+                    for r in ROTATION_CODES:
+                        assert r
+            """,
+        })
+        self.assertEqual(kinds(f), ["unratcheted"])
+        self.assertEqual(f[0].registry, "ROTATION_CODES")
+
+    def test_an_enumeration_WITH_a_ratchet_is_silent(self):
+        """The pair is the answer; neither half alone is."""
+        f = scan_files(**{
+            "pkg/mod.py": self.SRC,
+            "pkg/tests/test_it.py": """
+                from pkg.mod import ROTATION_CODES
+
+                def test_floor(): assert len(ROTATION_CODES) >= 3
+
+                def test_x():
+                    for r in ROTATION_CODES:
+                        assert r
+
+                # totality: ratchet — these three shipped
+                def test_pinned():
+                    for shipped in ("haar", "rht", "none"):
+                        assert shipped in ROTATION_CODES
+            """,
+        })
+        self.assertEqual(kinds(f), [])
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

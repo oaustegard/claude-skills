@@ -90,6 +90,10 @@ class Claim:
     anchors: list = field(default_factory=list)
     #: Registries this test iterates as a copied literal.
     copies: list = field(default_factory=list)
+    #: Registries this test PINS with a deliberate hand-list. A ratchet is the
+    #: complement of an enumeration, not a weaker version of it: an enumeration
+    #: loops whatever the domain now holds and is blind to it narrowing.
+    ratchets: list = field(default_factory=list)
 
 
 @dataclass
@@ -163,8 +167,16 @@ def inventory(root: pathlib.Path) -> tuple[list[Claim], list[tl.Registry], dict]
             if decl is None:
                 continue
             statement, refutation = decl
-            anchors, copies = [], []
+            anchors, copies, ratchets = [], [], []
             for d in domains.get(fn.name, []):
+                if d.ack and d.ack[0] == "ratchet" and d.members is not None:
+                    for r in visible:
+                        if d.members <= r.members:
+                            ratchets.append(r.name)
+                    hit = tl._nearest_registry(d, visible)
+                    if hit and hit[1]:
+                        ratchets.append(hit[0].name)
+                    continue
                 if d.live:
                     reg = next(
                         (by_name[n] for n in d.lookup_names() if n in by_name),
@@ -179,7 +191,7 @@ def inventory(root: pathlib.Path) -> tuple[list[Claim], list[tl.Registry], dict]
             claims.append(Claim(
                 statement=statement, test=fn.name, path=rel, line=fn.lineno,
                 refuted=refutation, anchors=sorted(set(anchors)),
-                copies=sorted(set(copies)),
+                copies=sorted(set(copies)), ratchets=sorted(set(ratchets)),
             ))
 
     stats = {
@@ -216,6 +228,7 @@ def findings_for(claims: list[Claim], registries: list[tl.Registry]) -> list[Fin
     for c in claims:
         named.update(c.anchors)
         named.update(c.copies)
+        named.update(c.ratchets)
     for r in registries:
         if r.name in named or r.name.rsplit(".", 1)[-1] in named:
             continue
@@ -244,8 +257,12 @@ def report(claims: list[Claim], findings: list[Finding], stats: dict) -> str:
         for c in sorted(claims, key=lambda c: (c.path, c.line)):
             mark = "✓" if c.refuted else "·"
             out.append(f"  {mark} {c.statement}")
-            anchor = f" over {', '.join(c.anchors)}" if c.anchors else ""
-            out.append(f"      {c.path}:{c.line}  {c.test}{anchor}")
+            over = ""
+            if c.anchors:
+                over = f" over {', '.join(c.anchors)}"
+            elif c.ratchets:
+                over = f" pinning {', '.join(c.ratchets)}"
+            out.append(f"      {c.path}:{c.line}  {c.test}{over}")
         out.append("")
 
     if not findings:

@@ -1,8 +1,8 @@
 ---
 name: declaring-invariants
-description: Find tests that enumerate a domain by copying it, and declare the invariants a codebase depends on. Reports where a parametrize list, for-loop, or it.each iterates a hand-written subset of a dict/set/tuple/Enum that exists in the source, and names the members nothing covers. Use when reviewing tests, when a module gains a name-to-thing table, registry, enum, or dispatch map, before trusting a green suite as evidence a domain is covered, or when asked "is this test actually total", "does anything cover X", "what does this repo guarantee", "which invariants do we declare". Also for vacuous tests that pass over an empty collection, and for recording the refutation that proves a claim can fail.
+description: Find tests that enumerate a domain by copying it, and declare the invariants a codebase depends on. Reports where a parametrize list, for-loop, or it.each iterates a hand-written subset of a dict/set/tuple/Enum that exists in the source, and names the members nothing covers. Use when reviewing tests, when a module gains a name-to-thing table, registry, enum, or dispatch map, before trusting a green suite as evidence a domain is covered, or when asked "is this test actually total", "does anything cover X", "what does this repo guarantee", "which invariants do we declare". Also for vacuous tests that pass over an empty collection, for a domain that has silently NARROWED (an enumeration cannot see that), and for recording the refutation that proves a claim can fail.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # declaring-invariants
@@ -41,6 +41,8 @@ claim grammar, a ledger and Node; the check does not.
 | finding | meaning |
 |---|---|
 | `sampled-domain` | a `parametrize` or `for` over a literal whose members are a strict subset of a source registry. The uncovered members are named. |
+| `ratchet-broken` | a hand-list marked `ratchet` names a member the registry no longer contains. Detected statically, without running anything. |
+| `unratcheted` | a registry enumerated live with nothing pinning its membership. |
 | `no-floor` | a test iterates a live registry with no `len(...) >= n` assertion in the file, so an emptied registry passes vacuously. |
 | `stale-ack` | an acknowledgement on a test that now covers the whole domain. |
 
@@ -63,6 +65,48 @@ def test_save_params_accepts_every_mojo_rotation(rotation): ...
 The marker also works as `totality: partial — <why>` inside the docstring. An
 acknowledgement on a test that later covers the whole domain is reported as
 `stale-ack`, so a suppression cannot become a silence.
+
+## Why a hand-list is the second form
+
+An enumeration loops **whatever the domain currently holds**, so it is
+structurally blind to the domain narrowing. Remove a member and the loop simply
+ranges over fewer of them, green. Raised by Yep, 2026-08-24; reproduced on
+`oaustegard/remex` before being believed:
+
+| perturbation of `ROTATION_CODES` | domain floor | enumeration | parity | hand-list |
+|---|---|---|---|---|
+| grow — add `"hadamard2"` | pass | **RED** | **RED** | pass |
+| shrink — drop `"none"` | **RED** | pass | RED\* | pass |
+| substitute — `"none"` → `"xyz"` in both spellings | pass | pass | pass | pass |
+
+\* only because the *other* spelling of the domain did not shrink, which is
+incidental to that repository.
+
+In the substitution row cardinality holds, both spellings agree, and five green
+tests cover a registry that quietly stopped supporting a rotation every index on
+disk was written with. The floor is a **cardinality**
+check; it cannot see a member swapped for another.
+
+The second form is a **ratchet**: a hand-list asserting the domain keeps
+containing it. Mark it and the linter checks the pin rather than taking the
+marker's word for it.
+
+```python
+# totality: ratchet — these three shipped; one leaving is a compatibility break
+def test_no_shipped_rotation_is_ever_removed():
+    for shipped in ("haar", "rht", "none"):
+        assert shipped in ROTATION_CODES
+```
+
+Under that same substitution the linter reports `ratchet-broken` naming
+`'none'` **statically, before any test runs**, and the test itself goes red
+while the other five pass.
+
+So: an enumeration proves every current member is handled, and a ratchet proves
+no member left without a decision. `unratcheted` names a registry that has the
+first and not the second. Neither half alone is the answer, and `sampled-domain`
+does not fire on a marked ratchet — a hand list is sometimes the right answer,
+on purpose.
 
 ## `claims.py` — what the repo declares
 
@@ -88,6 +132,10 @@ def test_every_skipped_directory_is_actually_skipped(self):
 | `unrefuted` | a claim nobody has watched fail |
 | `literal` | the claiming test iterates a copy of the registry, so the claim cannot see a new member |
 | `unanchored` | a registry no invariant names — a question, not a verdict |
+
+A claim whose test carries a `ratchet` marker is reported as *pinning* its
+registries rather than copying them, and a ratcheted registry is not
+`unanchored`.
 
 ```bash
 python3 scripts/claims.py <repo> [--json] [--strict] [--selftest]
@@ -124,10 +172,11 @@ The reference wiring lives in `oaustegard/claude-workspace`
 `invariant:` test iterates it live is denied, naming the registry and what it
 gained. Override with `no-invariant: <why>` in the commit body.
 
-Registry growth is deliberately the only trigger. A new function or a new
-branch is behavioural growth too, but neither is diffable without guessing, and
-a gate that guesses is a gate that gets switched off. A brand-new registry is
-not gated. Declaring one is a judgement call; growing one has already made it.
+Registry **shrink** is gated the same way, and needs a ratchet rather than an
+enumeration to clear it. A new function or a new branch is behavioural growth
+too, but neither is diffable without guessing, and a gate that guesses stops
+being consulted. A brand-new registry is not gated. Declaring one is a
+judgement call; growing one has already made it.
 
 ## Where the two filters came from
 

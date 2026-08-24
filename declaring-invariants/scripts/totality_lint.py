@@ -90,8 +90,15 @@ MIN_REGISTRY = 3
 #: A literal below this is not plausibly a copy of anything.
 MIN_LITERAL = 2
 
-ACK_RE = re.compile(r"#\s*totality:\s*(partial|sampled)\b[ \t]*[-—:]?[ \t]*(.*)")
-ACK_DOC_RE = re.compile(r"^\s*totality:\s*(partial|sampled)\b[ \t]*[-—:]?[ \t]*(.*)", re.M)
+#: `partial` excuses a hand-list. `ratchet` ASSERTS one: the members named are a
+#: floor the registry must keep containing, and the linter checks that rather
+#: than taking the marker's word for it. Enumeration and a ratchet are
+#: complementary, not a ladder — see `_ratchet_findings`.
+ACK_KINDS = ("partial", "sampled", "ratchet")
+_ACK_ALT = "|".join(ACK_KINDS)
+ACK_RE = re.compile(rf"#\s*totality:\s*({_ACK_ALT})\b[ \t]*[-—:]?[ \t]*(.*)")
+ACK_DOC_RE = re.compile(rf"^\s*totality:\s*({_ACK_ALT})\b[ \t]*[-—:]?[ \t]*(.*)",
+                        re.M)
 
 Member = str | int | float | bool
 
@@ -507,6 +514,38 @@ def _best_registry(members: frozenset, regs: Iterable[Registry]) -> Registry | N
     return min(cands, key=lambda r: (len(r.members), r.path, r.line))
 
 
+def _nearest_registry(d, regs) -> tuple | None:
+    """(registry, members of the ratchet it no longer holds).
+
+    An empty second element means the ratchet is intact — it pins the whole
+    domain rather than a strict subset of it.
+
+    A ratchet is a hand-list asserting the domain keeps containing it. That is
+    the direction an enumeration cannot see: a totality oracle loops whatever
+    the domain currently is, so a member LEAVING is trivially green. Measured on
+    `oaustegard/remex`: substituting one member for another, keeping cardinality
+    and keeping a second spelling of the domain in agreement, passed the domain
+    floor, the enumeration and the parity check — five green tests while a
+    supported rotation silently left.
+
+    Match on overlap rather than containment, because containment is exactly
+    what broke.
+    """
+    best, best_key = None, None
+    for r in regs:
+        overlap = len(d.members & r.members)
+        if overlap < MIN_LITERAL:
+            continue
+        # Most overlap wins; ties break on the smaller registry, then on a
+        # stable address, so one report does not reorder between runs.
+        key = (-overlap, len(r.members), r.path, r.line)
+        if best_key is None or key < best_key:
+            best, best_key = r, key
+    if best is None:
+        return None
+    return (best, sorted(d.members - best.members, key=repr))
+
+
 def scan(root: pathlib.Path) -> tuple[list[Finding], dict]:
     src_files, test_files = [], []
     for p in sorted(root.rglob("*.py")):
@@ -523,6 +562,10 @@ def scan(root: pathlib.Path) -> tuple[list[Finding], dict]:
             continue
 
     findings: list[Finding] = []
+    #: registry name -> the ratchet domains pinning it
+    ratcheted: dict[str, list] = {}
+    #: registry name -> the domains enumerating it live
+    enumerated: dict[str, list] = {}
     domains_seen = 0
     for p, rel in test_files:
         try:
@@ -558,6 +601,8 @@ def scan(root: pathlib.Path) -> tuple[list[Finding], dict]:
                         f"it empties",
                         registry=reg.name,
                     ))
+                if reg:
+                    enumerated.setdefault(reg.name, []).append(d)
                 if d.ack and reg:
                     findings.append(Finding(
                         "stale-ack", d.path, d.line, d.test,
@@ -571,8 +616,41 @@ def scan(root: pathlib.Path) -> tuple[list[Finding], dict]:
                 continue
             reg = _best_registry(d.members, visible)
             if reg is None:
+                if d.ack and d.ack[0] == "ratchet":
+                    # No strict superset, so either the ratchet pins the whole
+                    # domain (intact) or a member has left (broken).
+                    hit = _nearest_registry(d, visible)
+                    if hit:
+                        reg, left = hit
+                        for r in visible:
+                            if d.members <= r.members:
+                                ratcheted.setdefault(r.name, []).append(d)
+                        ratcheted.setdefault(reg.name, []).append(d)
+                        if left:
+                            findings.append(Finding(
+                                "ratchet-broken", d.path, d.line, d.test,
+                                f"pins {len(d.members)} member(s) of "
+                                f"`{reg.name}`, and the registry no longer "
+                                f"contains all of them — a member left without "
+                                f"the ratchet being retired",
+                                missing=left, registry=reg.name,
+                            ))
                 continue
             missing = sorted(reg.members - d.members, key=repr)
+            if d.ack and d.ack[0] == "ratchet":
+                # A ratchet asserts the literal is a FLOOR the registry keeps
+                # containing. `d.members < reg.members` already held to get
+                # here, so nothing has left; the assertion is intact. Record it
+                # so `ratchets` can tell an enumerated registry with a floor
+                # from one without.
+                # Pin EVERY registry the hand-list is a floor for. One domain
+                # is often spelled twice (`ROTATION_CODES` for the on-disk byte,
+                # `Quantizer.ROTATIONS` for the constructor), and a ratchet over
+                # its members holds each of them.
+                for r in visible:
+                    if d.members <= r.members:
+                        ratcheted.setdefault(r.name, []).append(d)
+                continue
             if d.ack:
                 continue
             others = sum(
@@ -588,9 +666,27 @@ def scan(root: pathlib.Path) -> tuple[list[Finding], dict]:
                 missing=missing, registry=reg.name,
             ))
 
+    # The complement Yep named: enumeration proves every CURRENT member is
+    # handled and is structurally blind to the domain narrowing, because it
+    # loops whatever the domain now is. A ratchet is the other direction.
+    for name, doms in sorted(enumerated.items()):
+        if name in ratcheted:
+            continue
+        d = doms[0]
+        findings.append(Finding(
+            "unratcheted", d.path, d.line, d.test,
+            f"enumerates `{name}` live, and nothing pins its membership — a "
+            f"member REMOVED from the registry keeps this green, because the "
+            f"loop ranges over whatever the registry now holds. Pin a floor "
+            f"with `# totality: ratchet — <why>` on a hand-list test",
+            registry=name,
+        ))
+
     stats = {
         "source_files": len(src_files),
         "test_files": len(test_files),
+        "ratcheted": len(ratcheted),
+        "enumerated": len(enumerated),
         "registries": len(registries),
         "domains": domains_seen,
     }
@@ -601,7 +697,8 @@ def scan(root: pathlib.Path) -> tuple[list[Finding], dict]:
 # report
 # --------------------------------------------------------------------------
 
-ORDER = {"sampled-domain": 0, "stale-ack": 1, "no-floor": 2}
+ORDER = {"ratchet-broken": 0, "sampled-domain": 1, "stale-ack": 2,
+         "no-floor": 3, "unratcheted": 4}
 
 
 def report(findings: list[Finding], stats: dict) -> str:

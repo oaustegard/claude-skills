@@ -296,5 +296,45 @@ class Robustness(unittest.TestCase):
         self.assertEqual(cl.selftest(), 0)
 
 
+class Ratchets(unittest.TestCase):
+    """A hand-list marked `ratchet` anchors a claim; it is not a copy."""
+
+    SRC = 'ROTATION_CODES = {"haar": 0, "rht": 1, "none": 2}\n'
+
+    BODY = """
+        from pkg.mod import ROTATION_CODES
+
+        MARKER
+        def test_x():
+            '''invariant: a shipped rotation never leaves.
+
+            refuted: yes.
+            '''
+            for shipped in MEMBERS:
+                assert shipped in ROTATION_CODES
+    """
+
+    def _tree(self, marker, members):
+        body = self.BODY.replace("MARKER", marker).replace("MEMBERS", members)
+        return {"pkg/mod.py": self.SRC, "pkg/tests/test_it.py": body}
+
+    def test_a_ratchet_anchors_rather_than_copying(self):
+        claims, _, _, f = inv(**self._tree(
+            "# totality: ratchet — these two shipped first", '("haar", "rht")'))
+        self.assertEqual(claims[0].ratchets, ["ROTATION_CODES"])
+        self.assertEqual(claims[0].copies, [])
+        self.assertNotIn("literal", [x.kind for x in f])
+
+    def test_an_unmarked_subset_is_still_a_copy(self):
+        claims, _, _, f = inv(**self._tree("# ordinary comment", '("haar", "rht")'))
+        self.assertEqual(claims[0].copies, ["ROTATION_CODES"])
+        self.assertIn("literal", [x.kind for x in f])
+
+    def test_a_ratcheted_registry_is_not_unanchored(self):
+        _, _, _, f = inv(**self._tree(
+            "# totality: ratchet — all three shipped", '("haar", "rht", "none")'))
+        un = [x.detail for x in f if x.kind == "unanchored"]
+        self.assertFalse(any("ROTATION_CODES" in d for d in un), str(un))
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
