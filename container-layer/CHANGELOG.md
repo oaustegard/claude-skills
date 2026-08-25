@@ -2,6 +2,14 @@
 
 All notable changes to the `container-layer` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.2.3] - 2026-08-25
+
+### Other
+
+- creating-skill: use Anthropic's quick_validate.py instead of a hand-rolled check (#775)
+- Deprecate mapping-codebases; adopt ruff 0.16.0 baseline (#747)
+- container-layer: fix ARG_MAX crash building large snapshot tarballs (#723)
+
 ## [0.2.2] - 2026-05-17
 
 ### Other
