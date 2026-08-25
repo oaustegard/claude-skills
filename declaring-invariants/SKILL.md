@@ -2,7 +2,7 @@
 name: declaring-invariants
 description: Find tests that enumerate a domain by copying it, and declare the invariants a codebase depends on. Reports where a parametrize list, for-loop, or it.each iterates a hand-written subset of a dict/set/tuple/Enum that exists in the source, and names the members nothing covers. Use when reviewing tests, when a module gains a name-to-thing table, registry, enum, or dispatch map, before trusting a green suite as evidence a domain is covered, or when asked "is this test actually total", "does anything cover X", "what does this repo guarantee", "which invariants do we declare". Also for vacuous tests that pass over an empty collection, for a domain that has silently NARROWED (an enumeration cannot see that), and for recording the refutation that proves a claim can fail.
 metadata:
-  version: 0.2.0
+  version: 0.2.1
 ---
 
 # declaring-invariants
@@ -104,9 +104,15 @@ while the other five pass.
 
 So: an enumeration proves every current member is handled, and a ratchet proves
 no member left without a decision. `unratcheted` names a registry that has the
-first and not the second. Neither half alone is the answer, and `sampled-domain`
-does not fire on a marked ratchet — a hand list is sometimes the right answer,
-on purpose.
+first and not the second. Neither half alone is the answer.
+
+**A ratchet covers shrink only.** Over a strict subset it still reports
+`sampled-domain` for the members it never listed, because pinning two of three
+says nothing about the third. Suppressing that would make the marker a
+laundering channel — the escape hatch these notes criticise `via guard` for
+being in coherence. It was one: until 2026-08-25, `# totality: ratchet` over
+two of three members silenced the report entirely and checked nothing about the
+third. Caught by an adversarial pass on this skill, not by its own tests.
 
 ## `claims.py` — what the repo declares
 

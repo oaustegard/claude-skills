@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.1 — 2026-08-25
+
+A ratchet over a strict subset silenced `sampled-domain` entirely and checked
+nothing about the members it never listed. Writing `# totality: ratchet` on any
+hand-list therefore retired the finding for free — the same escape hatch these
+notes criticise `via guard` for being in `daniloc/coherence`, reproduced one day
+later. A ratchet is a statement about the domain SHRINKING and says nothing
+about growth, so a partial ratchet now still reports what it does not cover,
+annotated "pinned as a ratchet, which covers only shrink". A ratchet pinning the
+whole domain stays silent, as it should.
+
+Found by an adversarial pass on the skill, not by its own tests, which is the
+uncomfortable part: 55 tests and a `--selftest` all passed over it.
+
 ## 0.2.0 — 2026-08-24
 
 A second claim form, because an enumeration is structurally blind to its own

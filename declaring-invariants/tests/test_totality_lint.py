@@ -474,8 +474,16 @@ class Ratchet(unittest.TestCase):
         self.assertEqual(
             kinds(scan_files(**self._tree(self.SRC, marker="# ordinary"))), [])
 
-    def test_without_the_marker_a_subset_reads_as_a_copy(self):
-        """The marker is what separates a deliberate floor from a sample."""
+    def test_a_partial_ratchet_still_reports_what_it_does_not_cover(self):
+        """The marker must not be a laundering channel.
+
+        A ratchet is a statement about the domain SHRINKING. It says nothing
+        about members it never listed, so a partial ratchet leaves those exactly
+        as uncovered as an unmarked hand-list does. Verified 2026-08-25: before
+        this, `# totality: ratchet` over 2 of 3 members silenced the report
+        entirely — the same escape hatch this tool's notes criticise `via guard`
+        for being in `daniloc/coherence`, reproduced one day later.
+        """
         tree = {
             "pkg/mod.py": self.SRC,
             "pkg/tests/test_it.py": """
@@ -491,7 +499,10 @@ class Ratchet(unittest.TestCase):
             "                def test_pinned",
             "                # totality: ratchet — the two that shipped first\n"
             "                def test_pinned")
-        self.assertEqual(kinds(scan_files(**tree)), [])
+        marked = scan_files(**tree)
+        self.assertEqual(kinds(marked), ["sampled-domain"])
+        self.assertEqual(marked[0].missing, ["none"])
+        self.assertIn("covers only shrink", marked[0].detail)
 
     def test_a_partial_ack_does_not_earn_ratchet_checking(self):
         """`partial` excuses a hand-list; only `ratchet` asserts one."""

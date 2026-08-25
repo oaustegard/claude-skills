@@ -638,29 +638,34 @@ def scan(root: pathlib.Path) -> tuple[list[Finding], dict]:
                 continue
             missing = sorted(reg.members - d.members, key=repr)
             if d.ack and d.ack[0] == "ratchet":
-                # A ratchet asserts the literal is a FLOOR the registry keeps
-                # containing. `d.members < reg.members` already held to get
-                # here, so nothing has left; the assertion is intact. Record it
-                # so `ratchets` can tell an enumerated registry with a floor
-                # from one without.
-                # Pin EVERY registry the hand-list is a floor for. One domain
-                # is often spelled twice (`ROTATION_CODES` for the on-disk byte,
+                # Pin EVERY registry the hand-list is a floor for. One domain is
+                # often spelled twice (`ROTATION_CODES` for the on-disk byte,
                 # `Quantizer.ROTATIONS` for the constructor), and a ratchet over
                 # its members holds each of them.
                 for r in visible:
                     if d.members <= r.members:
                         ratcheted.setdefault(r.name, []).append(d)
-                continue
-            if d.ack:
+                # And FALL THROUGH. A ratchet is a statement about the domain
+                # SHRINKING; it says nothing about the members it never listed,
+                # so a partial ratchet leaves those exactly as uncovered as an
+                # unmarked hand-list does. Suppressing the finding here would
+                # make the marker a laundering channel — the same escape hatch
+                # this tool's own notes criticise `via guard` for being in
+                # `daniloc/coherence`, reproduced one day later. Verified 2026-08-25:
+                # `# totality: ratchet` over 2 of 3 members silenced the report
+                # entirely and checked nothing about the third.
+            elif d.ack:
                 continue
             others = sum(
                 1 for r in visible
                 if d.members < r.members and len(r.members) == len(reg.members)
             ) - 1
             also = f" (+{others} registry/ies of the same size also contain it)" if others else ""
+            pinned = " (pinned as a ratchet, which covers only shrink)" \
+                if d.ack and d.ack[0] == "ratchet" else ""
             findings.append(Finding(
                 "sampled-domain", d.path, d.line, d.test,
-                f"{d.how} over a literal of {len(d.members)}, but "
+                f"{d.how} over a literal of {len(d.members)}{pinned}, but "
                 f"`{reg.name}` ({reg.kind}, {reg.path}:{reg.line}) has "
                 f"{len(reg.members)}{also}",
                 missing=missing, registry=reg.name,
