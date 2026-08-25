@@ -1,15 +1,21 @@
 ---
 name: exploring-codebases
 description: >-
-  First-encounter codebase orientation. Chains tree-sitting (structural
-  inventory) and featuring (feature synthesis) into an EDA workflow for
-  unfamiliar repositories. Use when someone says "explore this repo",
-  "what does this do", "I just cloned this", "help me understand this
-  codebase", or when starting work on an unfamiliar repository. This is
-  the divergent "what's here?" skill — for targeted "where is X?" queries,
-  use searching-codebases instead.
+  First-encounter orientation on a repository nobody here has worked in yet.
+  Runs a fixed five-step workflow — venv setup, tarball fetch, tree-sitting
+  structural scan, featuring synthesis, then reasoning over the two — and
+  yields an account of what the repo contains and how it is arranged,
+  optionally written out as _FEATURES.md. Use for "I just cloned this",
+  "what is this repo", "what does this do", "explore this repo", "give me an
+  orientation", "what are the main features", "review what's new in <repo>",
+  or before starting work in a codebase you have not seen. This is the
+  divergent what's-here skill. Route elsewhere for: a named symbol, a file's
+  structure or a line range (tree-sitting); all callers of a Python symbol
+  (searching-codebases); teaching a human the codebase through exercises
+  (orienting-codebases); fetching or cloning a repo without analysing it
+  (accessing-github-repos, cloning-project).
 metadata:
-  version: 2.4.0
+  version: 2.5.0
 ---
 
 # Exploring Codebases
@@ -31,10 +37,13 @@ export TREESIT=/mnt/skills/user/tree-sitting/scripts/treesit.py
 export GATHER=/mnt/skills/user/featuring/scripts/gather.py
 ```
 
-If step 2's `--stats` later reports `Scanned 0 files ... Errors: 1`, the
-`tree-sitter` core package isn't installed — come back here and install it
+If step 2's `--stats` reports `Symbols: 0` on a repo you know contains code,
+the `tree-sitter` core package isn't installed — come back here and install it
 (the engine bundles its own grammars and does NOT use tree-sitter-language-pack).
-Treesit fails silently on missing deps; it does not raise a useful error.
+Treesit exits 0 and prints no error in that case, so zero symbols is the only
+signal you get. There is no `Errors:` line: that one appears for parse
+failures, and an absent parser never reaches parsing. The full signal, and the
+2026-08-24 measurement behind it, is in the tree-sitting skill's Setup section.
 
 ### 1. Get the repo (tarball, not per-file)
 
@@ -132,9 +141,17 @@ LLM step; everything before was mechanical.
 | "Which files are most about CSRF / sessions / queryset filtering?" | bm25 |
 | "Rank these docs by relevance to a multi-word concept" | bm25 |
 | "Document what this codebase does" | featuring directly |
+| "Teach me this codebase" (a human is learning) | orienting-codebases |
+| "Get me this repo" — fetch, no analysis | accessing-github-repos, cloning-project |
 
 Exploring is the **divergent** skill — you don't know what you're looking
 for yet. Searching is the **convergent** skill — you know what you want.
+
+`orienting-codebases` runs the same tree-sitting + featuring pipeline and is
+the nearest thing in the catalogue to this skill. The split is the audience:
+this one builds Claude's understanding so work can proceed; that one builds
+the *user's* understanding through guided exercises and HTML artifacts. If
+nobody is being taught, this is the right skill.
 
 ### Pairing bm25 with this workflow
 
@@ -165,41 +182,20 @@ Two patterns that pair especially well:
 bm25 is corpus-agnostic — it'll also work on `project` knowledge stores
 or `uploads/` if your exploration spans docs, transcripts, or PDFs.
 
-## Delegating to subagents (large repos only, and only if subagents exist)
+## Delegating to subagents
 
-**Gate first: does this environment expose a subagent tool** (Agent/Task in
-Claude Code and CCotw)? Claude.ai chat and bare-skill runs have none — run
-steps 2–4 inline and skip this section entirely. Never simulate fan-out by
-other means when the tool is absent.
+Only when the repo is large (>1000 files or several distinct subsystems) **and**
+this environment exposes a subagent tool (Agent/Task in Claude Code and CCotw).
+Claude.ai chat and bare-skill runs have none: run steps 2-4 inline and skip
+this entirely. Never simulate fan-out by other means when the tool is absent.
 
-When the tool exists and the repo is large (>1000 files or several distinct
-subsystems), keep steps 2–3 inline — they're mechanical and cheap — and fan
-out only step 4's judgment work, one agent per subsystem.
-
-**Subagents inherit nothing.** Not your conversation, not this SKILL.md, not
-the knowledge that scan artifacts exist on disk. An agent prompted only with
-"explore `crates/foo`" will re-derive structure by `ls`/glob crawling at full
-tier cost. (Observed 2026-07-16: four Sonnet agents launched onto a
-2,300-file repo without the handoff spent their opening turns running `ls`,
-with the full symbol index already on disk.)
-
-Every subagent prompt must therefore carry:
-
-1. **Its structure slice, pre-computed.** Partition the gather output's
-   `## Public API` section by subsystem path prefix, write each slice to a
-   file, and point the agent at its file: "grep/Read this instead of listing
-   directories." Small slices (<50KB) can be pasted inline instead.
-2. **The treesit recipe verbatim** — the full command including the venv
-   python path, plus the batch rule (one invocation, many queries; each
-   invocation pays the scan, extra queries are free).
-3. **Anti-crawl instructions** — no `ls`/Glob for discovery; `Read` only to
-   confirm or expand a line range the slice or treesit already located.
-4. **An output spec** — what to report, a line budget, and "file paths +
-   line refs" so results are verifiable.
-
-Routing (see the `agent-routing` skill): multi-turn exploration is outside
-Haiku's calibrated zone — use `sonnet` for subsystem agents and keep the
-final cross-cluster synthesis in the orchestrator.
+Steps 2-3 stay inline either way. Only step 4's judgment work fans out, one
+agent per subsystem, and a subagent inherits nothing -- not the conversation,
+not this file, not the knowledge that scan artifacts are already on disk.
+Read [references/subagent-delegation.md](references/subagent-delegation.md)
+before writing the first agent prompt; it carries the four things every prompt
+must include and the 2026-07-16 measurement of what happens when they are
+missing.
 
 ## Notes
 
