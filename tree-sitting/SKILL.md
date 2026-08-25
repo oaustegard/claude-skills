@@ -1,8 +1,8 @@
 ---
 name: tree-sitting
-description: AST-powered code navigation via tree-sitter. Auto-scans codebases and provides progressive-disclosure tree views with symbol search, source retrieval, and reference finding. Each invocation is self-contained — no cross-process state. Use when exploring unfamiliar repos, navigating code, or needing fast symbol lookup. Triggers on "map this codebase", "explore repo", "find symbol", "navigate code", "tree-sitter", or when starting work on an unfamiliar repository.
+description: Symbol-level navigation of a local checkout using tree-sitter ASTs. Answers where a symbol is defined, what lines it spans, which symbols a file exposes, what a directory holds, and where a name is referenced — every answer carries exact line ranges to feed straight into a scoped read. Use for "where is X defined", "who calls X", "find the function/class named", "what's in this file", "give me the line range for", "show me the source of", "list the symbols in", or before editing a file you have not read. Each invocation auto-scans and is self-contained. Not for first-encounter repo orientation (use exploring-codebases), for what a codebase DOES rather than what it contains (featuring), for binding-resolved Python caller sets (searching-codebases), or for literal text and regex matching (plain ripgrep).
 metadata:
-  version: 0.7.1
+  version: 0.8.0
 ---
 
 # tree-sitting
@@ -18,6 +18,46 @@ uv pip install --system --break-system-packages tree-sitter
 
 Grammars are loaded from bundled `parsers/*.so` files — no network fetch,
 no `tree-sitter-language-pack` dependency. Install is <1s.
+
+**Verify the install before trusting an empty result.** Without the
+`tree-sitter` core package the CLI parses nothing, prints no error, and exits
+0. Run `--stats` on a directory you know contains code; a missing dependency
+looks like this:
+
+```
+Scanned 0 files (0 KB) in 0ms
+Symbols: 0 | Languages:
+No files scanned.
+```
+
+Zero symbols where you expect code means the dependency is missing, not that
+the code is empty. Reinstall and re-run before concluding anything from the
+output. There is no `Errors:` line in this case — that line appears only when
+a parse fails, and an absent parser never gets that far. Measured 2026-08-24 by
+blocking the import and re-running.
+
+## When NOT to use this skill
+
+Reach for the neighbour instead when the task is one of these. Every row is a
+skill this one is routinely confused with; a 2026-08-24 retrieval measurement
+over the 92-skill pool put tree-sitting outside the top-1 slot on all five of
+its own canonical queries, losing them to `accessing-github-repos`,
+`featuring`, `searching-codebases` and `cloning-project`.
+
+| Task | Use instead |
+|------|-------------|
+| The repo is not on local disk yet | `accessing-github-repos`, then come back |
+| "What does this repo DO?" — capabilities, not symbols | `featuring` |
+| First-encounter orientation on an unfamiliar repo | `exploring-codebases` (it calls this skill in step 2) |
+| Teaching a human the codebase through exercises | `orienting-codebases` |
+| ALL true callers of a **Python** symbol, binding-resolved | `searching-codebases` (`--refs`; pyright excludes same-named false positives) |
+| Ranking files by relevance to a multi-word concept | `bm25` |
+| A literal string, regex, or any non-symbol text match | plain `rg` — faster and equally accurate |
+
+Use this skill when the unit of the question is a **symbol or a file's
+structure**: where something is defined, what a file exposes, which lines to
+read, what a directory contains. `mapping-codebases` is deprecated and points
+here; ignore it.
 
 ## Usage: CLI (treesit.py)
 
