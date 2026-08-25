@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.0823.0300"
+    "version": "2026.0825.1104"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -45,6 +45,7 @@
       "category": "Code Intelligence",
       "keywords": [
         "assessing-impact",
+        "declaring-invariants",
         "exploring-codebases",
         "featuring",
         "mapping-codebases",
