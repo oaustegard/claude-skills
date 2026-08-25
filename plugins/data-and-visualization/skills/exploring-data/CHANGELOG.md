@@ -2,6 +2,17 @@
 
 All notable changes to the `exploring-data` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.1.2] - 2026-08-25
+
+### Fixed
+
+- repair broken frontmatter, mark obsolete skills, close registry gaps (#746)
+
+### Other
+
+- creating-skill: use Anthropic's quick_validate.py instead of a hand-rolled check (#775)
+- Deprecate mapping-codebases; adopt ruff 0.16.0 baseline (#747)
+
 ## [0.1.1] - 2026-07-20
 
 ### Fixed

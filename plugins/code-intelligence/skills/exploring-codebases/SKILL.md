@@ -7,7 +7,7 @@ description: >-
   yields an account of what the repo contains and how it is arranged,
   optionally written out as _FEATURES.md. Use for "I just cloned this",
   "what is this repo", "what does this do", "explore this repo", "give me an
-  orientation", "what are the main features", "review what's new in <repo>",
+  orientation", "what are the main features", "review what's new in this repo",
   or before starting work in a codebase you have not seen. This is the
   divergent what's-here skill. Route elsewhere for: a named symbol, a file's
   structure or a line range (tree-sitting); all callers of a Python symbol
@@ -15,7 +15,7 @@ description: >-
   (orienting-codebases); fetching or cloning a repo without analysing it
   (accessing-github-repos, cloning-project).
 metadata:
-  version: 2.5.0
+  version: 2.5.1
 ---
 
 # Exploring Codebases

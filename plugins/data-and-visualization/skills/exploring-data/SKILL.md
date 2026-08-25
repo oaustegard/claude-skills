@@ -1,8 +1,8 @@
 ---
 name: exploring-data
-description: Exploratory data analysis. Use when users upload .csv/.xlsx/.json/.parquet files or request "explore data", "analyze dataset", "EDA", "profile data". Small files get ydata-profiling HTML/JSON reports; large files (>200MB or >5M rows) get fixed-memory DuckDB/sketch profiling. Also covers near-duplicate row detection, cross-file key overlap ("can these join?"), dataset drift vs a stored baseline, and time-series profiling.
+description: Exploratory data analysis. Use when users upload .csv/.xlsx/.json/.parquet files or request "explore data", "analyze dataset", "EDA", "profile data". Small files get ydata-profiling HTML/JSON reports; large files (over 200MB or 5M rows) get fixed-memory DuckDB/sketch profiling. Also covers near-duplicate row detection, cross-file key overlap ("can these join?"), dataset drift vs a stored baseline, and time-series profiling.
 metadata:
-  version: 0.1.1
+  version: 0.1.2
 ---
 
 # Exploring Data
