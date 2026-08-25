@@ -2,7 +2,7 @@
 name: declaring-invariants
 description: Find tests that enumerate a domain by copying it, and declare the invariants a codebase depends on. Reports where a parametrize list, for-loop, or it.each iterates a hand-written subset of a dict/set/tuple/Enum that exists in the source, and names the members nothing covers. Use when reviewing tests, when a module gains a name-to-thing table, registry, enum, or dispatch map, before trusting a green suite as evidence a domain is covered, or when asked "is this test actually total", "does anything cover X", "what does this repo guarantee", "which invariants do we declare". Also for vacuous tests that pass over an empty collection, for a domain that has silently NARROWED (an enumeration cannot see that), and for recording the refutation that proves a claim can fail.
 metadata:
-  version: 0.2.2
+  version: 0.2.3
 ---
 
 # declaring-invariants
@@ -219,6 +219,18 @@ naming convention is assumed, and none is required.
   `parametrize` is read.
 - **`unanchored` is a question.** Most registries need no invariant. Treat the
   list as candidates for declaration, never as a backlog to clear.
+- **A registry is modelled as a SET OF KEYS, so a value swap is invisible.**
+  This is the largest hole in the design, and it undercuts the motivating
+  example. `ROTATION_CODES = {"haar": 0, "rht": 1, "none": 2}` exists to pin
+  bytes on disk; permuting it to `{"haar": 0, "rht": 2, "none": 1}` keeps every
+  key, every count and every ratchet intact, and every index already written
+  decodes under the wrong rotation. Verified 2026-08-25 on a fixture: the
+  linter reports nothing and the gate's registry half reports nothing. (The
+  gate denied that fixture, but on the unrelated TDD rule — checked, because
+  claiming otherwise would have been the overclaim this skill exists to catch.)
+  Nothing here checks a name-to-code mapping. Extracting `(key, value)` pairs
+  as the member set would, at the cost of breaking the subset join against a
+  `parametrize` list of keys.
 - **A co-ordinated rename defeats the ratchet.** A global find/replace that
   renames a member in the registry AND in the hand-list leaves the pin intact,
   and this reports nothing. Verified 2026-08-25 on a fixture: renaming `"none"`
@@ -233,6 +245,19 @@ naming convention is assumed, and none is required.
   the grounds that gating every new module is how a gate stops being consulted.
   That is a judgement, not a proof, and it is the largest hole a cross-model
   review found.
+- **A decorator-built registry is invisible.** `@register("name")` populating a
+  dict at import time is the common Python registry idiom and is not a literal,
+  so nothing here sees it. Named because it is the shape most likely to be
+  mistaken for coverage.
+- **Reachability is path-based, so a disconnected integration test is missed.**
+  A test that neither imports the module, shares its top-level directory, nor
+  pairs with it by filename will not be joined to the registry it samples. The
+  filter trades that recall for the cross-project precision it was measured to
+  buy.
+- **The precision numbers come from three repositories, and the filters were
+  fitted to two of them.** 27 noise findings on one, 3-of-4 cross-project joins
+  on another. Those are the measurements that justified each filter; they are
+  not a false-positive rate on a corpus, and should not be read as one.
 - **Split and merge are invisible.** The diff is keyed on registry NAME, so
   renaming a registry, splitting one in two, or merging two into one falls
   through both the gained and lost paths.

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.2.3 — 2026-08-25
+
+Four more limits from the second half of the cross-model pass, each reproduced.
+The largest undercuts the motivating example: a registry is modelled as a set of
+KEYS, so permuting `{"haar": 0, "rht": 1, "none": 2}` to
+`{"haar": 0, "rht": 2, "none": 1}` keeps every key, every count and every ratchet
+intact while every index already on disk decodes under the wrong rotation. The
+linter reports nothing; the gate's registry half reports nothing. Also named: a
+decorator-built registry is invisible, reachability misses a disconnected
+integration test, and the precision numbers come from three repositories with
+the filters fitted to two of them.
+
+No behaviour change. Documentation only, which is the honest response to holes
+that need a design decision rather than a patch.
+
 ## 0.2.2 — 2026-08-25
 
 `unratcheted` no longer claims a line `no-floor` already has. They landed
