@@ -116,3 +116,9 @@ the matched registry rather than whatever the chain rooted in.
 Measured at release: on `remex` at main, exactly the four rotation tests that
 parametrize `["haar", "rht"]` against a three-member `ROTATION_CODES`, each
 naming `'none'`. 45 tests, plus a `--selftest` in each script.
+
+## [0.2.3] - 2026-08-25
+
+### Other
+
+- declaring-invariants: a skill for domains a test copies instead of loops (#773)
