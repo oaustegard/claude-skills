@@ -1,8 +1,8 @@
 ---
 name: container-layer
-description: Build and cache a personalized container environment from a Dockerfile-like spec. Supports both single-layer (one Containerfile -> one cached tarball) and multi-layer composition (compose [base, scientific, mojo, ...] into one container with each layer cached independently). Use when the user mentions "container layer", "Containerfile", "custom container", "environment setup", "cache my installs", "uv shim", "composable layers", or wants to persist package installations, skills, or environment config across ephemeral sessions. Also triggers when the user asks to snapshot, restore, or rebuild their environment, or wants to capture ad-hoc package installs into a reproducible spec.
+description: Build and cache a personalized container environment from a Dockerfile-like spec. Supports both single-layer (one Containerfile to one cached tarball) and multi-layer composition (compose [base, scientific, mojo, ...] into one container with each layer cached independently). Use when the user mentions "container layer", "Containerfile", "custom container", "environment setup", "cache my installs", "uv shim", "composable layers", or wants to persist package installations, skills, or environment config across ephemeral sessions. Also triggers when the user asks to snapshot, restore, or rebuild their environment, or wants to capture ad-hoc package installs into a reproducible spec.
 metadata:
-  version: 0.2.2
+  version: 0.2.3
 ---
 
 # Container Layer
