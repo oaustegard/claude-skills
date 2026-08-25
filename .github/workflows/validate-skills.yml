@@ -1,0 +1,47 @@
+name: Validate Skills
+
+# Gate: a PR may not ADD a frontmatter violation. Pre-existing ones are
+# baseline — see scripts/validate_skills.py for why the gate is diff-scoped
+# rather than whole-tree. The full-catalogue audit runs alongside as a
+# non-blocking report, and on demand via workflow_dispatch.
+
+on:
+  pull_request:
+    paths:
+      - '*/SKILL.md'
+      - 'scripts/validate_skills.py'
+      - 'scripts/vendor/**'
+      - '.github/workflows/validate-skills.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # validate_skills.py diffs against the merge base, so history has to
+          # be in the clone. A shallow checkout leaves `git diff ref...HEAD`
+          # with no common ancestor and every skill reads as changed.
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Validate skills changed by this PR
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          python3 scripts/validate_skills.py --changed-vs "origin/${{ github.base_ref }}"
+
+      - name: Audit the whole catalogue (informational)
+        run: python3 scripts/validate_skills.py --all --warn-only
