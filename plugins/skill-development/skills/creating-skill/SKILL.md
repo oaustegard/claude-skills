@@ -2,7 +2,7 @@
 name: creating-skill
 description: Builds and revises a complete skill DIRECTORY — SKILL.md, scripts, references, assets — and packages it. Use for "create a skill for X", "turn this into a skill", "update/improve this skill", "why doesn't my skill trigger", "review this SKILL.md", "package this skill", or when a repeated procedure should become a reusable artifact. Enforces the structure that makes skills work — a concrete procedure rather than a goal statement, an explicit applicability boundary, failure modes with their signals, a runtime verification step, and a description checked against the existing catalogue for confusability. For choosing whether the instruction should be a skill at all rather than project instructions or a prompt, use crafting-instructions. For writing quality inside the prose, use writing-instructions.
 metadata:
-  version: 2.2.0
+  version: 2.3.0
 ---
 
 # Creating Skills
@@ -103,44 +103,43 @@ The description is critical—it determines when Claude activates this skill.
 
 ### The description competes against its neighbours
 
-A description is never read alone. It is ranked against every other skill in
-the catalogue, and the ones nearest to it in meaning are the ones that beat it.
-Semantic confusability, not catalogue size, is the dominant stressor: embedding
-top-1 falls to 84.1% at a pool of 100 with unrelated distractors and to **53.4%**
-with near-neighbour distractors. In a personal catalogue every distractor is a
-near neighbour — they are all things one agent does.
+A description is never read alone — it is ranked against every other skill, and
+the nearest in meaning are what beat it. Confusability, not catalogue size, is
+the stressor: embedding top-1 falls to 84.1% at a pool of 100 with unrelated
+distractors and 53.4% with near-neighbour ones, and in a personal catalogue
+every distractor is a near neighbour.
 
-Write the description to win against a sibling, not against nothing:
+Four rules, each measured on this catalogue:
 
-- **Lead with the unit of the question**, not the technology. "Symbol-level
-  navigation of a local checkout" beats "AST-powered code navigation" because
-  users ask about symbols, not about ASTs.
-- **Enumerate literal phrasings a user types.** `declauding` scored 4/5 on
-  its own queries in a 92-skill pool because its description contains
-  "de-claude", "humanize this", "this reads like AI". `remembering` scored 2/5
-  because its description is a list of feature nouns; the two queries it won
-  were the two phrased in its own API vocabulary.
-- **Name the neighbours and route away from them.** End with the cases that
-  belong elsewhere and where they go. This is the same content as the
-  Applicability Boundary, compressed to one clause each.
-- **Do not reuse a sibling's trigger phrases.** `tree-sitting` listed "map this
-  codebase" and "explore repo" — both `exploring-codebases`' territory — and
-  lost all five of its own canonical queries in the 2026-08-24 measurement,
-  including "where is X defined".
+1. **Lead with the unit of the question**, not the technology. Users ask about
+   symbols, not about ASTs.
+2. **Enumerate literal phrasings a user types.** The skill that scored 4/5 on
+   its own queries is the one whose description contains "de-claude",
+   "humanize this", "this reads like AI".
+3. **Separate from a neighbour by OMISSION, never by disclaimer.** A retriever
+   scores bag-of-meaning and cannot represent negation, so "does not debug a
+   Docker build" reads as "Docker build" and pulls you *toward* the thing you
+   disclaimed — measured at +0.05 and +0.10 cosine on two skills. Routing goes
+   in the body under When NOT to use, where an LLM reads it and understands the
+   negation. The description is scored; the body is read.
+4. **Do not reuse a sibling's trigger phrases.** `tree-sitting` listed "map
+   this codebase" and "explore repo" — both `exploring-codebases`' territory —
+   and lost all five of its own canonical queries.
 
-**Run the check before shipping.** `oaustegard/claude-workspace` carries the
-tool:
+**Run the check before shipping.** `oaustegard/claude-workspace` carries it:
 
 ```bash
-python3 scripts/skill_confusability.py                        # nearest-neighbour map
-python3 scripts/skill_confusability.py --queries q.json       # top-1 per query
+python3 scripts/skill_confusability.py --queries q.json
 ```
 
-Write five task-shaped queries for the new skill, phrased as a user would state
-the task, and confirm it takes top-1. A query that echoes the description
-measures its own phrasing and nothing else. Any neighbour above ~0.65 cosine
-needs an explicit boundary in both descriptions, or the two skills need
-merging.
+Positives go under the skill's own name; negatives under the reserved
+`__none__` key. Read three numbers: **top-1** (does it win its own queries),
+**steals** (does it win other skills' queries), **near-misses** (does anything
+it should ignore score in hit territory). A description tuned on top-1 alone
+gets better at being found and worse at staying out of the way.
+
+Full measurements and the per-clause experiment:
+[references/skill-utility-evidence.md](references/skill-utility-evidence.md).
 
 ### Validate the frontmatter with Anthropic's validator, not by eye
 
@@ -414,35 +413,15 @@ See **versioning-skills** for advanced patterns (rollback, branching, comparison
 
 ## Best Practices
 
-**Structure:**
-- Lead with clear overview of what skill enables
-- Group related instructions together
-- Use headings that describe goals, not procedures
-- Reference other skills/resources when appropriate
+Write TO Claude in imperative commands, not ABOUT Claude in documentation.
+Lead with what the skill enables, group related instructions, and use headings
+that name content rather than describe procedure. Assume Claude's intelligence:
+specify success criteria and let it choose the approach, and only add a bundled
+resource that solves a real problem. Keep terminology consistent, and put the
+WHY next to any requirement that is not self-evident.
 
-**Instructions:**
-- Write TO Claude (imperative commands) not ABOUT Claude (documentation)
-- Assume Claude's intelligence—avoid over-explaining basics
-- Show code examples for complex patterns
-- Specify success criteria, let Claude determine approach
-
-**Content:**
-- Keep frequently-used guidance in SKILL.md
-- Move detailed/specialized content to references/
-- Include WHY context for non-obvious requirements
-- Use consistent terminology throughout
-
-**Resources:**
-- Only add bundled resources that solve real problems
-- Scripts should have error handling and clear outputs
-- References should be focused and topic-specific
-- Delete unused directories before packaging
-
-**Testing:**
-- Test with 3+ real scenarios (simple, complex, edge case)
-- Verify skill activates on expected trigger patterns
-- Confirm bundled resources are accessible and functional
-- Iterate based on actual usage, not assumptions
+Test on 3+ real scenarios — simple, complex, edge case — and iterate on what
+actually happened rather than on what you expected.
 
 ## Quality Checklist
 
@@ -453,7 +432,7 @@ Before providing skill to user:
 - [ ] Description: third person, includes WHAT + WHEN triggers, max 1024 chars, no XML
 - [ ] Description leads with the unit of the question, not the technology
 - [ ] Description contains literal phrasings a user would type
-- [ ] Description routes away from its nearest siblings by name
+- [ ] Description separates from siblings by OMISSION, not by a disclaimer
 - [ ] `skill_confusability.py` run: skill takes top-1 on 5 task-shaped queries
 - [ ] No neighbour above ~0.65 cosine without an explicit boundary in both
 - [ ] `quick_validate.py` passes (YAML, allowed keys, name, length, no angle brackets)

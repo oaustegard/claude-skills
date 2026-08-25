@@ -2,6 +2,13 @@
 
 All notable changes to the `searching-codebases` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.5.0] - 2026-08-25
+
+### Other
+
+- top skills: separate by omission, and correct the guidance that said otherwise (#777)
+- Deprecate mapping-codebases; adopt ruff 0.16.0 baseline (#747)
+
 ## [2.2.0] - 2026-07-04
 
 ### Other

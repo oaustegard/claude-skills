@@ -1,8 +1,17 @@
 ---
 name: gating
-description: Build and audit deterministic verification gates — checks that block a pipeline and can be shown to go red. Use when writing a calibration gate, CI check, validation script, or pre-publication check for a numeric or empirical result; when a result is about to be published, acted on, or merged and a plausible-but-wrong value would survive review; when asking whether an existing test suite, linter rule, or check could actually fail; and when a check suite passes first try, passes suspiciously often, or was written by the same process that produced the thing it checks. Triggers on "verification loop", "calibration gate", "can this check fail", "known-bad", "negative control", "sanity check my results", "is this test actually testing anything".
+description: >-
+  Build and audit deterministic verification gates — a check that blocks a
+  pipeline and can be shown to go red. Use when writing a calibration gate,
+  CI check, validation script or pre-publication check for a numeric or
+  empirical result; when a plausible-but-wrong value would survive review;
+  when asking whether an existing test, linter rule or check could actually
+  fail; and when a suite passes first try, passes suspiciously often, or was
+  written by whatever produced the thing it checks. Triggers on "can this
+  check fail", "known-bad", "negative control", "calibration gate", "sanity
+  check my results", "is this test actually testing anything".
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # gating
@@ -13,6 +22,19 @@ The characteristic failure is not a wrong check — a wrong check gets noticed.
 It is a check that **cannot fail**, which reports PASS forever and is
 indistinguishable from a working one from the outside. That is what makes this
 different from ordinary testing: the object under suspicion is the check.
+
+## When NOT to use this skill
+
+Scope is ONE check and whether it can be made to fail.
+
+| Situation | Use |
+|---|---|
+| Sequence several steps with branches and retries | flowing |
+| Run the repo's existing suite | run it |
+| Decide what to test at all | this skill has no opinion; that is design |
+
+A gate is a thing that goes red. If nothing here can go red, there is no gate
+to audit.
 
 ## The three obligations
 

@@ -23,6 +23,13 @@ Initial release. Stateless BM25 search wrapper around xhluca/bm25s.
 
 Empirical basis: [Fly 2026-05-18 — Where AST Helps BM25 (and Where It Doesn't)](https://muninn.austegard.com/perch/fly-2026-05-18-where-ast-helps-bm25-and-where-it-doesnt.html). Token-stream filtering was tested on a Django sample and gave near-identical rankings to plain text indexing, so it isn't worth the complexity in v0.1.
 
+## [0.2.0] - 2026-08-25
+
+### Other
+
+- top skills: separate by omission, and correct the guidance that said otherwise (#777)
+- Deprecate mapping-codebases; adopt ruff 0.16.0 baseline (#747)
+
 ## [0.1.2] - 2026-05-20
 
 ### Other

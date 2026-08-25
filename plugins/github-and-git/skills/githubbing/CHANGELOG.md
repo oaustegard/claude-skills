@@ -2,6 +2,18 @@
 
 All notable changes to the `githubbing` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.2.0] - 2026-08-25
+
+### Added
+
+- add mapping-features skill for behavioral web app documentation (#432)
+
+### Other
+
+- top skills: separate by omission, and correct the guidance that said otherwise (#777)
+- Remove _MAP.md files, direct agents to tree-sitting for code navigation (#545)
+- Update subagent models: default to Sonnet 4.6, add Haiku 4.5 support
+
 ## [1.1.2] - 2026-02-28
 
 ### Added

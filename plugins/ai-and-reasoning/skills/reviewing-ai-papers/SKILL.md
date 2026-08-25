@@ -1,13 +1,34 @@
 ---
 name: reviewing-ai-papers
-description: Analyze AI/ML technical content (papers, articles, blog posts) and extract actionable insights filtered through enterprise AI engineering lens. Use when user provides URL/document for AI/ML content analysis, asks to "review this paper", or mentions technical content in domains like RAG, embeddings, fine-tuning, prompt engineering, LLM deployment.
+description: >-
+  Analyzes an AI/ML publication — paper, preprint, article, technical blog
+  post — and extracts what an enterprise AI engineer should do about it. Use
+  when someone supplies a URL or document on RAG, embeddings, fine-tuning,
+  prompt engineering, agents, or LLM deployment and asks "review this
+  paper", "what do you make of this", "is this worth adopting", or
+  "summarise the method and its limits". The subject matter must itself be
+  machine learning.
 metadata:
-  version: 0.1.0
+  version: 0.3.0
 ---
 
 # Reviewing AI Papers
 
 When users request analysis of AI/ML technical content (papers, articles, blog posts), extract actionable insights filtered through an enterprise AI engineering lens and store valuable discoveries to memory for cross-session recall.
+
+## When NOT to use this skill
+
+The subject matter has to be machine learning. Adjacent asks that are not:
+
+| Situation | Use |
+|---|---|
+| "Does this text read as AI-written?" | declauding |
+| Register or voice pass on a draft | declauding |
+| Review a pull request or a diff | code-review |
+| A paper outside ML | read it directly; this skill's lens will not fit |
+
+"AI" appearing in the request is not the trigger — AI being the *topic of the
+document* is.
 
 ## Contextual Priorities
 

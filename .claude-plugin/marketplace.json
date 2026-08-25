@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.0825.1130"
+    "version": "2026.0825.1327"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -135,7 +135,7 @@
       "name": "knowledge-and-memory",
       "description": "Research methodology, corpus search, persistent memory, iterative workflows, and project knowledge management.",
       "source": "./plugins/knowledge-and-memory",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",
@@ -180,7 +180,7 @@
       "name": "skill-development",
       "description": "Tools for creating, versioning, installing, inspecting, and orchestrating Claude skills.",
       "source": "./plugins/skill-development",
-      "version": "2.2.0",
+      "version": "2.3.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",
