@@ -87,7 +87,8 @@ description: What it does. Use when [trigger patterns].
 - Third person voice: "Processes files" not "I process files"
 - WHAT it does + WHEN to use it (trigger patterns)
 - Specify: file types, keywords, task types that should activate this skill
-- No XML tags
+- No angle brackets at all — the rule is stricter than "no XML tags". A `->` arrow
+  or a `>200MB` threshold is rejected on upload just as a `<tag>` is.
 
 **Good examples:**
 - "Creates PowerPoint presentations. Use when users mention slides, .pptx files, or presentations."
@@ -141,35 +142,44 @@ measures its own phrasing and nothing else. Any neighbour above ~0.65 cosine
 needs an explicit boundary in both descriptions, or the two skills need
 merging.
 
-### Parse the frontmatter before shipping it
+### Validate the frontmatter with Anthropic's validator, not by eye
 
-A description rich enough to be findable is long enough to break YAML. An
-unquoted `: ` inside the value ends the scalar, and the whole file stops
-parsing — the skill then does not load at all, silently, because nothing
-validates frontmatter at read time.
+A description rich enough to be findable is long enough to break the spec. An
+unquoted `: ` ends the YAML scalar and the file stops parsing; an angle bracket
+is rejected outright. Either way the skill does not load, silently, because
+nothing validates frontmatter at read time.
+
+Do not hand-roll this check. `skill-creator` ships one, and it is stricter than
+anything worth rewriting:
 
 ```bash
-python3 - <<'EOF'
-import yaml, pathlib
-for p in sorted(pathlib.Path('.').glob('*/SKILL.md')):
-    t = p.read_text()
-    if not t.startswith('---'):
-        print(f'{p.parent.name}: no frontmatter'); continue
-    try:
-        d = yaml.safe_load(t.split('---', 2)[1])
-        assert d.get('name') == p.parent.name, 'name != directory'
-        assert len(d['description']) <= 1024, f'description {len(d["description"])} chars'
-    except Exception as e:
-        print(f'{p.parent.name}: {e}')
-EOF
+python3 /mnt/skills/examples/skill-creator/scripts/quick_validate.py <skill-dir>
 ```
 
-Silence means clean. Diagnosed 2026-08-24: two skills revised in the same pass
-shipped `Primitives: depends_on...` and `makes skills work: a concrete...`
-inside unquoted descriptions. Both files became unparseable. A regex-based
-reader — including `skill_confusability.py` — accepts them happily, so the
-retrieval check passes while the skill is dead. Quote the string or use `>-`
-if a colon is unavoidable.
+It enforces YAML parseability, the allowed-property whitelist
+(`name`, `description`, `license`, `allowed-tools`, `metadata`,
+`compatibility`), kebab-case names under 64 chars, descriptions under 1024
+chars with no angle brackets, and exactly one SKILL.md per directory — the
+Skills API and claude.ai reject multiple on upload even though Claude Code's
+filesystem loads them.
+
+Run it over the whole catalogue before a batch edit:
+
+```bash
+for d in */; do
+  printf '%-24s ' "${d%/}"
+  python3 /mnt/skills/examples/skill-creator/scripts/quick_validate.py "$d" 2>&1 | tail -1
+done
+```
+
+Diagnosed 2026-08-24, twice in one pass. First: two skills shipped
+`Primitives: depends_on...` and `makes skills work: a concrete...` inside
+unquoted descriptions, and both files became unparseable. Second, the next day:
+a description carrying the literal `"review what's new in <repo>"` violated the
+no-angle-brackets rule. A regex reader — including `skill_confusability.py` —
+accepts all three happily, so the retrieval check passes while the skill is
+dead. `quick_validate.py` catches every one in about a second, and it was on
+disk the whole time.
 
 ## Writing Effective SKILL.md
 
@@ -446,7 +456,7 @@ Before providing skill to user:
 - [ ] Description routes away from its nearest siblings by name
 - [ ] `skill_confusability.py` run: skill takes top-1 on 5 task-shaped queries
 - [ ] No neighbour above ~0.65 cosine without an explicit boundary in both
-- [ ] **Frontmatter parses as YAML** — run the check below, do not eyeball it
+- [ ] `quick_validate.py` passes (YAML, allowed keys, name, length, no angle brackets)
 - [ ] `metadata.version` bumped (releases gate on the delta; unchanged = silent no-op)
 
 **Structure:**
