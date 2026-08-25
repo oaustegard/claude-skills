@@ -1,6 +1,6 @@
 ---
 name: creating-skill
-description: Builds and revises a complete skill DIRECTORY — SKILL.md, scripts, references, assets — and packages it. Use for "create a skill for X", "turn this into a skill", "update/improve this skill", "why doesn't my skill trigger", "review this SKILL.md", "package this skill", or when a repeated procedure should become a reusable artifact. Enforces the structure that makes skills work: a concrete procedure rather than a goal statement, an explicit applicability boundary, failure modes with their signals, a runtime verification step, and a description checked against the existing catalogue for confusability. For choosing whether the instruction should be a skill at all rather than project instructions or a prompt, use crafting-instructions. For writing quality inside the prose, use writing-instructions.
+description: Builds and revises a complete skill DIRECTORY — SKILL.md, scripts, references, assets — and packages it. Use for "create a skill for X", "turn this into a skill", "update/improve this skill", "why doesn't my skill trigger", "review this SKILL.md", "package this skill", or when a repeated procedure should become a reusable artifact. Enforces the structure that makes skills work — a concrete procedure rather than a goal statement, an explicit applicability boundary, failure modes with their signals, a runtime verification step, and a description checked against the existing catalogue for confusability. For choosing whether the instruction should be a skill at all rather than project instructions or a prompt, use crafting-instructions. For writing quality inside the prose, use writing-instructions.
 metadata:
   version: 2.2.0
 ---
@@ -140,6 +140,36 @@ the task, and confirm it takes top-1. A query that echoes the description
 measures its own phrasing and nothing else. Any neighbour above ~0.65 cosine
 needs an explicit boundary in both descriptions, or the two skills need
 merging.
+
+### Parse the frontmatter before shipping it
+
+A description rich enough to be findable is long enough to break YAML. An
+unquoted `: ` inside the value ends the scalar, and the whole file stops
+parsing — the skill then does not load at all, silently, because nothing
+validates frontmatter at read time.
+
+```bash
+python3 - <<'EOF'
+import yaml, pathlib
+for p in sorted(pathlib.Path('.').glob('*/SKILL.md')):
+    t = p.read_text()
+    if not t.startswith('---'):
+        print(f'{p.parent.name}: no frontmatter'); continue
+    try:
+        d = yaml.safe_load(t.split('---', 2)[1])
+        assert d.get('name') == p.parent.name, 'name != directory'
+        assert len(d['description']) <= 1024, f'description {len(d["description"])} chars'
+    except Exception as e:
+        print(f'{p.parent.name}: {e}')
+EOF
+```
+
+Silence means clean. Diagnosed 2026-08-24: two skills revised in the same pass
+shipped `Primitives: depends_on...` and `makes skills work: a concrete...`
+inside unquoted descriptions. Both files became unparseable. A regex-based
+reader — including `skill_confusability.py` — accepts them happily, so the
+retrieval check passes while the skill is dead. Quote the string or use `>-`
+if a colon is unavoidable.
 
 ## Writing Effective SKILL.md
 
@@ -286,31 +316,18 @@ they are not a substitute for one.
 
 ## Bundled Resources Patterns
 
-### scripts/
-Add when Claude would repeatedly write similar code:
-- Validation logic (schema checking, format verification)
-- Complex transformations (data normalization, format conversion)
-- Deterministic operations requiring exact consistency
+**Decision framework:** Will Claude repeatedly generate similar code? → `scripts/`.
+Is there extensive domain knowledge, or is SKILL.md nearing 500 lines? →
+`references/`. Are there output templates the user receives? → `assets/`.
+Otherwise SKILL.md only.
 
-Scripts should have explicit error handling and clear variable names.
+Scripts need explicit error handling and clear outputs — a script that fails
+quietly is worse than no script, because the skill then reports success. Keep
+references one level deep; assets are used but never read into context, which
+is what makes them free.
 
-### references/
-Add when:
-- SKILL.md approaching 500 lines
-- Detailed domain knowledge (API docs, schemas, specifications)
-- Content applies to specific use cases only, not core workflow
-
-Keep references one level deep (avoid file1 → file2 → file3 chains).
-
-### assets/
-Add for:
-- Templates users will receive in output
-- Files copied/referenced but not loaded into context
-- Images, fonts, static resources
-
-Assets save tokens—they're used but not read into context.
-
-**Decision framework:** Will Claude repeatedly generate similar code? → scripts/. Is there extensive domain knowledge? → references/. Are there output templates? → assets/. Otherwise SKILL.md only.
+Full patterns and worked examples:
+[references/bundled-resources.md](references/bundled-resources.md).
 
 ## Progressive Disclosure
 
@@ -429,6 +446,7 @@ Before providing skill to user:
 - [ ] Description routes away from its nearest siblings by name
 - [ ] `skill_confusability.py` run: skill takes top-1 on 5 task-shaped queries
 - [ ] No neighbour above ~0.65 cosine without an explicit boundary in both
+- [ ] **Frontmatter parses as YAML** — run the check below, do not eyeball it
 - [ ] `metadata.version` bumped (releases gate on the delta; unchanged = silent no-op)
 
 **Structure:**
