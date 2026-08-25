@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.2 — 2026-08-25
+
+`unratcheted` no longer claims a line `no-floor` already has. They landed
+together on 3 of 3 findings in one repository, saying overlapping things and
+naming the same fix; `no-floor` is the narrower statement and wins.
+
+Three limits added from a cross-model adversarial pass, each reproduced before
+being written down. A co-ordinated rename defeats the ratchet: renaming a member
+in the registry and in the hand-list together leaves the pin intact and this
+reports nothing, because both sides of a co-located hand-list move together.
+A brand-new registry is neither gated nor pinned. Split, merge and registry
+rename are invisible, because the diff is keyed on registry name.
+
 ## 0.2.1 — 2026-08-25
 
 A ratchet over a strict subset silenced `sampled-domain` entirely and checked

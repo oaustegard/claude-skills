@@ -2,7 +2,7 @@
 name: declaring-invariants
 description: Find tests that enumerate a domain by copying it, and declare the invariants a codebase depends on. Reports where a parametrize list, for-loop, or it.each iterates a hand-written subset of a dict/set/tuple/Enum that exists in the source, and names the members nothing covers. Use when reviewing tests, when a module gains a name-to-thing table, registry, enum, or dispatch map, before trusting a green suite as evidence a domain is covered, or when asked "is this test actually total", "does anything cover X", "what does this repo guarantee", "which invariants do we declare". Also for vacuous tests that pass over an empty collection, for a domain that has silently NARROWED (an enumeration cannot see that), and for recording the refutation that proves a claim can fail.
 metadata:
-  version: 0.2.1
+  version: 0.2.2
 ---
 
 # declaring-invariants
@@ -42,7 +42,7 @@ claim grammar, a ledger and Node; the check does not.
 |---|---|
 | `sampled-domain` | a `parametrize` or `for` over a literal whose members are a strict subset of a source registry. The uncovered members are named. |
 | `ratchet-broken` | a hand-list marked `ratchet` names a member the registry no longer contains. Detected statically, without running anything. |
-| `unratcheted` | a registry enumerated live with nothing pinning its membership. |
+| `unratcheted` | a registry enumerated live with nothing pinning its membership. Suppressed when `no-floor` already claimed the same line. |
 | `no-floor` | a test iterates a live registry with no `len(...) >= n` assertion in the file, so an emptied registry passes vacuously. |
 | `stale-ack` | an acknowledgement on a test that now covers the whole domain. |
 
@@ -219,6 +219,23 @@ naming convention is assumed, and none is required.
   `parametrize` is read.
 - **`unanchored` is a question.** Most registries need no invariant. Treat the
   list as candidates for declaration, never as a backlog to clear.
+- **A co-ordinated rename defeats the ratchet.** A global find/replace that
+  renames a member in the registry AND in the hand-list leaves the pin intact,
+  and this reports nothing. Verified 2026-08-25 on a fixture: renaming `"none"`
+  to `"identity"` in both files was silent, while every index already on disk
+  still decodes byte 2 as the old name. Both sides of a co-located hand-list
+  move together, so no static check over one working tree can see it. The
+  commit gate can, because it diffs against git history — and only if the
+  ratchet itself is untouched in that commit, which it now requires.
+- **A brand-new registry is neither gated nor pinned.** Create one with five
+  members and never grow it and no gate ever fires. `unanchored` and
+  `unratcheted` surface it in the report; the gate deliberately does not, on
+  the grounds that gating every new module is how a gate stops being consulted.
+  That is a judgement, not a proof, and it is the largest hole a cross-model
+  review found.
+- **Split and merge are invisible.** The diff is keyed on registry NAME, so
+  renaming a registry, splitting one in two, or merging two into one falls
+  through both the gained and lost paths.
 - **A claim that passes is not a claim that is right.** This checks that a
   declared invariant loops the domain it names. Whether it is the *right*
   invariant is human judgement, and it is not automatable.

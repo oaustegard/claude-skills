@@ -228,9 +228,10 @@ class Reachability(unittest.TestCase):
 class NoFloor(unittest.TestCase):
     """Measured on `remex`: firing on every local produced 27 noise findings.
 
-    A live enumeration also raises `unratcheted` — nothing pins the domain
-    against narrowing — so these expectations carry both kinds. That pairing is
-    the point rather than an accident; see `Ratchet` below.
+    A live enumeration with no ratchet would also raise `unratcheted`, but the
+    two landed on the same line saying overlapping things (3 of 3 on
+    `claude-workspace`), so `no-floor` — the narrower statement, naming the same
+    fix first — wins the line. See `Ratchet` below for `unratcheted` on its own.
     """
 
     SRC = 'ROTATION_CODES = {"haar": 0, "rht": 1, "none": 2}\n'
@@ -255,7 +256,7 @@ class NoFloor(unittest.TestCase):
                         assert k
             """,
         })
-        self.assertEqual(kinds(f), ["no-floor", "unratcheted"])
+        self.assertEqual(kinds(f), ["no-floor"])
         self.assertIn("`CLASS`", f[0].detail)
         self.assertNotIn("_spec", f[0].detail)
 
@@ -270,7 +271,7 @@ class NoFloor(unittest.TestCase):
                 def test_x(r): assert r
             """,
         })
-        self.assertEqual(kinds(f), ["no-floor", "unratcheted"])
+        self.assertEqual(kinds(f), ["no-floor"])
 
     def test_a_floor_on_the_local_alias_counts(self):
         f = scan_files(**{
@@ -524,6 +525,24 @@ class Ratchet(unittest.TestCase):
         })
         self.assertEqual(kinds(f), ["unratcheted"])
         self.assertEqual(f[0].registry, "ROTATION_CODES")
+
+    def test_no_floor_and_unratcheted_do_not_both_claim_one_line(self):
+        """Two findings on one line saying overlapping things is fatigue.
+
+        Measured 3 of 3 on `claude-workspace` and named by a cross-model review;
+        `no-floor` is the narrower statement and wins.
+        """
+        f = scan_files(**{
+            "pkg/mod.py": self.SRC,
+            "pkg/tests/test_it.py": """
+                from pkg.mod import ROTATION_CODES
+
+                def test_x():
+                    for r in ROTATION_CODES:
+                        assert r
+            """,
+        })
+        self.assertEqual(kinds(f), ["no-floor"])
 
     def test_an_enumeration_WITH_a_ratchet_is_silent(self):
         """The pair is the answer; neither half alone is."""

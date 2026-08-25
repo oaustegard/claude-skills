@@ -674,10 +674,19 @@ def scan(root: pathlib.Path) -> tuple[list[Finding], dict]:
     # The complement Yep named: enumeration proves every CURRENT member is
     # handled and is structurally blind to the domain narrowing, because it
     # loops whatever the domain now is. A ratchet is the other direction.
+    # A registry with no floor AND no ratchet produced two findings on the same
+    # line saying overlapping things — 3 of 3 on `claude-workspace`, which a
+    # cross-model review named as finding fatigue. `no-floor` is the narrower
+    # statement and names the same fix first, so it wins the line.
+    floored_out = {
+        (f.path, f.line) for f in findings if f.kind == "no-floor"
+    }
     for name, doms in sorted(enumerated.items()):
         if name in ratcheted:
             continue
         d = doms[0]
+        if (d.path, d.line) in floored_out:
+            continue
         findings.append(Finding(
             "unratcheted", d.path, d.line, d.test,
             f"enumerates `{name}` live, and nothing pins its membership — a "
