@@ -146,3 +146,71 @@ features.
 Recall stayed high while precision collapsed, in the paper and in our
 measurement alike. The right skill is usually in the shortlist; it just is not
 first. A description competes against its neighbours, not against nothing.
+
+## Writing a description that wins its own queries
+
+The four rules in SKILL.md, with the measurements behind each:
+
+- **Lead with the unit of the question**, not the technology. "Symbol-level
+  navigation of a local checkout" beats "AST-powered code navigation" because
+  users ask about symbols, not about ASTs.
+- **Enumerate literal phrasings a user types.** `declauding` scored 4/5 on
+  its own queries in a 92-skill pool because its description contains
+  "de-claude", "humanize this", "this reads like AI". `remembering` scored 2/5
+  because its description is a list of feature nouns; the two queries it won
+  were the two phrased in its own API vocabulary.
+- **Separate from a neighbour by OMISSION, never by disclaimer.** Delete the
+  neighbour's vocabulary from your description. Do not add a sentence saying
+  the neighbour's job is not yours — that sentence moves you *toward* them.
+  A retriever scores bag-of-meaning and has no notion of negation, so
+  "does not debug a Docker build" reads as "Docker build".
+
+  Measured 2026-08-25 on this catalogue, one clause at a time:
+
+  | Description | Query | Cosine |
+  |---|---|---|
+  | `container-layer`, plain | "why is this docker build taking twelve minutes" | 0.427 |
+  | + "does not debug an existing Docker build" | same | **0.475** |
+  | `cloning-project`, plain | "I just cloned this repo, what does it do" | 0.472 |
+  | + "not for cloning or exploring a git repo" | same | **0.571** |
+
+  Both disclaimers made the false positive worse — the second by ten points,
+  enough to steal the query outright. Rewriting the same four skills by
+  omission instead took the catalogue from 72.0% to 76.0% top-1 and from 1/8
+  to 0/8 near-misses scoring as real hits.
+
+  The routing belongs in the **body**, under When NOT to use, where an LLM
+  reads it and understands the negation. The description is scored, not read.
+  This is the Arm 1 / Arm 2 split: what helps the model choose can hurt the
+  retriever that surfaces the choice.
+- **Do not reuse a sibling's trigger phrases.** `tree-sitting` listed "map this
+  codebase" and "explore repo" — both `exploring-codebases`' territory — and
+  lost all five of its own canonical queries in the 2026-08-24 measurement,
+  including "where is X defined".
+
+**Run the check before shipping.** `oaustegard/claude-workspace` carries the
+tool:
+
+```bash
+python3 scripts/skill_confusability.py                        # nearest-neighbour map
+python3 scripts/skill_confusability.py --queries q.json       # top-1, steals, near-misses
+```
+
+The query file needs both halves. Positives go under the skill's own name.
+Negatives go under the reserved `__none__` key — queries that share the
+catalogue's vocabulary but belong to no skill in it, built the way
+`skill-creator` builds should-not-trigger cases: adjacent domains and
+ambiguous phrasing, never obvious filler. Read three numbers:
+
+- **top-1** — does the skill win its own queries
+- **steals** — does it win queries belonging to other skills
+- **near-misses** — does anything it should ignore score in hit territory
+
+A description tuned on top-1 alone gets better at being found and worse at
+staying out of the way, and only the second and third numbers show it.
+
+Write five task-shaped queries for the new skill, phrased as a user would state
+the task, and confirm it takes top-1. A query that echoes the description
+measures its own phrasing and nothing else. Any neighbour above ~0.65 cosine
+needs an explicit boundary in both descriptions, or the two skills need
+merging.

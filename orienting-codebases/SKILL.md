@@ -1,17 +1,16 @@
 ---
 name: orienting-codebases
 description: >-
-  Interactive codebase orientation for human learning. Companion to
-  exploring-codebases (which builds Claude's understanding); this skill
-  builds the user's understanding through guided exercises grounded in
-  learning science. Uses the same tree-sitting + featuring pipeline but
-  synthesizes into interactive teaching via HTML artifacts rather than
-  analysis documents. Triggers on "orient me to this repo", "teach me
-  this codebase", "help me understand this code", "learning orientation",
-  or when the user wants to build genuine comprehension of an unfamiliar
-  codebase rather than just getting work done in it.
+  Interactive codebase orientation for a HUMAN who wants to learn the code.
+  Runs the same tree-sitting + featuring pipeline as exploring-codebases but
+  synthesizes it into guided exercises and an HTML teaching artifact rather
+  than an analysis document. Use for "orient me to this repo", "teach me
+  this codebase", "walk me through this code", "learning orientation", or
+  when someone wants genuine comprehension rather than a task completed. The
+  audience is the test: if nobody is being taught and the goal is to get
+  work done, use exploring-codebases instead.
 metadata:
-  version: 0.3.0
+  version: 0.4.0
   license: CC-BY-4.0
   lineage: >-
     Pedagogical design adapted from DrCatHicks/learning-opportunities

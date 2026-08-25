@@ -1,13 +1,34 @@
 ---
 name: cloning-project
-description: Exports project instructions and knowledge files from the current Claude project. Use when users want to clone, copy, backup, or export a project's configuration and files.
+description: >-
+  Exports a Claude.ai workspace — its custom instructions and its uploaded
+  knowledge files — into a bundle that can be re-imported elsewhere. Use for
+  "back up my project instructions", "export my project knowledge", "copy
+  this workspace to a new one", "migrate my project to another account", or
+  "recreate this setup somewhere else". Operates on the Claude.ai workspace
+  you are talking in, and reads nothing from disk.
 metadata:
-  version: 1.0.0
+  version: 1.2.0
 ---
 
 # Cloning Project
 
 When users request to clone, copy, export, or backup their current project:
+
+## When NOT to use this skill
+
+"Project" here is a Claude.ai workspace, never a code repository. The word
+collides badly, so route by what is actually being copied:
+
+| Situation | Use |
+|---|---|
+| Clone or fetch a git repo | accessing-github-repos |
+| "I just cloned this, what is it?" | exploring-codebases |
+| What a codebase contains or exposes | tree-sitting |
+| Back up a repo's files | git, not this |
+
+This skill reads the Claude.ai workspace you are talking in. It touches no
+checkout and knows nothing about code.
 
 ## Step 1: Verify Project Context
 

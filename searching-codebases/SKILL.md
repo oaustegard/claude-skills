@@ -1,24 +1,40 @@
 ---
 name: searching-codebases
 description: >-
-  Binding-resolved Python symbol queries — find all true callers (--refs),
-  go-to-definition (--def), or inferred signature (--hover) of a .py symbol
-  via pyright, excluding same-named false positives that text grep cannot.
-  Use when a task needs ALL callers/users of a Python symbol or its real
-  definition and text matching would over-match. For everything else —
-  literal tokens, regex patterns, concept/natural-language search, any repo
-  size — plain ripgrep is faster and equally accurate: measured 2026-07-04
-  on real issue-localization tasks, the semantic and indexed-regex tiers
-  tied or lost against naive rg at 4-60x the wall-clock cost. Those tiers
-  remain available below but are NOT recommended as a default.
+  Binding-resolved Python symbol queries via pyright — every true caller
+  (--refs), the real definition (--def), or an inferred signature (--hover)
+  of a .py symbol, excluding the same-named false positives text search
+  cannot tell apart. Use when a task needs ALL callers or users of a named
+  Python symbol and grep would over-match. Python only, and only for the
+  caller/definition question: measured 2026-07-04 on real issue-localization
+  tasks, plain ripgrep tied or beat the semantic and indexed-regex tiers at
+  4-60x less wall-clock, so those tiers survive below without being a
+  default.
 metadata:
-  version: 2.3.0
+  version: 2.5.0
 ---
 
 # Searching Codebases
 
 Find code in any codebase by pattern or concept. One entry point, two
 search strategies, automatic routing.
+
+## When NOT to use this skill
+
+Python callers and definitions only. Every other code question is cheaper
+elsewhere, and the measurement below is why this skill is edge-case-only.
+
+| Situation | Use |
+|---|---|
+| What symbols does this file contain? | tree-sitting |
+| Where is X defined, so I can read it? | tree-sitting |
+| Any structure question, any language | tree-sitting |
+| A literal string or regex | plain ripgrep |
+| Which files are most about a concept? | bm25 |
+| First look at an unfamiliar repo | exploring-codebases |
+
+Non-Python code has no pyright binding resolution to offer, so there is no
+version of this skill that applies to it.
 
 ## Prerequisites
 

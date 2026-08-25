@@ -1,8 +1,15 @@
 ---
 name: githubbing
-description: GitHub CLI (gh) installation and authenticated operations in Claude.ai containers. Use when user needs to create issues, PRs, view repos, or perform GitHub operations beyond raw API calls.
+description: >-
+  Installs and authenticates the GitHub CLI (gh) in a Claude.ai container,
+  then runs gh commands against it. Use for "install gh", "gh auth", "create
+  an issue or PR from the CLI", "gh is not authenticated", or any GitHub
+  operation you want to issue as a gh command rather than a raw API call.
+  This skill is the transport rather than the analysis. To understand what a
+  repository does or contains, use exploring-codebases; to add a repo to the
+  session, accessing-github-repos.
 metadata:
-  version: 1.1.2
+  version: 1.2.0
   requires: configuring
 ---
 
