@@ -1,13 +1,33 @@
 ---
 name: container-layer
-description: Build and cache a personalized container environment from a Dockerfile-like spec. Supports both single-layer (one Containerfile to one cached tarball) and multi-layer composition (compose [base, scientific, mojo, ...] into one container with each layer cached independently). Use when the user mentions "container layer", "Containerfile", "custom container", "environment setup", "cache my installs", "uv shim", "composable layers", or wants to persist package installations, skills, or environment config across ephemeral sessions. Also triggers when the user asks to snapshot, restore, or rebuild their environment, or wants to capture ad-hoc package installs into a reproducible spec.
+description: >-
+  Authors and caches a personalized container environment from a Dockerfile-
+  like spec, as a single layer or as a composition of independently cached
+  layers. Use when the user mentions "container layer", "Containerfile",
+  "custom container", "cache my installs", "composable layers", "uv shim",
+  or wants package installations, skills and environment config to survive
+  an ephemeral session. Also for snapshotting, restoring or rebuilding that
+  environment, and for capturing ad-hoc installs into a reproducible spec.
 metadata:
-  version: 0.2.3
+  version: 0.4.0
 ---
 
 # Container Layer
 
 Build a reproducible, cached environment overlay for ephemeral containers using a Dockerfile-like spec.
+
+## When NOT to use this skill
+
+This authors and caches a layer spec. It is not a Docker troubleshooting tool.
+
+| Situation | Use |
+|---|---|
+| A build is slow or failing | read the build log; this skill will not help |
+| Managing a running container | docker/podman directly |
+| Session boot sequence and hooks | the workspace's own boot docs |
+
+The tell is tense: this skill is for the environment you want next session, not
+the container you are fighting now.
 
 ## Concept
 
