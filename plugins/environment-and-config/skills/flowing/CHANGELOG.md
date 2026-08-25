@@ -2,6 +2,13 @@
 
 All notable changes to the `flowing` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.5.0] - 2026-08-25
+
+### Other
+
+- Applicability boundaries, real failure signals, findable descriptions (#774)
+- Deprecate mapping-codebases; adopt ruff 0.16.0 baseline (#747)
+
 ## [1.4.0] - 2026-06-03
 
 ### Other

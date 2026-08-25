@@ -1,13 +1,23 @@
 ---
 name: crafting-instructions
-description: Generate optimized instructions for Claude (Project instructions, Skills, or standalone prompts). Use when users request creating project setups, writing effective prompts, building Skills, or need guidance on instruction types for Claude.ai.
+description: Chooses the right FORMAT for instructions on Claude.ai — project instructions, a skill, or a standalone prompt — and gives the format-specific structure once chosen. Use when the question is which container an instruction belongs in ("should this be a skill or project instructions", "where do I put this", "how do I set up this project", "is this worth a skill"), or when someone has instructions and does not know how to package them. For the writing principles that apply inside any of the three formats, use writing-instructions. For building, testing and packaging a complete skill directory, use creating-skill.
 metadata:
-  version: 0.3.1
+  version: 0.4.0
 ---
 
 # Crafting Instructions for Claude
 
-Generate technically optimized instructions for Claude.ai across three formats: Project instructions, Skills, and standalone prompts.
+Choose the format for instructions on Claude.ai — Project instructions, Skills,
+or standalone prompts — and structure them for the format chosen.
+
+**Overlap notice.** The Core Optimization Principles below also appear in
+`writing-instructions`, which carries them in more depth alongside model-aware
+calibration, complexity scaling and a quality checklist. The two skills were
+written independently and never reconciled; a 2026-08-24 retrieval measurement
+put their descriptions at 0.843 cosine, the most confusable pair in the
+92-skill catalogue. Until they are merged, this skill owns the **format
+decision** and `writing-instructions` owns **how to write well inside a
+format**.
 
 ## Decision Framework: Which Format to Use?
 

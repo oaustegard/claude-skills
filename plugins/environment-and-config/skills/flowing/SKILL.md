@@ -1,8 +1,8 @@
 ---
 name: flowing
-description: DAG workflow runner that encodes control flow in code, not prose. Use when a procedure has 3+ steps with branching, retries, or validation that must be enforced — gates as `when=`, edge contracts as `validate=`, predicate loops as `retry_until=`. The runner owns the graph; the LLM provides leaves. Also covers parallel execution, checkpoint resume, detached side-effects.
+description: Runs a multi-step procedure as a Python DAG, so ordering, branching and retries are enforced by the runner rather than described in prose a model can generate past. Use for "run these steps in order and retry the flaky one until the check passes", "build a pipeline that fetches, validates, then skips the upload when nothing changed", "make sure these steps cannot be skipped", "resume from where it broke instead of redoing the expensive early stages", "run these independent calls at once and merge the results", or any procedure of 3+ steps with branches, input contracts, or side effects that must not block the critical path. Primitives are depends_on, when=, validate=, retry_until=, detached= and journal_path=. Not for a single sequential call, for steps needing reasoning between them that no predicate captures, or for async and distributed work. To audit whether one verification check can actually go red, use gating. To fan work out across many subagents, use a dynamic workflow.
 metadata:
-  version: 1.4.0
+  version: 1.5.0
 ---
 
 ## NOT SUPERSEDED BY DYNAMIC WORKFLOWS — read first

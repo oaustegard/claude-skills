@@ -1,13 +1,20 @@
 ---
 name: writing-instructions
-description: "Write effective instructions for Claude: project instructions, standalone prompts, and skill content. Use when users need help writing prompts, setting up project instructions, choosing between instruction formats, or improving how they communicate with Claude. Covers writing principles, model-aware calibration, and format selection. For building and testing complete skills, use skill-creator instead."
+description: "Sentence-level and section-level craft for instructions Claude will actually follow, in any container — project instructions, a standalone prompt, or skill body text. Use when the text exists or is being drafted and the question is quality: \"why is Claude ignoring this instruction\", \"rewrite this prompt so it works\", \"improve my project instructions\", \"make this instruction stick\", \"is this too prescriptive\", \"how much structure does Sonnet need versus Opus\". Covers imperative construction, positive framing, strategic-versus-procedural calibration per model, extended thinking, complexity scaling, and a quality checklist. For deciding WHICH container the instruction belongs in, use crafting-instructions. For building, testing and packaging a whole skill directory, use creating-skill."
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Writing Instructions for Claude
 
 Principles and patterns for writing instructions that Claude follows reliably — whether as project instructions, standalone prompts, or skill content.
+
+**Overlap notice.** `crafting-instructions` carries the same five core
+principles and a fuller format-decision framework. The two were written
+independently and never reconciled; a 2026-08-24 retrieval measurement put
+their descriptions at 0.843 cosine, the most confusable pair in the 92-skill
+catalogue. Until they are merged, this skill owns **writing quality** and
+`crafting-instructions` owns the **format decision**.
 
 ## Choosing the Right Format
 

@@ -2,6 +2,17 @@
 
 All notable changes to the `exploring-codebases` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.5.0] - 2026-08-25
+
+### Fixed
+
+- repair broken frontmatter, mark obsolete skills, close registry gaps (#746)
+
+### Other
+
+- Applicability boundaries, real failure signals, findable descriptions (#774)
+- featuring: fix source=None crash on cache hit, add --orient (#770)
+
 ## [2.4.0] - 2026-07-16
 
 ### Added
