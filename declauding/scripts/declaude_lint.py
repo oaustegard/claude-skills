@@ -209,6 +209,32 @@ RULES: list[tuple[str, str, str]] = [
 
     # --- predicate-position hyphenation --------------------------------------
     ("hyphenation", r"\b(?:is|are|was|were|feels?|seems?)\s+(?:high-quality|cross-functional|data-driven|end-to-end|real-time|long-term|well-known|client-facing|decision-making|third-party|open-source)\b", "drop the hyphen after the noun"),
+
+    # --- flat certainty (entries 43-47) ---------------------------------------
+    # Corpus-derived; references/corpus.md. Each fires on a shape, never on a
+    # word alone: an adverb needs a verb to modify, a privative needs a copula.
+    ("flat-certainty", r"\b(?:plainly|quietly|outright|merely|provably|demonstrably|empirically|vacuously|adversarially|legitimately|structurally)\s+(?=\w)", "flat-certainty adverb — say what makes it true, or cut it"),
+    ("flat-certainty", r"\b(?:is|are|was|were|reads?|remains?|stays?)\s+(?:plainly|quietly|merely|genuinely|outright)\b", "adverb asserting the reader's reaction"),
+    ("flat-certainty", r"\b(?:deliberately|genuinely|honestly|routinely|silently|identically|precisely)\s+\w+(?:ed|ing|s)\b", "flat-certainty adverb on a verb — check it names a contrast the reader can check"),
+
+    ("juridical", r"\b(?:the\s+)?\w+\s+(?:refuses|declines|admits|rules|ratifies|sanctions|honou?rs|forbids|governs|decides|settles)\s+(?:the|a|an|any|no|that|it)\b", "juridical verb — name the mechanism and its exit condition"),
+    ("juridical", r"\b(?:a|the|its|this|that|one)\s+(?:refusal|ruling|verdict|precedent|carve-out|remedy|obligation|standing|grounds)\b", "juridical noun for a program state"),
+    ("juridical", r"\b(?:has|have|had|lacks?|without|no)\s+standing\b", "standing — say what the caller is missing"),
+
+    ("verification", r"\b(?:byte|bit)-(?:identical|exact|identity|for-byte)\b", "verification compound — put the diff or the number beside it"),
+    ("verification", r"\bbyte-for-byte\b", "verification compound — put the diff beside it"),
+    ("verification", r"\bmutation-(?:checked|verified|tested|proof)\b", "mutation compound — say what the run killed and what survived"),
+    ("verification", r"\b(?:live|hand|cross|independently|adversarially)-(?:verified|checked|tested|confirmed|audited)\b", "verification compound — state what was run and what came back"),
+    ("verification", r"\bre-(?:derived?|derives|deriving|verified|verifies|measured|measures|checked|confirmed|read|reads)\b", "re- prefix claims a second pass — say what the second pass did differently"),
+    ("verification", r"\broot-caused\b", "root-caused — name the cause"),
+
+    ("privative", r"\b(?:is|are|was|were|remains?|stays?|left|leaves?)\s+(?:ungated|unguarded|unwired|uncapped|unbuilt|unparseable|unverifiable|unmeasured|unresolvable|vacuous|inert)\b", "privative coinage — say what is missing, and where"),
+    ("privative", r"\b(?:an?|the|three|two|several|most|all)\s+(?:ungated|unguarded|unwired|uncapped|unbuilt|unmeasured|unverifiable)\s+\w+", "privative coinage naming a thing by what was not done to it"),
+
+    ("exhaustive", r"\bnothing\s+(?:in|else|about|here|there)\b[^.]{0,60}\b(?:does|is|can|could|would|varies|reaches|touches|explains)\b", "exhaustive negation — state the scope you checked"),
+    ("exhaustive", r"\bnowhere\s+(?:else|in|for|to)\b", "nowhere — a universal over an unnamed search"),
+    ("exhaustive", r"\b(?:no|not\s+a\s+single)\s+(?:path|caller|branch|test|case|line|file)\s+\w+s\b", "universal negative — bound it to a set the reader can see"),
+    ("exhaustive", r"\bcan\s+never\b|\bwill\s+never\b|\bnever\s+(?:fires|happens|reaches|runs|returns)\b", "never — an absolute is the most expensive claim and the cheapest to assert"),
 ]
 
 HTML_HEADING_RE = re.compile(r"<h([1-6])\b[^>]*>(.*?)</h\1>", re.S | re.I)
@@ -282,11 +308,42 @@ CATEGORY_ORDER = [
     "rtfm", "dev-cliche", "slop", "editorializing", "time-inflation",
     "copula", "participle", "false-range", "list-shape", "chatbot", "filler",
     "gap-fill", "diff-anchored", "subjectless", "hyphenation", "spec-ese",
+    "flat-certainty", "juridical", "verification", "privative", "exhaustive",
     "header", "typography", "cadence", "reuse", "density",
 ]
 
 # A one-line paragraph that is a line of dialogue is a line of dialogue.
 DIALOGUE_RE = re.compile("^[\"\u201c\u2018']|[\"\u201d'](\\s*,)?\\s*(\\w+\\s+)?(said|asked|replied|answered)\\b")
+
+# The 150 highest-lift words of the fastest-growing cluster in Louis Abraham's
+# load-bearing corpus of GitHub pull request descriptions (analysis.js generated
+# 2026-08-28: 461,121 descriptions, 85 whole weeks, the cluster 0.70% of the
+# first eight weeks and 39.5% of the last four). Used ONLY for the rate in
+# scan_density — never as a blocklist. Every word here is a word a person
+# writes, and load-bearing's own human-written README scores above this skill's
+# SKILL.md on it. references/corpus.md carries the method and the limits, and
+# how to regenerate this list from a fresh analysis.js.
+CORPUS_LEAD = frozenset("""
+admits alone argued armed arms asserted asserts asymmetry backstop bit-identical
+bites byte-for-byte byte-identical carried carries carrying carve-out ceiling
+cheap chokepoint cited cites contradicted contradicting decides declines defect
+defects degrades deliberate deliberately died disagree disagreed disagreement
+drains drifted eleven empirically escalates ever faithful falsified filed folded
+folds forever genuine genuinely half halves handed held holds honest honestly
+honoured indistinguishable inert judged landed lands legitimately lever
+load-bearing loses loud loudly machinery mattered measured merely minted mints
+mutation-checked mutation-tested mutation-verified never nine nobody nothing
+nowhere obligation opposite outright owed parked plainly pre-fix precedent
+precisely predates premise probed provably proven proves quietly re-derived
+re-derives re-measured re-read re-verified reaches reaped reds refusal refusals
+refused refuses refusing refuted remedy reproduces restated rests retires rides
+ruling rung says seam self-heals settles short-circuits sitting spellings stamped
+stamps standing stranded structurally survived survives surviving sweep symptom
+thirteen throwaway told ungated unguarded vacuous vacuously walked wedge wedged
+whoever whose worse
+""".split())
+
+CORPUS_WORD_RE = re.compile(r"[a-z0-9/_-]*[a-z][a-z0-9/_-]*")
 
 STOPWORDS = frozenset(
     "the a an and or but if of to in for on at by is are was were be been it its "
@@ -529,6 +586,20 @@ def scan_density(text: str) -> list[dict]:
                     "note": f"repeated phrases: {worst} — check each is the deliberate "
                             "repetition entry 27 protects and not a cadence",
                     "match": "phrase repetition"})
+
+    toks_all = CORPUS_WORD_RE.findall(body.lower())
+    if len(toks_all) >= 400:
+        lead = sum(1 for w in toks_all if w in CORPUS_LEAD)
+        per100 = lead / len(toks_all) * 100
+        if per100 >= 1.0:
+            out.append({"line": 0, "category": "density",
+                        "note": f"{lead} of {len(toks_all)} words are top-150 vocabulary of the "
+                                f"load-bearing corpus cluster ({per100:.2f} per 100; 46 chunks of human "
+                                "stdlib docstrings run 0.08 median, 0.32 at worst) — this locates "
+                                "the register, it does not "
+                                "detect a machine. Read entries 43 to 47, and do not cut these "
+                                "words on sight: references/corpus.md",
+                        "match": "corpus-register density"})
 
     lens = [len(s.split()) for s in sentences]
     if len(lens) > 20:

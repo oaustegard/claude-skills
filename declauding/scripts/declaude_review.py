@@ -38,8 +38,10 @@ REGISTER = Path(__file__).resolve().parent.parent / "references" / "register.md"
 # catalogue stays single-source; adding an entry there needs no edit here.
 # 26 is here because stage 1 detects triads deterministically but cannot judge
 # whether the content had three things, and a closer is where the padded ones
-# land.
-STRUCTURAL_ENTRIES = (1, 2, 3, 7, 9, 12, 13, 26)
+# land. 47 is here for the same reason: an exhaustive negative is earned when its
+# scope is named, and only reading the surrounding sentences says whether it is.
+# 43 to 46 are lexical and stage 1 reaches them.
+STRUCTURAL_ENTRIES = (1, 2, 3, 7, 9, 12, 13, 26, 47)
 
 SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 TAG = re.compile(r"<[^>]+>")
@@ -62,11 +64,14 @@ def load_register(entries=STRUCTURAL_ENTRIES) -> str:
         return ""
     blocks, current, keep = [], [], False
     for line in REGISTER.read_text(encoding="utf-8").splitlines():
-        m = re.match(r"^## (\d+)\.", line)
-        if m:
+        # Any h1/h2 ends the current entry. Matching only numbered headings let
+        # the file's trailing "Quick self-check" section ride along with the
+        # last entry whenever that entry was selected.
+        if line.startswith(("## ", "# ")):
+            m = re.match(r"^## (\d+)\.", line)
             if keep and current:
                 blocks.append("\n".join(current).strip())
-            current, keep = [], int(m.group(1)) in entries
+            current, keep = [], bool(m) and int(m.group(1)) in entries
         if keep:
             current.append(line)
     if keep and current:

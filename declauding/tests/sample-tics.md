@@ -159,3 +159,31 @@ Omit it and the child idles awaiting input.
 Entries the caller does not itself hold are dropped, so a child never carries a grant its parent lacks.
 
 ## GitHub authorship in a sourced child
+
+## Entries 43-47 specimens
+
+The retry is provably safe and the flag was quietly dropped in 4.2.
+
+Three of the paths are unguarded, and the assertion is vacuous.
+
+The guard refuses any caller without standing. That is the carve-out the header
+check honors, and the linter's ruling stands.
+
+The rewrite is byte-identical and mutation-checked. I re-derived the threshold
+and cross-checked it against the previous run, then root-caused the difference.
+
+Nothing in the fit varies with time, and there is nowhere else for the rise to
+be. No caller reaches it, so the branch can never fire.
+
+The hook is unwired, the budget uncapped, and the header unparseable.
+
+Negatives that must stay silent — a bounded universal, a field term, a compound
+with its number beside it, and an adverb carrying a real contrast:
+
+None of the 46 chunks exceeds 0.57 per cent.
+
+The clause set is unresolvable only in the SAT sense, and the solver says so.
+
+`diff` reports no change; the mutation run killed 14 of 15.
+
+The handler logs the drop, where 4.1 dropped it silently.

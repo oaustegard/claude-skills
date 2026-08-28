@@ -4,18 +4,22 @@ Removes LLM prose tics from a draft and returns plain human technical prose. The
 input is text; the output is either the rewritten text or an annotated HTML diff
 showing every edit with its original and its reason.
 
-The register has three groups. Entries 1 to 23, 37 and 38 are one move: **the
+The register has four groups. Entries 1 to 23, 37 and 38 are one move: **the
 sentence is built to make the reader feel a finding arrive, instead of stating
 the finding.** The fix is always the same: put a real subject in the subject
 slot, say the thing, stop. Entries 24 to 36 are the flatter slop patterns, where
 nothing is being staged and the prose is running on defaults. Entries 39 to 42
 are the register of reference prose — schema formality, and maxims welded onto
-facts. Numbering is chronological within the file, so a group is not a
-contiguous range.
+facts. Entries 43 to 47 are this skill's own output: the flat, verdict-shaped
+register a clean pass lands in, which is now the fastest-growing cluster of
+GitHub pull request descriptions there is. Numbering is chronological within the
+file, so a group is not a contiguous range.
 
 See [`SKILL.md`](SKILL.md) for the workflow, the overcorrection guard and the
 earned-exception table. See [`references/register.md`](references/register.md)
-for the catalogue. See [`CHANGELOG.md`](CHANGELOG.md) for version history.
+for the catalogue and [`references/corpus.md`](references/corpus.md) for the
+measurement behind entries 43 to 47. See [`CHANGELOG.md`](CHANGELOG.md) for
+version history.
 
 ## Two output modes
 
@@ -108,6 +112,15 @@ whose label restates the item, per-instance em-dash drum rolls, em-dash density,
 repeated sentence openings and phrases, curly-quote and emoji counts, and
 sentence-length monotony.
 
+One line is not a tell at all. `corpus-register density` reports how much of the
+draft is the top-150 vocabulary of the load-bearing corpus cluster, which locates
+the register and says nothing about the author: human stdlib docstrings run 0.08
+median and 0.32 at worst, this skill's own files run 1.5 to 3.2, and the
+human-written README of the repository the list came from scores 1.51, above this
+skill's `SKILL.md`. Above roughly 1.0 the
+cue is to read entries 43 to 47, never to cut `nothing` or `measured` on sight.
+[`references/corpus.md`](references/corpus.md) has the figures and the limits.
+
 The `reuse` block groups the hits the scan already produced and reports any
 construction used more than once. It adds no rules and costs nothing, and reuse
 is the strongest available evidence that a construction is a habit rather than a
@@ -140,22 +153,27 @@ as a pre-commit hook.
 ## False positives
 
 `tests/sample-clean.md` is human-written prose and must lint to zero.
-`tests/sample-tics.md` is a corpus of real specimens and currently reports 114
-candidates across 30 categories.
+`tests/sample-tics.md` is a corpus of real specimens and currently reports 136
+candidates across 35 categories.
 
 ```sh
-python3 scripts/declaude_lint.py tests/sample-tics.md    # 114 candidates
+python3 scripts/declaude_lint.py tests/sample-tics.md    # 136 candidates
 python3 scripts/declaude_lint.py tests/sample-clean.md   # 0
-python3 scripts/declaude_lint.py SKILL.md --skip-quoted  # 8, all checked
-python3 scripts/declaude_lint.py README.md --skip-quoted # 6, all checked
+python3 scripts/declaude_lint.py SKILL.md --skip-quoted  # 12, all checked
+python3 scripts/declaude_lint.py README.md --skip-quoted # 15, all checked
 python3 scripts/declaude_lint.py tests/sample-structure.html   # 10, HTML path
 python3 scripts/declaude_review.py tests/sample-structure.md --slots
 ```
 
-One of the eight on `SKILL.md` is the `reuse` detector catching three parallel
+One of the twelve on `SKILL.md` is the `reuse` detector catching four parallel
 table labels ("Staging shapes, entries…", "Encyclopedic shapes, entries…",
-"Reference-prose shapes, entries…"). Three labels in a table series is the
-deliberate repetition entry 27 protects, so it stays.
+"Reference-prose shapes, entries…", "Flat-certainty shapes, entries…"). Four
+labels in a table series is the deliberate repetition entry 27 protects, so it
+stays.
+
+Three of the fifteen on this README are `load-bearing`, which entry 19 does list
+as a metaphor and which here is the name of a repository. A proper name is the
+carve-out `SKILL.md` states and `--skip-quoted` cannot see.
 
 Several rules are deliberately tuned down to hold that zero, so the linter misses
 some real coy headers and some real inline-header bullets. A linter that fires on
@@ -179,7 +197,7 @@ rather than left to judgment:
 
 Every entry fires on a shape, and a shape sometimes carries a claim. Cutting it
 then removes content while looking like it removed only style. `SKILL.md`
-tabulates the earned form of 20 of the 42 entries, and names what hides inside a
+tabulates the earned form of 25 of the 47 entries, and names what hides inside a
 watched phrase: superlatives, rankings, simultaneity, scope words, and the
 condition attached to a hedge. *X rather than Y* is legitimate when the reader
 was genuinely holding Y; it is staged when you supplied Y so you could reject
@@ -237,6 +255,18 @@ specimens produced 2 candidates from this linter, neither for the right reason.
 It now produces 33 across 13 categories. The no-fabrication rule, the
 voice-sample precedence, the embedded invocation mode and the "leave these alone"
 list are also from that skill.
+
+Entries 43 to 47 came from a count instead of a draft. Louis Abraham's
+[load-bearing](https://github.com/louisabraham/load-bearing) clusters GitHub pull
+request descriptions by vocabulary — 461,121 of them across 85 whole weeks — and
+one of its ten clusters went from 0.70% of early 2025 to 39.5% of August 2026.
+Its highest-lift words are `load-bearing`, `plainly`, `quietly`, `refusal`,
+`re-derived`, `asserted`, `nobody`, `genuinely`, `outright`, `byte-identical`:
+not the slop vocabulary of entry 20, but the flat verdict-shaped register this
+skill aims at. The five entries and the `corpus-register` line came out of that,
+along with the measurement in
+[`references/corpus.md`](references/corpus.md) of what the rate can and cannot
+claim.
 
 Entries 39 to 42 came from a `create_session` reference artifact (2026-08-23)
 that had already been through a 0.4.0 pass and reported clean. Two of its section

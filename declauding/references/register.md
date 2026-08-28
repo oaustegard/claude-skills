@@ -809,6 +809,169 @@ need one.
 
 ---
 
+# Flat-certainty patterns
+
+Entries 43 to 47 are the register this skill produces, once the staging is gone.
+They come from a count rather than from a draft: the cluster of GitHub pull
+request descriptions that went from 0.70% of early 2025 to 39.5% of August 2026,
+whose highest-lift words are `load-bearing`, `plainly`, `quietly`, `refusal`,
+`re-derived`, `asserted`, `nobody`, `genuinely`, `outright`, `byte-identical`.
+`references/corpus.md` carries the method, the numbers and the limits.
+
+Nothing here is staging a reveal. These sentences are trying to sound *settled* —
+adjudicated, verified, exhaustively negated — and the same test applies one
+register over: **am I stating the finding, or performing having settled it?**
+
+Every family below is also a family a careful writer uses correctly, which is why
+each entry has an earned column. Do not treat any of these words as a blocklist;
+`references/corpus.md` explains what the measurement does and does not support.
+
+---
+
+## 43. Flat-certainty adverb
+
+**Tell:** a bare adverb doing the work of the evidence — "plainly", "quietly",
+"outright", "merely", "genuinely", "deliberately", "provably", "empirically",
+"demonstrably", "structurally", "legitimately", "precisely", "honestly",
+"vacuously", "adversarially", "silently", "loudly", "routinely", "identically".
+
+**Why:** `plainly` and `quietly` are the second and third highest-lift words in
+the corpus cluster. The adverb asserts the reader's reaction — that this is
+obvious, that it happened without noise, that the check was real — where the
+sentence has not shown it. "Provably correct" without the proof is "correct" with
+a costume on. It is entry 23 in the flat register: the modifier pre-loads the
+verdict.
+
+**Fix:** delete it, or replace it with what makes it true.
+
+> was: *The retry is provably safe.*
+> now: *The retry is idempotent: the handler keys on the request id.*
+
+> was: *The flag was quietly dropped in 4.2.*
+> now: *The flag was dropped in 4.2. The changelog does not mention it.*
+
+**Earned:** the adverb names a real contrast the reader can check — "silently"
+against a version that logs, "identically" against a version that differs. One
+adverb carrying a comparison is information; three in a paragraph is a register.
+
+---
+
+## 44. Juridical register
+
+**Tell:** code, tests and processes described as a court — "refusal", "refuses",
+"declines", "admits", "ruling", "verdict", "precedent", "carve-out", "standing",
+"grounds", "obligation", "owed", "remedy", "ratified", "sanctioned", "honoured",
+"answerable", "cites".
+
+**Why:** `refusal` is the fourth highest-lift word in the cluster and `ruling` the
+seventeenth. The register borrows finality from a domain that has procedures for
+producing it. A linter does not *rule*; it exits non-zero. A default is not a
+*carve-out* unless something granted it. The vocabulary makes an implementation
+detail sound adjudicated, and it stacks with entry 4 — the thing doing the ruling
+is usually an abstraction with no hands.
+
+**Fix:** name the mechanism and its exit condition.
+
+> was: *The guard refuses any caller without standing.*
+> now: *The guard returns 403 when the token has no `write` scope.*
+
+> was: *That is the carve-out the header check honors.*
+> now: *The header check skips one-word titles.*
+
+**Earned:** the system's own documented vocabulary. A policy engine whose API
+says `deny` denies; an RFC that says MUST is an obligation. Use the word the
+system uses, not the word that sounds like it.
+
+---
+
+## 45. Verification-provenance compound
+
+**Tell:** a hyphenated compound asserting how thoroughly something was checked —
+"byte-identical", "bit-identical", "byte-for-byte", "byte-exact",
+"mutation-checked", "mutation-verified", "mutation-tested", "live-verified",
+"cross-checked", "root-caused", "hand-verified", "re-derived", "re-verified",
+"re-measured", "re-checked", "re-confirmed".
+
+**Why:** eleven of the cluster's top hundred words are this shape, and it is the
+newest family in the register — it arrived with agents that report on their own
+work. The compound is a claim about method compressed to an adjective, which puts
+it past the place a reader would ask for the method. "Byte-identical" is
+checkable and often true; "mutation-checked" usually means a mutation run
+happened, not that this line survived one. The `re-` prefix is the same move in a
+verb: it claims a second pass without saying what the second pass did
+differently.
+
+**Fix:** state what was run and what came back.
+
+> was: *The rewrite is byte-identical and mutation-checked.*
+> now: *`diff` reports no change. The mutation run killed 14 of 15; the survivor
+> is in `parse_header`.*
+
+> was: *I re-derived the threshold.*
+> now: *I recomputed the threshold from the 46 chunks and got 0.20 again.*
+
+**Earned:** the compound is the precise term and the number is beside it.
+"Byte-identical" against a stated diff is exact and shorter than the alternative.
+A `re-` verb earns its prefix when the first pass is on the page and the second
+disagreed with it.
+
+---
+
+## 46. Privative coinage
+
+**Tell:** a thing named by what was not done to it — "ungated", "unguarded",
+"unwired", "uncapped", "unbuilt", "unparseable", "unverifiable", "unmeasured",
+"unresolvable", "unsatisfiable", "unrecognised", "vacuous", "inert".
+
+**Why:** the coinage sounds like a diagnosis and carries no measurement. "The
+hook is unwired" and "the hook is not in settings.json" say the same thing, but
+the first sounds like a category the writer already knew and the second can be
+checked. Several of these are not words outside this register, which is the tell:
+the writer minted an adjective rather than describe a state.
+
+**Fix:** say what is missing, and where.
+
+> was: *Three of the paths are unguarded.*
+> now: *Three of the paths have no length check before the index.*
+
+> was: *The assertion is vacuous.*
+> now: *The assertion passes on an empty list, which is what the test supplies.*
+
+**Earned:** the term is the field's ("unsatisfiable" in SAT, "unbuilt" of a build
+target), or the absence is the finding and the entry names it once before the
+detail.
+
+---
+
+## 47. Exhaustive negation
+
+**Tell:** an absolute quantifier standing in for the argument — "nothing in it
+does X", "nowhere else for it to be", "no path reaches", "never", "neither",
+"nobody". Often in a closer, often as the whole of the evidence.
+
+**Why:** `nobody`, `nowhere` and `nothing` are all in the cluster's top
+twenty-five. A universal negative is the strongest available claim and the most
+expensive to establish, so it is the cheapest to assert. "Nothing else could
+cause it" is a claim about the search, and the search is what the reader wants.
+Entry 2 covers the negation that sets up a reveal and entry 3 the unfalsifiable
+"nobody noticed"; this is the flat form, where the negation *is* the finding.
+
+**Fix:** state the scope you actually checked.
+
+> was: *Nothing in the fit varies with time.*
+> now: *The fit has one parameter per cluster and none per week.*
+
+> was: *There is nowhere else for the rise to be.*
+> now: *The weekly shares are counted after assignment, so a rise is in the
+> assignments.*
+
+**Earned:** the scope is bounded and named. "None of the 46 chunks exceeds 0.57%"
+is a universal over a set the reader can see. So is a negative that follows an
+exhaustive mechanism — "the enum has three members and the switch covers all
+three".
+
+---
+
 ## Quick self-check before shipping an edit
 
 1. Does any sentence exist to make a finding feel bigger than it is?
@@ -830,3 +993,6 @@ need one.
     paragraph by paragraph. Superlatives, rankings, simultaneity, scope words and
     the condition attached to a hedge all sit inside phrasings this register
     cuts, and the paragraph looks intact after they go.
+14. Does an adverb, a hyphenated compound or an absolute negative carry a claim
+    the sentence never shows? Flat certainty has tics of its own; entries 43 to
+    47 and `references/corpus.md`.
