@@ -4,6 +4,12 @@ All notable changes to the `declauding` skill are documented in this file. The f
 
 ## [0.6.0] - 2026-08-28
 
+### Other
+
+- declauding 0.6.0: entries 43-47, the register the pass produces (#779)
+
+## [0.6.0] - 2026-08-28
+
 ### Added
 
 - Entries 43 to 47, a fourth group: the flat-certainty register this skill's own
