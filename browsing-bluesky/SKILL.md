@@ -2,7 +2,7 @@
 name: browsing-bluesky
 description: Browse Bluesky content via API and firehose - search posts, fetch user activity, sample trending topics, read feeds and lists, analyze and categorize accounts. Supports authenticated access for personalized feeds. Use for Bluesky research, user monitoring, trend analysis, feed reading, firehose sampling, account categorization.
 metadata:
-  version: 0.5.1
+  version: 0.6.0
 ---
 
 # Browsing Bluesky
@@ -27,7 +27,8 @@ from browsing_bluesky import (
     get_all_following, get_all_followers, extract_post_text,
     extract_keywords, analyze_account, analyze_accounts,
     # Authentication utilities
-    is_authenticated, get_authenticated_user, clear_session
+    is_authenticated, get_authenticated_user, authenticated_identity,
+    clear_session
 )
 ```
 
@@ -44,11 +45,33 @@ Authentication enables personalized feeds (like Paper Skygest) that require know
    export BSKY_APP_PASSWORD="xxxx-xxxx-xxxx-xxxx"
    ```
 
+### Which account reads
+
+Two credential pairs are recognised, and the prefix is the only difference:
+
+| Pair | Identity |
+|---|---|
+| `MUNINN_BSKY_HANDLE` / `MUNINN_BSKY_APP_PASSWORD` | `muninn` — preferred |
+| `BSKY_HANDLE` / `BSKY_APP_PASSWORD` | `owner` — used when no Muninn pair is set |
+
+`BSKY_IDENTITY=muninn|owner` picks one outright, and a pair named that way is
+never substituted for: asking for `muninn` with no Muninn pair set reads as
+public rather than quietly reading as the owner. An unrecognised value raises.
+
+This matters because a booted container holds **both** pairs. Until
+2026-08-28 the unprefixed one won, so every authenticated read — the following
+timeline, and the mutes, blocks and labelers that shape all of them — came back
+as the account owner with nothing in the output saying so, from a skill
+documented as read-only that was nonetheless holding an app password carrying
+write scope on his account. On a machine with only the documented `BSKY_*`
+pair, nothing changes.
+
 ### Behavior
 
 - **Transparent**: All functions work identically with or without credentials
 - **Automatic**: Auth headers are added opportunistically when credentials exist
-- **Graceful**: Failed auth silently falls back to public access
+- **Graceful**: Failed auth silently falls back to public access. A misspelled
+  `BSKY_IDENTITY` is configuration, not auth failure, and raises instead
 - **Secure**: Tokens cached in memory only, never logged or persisted
 
 ### Check Auth Status
@@ -59,7 +82,11 @@ if is_authenticated():
 else:
     print("Using public access")
 
-# Clear session if needed (e.g., switching accounts)
+# Which pair answered — a handle alone does not say whether it was chosen
+# or simply the only one set.
+authenticated_identity()   # {'identity': 'muninn', 'handle': ..., 'did': ...}
+
+# Clear session if needed (e.g., switching accounts or identities)
 clear_session()
 ```
 
