@@ -1,8 +1,8 @@
 ---
 name: declauding
-description: Removes LLM prose tics from drafts — staged reveals, "it's not X, it's Y", significance tags, abstraction agency, coy headers, fragment cadence, plus the flatter slop patterns (copula avoidance, participle tails, forced triads, chatbot residue, filler and hedging) — and returns plain human technical prose. Use when text needs editing for register, when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make this sound human", "remove the tics/claudisms", or asks for a voice/register pass on a post, README, report, PR description or essay. Also use before publishing any draft Claude wrote. Produces either clean prose or an annotated HTML diff showing every edit with its original and reason.
+description: Removes LLM prose tics from drafts — staged reveals, "it's not X, it's Y", significance tags, abstraction agency, coy headers, fragment cadence, the flatter slop patterns (copula avoidance, participle tails, forced triads, chatbot residue, filler and hedging), and the flat-certainty patterns of the register the pass itself produces (bare adverbs, juridical vocabulary, verification compounds, privative coinages, exhaustive negation) — and returns plain human technical prose. Use when text needs editing for register, when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make this sound human", "remove the tics/claudisms", or asks for a voice/register pass on a post, README, report, PR description or essay. Also use before publishing any draft Claude wrote. Produces either clean prose or an annotated HTML diff showing every edit with its original and reason.
 metadata:
-  version: 0.5.1
+  version: 0.6.0
 ---
 
 # Declauding
@@ -57,6 +57,19 @@ defaults. Copula avoidance, participle tails, forced triads, chatbot residue.
 Different mechanism, same pass. Entries 37 and 38 are back in the staging family
 and sit last only because they arrived last.
 
+Entries 43 to 47 are a third family, and they are this skill's own output. The
+register a clean pass lands in — flat, concrete, verdict-shaped — is the
+fastest-growing cluster of GitHub pull request descriptions there is: 0.70% of
+early 2025, 39.5% of August 2026, with `plainly`, `quietly`, `refusal`,
+`re-derived` and `byte-identical` among its highest-lift words.
+`references/corpus.md` has the measurement. Flat certainty has tics of its own,
+and the test is the same one register over: *am I stating the finding, or
+performing having settled it?*
+
+The response to that is not to put the staging back. It is to check that an
+adverb, a hyphenated compound or an absolute negative is carrying evidence
+rather than standing in for it.
+
 ## The author's own writing outranks this skill
 
 If the user supplies a sample of their writing, read it before editing and match
@@ -108,6 +121,12 @@ treated as a heading too, because a subtitle is a header by every test that
 matters. Force with `--html`, disable with `--no-html`. Reported line numbers
 refer to the flattened view.
 
+The `corpus-register` density line locates a register. It does not detect an
+author. Above roughly 1.0 per 100 words the draft sits in the cluster's register,
+and a person who chooses that register scores there too, so the line is a cue to
+read entries 43 to 47 and never a licence to cut `nothing` or `measured` on
+sight. `references/corpus.md` has the figures.
+
 Lint every string that reaches the reader, not only the body file. Page titles,
 subtitles and deck headers are prose, and a builder that takes them as CLI
 arguments rather than from the file will hide them from this scan.
@@ -140,7 +159,9 @@ markers, drift across the piece, imposter test — use the `challenging` skill's
 thorough one.
 
 **3. Sentence pass.** For every sentence, in order: stating or staging? Load
-`references/register.md` for the catalogue of tells and their fixes.
+`references/register.md` for the catalogue of tells and their fixes. On a draft
+this skill or another model already cleaned, read entries 43 to 47 first — a
+second pass over already-flat prose is where they live.
 
 **4. Structure pass.** Headers (are they labels or verdicts?), paragraph breaks
 (is an isolated line a real pivot or a drum roll?), fragment runs, rhetorical
@@ -256,6 +277,16 @@ Reference-prose shapes, entries 39 to 42:
 | Diff-anchored (34) | The doc narrates the change that produced it | The document is version-scoped by design: changelogs, release notes, migration guides |
 | Subjectless fragment (35) | The actor is known and matters | The register is clipped throughout — release notes, a feature table, a CLI help string |
 | Predicate hyphenation (36) | Every pair is hyphenated in both positions | House style or a quoted source sets it |
+
+Flat-certainty shapes, entries 43 to 47:
+
+| Shape | Banned when | Earned when |
+|---|---|---|
+| Flat-certainty adverb (43) | It asserts the reader's reaction — "provably safe", "quietly dropped" | It names a contrast the reader can check: "silently" against a version that logs |
+| Juridical vocabulary (44) | A program state described as an adjudication | It is the system's own documented word — a policy engine whose API says `deny` |
+| Verification compound (45) | The method is compressed into an adjective and never shown | The number is beside it: "byte-identical" next to the diff, "mutation-checked" next to 14 of 15 |
+| Privative coinage (46) | A minted adjective replaces the measurement | The field's term ("unsatisfiable"), or the absence is the finding and stated once |
+| Exhaustive negation (47) | A universal negative stands in for the search | The scope is bounded and named: "none of the 46 chunks exceeds 0.57%" |
 
 **Modifiers inside a watched phrase carry content.** "The single most important
 new build" ranks that item against every other item; "the important new build"

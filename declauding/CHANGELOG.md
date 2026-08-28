@@ -2,6 +2,71 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.6.0] - 2026-08-28
+
+### Added
+
+- Entries 43 to 47, a fourth group: the flat-certainty register this skill's own
+  output lands in. 43 flat-certainty adverb ("provably safe", "quietly dropped"),
+  44 juridical register (a linter that *rules*, a default that is a *carve-out*),
+  45 verification-provenance compound ("byte-identical", "mutation-checked", the
+  `re-` prefix claiming a second pass), 46 privative coinage ("unguarded",
+  "unwired", "vacuous"), 47 exhaustive negation ("nothing in it does X",
+  "nowhere else for it to be"). Each has an earned column; none is a blocklist.
+- `references/corpus.md` — the measurement behind them, the method, and what the
+  numbers do not support.
+- Lint categories `flat-certainty`, `juridical`, `verification`, `privative`,
+  `exhaustive`, and a `corpus-register` density line reporting the draft's rate
+  of the cluster's top-150 vocabulary.
+- Earned-exception rows in `SKILL.md` for entries 43 to 47, and specimens plus
+  four must-stay-silent negatives in `tests/sample-tics.md`.
+- Entry 47 added to `STRUCTURAL_ENTRIES` in `declaude_review.py`: an exhaustive
+  negative is earned when its scope is named, and only the surrounding sentences
+  say whether it is. 43 to 46 are lexical and stage 1 reaches them.
+
+### Fixed
+
+- `load_register` in `declaude_review.py` ended an entry only at the next
+  *numbered* heading, so selecting the file's last entry pulled the trailing
+  "Quick self-check" section into the prompt with it. Any `#`/`##` heading now
+  closes the block. Latent until 47 became the last entry.
+
+### Provenance
+
+Louis Abraham's [load-bearing](https://github.com/louisabraham/load-bearing)
+clusters GitHub pull request descriptions by vocabulary — 461,121 descriptions,
+85 whole weeks, 2025-01-06 to 2026-08-17, ten clusters, no time parameter in the
+fit. One cluster is 0.70% of the first eight weeks and 39.5% of the last four,
+rising 1.24 points a week. Its highest-lift words are `load-bearing` 39x,
+`plainly` 34x, `quietly` 30x, `refusal` 28x, `re-derived` 27x, `asserted` 25x,
+`nobody` 25x, `genuinely` 24x, `outright` 23x, `byte-identical` 23x.
+
+That is not the slop vocabulary of entry 20. It is the register this skill aims
+at, and it is now the fastest-growing way of writing a pull request description
+there is. A pass that removes 42 staging tics and lands here has traded one
+detectable shape for another.
+
+### False-positive budget
+
+`tests/sample-clean.md` still reports zero. On 115,920 words of Python stdlib
+docstrings the five new categories fire 18 times (0.16 per 1,000 words), ten of
+them on `silently`. `is simply` was cut from the adverb rule for scoring two of
+those and not appearing in the corpus list at all. `unsatisfiable` was cut from
+the privative rule as a SAT term.
+
+The `corpus-register` line is a register locator and not an authorship detector.
+load-bearing's own human-written README scores 1.51 per 100 words of body prose,
+above this skill's `SKILL.md` at 1.47, on `nothing` x9, `carries` x3, `alone` x2,
+`never` x2 and `half` x2. Human stdlib docstrings run 0.08 median and 0.32 at
+worst over 46 chunks of 2,500 words. The note on the line says this, because a
+reader who takes it for a detector will cut `nothing` and `measured` out of
+correct sentences.
+
+`tests/sample-tics.md` now reports 136 candidates across 35 categories,
+`SKILL.md --skip-quoted` 12 and `README.md --skip-quoted` 15 — the README's three
+new `locator` hits are the repository's name, which entry 19 lists as a metaphor
+and `--skip-quoted` cannot tell from a proper noun.
+
 ## [0.5.1] - 2026-08-23
 
 ### Other
