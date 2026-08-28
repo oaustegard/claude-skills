@@ -1,8 +1,8 @@
 ---
 name: atprotoing
-description: Read Bluesky/ATProto without depending on Bluesky's AppView — interactions on a user's posts, thread replies, any repo's records, and layer-by-layer outage diagnosis. Use when bsky.app or the AppView is down or slow, when a Bluesky read returns timeouts or 5xx, when asked who liked/replied/quoted/reposted something, when pulling live Bluesky context cheaply, or when reading records straight from a PDS. Complements browsing-bluesky, which routes everything through the AppView and fails when it does.
+description: Read Bluesky/ATProto without depending on Bluesky's AppView — interactions on a user's posts, thread replies, any repo's records, network-wide backlinks across every lexicon, an account's handle and PDS history, which collections are active network-wide, and layer-by-layer outage diagnosis. Use when bsky.app or the AppView is down or slow, when a Bluesky read returns timeouts or 5xx, when asked who liked/replied/quoted/reposted something, when pulling live Bluesky context cheaply, when reading records straight from a PDS, when asked who references a record or account anywhere on the network, whether an account has changed handle or migrated servers, or which lexicons and non-Bluesky apps are active on atproto. Complements browsing-bluesky, which routes everything through the AppView and fails when it does.
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # ATProtoing
@@ -30,6 +30,9 @@ are large and re-reading them into context defeats the purpose.
 | `posts <actor> [--limit]` | An actor's posts, from their own PDS |
 | `records <actor> <collection>` | Any collection in any repo |
 | `resolve <actor>` | DID, handle, PDS host |
+| `backlinks <target> [--collection C --path P]` | What references a record or account, in ANY lexicon |
+| `identity <actor>` | Handle renames and PDS migrations, from the PLC audit log |
+| `lexicons [query] [--hours N] [--others] [--schema NSID]` | Which collections are active network-wide |
 
 ## Source model
 
@@ -40,7 +43,8 @@ PDS for anything a repo owns — it is authoritative and had no outage.
 |---|---|
 | Records of a known repo | That repo's PDS |
 | Who interacted with a URI | Constellation (`constellation.microcosm.blue`) |
-| handle ↔ DID ↔ PDS | `plc.directory`, entryway `resolveHandle` |
+| handle ↔ DID ↔ PDS, and its history | `plc.directory`, entryway `resolveHandle` |
+| Which collections are active network-wide | UFOs (`ufos-api.microcosm.blue`) |
 | Search, feed generators, chat | AppView only — **no substitute; say so** |
 
 `feed` is the one composite read: there is no AppView-free `getTimeline`, so it
@@ -56,6 +60,24 @@ this is the raw follow graph.
 Constellation is the persistent index. Do not rebuild one locally: it already
 indexes the whole network, is operated independently of Bluesky PLC, and is
 reachable when the AppView is not.
+
+`interactions` walks the five Bluesky paths in `LINK_PATHS`. `backlinks` walks
+whatever Constellation has indexed — tangled issues, vouches, list membership,
+lexicons nobody here has heard of — so reach for it when the question is "who
+references this, anywhere" rather than "who liked this post". Both are
+two-phase for the same reason: `links/all` reports which sources are non-empty,
+and only then does enumeration cost anything.
+
+`lexicons` answers a different question from `sample_firehose` in
+`browsing-bluesky`: UFOs consumes Jetstream and rolls it up per NSID, so a
+single call reports what is running across the whole network without sampling
+anything here. `--others` drops `app.bsky.`, `chat.bsky.` and `com.atproto.`,
+which is what turns the leaderboard from "Bluesky is large" into a list of the
+other apps. `--schema NSID` fetches the published lexicon document from the
+publisher's own repo, deriving the publisher by the reverse-DNS convention
+(`com.whtwnd.blog.entry` → `whtwnd.com`); publishing that record is optional and
+plenty of busy collections skip it, so a miss is a fact about the publisher, not
+a failure.
 
 ## Cost shape
 
@@ -83,6 +105,17 @@ Two known limits worth stating plainly when they bite:
   with a clear allowlist message; add the host to project egress settings.
 - **Times come from TIDs**, decoded from the record key rather than fetched.
   Client-generated, so treat them as approximate ordering, not attestation.
+
+## Overlap with the Atmosphere MCP
+
+`aturi.to/api/mcp` (hosted, keyless, read-only, beta) covers the same three
+areas and about 30 more. It was measured on 2026-08-28 at 38 tools / ~8.6k
+tokens of schema resident per session, returning pretty-printed JSON rather
+than digests, with every read routed through one host. These commands go
+straight to plc.directory, Constellation and UFOs, which is the point of this
+skill — the 2026-08-16 split is exactly the case a single upstream reintroduces.
+Use the MCP for what it alone has: the waypoint catalog and the atproto docs
+search. Do not route these three through it.
 
 ## Writing
 
