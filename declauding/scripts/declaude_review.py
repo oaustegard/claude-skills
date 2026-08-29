@@ -41,7 +41,11 @@ REGISTER = Path(__file__).resolve().parent.parent / "references" / "register.md"
 # land. 47 is here for the same reason: an exhaustive negative is earned when its
 # scope is named, and only reading the surrounding sentences says whether it is.
 # 43 to 46 are lexical and stage 1 reaches them.
-STRUCTURAL_ENTRIES = (1, 2, 3, 7, 9, 12, 13, 26, 47)
+STRUCTURAL_ENTRIES = (1, 2, 3, 7, 9, 12, 13, 26, 47, 50, 51, 52)
+# 50 to 52 need the slots this script extracts and stage 1 cannot judge: a
+# retroactive grade is only visible against the passage it grades, a totalizing
+# claim is earned when the set is named nearby, and an obituary headline is a
+# header. 48 and 49 are lexical and stage 1 reaches them.
 
 SENTENCE_END = re.compile(r"(?<=[.!?])\s+")
 TAG = re.compile(r"<[^>]+>")

@@ -2,6 +2,85 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.7.0] - 2026-08-29
+
+### Added
+
+- Entries 48 to 52, a fourth group: the confiding-essayist register. 48
+  performative candour ("let's be honest", sentence-initial "Honestly,", "you
+  don't have to take my word for it"), 49 stranded auxiliary reversal ("The tool
+  died; the data didn't."), 50 retroactive significance ("that's why X
+  mattered"), 51 totalizing designation ("that's the whole point", "the only
+  release notes I trust"), 52 obituary headline ("X is dead", "long live X").
+  Each has an earned column.
+- Lint categories `candour`, `reversal`, `retroactive`, `totalizing`,
+  `obituary`, and an obituary check on header text. "X is dead" is left alone
+  inline — a dead process is a dead process — and flagged only in a header.
+- `_echo_runs`, entry 26's third shape: two consecutive sentences sharing a
+  five-word run that covers at least half the shorter one. Anaphora keys on the
+  opening words and the triad regex on the commas; neither reaches *A shopping
+  cart is an object in the system. A chat room is an object in the system.*
+- `_question_runs`, entry 10 without the fragment answer: two or more questions
+  in a row where at least one after the first is clipped.
+- Entries 50 to 52 added to `STRUCTURAL_ENTRIES` in `declaude_review.py`. A
+  retroactive grade is only visible against the passage it grades, a totalizing
+  claim is earned when the set is named nearby, and an obituary headline is a
+  header. 48 and 49 are lexical and stage 1 reaches them.
+- Specimens for all five entries plus the two detectors in
+  `tests/sample-tics.md`, with four negatives that must stay silent.
+
+### Changed
+
+- Entry 3 gained the staged variants of its gesture: "here's the twist / catch /
+  kicker / rub", "that's the part", "my favourite part of".
+- Entry 10 gained the stacked-question run.
+- Entry 18 gained bare sentence-initial "Turns out"; the rule only reached "it
+  turns out".
+- Entry 19 gained "batteries included", "zero config" and "small enough to fit
+  in your head".
+- Entry 26 is now three shapes rather than two.
+- `is the whole point` moved off the `aphorism` rule; entry 51 owns it.
+
+### Provenance
+
+Simon Willison's
+[llm-cliche-highlighter](https://github.com/simonw/tools/blob/main/llm-cliche-highlighter.html)
+added fifteen patterns and three structural detectors on 2026-08-27, in
+[simonw/tools#322](https://github.com/simonw/tools/pull/322) and
+[#323](https://github.com/simonw/tools/pull/323). Eight of the fifteen were
+already covered here in some form and extended existing entries. Five had no
+entry and became 48 to 52. Two of the three detectors are ported; the third,
+his colon-into-a-triple, is already the comma-list half of entry 26.
+
+Several ported regexes are narrower than the source, which is tuned for essays
+rather than for technical prose. His `x-is-dead` fires on any "X is dead"; here
+it fires in headers only. His echo detector needs one shared four-gram; here it
+needs five words covering half the shorter sentence. His question run needs two
+questions; here one of them after the first must be clipped, because two full
+questions in sequence is how a person changes subject.
+
+### False-positive budget
+
+`tests/sample-clean.md` still reports zero. It did not on the first cut: the
+question-run rule fired on *So, what's next? Is this a project that starts and
+ends with DeepSeek v4 Flash?*, which is antirez changing subject, and the
+clipped-question condition came out of that.
+
+On 180,929 words of Python stdlib docstrings the five new categories fire 4
+times (0.022 per 1,000 words), all four on entry 49 and all four the ordinary
+ellipsis the entry names as earned. `_echo_runs` fires 36 times (0.199 per
+1,000), between the existing anaphora detector at 0.077 and fragment cadence at
+0.298. The first cut of that detector, keyed on a shared five-gram alone, fired
+91 times on phrases like "is the same as using" inside sentences that were
+otherwise unalike; requiring the run to cover half the shorter sentence is what
+took it to 36. `_question_runs` fires 0 times.
+
+`tests/sample-tics.md` now reports 167 candidates across 42 categories,
+`SKILL.md --skip-quoted` 13 and `README.md --skip-quoted` 18. The extra hit on
+`SKILL.md` is the `reuse` detector counting a fifth parallel table label; one of
+the eighteen on the README is entry 49 on "Symmetry and antithesis are not",
+which is the earned ellipsis.
+
 ## [0.6.0] - 2026-08-28
 
 ### Other

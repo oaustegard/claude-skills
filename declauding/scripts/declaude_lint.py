@@ -32,6 +32,9 @@ RULES: list[tuple[str, str, str]] = [
     ("significance", r"\bthe\s+(?:part|thing|bit|piece|detail)\s+(?:that|which)\b", "the part that — designation; the reader decides what matters"),
     ("significance", r"\bthe\s+(?:one|leg|row|line|number|question)\s+that\s+(?:matters|counts|transfers|makes the point|does the work|answers|explains)\b", "the X that matters"),
     ("significance", r"\b(?:here'?s|this is)\s+(?:the thing|where it gets interesting|what)\b", "here's the thing"),
+    ("significance", r"\bhere(?:'?s|\s+is)\s+(?:the|a|my|one)\s+(?:twist|catch|kicker|rub|surprising|interesting|best|worst)\b", "staged reveal — 'here's the twist/catch/kicker'"),
+    ("significance", r"\b(?:that|this|it)(?:'?s|\s+(?:is|was))\s+the\s+part\b", "that's the part — the reader decides which part"),
+    ("significance", r"\bmy\s+favou?rite\s+part\s+of\b", "gesturing at a favoured detail instead of stating it"),
     ("significance", r"\band\s+(?:that'?s|it has)\s+(?:the interesting part|a name here)\b", "manufactured reveal"),
     ("significance", r"\bthe\s+(?:one|only)\s+thing\s+(?:nobody|no one)\b", "the one thing nobody"),
     ("significance", r"\b(?:most|more)\s+(?:interesting|telling|revealing|surprising)\s+(?:part|thing|number|finding)\b", "significance tag"),
@@ -98,9 +101,11 @@ RULES: list[tuple[str, str, str]] = [
 
     # --- RTFM ----------------------------------------------------------------
     ("rtfm", r"\b(?:it turns out|I finally (?:discovered|realized|found)|hidden in the|buried in the (?:docs|api))\b", "RTFM as revelation"),
+    ("rtfm", r"(?:^|[.!?\u2013\u2014]\s+)Turns\s+out\b", "bare 'Turns out' opener — a casual reveal bolted to a tidy conclusion"),
 
     # --- dev cliché ----------------------------------------------------------
-    ("dev-cliche", r"\b(?:footgun|shot itself in the foot|rabbit hole|yak[- ]shav\w*|belt[- ]and[- ]suspenders|moving the needle|first[- ]class citizen|under the hood|just works|sane defaults|almost killed it)\b", "generic developer vocabulary"),
+    ("dev-cliche", r"\b(?:footgun|shot itself in the foot|rabbit hole|yak[- ]shav\w*|belt[- ]and[- ]suspenders|moving the needle|first[- ]class citizen|under the hood|just works|sane defaults|almost killed it|batteries[- ]included|zero[- ]config(?:uration)?)\b", "generic developer vocabulary"),
+    ("dev-cliche", r"\b(?:hold|holds|held|fit|fits)\s+(?:it\s+)?in\s+your\s+head\b", "dev-blog boilerplate for simplicity — say how big it is"),
 
     # --- slop ----------------------------------------------------------------
     ("slop", r"\b(?:delve|tapestry|testament to|navigate the complexities|in today'?s fast[- ]paced|realm of|robust|seamless|leverage|utilize|crucial|pivotal|myriad|plethora|elevate|unlock the|harness the|embark|dive deep|at the end of the day)\b", "slop vocabulary"),
@@ -114,7 +119,7 @@ RULES: list[tuple[str, str, str]] = [
     # --- aphoristic closer ---------------------------------------------------
     ("aphorism", r"\bthe\s+kind\s+of\s+\w+\s+that\b[^.]{0,60}\band\s+is\s+not\b", "X that looks like Y and is not"),
     ("aphorism", r"\bthe\s+\w+\s+that\s+looks\s+like\s+\w+", "X that looks like Y"),
-    ("aphorism", r"\b(?:by\s+a\s+wide\s+margin|was\s+the\s+move|is\s+the\s+whole\s+(?:point|bug|story))\b", "quotable closer"),
+    ("aphorism", r"\b(?:by\s+a\s+wide\s+margin|was\s+the\s+move)\b", "quotable closer"),
     ("aphorism", r"\bthe\s+(?:entire|whole)\s+\w+\s+of\s+the\s+thing\b", "quotable closer"),
 
     # --- staging (more) ------------------------------------------------------
@@ -235,6 +240,31 @@ RULES: list[tuple[str, str, str]] = [
     ("exhaustive", r"\bnowhere\s+(?:else|in|for|to)\b", "nowhere — a universal over an unnamed search"),
     ("exhaustive", r"\b(?:no|not\s+a\s+single)\s+(?:path|caller|branch|test|case|line|file)\s+\w+s\b", "universal negative — bound it to a set the reader can see"),
     ("exhaustive", r"\bcan\s+never\b|\bwill\s+never\b|\bnever\s+(?:fires|happens|reaches|runs|returns)\b", "never — an absolute is the most expensive claim and the cheapest to assert"),
+
+    # ===== entries 48-52: the confiding-essayist register ====================
+    # Ported from Simon Willison's llm-cliche-highlighter, 2026-08-27. The
+    # shapes there are tuned for essays; several are narrowed here to keep the
+    # false-positive budget on technical prose. references/register.md says
+    # which, and why.
+
+    ("candour", r"\bI\s+(?:will\s+not|won'?t)\s+pretend\b", "announced sincerity — show it instead"),
+    ("candour", r"\b(?:I'?ll|let'?s|to)\s+be\s+(?:honest|clear|blunt|real)\b", "announced sincerity — the sentence after this is the one you meant to write"),
+    ("candour", r"(?:^|[.!?\u2013\u2014]\s+)(?:honestly|look|truthfully|frankly)\s*,", "confiding opener — delete it and keep the sentence"),
+    ("candour", r"\b(?:you\s+)?(?:do\s+not|don'?t)\s+(?:have\s+to\s+)?take\s+my\s+word\s+for\b", "invitation to verify with nothing to verify against — link the thing"),
+
+    ("reversal", r"[;:,]\s+[^.;:!?\n]{2,50}\s(?:did|does|do|was|were|is|are|has|have|had|can|could|would|will)(?:n'?t|\s+not)\s*[.;]", "clause landing on a bare auxiliary — say what the second half claims"),
+    ("reversal", r"[.!?]\s+[A-Z][^.;:!?\n]{2,40}\s(?:did|does|was|were|is|are|has|have|had|can|could|would|will)(?:n'?t|\s+not)\s*\.", "sentence landing on a bare auxiliary — the verb is elided and the beat is doing the work"),
+    ("reversal", r"\b(?:maybe|perhaps)\s+\w+[^.!?\n]{0,40}\s(?:would|could|might|should|did|had|was|is)(?:n'?t)\s+(?:have\s*)?\.", "speculative reversal on a stranded auxiliary"),
+
+    ("retroactive", r"\b(?:that|this|which)(?:'?s|\s+(?:is|was))\s+why\b[^.!?\n]{0,80}?\b(?:matter(?:s|ed)|count(?:s|ed))\b", "grading a passage the reader has already read"),
+
+    ("totalizing", r"(?<!here)(?:\b(?:is|was|are|were)|'?s)\s+the\s+(?:whole|entire)\s+(?:point|game|thing|trick|pitch|idea|story|premise|argument|bug|business\s+model)\b", "the whole point — claims a total where a part was shown"),
+    ("totalizing", r"\bthe\s+(?:whole|entire)\s+(?:point|game|trick|pitch|premise|argument|business\s+model)\s+(?:is|was)\b", "the whole point is — the flipped twin"),
+    ("totalizing", r"\bhere(?:'?s|\s+is)\s+the\s+(?:whole|entire)\s+\w+", "here's the whole X — a total announced, not shown"),
+    ("totalizing", r"\bthe\s+only\s+[\w'-]+(?:\s+[\w'-]+){0,2}?\s+(?:I|you|we|they)\s+(?:trust|need|needs|want|wants|use|uses|care|believe)\b", "narrowing superlative over an unnamed set"),
+    ("totalizing", r"\bthe\s+only\s+[\w'-]+\s+that\s+(?:matters|counts|works|survives)\b", "narrowing superlative — name the set or drop the only"),
+
+    ("obituary", r"\blong\s+live\s+\w+", "obituary headline — name what changed"),
 ]
 
 HTML_HEADING_RE = re.compile(r"<h([1-6])\b[^>]*>(.*?)</h\1>", re.S | re.I)
@@ -292,6 +322,10 @@ NOMINAL_HEADER_RE = re.compile(
     r"|\w+\s+\w+" + _NOM + r"\s*$)", re.I)
 GERUND_HEADER_RE = re.compile(r"^\w+ing\s+(?:a|an|the)\b", re.I)
 
+# Entry 52. Inline "X is dead" is left alone — a dead process is a dead process.
+# In a header the phrase is only ever the obituary shape.
+OBITUARY_HEADER_RE = re.compile(r"\b(?:is|are)\s+dead\b|\blong\s+live\b|^(?:the\s+)?death\s+of\b", re.I)
+
 TITLE_CASE_SKIP = {
     "a", "an", "and", "as", "at", "but", "by", "for", "from", "in", "into",
     "nor", "of", "on", "onto", "or", "over", "the", "to", "up", "via", "with",
@@ -309,6 +343,7 @@ CATEGORY_ORDER = [
     "copula", "participle", "false-range", "list-shape", "chatbot", "filler",
     "gap-fill", "diff-anchored", "subjectless", "hyphenation", "spec-ese",
     "flat-certainty", "juridical", "verification", "privative", "exhaustive",
+    "candour", "reversal", "retroactive", "totalizing", "obituary",
     "header", "typography", "cadence", "reuse", "density",
 ]
 
@@ -391,7 +426,11 @@ def scan_lines(text: str) -> list[dict]:
                 hits.append({"line": i, "category": "header",
                              "note": "comma-clause header — no real person puts sentence clauses in a headline",
                              "match": title[:90]})
-            if COY_HEADER_RE.match(title):
+            if OBITUARY_HEADER_RE.search(title):
+                hits.append({"line": i, "category": "obituary",
+                             "note": "obituary headline — a verdict in a form built to overstate; name what changed",
+                             "match": title[:90]})
+            elif COY_HEADER_RE.match(title):
                 hits.append({"line": i, "category": "header",
                              "note": "coy header — could top three different sections; name the content",
                              "match": title[:90]})
@@ -427,6 +466,8 @@ def scan_lines(text: str) -> list[dict]:
 
     hits.extend(_fragment_runs(text))
     hits.extend(_anaphora_runs(text))
+    hits.extend(_echo_runs(text))
+    hits.extend(_question_runs(text))
     return hits
 
 
@@ -464,6 +505,101 @@ def _anaphora_runs(text: str) -> list[dict]:
                             "match": f"{keys[i]!r} x3: {units[i][:60]}",
                         })
                         break
+        line_no += n + 1
+    return out
+
+
+ECHO_WORD = re.compile(r"[a-z0-9\u2019'-]+")
+
+
+def _echo_runs(text: str, min_gram: int = 5, min_share: float = 0.5) -> list[dict]:
+    """Consecutive sentences built on the same skeleton.
+
+    The third shape of entry 26. Anaphora keys on the opening words and the
+    triad regex on the commas; this keys on a run of words reused anywhere in
+    the sentence — `A shopping cart is an object in the system. A chat room is
+    an object in the system.` A reader who has read the first has read the
+    second.
+
+    Two thresholds, both needed. `min_gram` is 5 rather than the 4 the source
+    tool uses, and the run must also cover `min_share` of the shorter sentence.
+    A shared five-word run alone is an idiom, not a template: on 181,000 words
+    of Python stdlib docstrings the gram test alone fires 91 times, on phrases
+    like "is the same as using" inside sentences that are otherwise unalike.
+    Requiring half the shorter sentence takes that to single figures and still
+    catches the filled template, where the shared run is most of both.
+    """
+    out = []
+    line_no = 1
+
+    def longest_run(a: list[str], b: list[str]) -> tuple[int, int]:
+        """Longest common contiguous run, and where it starts in `a`."""
+        best, best_i = 0, 0
+        prev = [0] * (len(b) + 1)
+        for i in range(1, len(a) + 1):
+            cur = [0] * (len(b) + 1)
+            for j in range(1, len(b) + 1):
+                if a[i - 1] == b[j - 1]:
+                    cur[j] = prev[j - 1] + 1
+                    if cur[j] > best:
+                        best, best_i = cur[j], i - cur[j]
+            prev = cur
+        return best, best_i
+
+    for para in re.split(r"\n\s*\n", text):
+        n = para.count("\n") + 1
+        if not para.strip().startswith(("#", "-", "*", ">", "|", "`")):
+            sents = [s.strip() for s in re.split(r"(?<=[.!?])\s+", para.strip()) if s.strip()]
+            words = [ECHO_WORD.findall(s.lower()) for s in sents]
+            for i in range(1, len(sents)):
+                a, b = words[i - 1], words[i]
+                shorter = min(len(a), len(b))
+                if shorter < 6:
+                    continue
+                run, at = longest_run(a, b)
+                if run >= min_gram and run >= min_share * shorter:
+                    out.append({
+                        "line": line_no, "category": "triad",
+                        "note": f"two consecutive sentences sharing a {run}-word run that is "
+                                f"{run / shorter:.0%} of the shorter one — echoing skeleton, "
+                                "entry 26's third shape",
+                        "match": f"{' '.join(a[at:at + run])!r}: {sents[i][:60]}",
+                    })
+                    break
+        line_no += n + 1
+    return out
+
+
+def _question_runs(text: str, min_run: int = 2, tail_words: int = 6) -> list[dict]:
+    """Two or more questions in a row where the later ones are fragments.
+
+    Entry 10 without the fragment answer. `Do I know how it works? Where it
+    breaks? Which corners it cut?` — the second and third have no verb of their
+    own and ride on the first.
+
+    The run alone is not enough. Two full questions in sequence is how a person
+    changes subject: *So, what's next? Is this a project that starts and ends
+    with DeepSeek v4 Flash?* is in `tests/sample-clean.md` and must stay silent.
+    What makes the run a tic is a clipped question after the first, so the rule
+    requires one.
+    """
+    out = []
+    line_no = 1
+    for para in re.split(r"\n\s*\n", text):
+        n = para.count("\n") + 1
+        if not para.strip().startswith(("#", "-", "*", ">", "|", "`")):
+            sents = [s.strip() for s in re.split(r"(?<=[.!?])\s+", para.strip()) if s.strip()]
+            run: list[str] = []
+            for s in sents:
+                run = run + [s] if s.endswith("?") else []
+                if (len(run) >= min_run
+                        and any(len(q.split()) <= tail_words for q in run[1:])):
+                    out.append({"line": line_no, "category": "rhetorical-q",
+                                "note": f"{len(run)} questions in a row, at least one of them clipped — "
+                                        "stacked rhetorical questions; an interview or a FAQ is the "
+                                        "earned case",
+                                "match": s[:90]})
+                    break
         line_no += n + 1
     return out
 

@@ -187,3 +187,42 @@ The clause set is unresolvable only in the SAT sense, and the solver says so.
 `diff` reports no change; the mutation run killed 14 of 15.
 
 The handler logs the drop, where 4.1 dropped it silently.
+
+## Entries 48-52 specimens
+
+Let's be honest: I won't pretend the first run was clean. Honestly, the harness
+was wrong. You don't have to take my word for it.
+
+The tool died; the data didn't. Reading mostly passed. Writing didn't.
+Maybe it wouldn't have.
+
+That's why being able to open the environment mattered. This is why keeping
+every transcript counted.
+
+That's the whole point of the format, and the entire business model is the
+index. Here's the whole trick. Changelogs are the only release notes I trust,
+and the only thing that matters is the diff.
+
+## Peer code review is dead
+
+Long live the pre-merge check.
+
+Here's the twist: that's the part I keep coming back to.
+My favourite part of the thing is the cache. Turns out the header was there.
+Batteries included, zero config, small enough to fit in your head.
+
+Do I know how it works? Where it breaks? Which corners it cut?
+
+A shopping cart is an object in the system. A chat room is an object in the
+system.
+
+Negatives that must stay silent — a bounded count of one, a quoted obituary, a
+subject change across two full questions, and two sentences that share an idiom
+without sharing a skeleton:
+
+It is the only one of the six runs that finished.
+
+So, what's next? Is this a project that starts and ends with the current model?
+
+The result is the same as using the plus operation with a zero operand. For
+round-floor, the sign of the intermediate result decides the rounding.

@@ -1,8 +1,8 @@
 ---
 name: declauding
-description: Removes LLM prose tics from drafts — staged reveals, "it's not X, it's Y", significance tags, abstraction agency, coy headers, fragment cadence, the flatter slop patterns (copula avoidance, participle tails, forced triads, chatbot residue, filler and hedging), and the flat-certainty patterns of the register the pass itself produces (bare adverbs, juridical vocabulary, verification compounds, privative coinages, exhaustive negation) — and returns plain human technical prose. Use when text needs editing for register, when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make this sound human", "remove the tics/claudisms", or asks for a voice/register pass on a post, README, report, PR description or essay. Also use before publishing any draft Claude wrote. Produces either clean prose or an annotated HTML diff showing every edit with its original and reason.
+description: Removes LLM prose tics from drafts — staged reveals, "it's not X, it's Y", significance tags, abstraction agency, coy headers, fragment cadence, the flatter slop patterns (copula avoidance, participle tails, forced triads, chatbot residue, filler and hedging), the flat-certainty patterns the pass itself produces (bare adverbs, juridical vocabulary, verification compounds, privative coinages, exhaustive negation), and the confiding-essayist patterns (announced honesty, stranded auxiliaries, retroactive significance, totalizing claims, obituary headlines) — and returns plain human technical prose. Use when text needs editing for register, when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make this sound human", "remove the tics/claudisms", or asks for a voice/register pass on a post, README, report, PR description or essay. Also use before publishing any draft Claude wrote. Produces either clean prose or an annotated HTML diff showing every edit with its original and reason.
 metadata:
-  version: 0.6.0
+  version: 0.7.0
 ---
 
 # Declauding
@@ -69,6 +69,13 @@ performing having settled it?*
 The response to that is not to put the staging back. It is to check that an
 adverb, a hyphenated compound or an absolute negative is carrying evidence
 rather than standing in for it.
+
+Entries 48 to 52 are a fourth family and come from outside: Simon Willison's
+[llm-cliche-highlighter](https://github.com/simonw/tools/blob/main/llm-cliche-highlighter.html),
+updated 2026-08-27. They are the confiding-essayist voice — announced honesty, a
+reversal landed on a bare auxiliary, a grade applied to a passage the reader has
+already read, a part claimed as a whole, an obituary headline. Staging again, but
+aimed at the reader's trust rather than at a finding.
 
 ## The author's own writing outranks this skill
 
@@ -161,7 +168,9 @@ thorough one.
 **3. Sentence pass.** For every sentence, in order: stating or staging? Load
 `references/register.md` for the catalogue of tells and their fixes. On a draft
 this skill or another model already cleaned, read entries 43 to 47 first — a
-second pass over already-flat prose is where they live.
+second pass over already-flat prose is where they live. On a personal essay, a
+launch post, or anything addressed to the reader as a confidant, read 48 to 52
+first instead.
 
 **4. Structure pass.** Headers (are they labels or verdicts?), paragraph breaks
 (is an isolated line a real pivot or a drum roll?), fragment runs, rhetorical
@@ -287,6 +296,16 @@ Flat-certainty shapes, entries 43 to 47:
 | Verification compound (45) | The method is compressed into an adjective and never shown | The number is beside it: "byte-identical" next to the diff, "mutation-checked" next to 14 of 15 |
 | Privative coinage (46) | A minted adjective replaces the measurement | The field's term ("unsatisfiable"), or the absence is the finding and stated once |
 | Exhaustive negation (47) | A universal negative stands in for the search | The scope is bounded and named: "none of the 46 chunks exceeds 0.57%" |
+
+Confiding-essayist shapes, entries 48 to 52:
+
+| Shape | Banned when | Earned when |
+|---|---|---|
+| Announced candour (48) | Sincerity claimed for a sentence that could have carried it | Reported speech, or one "to be clear" correcting a misreading the draft caused |
+| Stranded auxiliary (49) | The verb is elided so the clause lands as a beat | Both halves are measured — "reads passed on all 12 shards, writes on none" |
+| Retroactive significance (50) | It grades a passage the reader has already read | A "which is why" introducing a consequence the reader has not seen |
+| Totalizing designation (51) | A part is claimed as the whole, or a superlative ranks an unnamed set | A real count of one over a named set — "the only one of the six runs that finished" |
+| Obituary headline (52) | A verdict borrowed from a form built to overstate | The phrase belongs to something quoted or named |
 
 **Modifiers inside a watched phrase carry content.** "The single most important
 new build" ranks that item against every other item; "the important new build"

@@ -38,7 +38,7 @@ and nothing else.
 
 ## Tics it catches
 
-Forty-two entries. All of them except part of the 24-to-36 block are grouped by
+Fifty-two entries. All of them except part of the 24-to-36 block are grouped by
 mechanism rather than by phrase, since phrase blocklists miss the next
 paraphrase. The ones that show up in nearly every draft:
 
@@ -88,6 +88,20 @@ Entry 41 is the overcorrection from entry 7 and is written up as one. A verdict
 header rewritten into an abstraction passes entry 7's regex and still fails entry
 7's own test.
 
+Entries 43 to 47 are the flat, verdict-shaped register a clean pass lands in —
+the one this skill produces. `references/corpus.md` carries the measurement.
+
+Entries 48 to 52 are the confiding-essayist voice, where the staging is aimed at
+the reader's trust instead of at a finding:
+
+| Tic | Example |
+|---|---|
+| Announced candour | *Let's be honest: I won't pretend the first run was clean.* |
+| Stranded auxiliary | *The tool died; the data didn't.* |
+| Retroactive significance | *That's why being able to open the environment mattered.* |
+| Totalizing designation | *That's the whole point of the format.* / *the only release notes I trust* |
+| Obituary headline | *Peer code review is dead* |
+
 Each entry carries the surface tell, why it is a tic, the fix, and a
 before-and-after. The first 23 come from a real published draft; the second block
 keeps the Wikipedia specimens.
@@ -107,7 +121,8 @@ python3 scripts/declaude_lint.py DOC.md --skip-quoted # ignore quoted specimens
 
 Stdlib only. It flags the lexical tells with line numbers and categories, plus
 header shape, Title Case headings, one-line-paragraph beats, fragment runs,
-forced triads in both their comma-list and anaphora forms, inline-header bullets
+forced triads in all three of their comma-list, anaphora and echo forms, runs of
+stacked rhetorical questions, inline-header bullets
 whose label restates the item, per-instance em-dash drum rolls, em-dash density,
 repeated sentence openings and phrases, curly-quote and emoji counts, and
 sentence-length monotony.
@@ -153,27 +168,29 @@ as a pre-commit hook.
 ## False positives
 
 `tests/sample-clean.md` is human-written prose and must lint to zero.
-`tests/sample-tics.md` is a corpus of real specimens and currently reports 136
-candidates across 35 categories.
+`tests/sample-tics.md` is a corpus of real specimens and currently reports 167
+candidates across 42 categories.
 
 ```sh
-python3 scripts/declaude_lint.py tests/sample-tics.md    # 136 candidates
+python3 scripts/declaude_lint.py tests/sample-tics.md    # 167 candidates
 python3 scripts/declaude_lint.py tests/sample-clean.md   # 0
-python3 scripts/declaude_lint.py SKILL.md --skip-quoted  # 12, all checked
-python3 scripts/declaude_lint.py README.md --skip-quoted # 15, all checked
+python3 scripts/declaude_lint.py SKILL.md --skip-quoted  # 13, all checked
+python3 scripts/declaude_lint.py README.md --skip-quoted # 18, all checked
 python3 scripts/declaude_lint.py tests/sample-structure.html   # 10, HTML path
 python3 scripts/declaude_review.py tests/sample-structure.md --slots
 ```
 
-One of the twelve on `SKILL.md` is the `reuse` detector catching four parallel
+One of the thirteen on `SKILL.md` is the `reuse` detector catching five parallel
 table labels ("Staging shapes, entries…", "Encyclopedic shapes, entries…",
-"Reference-prose shapes, entries…", "Flat-certainty shapes, entries…"). Four
-labels in a table series is the deliberate repetition entry 27 protects, so it
-stays.
+"Reference-prose shapes, entries…", "Flat-certainty shapes, entries…",
+"Confiding-essayist shapes, entries…"). Five labels in a table series is the
+deliberate repetition entry 27 protects, so it stays.
 
-Three of the fifteen on this README are `load-bearing`, which entry 19 does list
+Three of the eighteen on this README are `load-bearing`, which entry 19 does list
 as a metaphor and which here is the name of a repository. A proper name is the
-carve-out `SKILL.md` states and `--skip-quoted` cannot see.
+carve-out `SKILL.md` states and `--skip-quoted` cannot see. One is entry 49
+firing on "Symmetry and antithesis are not" in the Overcorrection list, which is
+the ordinary ellipsis the entry names as earned.
 
 Several rules are deliberately tuned down to hold that zero, so the linter misses
 some real coy headers and some real inline-header bullets. A linter that fires on
@@ -267,6 +284,19 @@ skill aims at. The five entries and the `corpus-register` line came out of that,
 along with the measurement in
 [`references/corpus.md`](references/corpus.md) of what the rate can and cannot
 claim.
+
+Entries 48 to 52 came from another tool rather than another corpus. Simon
+Willison's
+[llm-cliche-highlighter](https://github.com/simonw/tools/blob/main/llm-cliche-highlighter.html)
+highlights LLM cliches in pasted text, and its 2026-08-27 update added fifteen
+patterns and three structural detectors. Eight of the fifteen were already here
+in some form and extended existing entries — "here's the twist" and "that's the
+part" under entry 3, bare "Turns out" under 18, "batteries included" and "zero
+config" under 19, stacked questions under 10, the echo run under 26. The other
+five had no entry, and the shapes are the ones an essay reaches for when it is
+addressing the reader directly. Several of the ported regexes are narrower here
+than in the source, which is tuned for essays rather than for technical prose;
+the register entries say which, and why.
 
 Entries 39 to 42 came from a `create_session` reference artifact (2026-08-23)
 that had already been through a 0.4.0 pass and reported clean. Two of its section
