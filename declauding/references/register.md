@@ -46,7 +46,10 @@ negation does work.
 **Tell:** "the real X", "the actual question", "the part that matters", "the part
 that transfers", "the useful question", "the detail that makes the point", "the
 most interesting number", "the one thing nobody said", "here's the thing", "and
-that's the interesting part", "and it has a name here".
+that's the interesting part", "and it has a name here". Also the staged variants
+of the same gesture: "here's the twist / the catch / the kicker / the rub",
+"that's the part", "the part that makes me trust the rest", "my favourite part
+of".
 
 **Why:** it ranks your own sentences for the reader instead of writing a sentence
 worth ranking first. The reader decides what is interesting.
@@ -180,6 +183,13 @@ walking the reader through a discovery.
 
 **Fix:** one declarative. *"fit-17g fails mostly by not finishing."*
 
+**Two in a row is the same tic amplified.** *Do I know how it works? Where it
+breaks? Which corners it cut?* — the second and third are fragments riding on
+the first, and none of them is asked of anyone. The linter reports runs of
+consecutive questions separately from the single standalone one, because a run
+does not need the fragment answer to be the tic. An interview transcript and a
+FAQ are the earned cases.
+
 ---
 
 ## 11. Straw-man knockdown
@@ -286,7 +296,8 @@ procedure.
 
 ## 18. RTFM as revelation
 
-**Tell:** "It turns out that", "I finally discovered", "Hidden in the API",
+**Tell:** "It turns out that", bare sentence-initial "Turns out", "I finally
+discovered", "Hidden in the API",
 "Buried in the docs" — followed by standard documented behaviour.
 
 **Fix:** if the finding is that you missed something obvious, say that.
@@ -297,7 +308,8 @@ procedure.
 
 **Tell:** footgun, shot itself in the foot, almost killed it, fell apart, rabbit
 hole, yak shaving, belt-and-suspenders, load-bearing (as metaphor), moving the
-needle, first-class citizen, under the hood, magic, just works, sane defaults.
+needle, first-class citizen, under the hood, magic, just works, sane defaults,
+batteries included, zero config, small enough to fit in your head.
 
 **Why:** the writer reached for the easy phrase instead of the accurate one. The
 accurate phrase is usually shorter.
@@ -421,14 +433,18 @@ three. The count is chosen by rhythm rather than by the content.
 **Earned when** there are genuinely three things, or a superlative or ranking
 rides on the phrasing.
 
-**Two shapes, one tic.** The comma list ("keynote sessions, panel discussions,
+**Three shapes, one tic.** The comma list ("keynote sessions, panel discussions,
 and networking opportunities") is the obvious one. The anaphora form carries the
 parallelism in the opening words instead: *It was a message. It was a permission
 slip. It was an out.* across sentences, or *something to steer toward, something
-to be measured against, something to fear* inside one. The linter catches both,
-and the document-level `opening repetition` count is the same tic spread thin
-enough that no single passage looks wrong. Entry 27 read in the right direction
-is the guard: repetition that is the point stays.
+to be measured against, something to fear* inside one. The echo form keys on
+neither the commas nor the opening, but on a skeleton reused whole: *A shopping
+cart is an object in the system. A chat room is an object in the system.* Two
+sentences sharing four or more words in sequence are a template being filled,
+and a reader who has read the first has read the second. The linter catches all
+three, and the document-level `opening repetition` count is the same tic spread
+thin enough that no single passage looks wrong. Entry 27 read in the right
+direction is the guard: repetition that is the point stays.
 
 ---
 
@@ -972,6 +988,124 @@ three".
 
 ---
 
+## 48. Performative candour
+
+**Tell:** "I'll be honest", "let's be honest", "to be clear", "I won't pretend",
+sentence-initial "Honestly," / "Look," / "Frankly,", and the invitation that
+follows them — "you don't have to take my word for it".
+
+**Why:** sincerity announced instead of shown. The reader had no reason to
+suspect the preceding sentences, so the announcement marks the next one as the
+true one and demotes the rest. "Don't take my word for it" is the same move
+aimed at evidence: it offers a check and hands over nothing to check with.
+
+**Fix:** delete the announcement and keep the sentence. Where the invitation to
+verify is real, link the thing.
+
+> was: *Let's be honest: the benchmark does not measure what the README claims.
+> And you don't have to take my word for it.*
+> now: *The benchmark times decode only. The README claims end to end. The
+> harness is `bench/run.py`, line 40.*
+
+**Earned:** reported speech, where a person said it. Also "to be clear"
+introducing a correction of a misreading the draft itself caused, once.
+
+---
+
+## 49. Stranded auxiliary reversal
+
+**Tell:** a clause that ends on a bare auxiliary carrying the reversal — "The
+tool died; the data didn't.", "Reading mostly passed. Writing didn't.", "Maybe
+it wouldn't have."
+
+**Why:** the auxiliary does the work and the verb is elided, so the clause lands
+as a beat rather than as a fact. Entry 2 stages a reveal by negating first; this
+stages one by negating last, with the content left out of the half that is
+supposed to carry it.
+
+**Fix:** say what the second clause is claiming.
+
+> was: *The tool died; the data didn't.*
+> now: *The tool stopped writing checkpoints on 12 August. The rows already
+> written are still in the bucket.*
+
+**Earned:** ordinary ellipsis, where the elided verb is the one just used and
+the contrast rides in the same breath rather than in a beat of its own —
+"Digression and mild informality are human. Symmetry and antithesis are not."
+Also where both halves are measured and the reader can see both numbers: "reads
+passed on all 12 shards, writes on none". The tic is the reversal given its own
+sentence as a drop, with the verb withheld.
+
+---
+
+## 50. Retroactive significance
+
+**Tell:** "that's why X mattered", "this is why keeping every transcript
+counted", "which is why the open environment mattered".
+
+**Why:** entry 3 tells the reader which sentence matters before they read it;
+this tells them which one did. The retroactive form is the worse of the two,
+because the passage being graded has already had its chance with the reader and
+the grade is an admission it did not take.
+
+**Fix:** cut it. If the earlier passage did not carry the point, the earlier
+passage is the problem.
+
+> was: *That's why being able to open the environment mattered.*
+> now: *Opening the environment recovered 40 GB of checkpoints. Without it the
+> run restarts at step 0.*
+
+**Earned:** a "which is why" that introduces a consequence the reader has not
+seen yet. New information, not a grade on old information.
+
+---
+
+## 51. Totalizing designation
+
+**Tell:** "that's the whole point", "the entire business model is X", "here's
+the whole trick", "the only marketing I trust", "the only thing that matters".
+
+**Why:** entry 3 with the scope widened to everything. "The whole point" claims
+the rest of the paragraph is decoration. "The only X I trust" ranks a field
+whose other members are never named, so there is nothing to disagree with.
+Neither can be checked, and both ask the reader to accept a total where a part
+was demonstrated.
+
+**Fix:** state the part, and let it be a part.
+
+> was: *That's the whole point of the format.*
+> now: *The format keeps the offsets in the header, so a reader can seek without
+> decompressing.*
+
+> was: *Changelogs are the only release notes I trust.*
+> now: *I check release notes against the diff, which per-entry links make
+> possible.*
+
+**Earned:** a real count of one over a named set — "the only one of the six runs
+that finished".
+
+---
+
+## 52. Obituary headline
+
+**Tell:** "X is dead", "long live X", "the death of X", "RIP X" — usually a
+header or a first line.
+
+**Why:** a headline built to be argued with rather than read. It states a
+verdict, which entry 7 already bars in headers, and it borrows a form whose
+function is to overstate. The body then spends its opening paragraph walking the
+claim back, which is the tell that the header was never the finding.
+
+**Fix:** name what changed.
+
+> was: *Peer code review is dead*
+> now: *Three of our four teams dropped the second-approval requirement in July*
+
+**Earned:** the phrase belongs to something quoted or named — a post you are
+citing, a product whose vendor announced end of life.
+
+---
+
 ## Quick self-check before shipping an edit
 
 1. Does any sentence exist to make a finding feel bigger than it is?
@@ -996,3 +1130,6 @@ three".
 14. Does an adverb, a hyphenated compound or an absolute negative carry a claim
     the sentence never shows? Flat certainty has tics of its own; entries 43 to
     47 and `references/corpus.md`.
+15. Does any sentence announce its own honesty, grade an earlier passage, claim
+    a whole where a part was shown, or land a reversal on a bare auxiliary?
+    Entries 48 to 52.
