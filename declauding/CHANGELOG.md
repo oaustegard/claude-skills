@@ -4,6 +4,12 @@ All notable changes to the `declauding` skill are documented in this file. The f
 
 ## [0.7.0] - 2026-08-29
 
+### Other
+
+- declauding 0.7.0: entries 48-52 from the llm-cliche-highlighter update (#780)
+
+## [0.7.0] - 2026-08-29
+
 ### Added
 
 - Entries 48 to 52, a fourth group: the confiding-essayist register. 48
