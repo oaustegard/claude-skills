@@ -1,3 +1,18 @@
+## 0.3.0 — 2026-08-28
+
+- `backlinks` command: Constellation's whole index, not just the five Bluesky
+  paths `interactions` walks. Counts every (collection, path) source, then
+  enumerates one on request — the same two-phase shape, for the same reason.
+- `identity` command: handle renames, PDS migrations and rotation-key changes,
+  read from the PLC audit log. `resolve` says where an account is; this says
+  where it has been.
+- `lexicons` command: which collections are active network-wide, via UFOs.
+  `--others` drops the Bluesky and protocol prefixes, `--hours` windows the
+  leaderboard, `--schema` fetches the published lexicon document.
+- Sized against aturi.to's Atmosphere MCP, which covers the same ground through
+  one hosted upstream. These three go direct to the source instead.
+- First tests for the skill: 19 offline, every claim with a recorded refutation.
+
 ## 0.2.0 — 2026-08-16
 
 - `feed` command: Following timeline rebuilt from the follow graph + PDSes, with
@@ -11,6 +26,12 @@
 # atprotoing - Changelog
 
 All notable changes to the `atprotoing` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+## [0.3.0] - 2026-08-30
+
+### Other
+
+- atprotoing 0.3.0 and browsing-bluesky 0.6.0 (#778)
 
 ## [0.2.0] - 2026-08-16
 

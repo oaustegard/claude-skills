@@ -1,6 +1,37 @@
+## 0.6.0 — 2026-08-28
+
+- Authentication prefers `MUNINN_BSKY_HANDLE` / `MUNINN_BSKY_APP_PASSWORD`,
+  falling back to the unprefixed pair only when no Muninn pair is set. A booted
+  container holds both, and reading the unprefixed one first meant every
+  authenticated read silently came back as the account owner.
+- `BSKY_IDENTITY=muninn|owner` selects one pair outright; a named pair that is
+  absent reads as public rather than substituting the other. An unrecognised
+  value raises.
+- `authenticated_identity()` reports which pair answered, alongside the handle
+  and DID. `get_authenticated_user()` is unchanged.
+- `__init__.py` falls back to a by-path load when exec'd without a parent
+  package, which is what pytest's collector does to a hyphenated skill
+  directory. First tests for the skill: 12, offline.
+
 # browsing-bluesky - Changelog
 
 All notable changes to the `browsing-bluesky` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+## [0.6.0] - 2026-08-30
+
+### Added
+
+- image transcription via Gemini Lite/Flash/3.5-Flash or Anthropic Haiku/Opus (#668)
+- add mapping-features skill for behavioral web app documentation (#432)
+- v5.1.0 — partial IDs, curation, episodic scoring, decision traces, FTS5 improvements
+
+### Other
+
+- atprotoing 0.3.0 and browsing-bluesky 0.6.0 (#778)
+- Deprecate mapping-codebases; adopt ruff 0.16.0 baseline (#747)
+- Remove _MAP.md files, direct agents to tree-sitting for code navigation (#545)
+- Regenerate _MAP.md files after @lat: backlink insertion (#504)
+- Lattice v2: bidirectional source-anchored knowledge graph (#503)
 
 ## [0.5.1] - 2026-02-28
 
