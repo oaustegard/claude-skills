@@ -31,23 +31,68 @@ _TRANSCRIBE_ALIASES = {
 # Module-level session cache (memory only, never persisted)
 _session_cache: dict[str, Any] = {}
 
+#: Credential pairs this module will authenticate with, and the environment
+#: prefix each one reads. Only the prefix varies; the two variable names are
+#: always <PREFIX>BSKY_HANDLE and <PREFIX>BSKY_APP_PASSWORD.
+IDENTITIES = {
+    "muninn": "MUNINN_",
+    "owner": "",
+}
+
+#: Preference order when BSKY_IDENTITY is unset. Muninn first, deliberately.
+#: Both pairs are present in a booted container, and reading the unprefixed
+#: one first meant every "authenticated" read — the following timeline, the
+#: mutes and blocks and labelers that shape it — silently came back as the
+#: account owner, from a skill documented as read-only that was nonetheless
+#: holding an app password with write scope on his account. Measured
+#: 2026-08-28: BSKY_HANDLE resolved to austegard.com, MUNINN_BSKY_HANDLE to
+#: muninn.austegard.com, and nothing in the output said which one answered.
+IDENTITY_ORDER = ("muninn", "owner")
+
+
+def _credentials() -> tuple[str, str, str] | None:
+    """Pick the credential pair to authenticate with.
+
+    `BSKY_IDENTITY` names one exactly, and an incomplete pair under that name
+    is an error rather than a licence to use the other. Unset, the first
+    complete pair in IDENTITY_ORDER wins — so a machine holding only the
+    documented BSKY_* pair still authenticates, and a container holding both
+    stops picking the owner by accident.
+    """
+    wanted = os.environ.get("BSKY_IDENTITY", "").strip().lower()
+    if wanted:
+        if wanted not in IDENTITIES:
+            raise ValueError(
+                f"BSKY_IDENTITY={wanted!r} is not one of {sorted(IDENTITIES)}")
+        order = (wanted,)
+    else:
+        order = IDENTITY_ORDER
+    for name in order:
+        prefix = IDENTITIES[name]
+        handle = os.environ.get(f"{prefix}BSKY_HANDLE", "").strip()
+        password = os.environ.get(f"{prefix}BSKY_APP_PASSWORD", "").strip()
+        if handle and password:
+            return name, handle, password
+    return None
+
 
 def _create_session() -> dict[str, Any] | None:
     """Create authenticated session using environment credentials.
 
-    Looks for BSKY_HANDLE and BSKY_APP_PASSWORD environment variables.
-    App passwords can be created at: Settings → Privacy and Security → App Passwords
+    Reads MUNINN_BSKY_HANDLE / MUNINN_BSKY_APP_PASSWORD, falling back to the
+    unprefixed BSKY_HANDLE / BSKY_APP_PASSWORD when no Muninn pair is set.
+    `BSKY_IDENTITY=owner` selects the unprefixed pair explicitly.
+    App passwords come from Settings → Privacy and Security → App Passwords.
 
     Returns:
         Session dict with accessJwt, refreshJwt, did, handle, or None if no credentials
     """
     global _session_cache
 
-    handle = os.environ.get("BSKY_HANDLE", "").strip()
-    app_password = os.environ.get("BSKY_APP_PASSWORD", "").strip()
-
-    if not handle or not app_password:
+    creds = _credentials()
+    if creds is None:
         return None
+    identity, handle, app_password = creds
 
     try:
         r = requests.post(
@@ -59,6 +104,9 @@ def _create_session() -> dict[str, Any] | None:
         session = r.json()
         # Store creation time for token expiry tracking
         session["_created_at"] = time.time()
+        # Which pair answered. A caller that cannot see this cannot tell
+        # whose following graph, mutes and blocks shaped the reads.
+        session["_identity"] = identity
         _session_cache = session
         return session
     except requests.RequestException:
@@ -87,6 +135,8 @@ def _refresh_session() -> dict[str, Any] | None:
         r.raise_for_status()
         session = r.json()
         session["_created_at"] = time.time()
+        # refreshSession does not echo it back; carry it across.
+        session["_identity"] = _session_cache.get("_identity")
         _session_cache = session
         return session
     except requests.RequestException:
@@ -169,6 +219,20 @@ def get_authenticated_user() -> str | None:
     if session:
         return session.get("handle")
     return None
+
+
+def authenticated_identity() -> dict[str, str] | None:
+    """Which credential pair is answering, and as whom.
+
+    `get_authenticated_user` returns a handle, which does not say whether
+    that handle arrived because it was chosen or because it was the only
+    pair set. Returns {identity, handle, did} or None when unauthenticated.
+    """
+    session = _get_session()
+    if not session or "accessJwt" not in session:
+        return None
+    return {"identity": session.get("_identity", "unknown"),
+            "handle": session.get("handle"), "did": session.get("did")}
 
 
 def clear_session() -> None:

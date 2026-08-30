@@ -2,9 +2,15 @@
 
 from .scripts.atproto import (
     CONSTELLATION,
+    CORE_PREFIXES,
     PLC,
+    UFOS,
     Unavailable,
+    backlinks,
+    identity_history,
     interactions,
+    lexicon_schema,
+    lexicons,
     links,
     links_all,
     records,
@@ -17,9 +23,15 @@ from .scripts.atproto import (
 
 __all__ = [
     "CONSTELLATION",
+    "CORE_PREFIXES",
     "PLC",
+    "UFOS",
     "Unavailable",
+    "backlinks",
+    "identity_history",
     "interactions",
+    "lexicon_schema",
+    "lexicons",
     "links",
     "links_all",
     "records",
