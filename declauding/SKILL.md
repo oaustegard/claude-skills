@@ -1,8 +1,8 @@
 ---
 name: declauding
-description: Removes LLM prose tics from drafts — staged reveals, "it's not X, it's Y", significance tags, abstraction agency, coy headers, fragment cadence, the flatter slop patterns (copula avoidance, participle tails, forced triads, chatbot residue, filler and hedging), the flat-certainty patterns the pass itself produces (bare adverbs, juridical vocabulary, verification compounds, privative coinages, exhaustive negation), and the confiding-essayist patterns (announced honesty, stranded auxiliaries, retroactive significance, totalizing claims, obituary headlines) — and returns plain human technical prose. Use when text needs editing for register, when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make this sound human", "remove the tics/claudisms", or asks for a voice/register pass on a post, README, report, PR description or essay. Also use before publishing any draft Claude wrote. Produces either clean prose or an annotated HTML diff showing every edit with its original and reason.
+description: Removes LLM prose tics from drafts — staged reveals, "it's not X, it's Y", significance tags, abstraction agency, coy headers, fragment cadence, the flatter slop patterns (copula avoidance, participle tails, forced triads, chatbot residue), the flat-certainty patterns the pass itself produces (bare adverbs, juridical vocabulary, verification compounds, privative coinages), and the confiding-essayist patterns (announced honesty, stranded auxiliaries, retroactive significance, totalizing claims, obituary headlines) — and returns plain human technical prose. Use when text needs editing for register, when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make this sound human", "remove the tics/claudisms", or asks for a voice/register pass on a post, README, report, PR description or essay. Also use before publishing any draft Claude wrote. Verifies the rewrite kept every claim. Produces either clean prose or an annotated HTML diff showing every edit with its original and reason.
 metadata:
-  version: 0.7.0
+  version: 0.8.0
 ---
 
 # Declauding
@@ -138,6 +138,22 @@ Lint every string that reaches the reader, not only the body file. Page titles,
 subtitles and deck headers are prose, and a builder that takes them as CLI
 arguments rather than from the file will hide them from this scan.
 
+**2a. Optionally, rank the sentences.**
+
+```
+python3 scripts/declaude_rank.py DRAFT.md --top 15
+```
+
+A fitted direction in embedding space — the mean of `embed(was) - embed(now)`
+over the before/after pairs in `references/register.md` — that sorts sentences by
+how staged they look. It reaches the structural third the regex scan cannot, and
+it decides nothing: read each one and apply the sentence test. On the one pass it
+has been measured against it put all nine edited sentences at a median rank of 13
+of 53, where the regex scan had found one of the nine. It cannot rank documents
+and does not offer a score for one. Needs torch and transformers; every other
+stage is standard library. `references/preservation.md` has the numbers and the
+failures.
+
 **2b. Run the structural review.**
 
 ```
@@ -177,7 +193,28 @@ first instead.
 questions, and the closer (does the last paragraph paraphrase the subtext of
 what preceded it? delete it).
 
-**5. Check what the edit did.** Four failure modes, all of them common:
+**5. Check what the edit did.**
+
+```
+python3 scripts/declaude_diff.py SOURCE.md REWRITE.md
+python3 scripts/declaude_diff.py --git path/to/draft.html --ref HEAD
+```
+
+Run this before reporting the pass done. It compares source against rewrite for
+numbers, names, quotations, code and link targets by presence, and for
+superlative, scope, negation and hedge constructions by count, and reports what
+the edit lost and what it invented. Constructions rather than tokens, because
+rewriting "the format that most invites staged reveals" as "more than most
+formats do" keeps the word and drops the ranking.
+
+An embedding similarity does not substitute for it: on the three real cases in
+`references/preservation.md` the lossy rewrite scores *higher* cosine to the
+source than the faithful one. Paraphrase invariance is what an encoder is trained
+for, and dropping a ranking word is a paraphrase by that measure.
+
+The script guards claims and not voice, and a finding is a question rather than a
+verdict — a rephrasing it cannot see through takes a `--waive`. Four failure
+modes, all of them common:
 - Content lost. Ask it as a question and answer it claim by claim, not paragraph
   by paragraph: *does the rewrite drop a claim the source made?* A dropped
   superlative leaves the paragraph looking intact, which is why the

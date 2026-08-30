@@ -165,6 +165,43 @@ closer, so **a clean report means nothing on its own.**
 Exit code 1 when it finds candidates, 0 when it does not, which makes it usable
 as a pre-commit hook.
 
+## Preservation and rank
+
+Two stages that are not the linter.
+
+`scripts/declaude_diff.py` compares a draft against its rewrite and reports what
+the edit lost and what it invented — numbers, names, quotations, code and link
+targets by presence; superlative, scope, negation and hedge constructions by
+count. Constructions rather than tokens, because rewriting "the format that most
+invites staged reveals" as "more than most formats do" keeps the word and drops
+the ranking. `--git PATH` compares the working tree against a ref, which is what
+CI wants. Standard library, like the linter.
+
+```sh
+python3 scripts/declaude_diff.py SOURCE.md REWRITE.md
+python3 scripts/declaude_diff.py --git blog/post.html --ref HEAD~1
+```
+
+An embedding does not do this job. On three real cases the lossy rewrite scores
+*higher* cosine to the source than the faithful one, because paraphrase
+invariance is what an encoder is trained for and dropping a ranking word is a
+paraphrase by that measure.
+
+`scripts/declaude_rank.py` is where an embedder does useful work: a fitted
+direction in sentence-embedding space, the mean of `embed(was) - embed(now)` over
+the 41 before/after pairs in `references/register.md`. Same content on both
+sides, so the axis is staging and not topic. It sorts a draft's sentences and
+stops there. 76% leave-one-out on the pairs; on one real pass it put all nine
+edited sentences at a median rank of 13 of 53 (p = 0.031) where the regex scan
+found one of nine. It cannot rank documents and does not offer a document score.
+Needs torch and transformers; nothing else here does.
+
+A fitted axis rather than a model judge because a judge takes a prompt, and two
+defensible phrasings of one judging question ranked the same ten texts at -0.50
+to each other. An axis has no question to phrase.
+[`references/preservation.md`](references/preservation.md) has every number,
+including the ones that came back negative.
+
 ## False positives
 
 `tests/sample-clean.md` is human-written prose and must lint to zero.
@@ -174,19 +211,20 @@ candidates across 42 categories.
 ```sh
 python3 scripts/declaude_lint.py tests/sample-tics.md    # 167 candidates
 python3 scripts/declaude_lint.py tests/sample-clean.md   # 0
-python3 scripts/declaude_lint.py SKILL.md --skip-quoted  # 13, all checked
-python3 scripts/declaude_lint.py README.md --skip-quoted # 18, all checked
+python3 scripts/declaude_lint.py SKILL.md --skip-quoted  # 15, all checked
+python3 scripts/declaude_lint.py README.md --skip-quoted # 20, all checked
+python3 scripts/declaude_diff.py tests/sample-clean.md tests/sample-clean.md  # 0
 python3 scripts/declaude_lint.py tests/sample-structure.html   # 10, HTML path
 python3 scripts/declaude_review.py tests/sample-structure.md --slots
 ```
 
-One of the thirteen on `SKILL.md` is the `reuse` detector catching five parallel
+One of the fifteen on `SKILL.md` is the `reuse` detector catching five parallel
 table labels ("Staging shapes, entries…", "Encyclopedic shapes, entries…",
 "Reference-prose shapes, entries…", "Flat-certainty shapes, entries…",
 "Confiding-essayist shapes, entries…"). Five labels in a table series is the
 deliberate repetition entry 27 protects, so it stays.
 
-Three of the eighteen on this README are `load-bearing`, which entry 19 does list
+Three of the twenty on this README are `load-bearing`, which entry 19 does list
 as a metaphor and which here is the name of a repository. A proper name is the
 carve-out `SKILL.md` states and `--skip-quoted` cannot see. One is entry 49
 firing on "Symmetry and antithesis are not" in the Overcorrection list, which is
