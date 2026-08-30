@@ -4,6 +4,12 @@ All notable changes to the `declauding` skill are documented in this file. The f
 
 ## [0.8.0] - 2026-08-30
 
+### Other
+
+- declauding 0.8.0: content preservation and a fitted staging rank (#781)
+
+## [0.8.0] - 2026-08-30
+
 ### Added
 
 - `scripts/declaude_diff.py` — step 5 of the workflow as an exit code. Compares a
