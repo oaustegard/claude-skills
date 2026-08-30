@@ -27,6 +27,12 @@
 
 All notable changes to the `atprotoing` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.3.0] - 2026-08-30
+
+### Other
+
+- atprotoing 0.3.0 and browsing-bluesky 0.6.0 (#778)
+
 ## [0.2.0] - 2026-08-16
 
 ### Other

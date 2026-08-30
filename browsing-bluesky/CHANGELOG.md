@@ -17,6 +17,22 @@
 
 All notable changes to the `browsing-bluesky` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.6.0] - 2026-08-30
+
+### Added
+
+- image transcription via Gemini Lite/Flash/3.5-Flash or Anthropic Haiku/Opus (#668)
+- add mapping-features skill for behavioral web app documentation (#432)
+- v5.1.0 — partial IDs, curation, episodic scoring, decision traces, FTS5 improvements
+
+### Other
+
+- atprotoing 0.3.0 and browsing-bluesky 0.6.0 (#778)
+- Deprecate mapping-codebases; adopt ruff 0.16.0 baseline (#747)
+- Remove _MAP.md files, direct agents to tree-sitting for code navigation (#545)
+- Regenerate _MAP.md files after @lat: backlink insertion (#504)
+- Lattice v2: bidirectional source-anchored knowledge graph (#503)
+
 ## [0.5.1] - 2026-02-28
 
 ### Fixed
