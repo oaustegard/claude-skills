@@ -2,11 +2,55 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [0.7.0] - 2026-08-29
+## [0.8.0] - 2026-08-30
 
-### Other
+### Added
 
-- declauding 0.7.0: entries 48-52 from the llm-cliche-highlighter update (#780)
+- `scripts/declaude_diff.py` — step 5 of the workflow as an exit code. Compares a
+  draft against its rewrite and reports what the edit LOST and what it ADDED.
+  Membership for numbers, names, quotations, code and link targets; counts for
+  superlative, scope, negation and hedge constructions. Standard library only.
+  `--git PATH --ref REF` compares a working tree against a ref.
+- `scripts/declaude_rank.py` and `assets/staging-axis.json` — optional stage 1.5.
+  A fitted direction in sentence-embedding space, the mean of
+  `embed(was) - embed(now)` over the 41 matched pairs in `register.md`, that
+  sorts a draft's sentences by how staged they look. Shortlists; decides nothing.
+  `--fit` refits and reports leave-one-out. Needs torch and transformers, which
+  no other stage does.
+- `references/preservation.md` — the measurements behind both, negatives included.
+
+### Provenance
+
+Written after a pass over a published post dropped a claim three times. The
+linter found 1 of the 8 tics in that draft; the editor caught the three
+regressions on self-review and nothing else would have.
+
+Measured before shipping:
+
+- Cosine similarity cannot do the preservation job. On the three real cases the
+  lossy rewrite scores 0.9396 against the source and the faithful rewrite 0.9128
+  — inverted on the pair that matters, and a threshold passing the first would
+  flag a register-only edit at 0.8914. Paraphrase invariance is what an encoder
+  is trained for. Hence the lexical design.
+- Counting superlative tokens misses the case the check exists for. "The format
+  that most invites staged reveals" rewritten as "more than most formats do"
+  keeps `most`. Counting constructions catches it; the first cut of the regex did
+  not, and missed its own motivating case in testing.
+- The rank axis is 76% leave-one-out on its own pairs, and on the pre-edit post
+  put all nine subsequently-edited sentences at a median rank of 13 of 53 against
+  a chance median of 26 (permutation, 200k draws, p = 0.031).
+- It cannot rank documents: -0.26, p = 0.46 against ten human-graded samples. A
+  cruder centroid axis scored -0.10, p = 0.79. The regex scan scores -0.37 on the
+  same ten and the sign is negative, because its rate measures the flat lexical
+  tells and the samples carrying those stage least. No document score is exposed.
+
+### False-positive budget
+
+`declaude_diff.py` is silent on a file against itself, on a register-only edit
+that changes no claim, and on the shipped version of the post that motivated it.
+It reports both real regressions from that pass. Presence rather than frequency:
+a name used twelve times and now thirteen was not invented, and reporting it is
+how a guard becomes noise.
 
 ## [0.7.0] - 2026-08-29
 
