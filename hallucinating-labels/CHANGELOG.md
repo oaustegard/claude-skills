@@ -14,9 +14,12 @@ things measurement added that the post does not carry:
   scored 0.100 acc@1 against a 0.500 no-model control; re-anchored on register
   it scored 0.525/0.750. The register wording also beat novelty on Gemini across
   all 468 queries (0.564 vs 0.489), so it is strictly better.
-- **The long-item case.** Where item and label do not share a register, writing a
-  label scores half the direct embedding (0.200 vs 0.400 on a 1,273-tag memory
-  corpus). The union of both beats either (0.496). `--union` exists for that.
+- **The long-item case.** On a 1,273-tag memory corpus of 1,500-character
+  documents, the written labels and the direct embedding are complementary:
+  0.500 and 0.400 alone, 0.676 interleaved. `--union` exists for that. Long items
+  also amplify the register error — under the novelty prompt the same corpus
+  reads 0.200, half the control, which is how a prompt bug can look like a
+  boundary on the pattern itself.
 
 `scripts/snap.py` — build/snap CLI, tfidf and minilm backends, `--union`,
 `--min-score`. Arms and artifacts in

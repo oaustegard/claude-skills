@@ -25,10 +25,13 @@ choice instead — that scored 0.701 acc@1 on WANDS against this pattern's 0.564
 This pattern is for the case where the tokens are the problem, and there it beats
 every model-free baseline.
 
-Two more measured rules, both in `SKILL.md`: anchor the prompt on the
-vocabulary's **register**, never on novelty (a Haiku subagent that obeyed
-"never-seen-before" scored 0.100 against a 0.500 no-model control), and use
-`--union` when items are long documents rather than short phrases.
+Two more measured rules, both in `SKILL.md`. Anchor the prompt on the
+vocabulary's **register**, never on novelty — it is the largest single variable
+in the pattern, and the source post gets it wrong. A Haiku subagent that obeyed
+"never-seen-before" scored 0.100 against a 0.500 no-model control; on a
+distinctive vocabulary the same wording cost 30 points and inverted the verdict.
+And pass `--union` for long documents, where the written label and the direct
+embedding are complementary (0.500 and 0.400 alone, 0.676 interleaved).
 
 Origin: Doug Turnbull, ["Don't classify. Hallucinate!"](https://softwaredoug.com/blog/2026/08/10/hypothetical-classifications), 2026-08-10.
 Arms and artifacts: `oaustegard/experiments/hypothetical-classification`.

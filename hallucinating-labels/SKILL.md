@@ -134,43 +134,46 @@ Parse the model's numbered reply **back by index**, not by zipping positionally.
 model drops item 2 of 40, zipping shifts every later item onto its neighbour's label and
 nothing signals it. A dropped item is an empty label and then a `null`.
 
-## Long items are a different case
+## Long items want `--union`, not a different pattern
 
-The pattern replaces direct embedding only when the item and the label are the same kind of
-string. A WANDS query and a WANDS category are both short noun phrases, so writing the
-category is a translation and it wins.
+The written label replaces direct embedding cleanly when item and label are the same kind
+of string — a WANDS query and a WANDS category are both short noun phrases. When the item
+is a 1,500-character document and the label is one word, the written label throws away most
+of the document, and the direct embedding still has it. The two are complementary.
 
-A 1,500-character document and a one-word tag are not. Measured on a memory store
-(1,273 tags, 250 documents, mean 4.8 gold tags each, tfidf):
+Memory store, 1,273 tags, 250 documents of 300-2000 characters, mean 4.8 gold tags, tfidf:
 
 | arm | @1 | @3 | @5 |
 |---|---|---|---|
 | embed the document directly | 0.400 | 0.604 | 0.684 |
-| write 5 tags, snap each | 0.200 | 0.352 | 0.452 |
-| both, interleaved (`--union`) | **0.496** | **0.696** | **0.764** |
+| write 5 tags, **novelty** prompt | 0.200 | 0.352 | 0.452 |
+| write 5 tags, **register** prompt | 0.500 | 0.680 | 0.728 |
+| both, interleaved (`--union`) | **0.676** | **0.848** | **0.876** |
 
-Writing a label compresses the document into one word and throws away everything the
-direct embedding still has — half the accuracy of doing nothing. Asking for five labels
-instead of one does not recover it. The written labels are *complementary* to the direct
-snap, not a substitute: pass `--items` and `--union` and take both.
+Note the middle two rows. With the wrong prompt this corpus says the pattern loses to doing
+nothing by 2x; with the right one it wins, and the union wins by a lot more. Long items
+amplify the register error rather than causing a separate problem — a distinctive
+vocabulary is exactly where novel wording lands furthest from anything legal.
 
-Rule: item and label share a register → write labels and snap them. They do not → `--union`.
+Rule: item and label share a register → write labels and snap them. Item is a long document
+→ do that **and** pass `--items ... --union`. Neither case is a reason to reach for the
+novelty prompt.
 
 ## Failure modes
 
 | signal | cause | fix |
 |---|---|---|
-| Snapped labels are wrong but confident; written labels read like ad copy | novelty-anchored prompt, obeyed | switch to the register prompt; check the written labels before blaming the snap |
+| Snapped labels are wrong but confident; written labels read like ad copy | novelty-anchored prompt, obeyed | switch to the register prompt; read the written labels before blaming the snap — `Hydraulic Styling Thrones` is a prompt bug, not an embedder bug |
 | Everything snaps to the same one or two labels | the register examples are unrepresentative, or the vocabulary has one dominant string | draw examples spanning the vocabulary's breadth |
 | Scores cluster near 0.15 | items and labels share no surface wording | `--backend minilm`, and `--union` if items are long |
 | Item *n* onward all shifted by one | positional zipping of a reply with a dropped line | parse by the emitted index; verify counts match before snapping |
-| Accuracy below the no-model control | you are in the long-item case | `--union`, or drop the model half entirely |
+| Accuracy below the no-model control | novelty-anchored prompt, or a long item without `--union` | fix the prompt first — it cost 30 points on one corpus and 7.5 on another; then add `--union` |
 
 ## Verify it beat doing nothing
 
 **Run the no-model control before shipping this anywhere.** Snap the items directly
 (`--labels items.txt`, no written labels) and compare. On one of the two corpora measured
-here the control won by 2×. If you have no gold labels to score against, hand-check 20
+here the control won by 2x under the wrong prompt. If you have no gold labels to score against, hand-check 20
 items both ways — the control is one command and its absence is how this pattern gets
 adopted where it loses.
 
