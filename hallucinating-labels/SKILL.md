@@ -54,7 +54,7 @@ python3 scripts/snap.py build --vocab categories.txt --out .snap-index.pkl
 Default backend is `tfidf` — sklearn only, no download. Pass `--backend minilm` when
 sentence-transformers and a ~90 MB download are available and the items share no wording
 with the labels; it scored 0.564 to tfidf's 0.528 on WANDS. Where items literally contain
-their own label words, tfidf wins outright (0.400 vs 0.296 on a memory-tag corpus).
+their own label words, tfidf wins outright (0.416 vs 0.356 on a memory-tag corpus).
 
 **2. Write the labels yourself, in batches of 40, using the register prompt below.**
 Write them to a file, one per line, in the same order as the items.
@@ -145,10 +145,10 @@ Memory store, 1,273 tags, 250 documents of 300-2000 characters, mean 4.8 gold ta
 
 | arm | @1 | @3 | @5 |
 |---|---|---|---|
-| embed the document directly | 0.400 | 0.604 | 0.684 |
-| write 5 tags, **novelty** prompt | 0.200 | 0.352 | 0.452 |
-| write 5 tags, **register** prompt | 0.500 | 0.680 | 0.728 |
-| both, interleaved (`--union`) | **0.676** | **0.848** | **0.876** |
+| embed the document directly | 0.416 | 0.628 | 0.712 |
+| write 5 tags, **novelty** prompt | 0.208 | 0.352 | 0.424 |
+| write 5 tags, **register** prompt | 0.508 | 0.700 | 0.792 |
+| both, interleaved (`--union`) | **0.672** | **0.852** | **0.888** |
 
 Note the middle two rows. With the wrong prompt this corpus says the pattern loses to doing
 nothing by 2x; with the right one it wins, and the union wins by a lot more. Long items
@@ -158,6 +158,35 @@ vocabulary is exactly where novel wording lands furthest from anything legal.
 Rule: item and label share a register → write labels and snap them. Item is a long document
 → do that **and** pass `--items ... --union`. Neither case is a reason to reach for the
 novelty prompt.
+
+## Picking the encoder, and why there is no local-LLM version
+
+The encoder is the whole system when you cannot reach an API. Snapping the raw query,
+no model call anywhere, full WANDS set:
+
+| encoder | int8 ONNX | acc@1 | acc@3 |
+|---|---|---|---|
+| all-MiniLM-L6-v2 | 23 MB | 0.417 | 0.564 |
+| bge-small-en-v1.5 | 33 MB | 0.427 | 0.583 |
+| **gte-small** | **33 MB** | **0.455** | 0.594 |
+| bge-base-en-v1.5 | 109 MB | 0.462 | 0.630 |
+
+`gte-small` is the knee. `bge-base` buys +0.007 acc@1 for 3.3x the download.
+
+**Do not substitute a tiny local model for the label-writing half.** Pleias `Monad` (57M)
+and `Baguettotron` (321M) both have `onnx-community` builds — 35 MB and 236 MB at q4f16 —
+so a wholly client-side pipeline packages fine. Neither earns its bytes. As writers they
+score 0.425 and 0.400 acc@1 against a 0.500 no-model control on the same 40 queries: they
+echo the query (`smart coffee table` → `Smart coffee table`) and bleed from the few-shot
+exemplars (`chair and a half recliner` → `Chair & Recycling Bins`). As likelihood
+rerankers over the encoder's top-10 — which asks them for no format compliance at all —
+they score 0.325 and 0.350 against the same 0.500, with the gold label present in that
+top-10 for 82.5% of queries.
+
+The reason is the same one that makes the register prompt matter: what the cheap model
+contributes here is not reasoning but a **prior over how taxonomies name things**, learned
+from web-scale pretraining. A small model trained for reasoning has no retail-taxonomy
+prior, and reasoning does not substitute for one. In a browser, ship the encoder alone.
 
 ## Failure modes
 

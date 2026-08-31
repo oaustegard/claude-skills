@@ -16,11 +16,16 @@ things measurement added that the post does not carry:
   all 468 queries (0.564 vs 0.489), so it is strictly better.
 - **The long-item case.** On a 1,273-tag memory corpus of 1,500-character
   documents, the written labels and the direct embedding are complementary:
-  0.500 and 0.400 alone, 0.676 interleaved. `--union` exists for that. Long items
+  0.508 and 0.416 alone, 0.672 interleaved. `--union` exists for that. Long items
   also amplify the register error — under the novelty prompt the same corpus
-  reads 0.200, half the control, which is how a prompt bug can look like a
+  reads 0.208, half the control, which is how a prompt bug can look like a
   boundary on the pattern itself.
 
 `scripts/snap.py` — build/snap CLI, tfidf and minilm backends, `--union`,
 `--min-score`. Arms and artifacts in
 `oaustegard/experiments/hypothetical-classification`.
+
+Also carries the no-API story: `gte-small` int8 (33 MB) snaps the raw query at 0.455
+acc@1 against MiniLM-L6's 0.417, and neither Pleias `Monad` (57M) nor `Baguettotron`
+(321M) earns a place in the pipeline — 0.425/0.400 as writers and 0.325/0.350 as
+rerankers, against a 0.500 no-model control. In a browser, ship the encoder alone.

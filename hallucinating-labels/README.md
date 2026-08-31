@@ -31,7 +31,10 @@ in the pattern, and the source post gets it wrong. A Haiku subagent that obeyed
 "never-seen-before" scored 0.100 against a 0.500 no-model control; on a
 distinctive vocabulary the same wording cost 30 points and inverted the verdict.
 And pass `--union` for long documents, where the written label and the direct
-embedding are complementary (0.500 and 0.400 alone, 0.676 interleaved).
+embedding are complementary (0.508 and 0.416 alone, 0.672 interleaved).
+
+For a no-API setup, `gte-small` int8 is 33 MB and snaps the raw query at 0.455 acc@1;
+a tiny local LM in place of the writing half makes it worse, not smaller — see `SKILL.md`.
 
 Origin: Doug Turnbull, ["Don't classify. Hallucinate!"](https://softwaredoug.com/blog/2026/08/10/hypothetical-classifications), 2026-08-10.
 Arms and artifacts: `oaustegard/experiments/hypothetical-classification`.
