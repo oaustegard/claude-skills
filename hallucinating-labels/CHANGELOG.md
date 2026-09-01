@@ -29,3 +29,9 @@ Also carries the no-API story: `gte-small` int8 (33 MB) snaps the raw query at 0
 acc@1 against MiniLM-L6's 0.417, and neither Pleias `Monad` (57M) nor `Baguettotron`
 (321M) earns a place in the pipeline — 0.425/0.400 as writers and 0.325/0.350 as
 rerankers, against a 0.500 no-model control. In a browser, ship the encoder alone.
+
+## [0.1.0] - 2026-09-01
+
+### Other
+
+- Add hallucinating-labels skill (#782)
