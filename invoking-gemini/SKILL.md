@@ -201,6 +201,12 @@ callable under a pinned alias (`flash-3.7`, `flash-3.6`, `flash-3.5`,
 `flash-3`), and none has a shutdown date. `gemini-3.1-flash-lite-preview` from
 earlier docs is gone (shut down 2026-05-25).
 
+The Pro tier is off routing. `gemini-3.1-pro-preview` costs 2.7× the input and
+3.2× the output of 3.8 Flash at today's rates and loses to the 3.5+ Flash line
+on the coding and agentic benchmarks that matter here. Do not target it; the
+`pro` alias now resolves to gemini-3.8-flash, and "maximum reasoning" means
+`thinking_level='high'` on Flash.
+
 ### Text / Reasoning Models
 
 | Model | Alias | Input/1M | Output/1M | Context | Notes |
@@ -210,7 +216,7 @@ earlier docs is gone (shut down 2026-05-25).
 | gemini-3.6-flash | `flash-3.6` | $0.75 → $1.50 | $3.75 → $7.50 | 1M / 64K | GA 2026-07-21. ~17% fewer output tokens than 3.5 Flash. Last Flash that accepts `thinking_level='minimal'` (verified 2026-09-03). |
 | gemini-3.5-flash | `flash-3.5` | $1.50 | $9.00 | 1M | GA 2026-05-19. Google's model list now labels it "legacy". Accepts `minimal`. Costs more on output than 3.6–3.8. |
 | gemini-3-flash-preview | `flash-3` | $0.30 | $2.50 | 1M | Older preview Flash, kept for back compat. Google's listed migration target for it is gemini-3.6-flash; no shutdown date. |
-| gemini-3.1-pro-preview | `pro` | $2.00 (≤200K) / $4.00 | $12.00 / $18.00 | 1M | Current Pro tier. 3.5 Pro was announced at I/O 2026-05-19 for June and is still absent from the API model list as of 2026-09-03. |
+| ~~gemini-3.1-pro-preview~~ | — | $2.00 (≤200K) / $4.00 | $12.00 / $18.00 | 1M | **DEPRECATED from routing (2026-09-03).** Price/quality dominated by 3.6+ Flash; 3.5 Flash already beat it on most coding/agentic benchmarks. ID stays callable for pinned code. `pro` now resolves to gemini-3.8-flash. 3.5 Pro was announced at I/O 2026-05-19 for June and is still absent from the API as of 2026-09-03; it gets the same price/quality test before any alias points at it. |
 | gemini-3.5-flash-lite | `lite` | $0.30 | $2.50 | 1M | **Cheap/bulk tier.** GA 2026-07-21. Fastest 3.5-class (350 output tok/sec); beats gemini-3-flash on SWE-Bench Pro and OSWorld-Verified. |
 | ~~gemini-2.5-flash~~ | `stable-flash` | $0.30 | $2.50 | 1M | **DEPRECATED** — 2025-era generation, do not route here. |
 | ~~gemini-2.5-flash-lite~~ | — | $0.10 | $0.40 | 1M | **DEPRECATED** — cheaper, but a 2025-era generation. `lite` now resolves to gemini-3.5-flash-lite. |

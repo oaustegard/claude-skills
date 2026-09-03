@@ -197,13 +197,16 @@ target `flash` (gemini-3.8-flash) instead.
 
 #### gemini-3.1-pro-preview
 
-**Status:** Preview (Pro-tier upgrade pending — 3.5 Pro was announced for
-June 2026 and has not shipped)
-**Alias:** `pro`
+**Status:** Preview. **DEPRECATED from routing 2026-09-03** (Oskar): "its
+Pareto efficiency is too poor compared to the later Flash models." At today's
+rates it costs 2.7× the input and 3.2× the output of 3.8 Flash (1.3× / 1.6× once
+the Flash intro pricing ends), and 3.5 Flash already beat it on most coding and
+agentic benchmarks. The ID stays callable for pinned code.
+**Alias:** none — `pro` now resolves to gemini-3.8-flash. For maximum
+reasoning use Flash with `thinking_level='high'`.
 
 **Strengths:**
-- Most capable Gemini Pro currently in API
-- Advanced intelligence and complex problem-solving
+- Was the most capable Gemini Pro in the API
 - 1M context with tiered pricing above 200K
 
 **Specifications:**
@@ -212,9 +215,7 @@ June 2026 and has not shipped)
 - Multimodal: text, image, video, audio
 
 **Best for:**
-- Complex analysis requiring deep reasoning
-- Tasks where Pro-tier judgment matters more than cost
-- Cases where Flash output isn't quite enough
+- Nothing in new code. Pinned callers only.
 
 **Pricing:**
 - Input: $2.00 / 1M tokens (≤200K), $4.00 (>200K)
@@ -223,8 +224,8 @@ June 2026 and has not shipped)
 
 **Note:** Google announced `gemini-3.5-pro` at I/O on 2026-05-19 for June.
 As of 2026-09-03 it is not in the API model list or on the pricing page;
-DeepMind still lists it as "coming soon". When it ships, `pro` will likely
-repoint there.
+DeepMind still lists it as "coming soon". When it ships it gets the same
+price/quality test against the current Flash before any alias points at it.
 
 ---
 
@@ -374,7 +375,8 @@ with up to 3 input images.
 
 ```
 Default Flash (frontier)?              → gemini-3.8-flash (alias: flash)
-Maximum reasoning?                     → gemini-3.1-pro-preview (alias: pro)
+Maximum reasoning?                     → gemini-3.8-flash, thinking_level='high' (alias: pro)
+Pro tier?                              → off routing since 2026-09-03; see gemini-3.1-pro-preview
 Routine / bulk / cheap / fastest?      → gemini-3.5-flash-lite (alias: lite)
 No-thinking pass (minimal) on Flash?   → gemini-3.6-flash (alias: flash-3.6)
 Pin to prior frontier Flash (3.7)?     → gemini-3.7-flash (alias: flash-3.7)

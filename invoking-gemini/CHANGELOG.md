@@ -13,6 +13,15 @@
   Google says 3.8 "works harder" at higher effort levels, so per-task thinking
   tokens may go up.
 
+### ⚠️ BREAKING — `pro` alias repointed to gemini-3.8-flash; Pro tier off routing
+- Oskar, 2026-09-03: "We should never use 3.1 Pro, its Pareto efficiency is
+  too poor compared to the later Flash models." `gemini-3.1-pro-preview` costs
+  2.7× / 3.2× (in / out) what 3.8 Flash does at today's rates and the 3.5+
+  Flash line already beat it on coding and agentic benchmarks. The ID stays in
+  `MODELS` for pinned callers; the table marks it DEPRECATED. "Maximum
+  reasoning" is now Flash with `thinking_level='high'`. A future 3.5 Pro gets
+  the same test before any alias points at it.
+
 ### Changed — `thinking_level='minimal'` on 3.7 / 3.8 Flash
 - Both models return HTTP 400 for `minimal` (verified live 2026-09-03; 3.6,
   3.5 and 3.5-lite accept it). `invoke_gemini()` now downgrades `minimal` to

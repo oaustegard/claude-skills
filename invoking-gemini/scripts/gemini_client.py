@@ -59,6 +59,9 @@ MODELS = {
     "gemini-3.5-flash": "gemini-3.5-flash",
     # Gemini 3.x — preview (still callable, kept for back compat)
     "gemini-3-flash-preview": "gemini-3-flash-preview",
+    # Gemini 3.1 Pro — DEPRECATED from routing 2026-09-03 (Oskar): its
+    # price/quality is dominated by the 3.6+ Flash line. ID kept callable for
+    # pinned code; `pro` no longer points here.
     "gemini-3.1-pro-preview": "gemini-3.1-pro-preview",
     # Gemini 3.5 Flash-Lite — cheap/bulk tier (GA 2026-07-21)
     "gemini-3.5-flash-lite": "gemini-3.5-flash-lite",
@@ -94,7 +97,10 @@ MODEL_ALIASES = {
     "flash-3.6": "gemini-3.6-flash",
     "flash-3.5": "gemini-3.5-flash",
     "flash-3": "gemini-3-flash-preview",
-    "pro": "gemini-3.1-pro-preview",
+    # `pro` repointed 2026-09-03 from gemini-3.1-pro-preview to the frontier
+    # Flash. The Pro tier is off routing (price/quality dominated by Flash);
+    # "maximum reasoning" is Flash with thinking_level='high'.
+    "pro": "gemini-3.8-flash",
     "lite": "gemini-3.5-flash-lite",
     # DEPRECATED aliases (Gemini 2.5). Retained for back compat only.
     "stable-flash": "gemini-2.5-flash",
