@@ -156,6 +156,13 @@ def _load_env_file(name: str) -> dict:
     return {}
 
 
+# Adversary model. Was gemini-3.1-pro-preview until 2026-09-03; the Pro tier is
+# off routing (Oskar: its price/quality is dominated by the later Flash models).
+# Maximum reasoning on Flash is thinking_level='high', set in _gemini_raw.
+GEMINI_MODEL = 'gemini-3.8-flash'
+GEMINI_THINKING_LEVEL = 'high'
+
+
 def _get_gemini_config() -> tuple:
     """Returns (url, headers) for Gemini API — gateway or direct."""
     # Try Cloudflare AI Gateway first
@@ -164,13 +171,13 @@ def _get_gemini_config() -> tuple:
     gw = os.environ.get('CF_GATEWAY_ID') or proxy.get('CF_GATEWAY_ID')
     token = os.environ.get('CF_API_TOKEN') or proxy.get('CF_API_TOKEN')
     if acct and gw and token:
-        url = f'https://gateway.ai.cloudflare.com/v1/{acct}/{gw}/google-ai-studio/v1beta/models/gemini-3.1-pro-preview:generateContent'
+        url = f'https://gateway.ai.cloudflare.com/v1/{acct}/{gw}/google-ai-studio/v1beta/models/{GEMINI_MODEL}:generateContent'
         return url, {'Content-Type': 'application/json', 'cf-aig-authorization': f'Bearer {token}'}
 
     # Direct Google API
     key = os.environ.get('GOOGLE_API_KEY')
     if key:
-        url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key={key}'
+        url = f'https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={key}'
         return url, {'Content-Type': 'application/json'}
 
     raise ValueError('No Gemini credentials found. Set CF_ACCOUNT_ID/CF_GATEWAY_ID/CF_API_TOKEN or GOOGLE_API_KEY.')
@@ -310,6 +317,7 @@ def _gemini_raw(user_prompt: str, system_prompt: str) -> dict:
     body = {
         'system_instruction': {'parts': [{'text': system_prompt}]},
         'contents': [{'role': 'user', 'parts': [{'text': user_prompt}]}],
+        'generationConfig': {'thinkingConfig': {'thinkingLevel': GEMINI_THINKING_LEVEL}},
     }
     resp = requests.post(url, headers=headers, json=body, timeout=120)
     resp.raise_for_status()
@@ -327,7 +335,8 @@ def _gemini_raw(user_prompt: str, system_prompt: str) -> dict:
             f"Thinking tokens may have consumed the budget. "
             f"Usage: {json.dumps(usage)}"
         )
-    text = parts[0].get('text', '')
+    # Join every non-thought text part; thinking models can return more than one.
+    text = ''.join(p.get('text', '') for p in parts if not p.get('thought'))
     return _parse(text)
 
 
