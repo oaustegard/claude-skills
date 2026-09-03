@@ -131,6 +131,12 @@ input, and got the pitch direction wrong both times.
 
 All notable changes to the `invoking-gemini` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.0] - 2026-09-03
+
+### Other
+
+- invoking-gemini: Gemini 3.8 Flash is the default, add 3.7, retire Pro from routing, handle minimal-thinking 400 (#783)
+
 ## [0.7.0] - 2026-07-23
 
 ### Other
