@@ -2,7 +2,7 @@
 name: challenging
 description: Cross-context adversarial review for deliverables before shipping. Use when producing blog posts, technical recommendations, analysis briefs, code, or any artifact where accuracy matters more than speed. Triggers on "challenge this", "review before shipping", "adversarial pass", "stress test this".
 metadata:
-  version: 0.11.0
+  version: 0.12.0
 ---
 
 # Challenging — Adversarial Review
@@ -139,7 +139,7 @@ result = challenge(
 
 `adversary` accepts:
 - **`auto`** (default) — resolves to gemini > claude > self based on available credentials. Logs the choice.
-- **`gemini`** — Gemini 3.1 Pro. Cross-model + cross-context. Requires Gemini credentials.
+- **`gemini`** — Gemini 3.8 Flash at `thinking_level='high'`. Cross-model + cross-context. Requires Gemini credentials. (Was 3.1 Pro until 2026-09-03; the Pro tier is off routing, its price/quality is dominated by the later Flash models.)
 - **`claude`** — Anthropic API. Cross-context, same model family. **Do not use this in Claude Code** — use the subagent path instead.
 - **`self`** — NOT runnable via `challenge()` (raises with a pointer to `prepare_self()`). Self-challenge requires the caller assistant to produce the adversary response, which a synchronous function cannot do.
 
