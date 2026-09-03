@@ -1,5 +1,49 @@
 # invoking-gemini - Changelog
 
+## 2026-09-03
+
+### ⚠️ BREAKING — `flash` alias and `DEFAULT_MODEL` repointed to gemini-3.8-flash
+- Gemini 3.8 Flash reached GA on 2026-09-02. It is now the registry default and
+  the `flash` alias. Google also shipped 3.7 Flash on 2026-08-13, which this
+  skill missed; both are added to `MODELS`.
+- New pinned aliases `flash-3.7` and `flash-3.6`. `flash-3.5` and `flash-3`
+  are unchanged. Nothing is removed; no 3.x Flash has a shutdown date.
+- Price is the same as 3.6 on Google's current page ($0.75 in / $3.75 out
+  through 2026-12-31, then $1.50 / $7.50), so the swap costs nothing per token.
+  Google says 3.8 "works harder" at higher effort levels, so per-task thinking
+  tokens may go up.
+
+### ⚠️ BREAKING — `pro` alias repointed to gemini-3.8-flash; Pro tier off routing
+- Oskar, 2026-09-03: "We should never use 3.1 Pro, its Pareto efficiency is
+  too poor compared to the later Flash models." `gemini-3.1-pro-preview` costs
+  2.7× / 3.2× (in / out) what 3.8 Flash does at today's rates and the 3.5+
+  Flash line already beat it on coding and agentic benchmarks. The ID stays in
+  `MODELS` for pinned callers; the table marks it DEPRECATED. "Maximum
+  reasoning" is now Flash with `thinking_level='high'`. A future 3.5 Pro gets
+  the same test before any alias points at it.
+
+### Changed — `thinking_level='minimal'` on 3.7 / 3.8 Flash
+- Both models return HTTP 400 for `minimal` (verified live 2026-09-03; 3.6,
+  3.5 and 3.5-lite accept it). `invoke_gemini()` now downgrades `minimal` to
+  `low` on those two model IDs and prints a one-line note to stderr, so callers
+  that pass `minimal` uniformly (transcription, classification) keep working
+  on the new default instead of burning a non-retriable 400 and returning
+  `None`. Measured on 3.8: `low` spent 0 thinking tokens on a one-word reply,
+  the default `medium` spent 79. On 3.7, `low` still spent 45–88 on the same
+  prompt, so the downgrade is not free there — budget output generously.
+- For a true no-thinking pass, pin `flash-3.6` or `lite`.
+
+### Fixed — stale figures in the model tables
+- gemini-3.1-pro-preview output above 200K is $18.00 / 1M, not $24.00.
+- gemini-3.6-flash pricing carried the flat $1.50 / $7.50 from its launch
+  table; Google's pricing page now lists it on the same introductory schedule
+  as 3.7 and 3.8.
+- 3.5 Pro was still described as "slated for June 2026"; it has not shipped
+  as of 2026-09-03.
+- Deprecation table gains the 3.x preview rows and the 2026-10-02 shutdown of
+  `gemini-2.5-flash-image` (the `nano-banana` alias target).
+- Two docstrings still named `gemini-3-flash-preview` as the default.
+
 ## 2026-07-29
 
 ### Fixed — nested Pydantic models raised a bare HTTP 400
@@ -86,6 +130,12 @@ input, and got the pitch direction wrong both times.
 
 
 All notable changes to the `invoking-gemini` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+## [0.8.0] - 2026-09-03
+
+### Other
+
+- invoking-gemini: Gemini 3.8 Flash is the default, add 3.7, retire Pro from routing, handle minimal-thinking 400 (#783)
 
 ## [0.7.0] - 2026-07-23
 
