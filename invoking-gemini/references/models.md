@@ -1,19 +1,108 @@
 # Gemini Models Reference
 
-Detailed information about available Gemini models (as of July 2026).
+Detailed information about available Gemini models (as of September 2026).
 
 ## Model Comparison
 
-### Gemini 3.6 — Frontier Flash (GA, current default)
+### Gemini 3.8 — Frontier Flash (GA, current default)
+
+#### gemini-3.8-flash
+
+**Status:** Generally available (released September 2, 2026)
+**Alias:** `flash` (the current default Flash)
+
+**Strengths:**
+- Google's "most intelligent Flash model", positioned for long-horizon
+  software engineering, autonomous agents, and multi-step enterprise work
+- Vs 3.7 Flash (Google's own numbers): Terminal-Bench 2.1 90.8% vs 81.6%,
+  SWE-Bench Pro 61.6% vs 60.4%, SWE-Atlas 51.9% vs 48.0%, τ³-bench Banking
+  38.1% vs 30.9%, CharXiv 86.2% vs 84.5%; HLE-Verified 54.9%
+- Humanity's Last Exam is flat (45.4% vs 45.7%) — the gains are agentic and
+  tool-use, not open-ended reasoning
+- Artificial Analysis Intelligence Index: 57 at `medium` (3.7 Flash 56,
+  3.6 Flash 52); ~310 output tok/sec
+- Prompt-injection robustness improved (Gray Swan); CBRN and cyber-offense
+  safeguards carried forward
+
+**Specifications:**
+- Context window: 1,048,576 tokens input / 65,536 tokens output
+- Multimodal input: text, image, video, audio, PDF; text output only
+- `thinking_level`: `low`, `medium` (default), `high`. **`minimal` is not
+  supported and returns HTTP 400** ("Thinking level MINIMAL is not supported
+  for this model", verified 2026-09-03). The client downgrades `minimal` to
+  `low` on this model.
+- Google's release note: the model "works harder" on complex tasks — extra
+  reasoning steps, iterative tool calls — so higher effort levels cost more
+  tokens. Measured 2026-09-03: `low` spent 0 thinking tokens on a one-word
+  reply; the default `medium` spent 79.
+- Supports caching, code execution, computer use (preview), file search,
+  function calling, Maps and Search grounding, structured outputs, URL
+  context, Batch / Flex / Priority inference. No audio generation, image
+  generation, or Live API.
+- Google's migration notes for the 3.x line: `thinking_budget` is gone
+  (use `thinking_level`); `temperature` / `top_p` / `top_k` /
+  `candidate_count` are deprecated sampling params on this model.
+
+**Best for:**
+- Default Flash / sub-agent-delegation choice for most tasks
+- Agentic coding loops, terminal automation, multi-file projects
+- Finance/legal agent workflows (Vals Finance Agent V2, Harvey's Legal
+  Agent Benchmark lead their Flash class)
+
+**Pricing:**
+- Input: $0.75 / 1M tokens through 2026-12-31; $1.50 from 2027-01-01
+- Output: $3.75 / 1M tokens through 2026-12-31; $7.50 from 2027-01-01
+  (includes thinking tokens)
+- Context caching $0.075 → $0.15; Batch 50% off
+- 1M context window at base price (no surcharge tier)
+
+Shipped alongside **`gemini-3.8-flash-cyber`** — vulnerability discovery and
+patching (>70% on Google's internal 20-language vuln benchmark, 47.2% pass@1
+on CWE-Bench patching). Access is limited to Google's Fairwind Program
+(government authorities, critical-infrastructure operators, software
+maintainers), so this client cannot alias it.
+
+---
+
+### Gemini 3.7 — Prior Frontier Flash (GA)
+
+#### gemini-3.7-flash
+
+**Status:** Generally available (released August 13, 2026)
+**Alias:** `flash-3.7` (was `flash` for three weeks until 3.8 shipped)
+
+**Strengths:**
+- The coding jump in the 3.x Flash line: DeepSWE v1.1 65.3% vs 49.0% on
+  3.6 Flash, FrontierCode 1.1 43.6% vs 34.4%, AutomationBench 30.4% vs
+  17.0%, WebDev Arena Elo 1588 vs 1538
+- Terminal-Bench 2.1 85.8%, OSWorld-2.0 47.9%, GDM-MRCR v2 (128k) 97.0%
+- Google keeps it "fully supported for efficiency-first workloads". Measured
+  2026-09-03 on a one-word prompt, though, `low` on 3.7 still spent 45–88
+  thinking tokens where `low` on 3.8 spent 0, and a `max_output_tokens=50`
+  call at `low` hit MAX_TOKENS. Budget output generously on this model.
+
+**Specifications:**
+- Context window: 1,048,576 tokens input / 65,536 tokens output
+- Multimodal input: text, image, video, audio, PDF
+- `thinking_level`: `low`, `medium` (default), `high`; **`minimal` returns
+  HTTP 400** (verified 2026-09-03), same as 3.8
+
+**Pricing:**
+- Same schedule as 3.8: $0.75 / $3.75 through 2026-12-31, then $1.50 / $7.50
+
+---
+
+### Gemini 3.6 — Older Flash (GA)
 
 #### gemini-3.6-flash
 
 **Status:** Generally available (released July 21, 2026)
-**Alias:** `flash` (the current default Flash)
+**Alias:** `flash-3.6` (was `flash` until 3.7 shipped)
 
 **Strengths:**
-- Current frontier Flash — builds on 3.5 Flash for coding, knowledge work,
-  and multimodal tasks
+- Builds on 3.5 Flash for coding, knowledge work, and multimodal tasks
+- The last Flash that accepts `thinking_level='minimal'` (verified
+  2026-09-03) — pin here for true no-thinking transcription/extraction
 - ~17% fewer output tokens than 3.5 Flash on the Artificial Analysis index
   (the headline efficiency win — addresses 3.5's verbosity)
 - Quality gains alongside efficiency: DeepSWE 49% vs 37%, MLE-Bench 63.9%
@@ -31,13 +120,13 @@ Detailed information about available Gemini models (as of July 2026).
   notes a slight tone regression vs 3.5 Flash
 
 **Best for:**
-- Default Flash / sub-agent-delegation choice for most tasks
-- Agentic coding loops, terminal automation, multi-file projects
+- Pinning prior-gen behavior, and `minimal`-thinking bulk work
 - Cost-sensitive high-volume agentic work (cheaper output than 3.5)
 
 **Pricing:**
-- Input: $1.50 / 1M tokens
-- Output: $7.50 / 1M tokens (down from 3.5 Flash's $9.00)
+- Same schedule as 3.7 and 3.8 on Google's pricing page (fetched
+  2026-09-03): $0.75 / $3.75 through 2026-12-31, then $1.50 / $7.50. The
+  July table here said $1.50 / $7.50 flat; the intro rate now covers all three.
 - 1M context window at base price (no surcharge tier)
 
 Shipped alongside two sibling models, neither wired into this client's alias
@@ -55,11 +144,12 @@ table:
 
 ---
 
-### Gemini 3.5 — Prior Frontier Flash (GA)
+### Gemini 3.5 — Legacy Flash (GA)
 
 #### gemini-3.5-flash
 
-**Status:** Generally available (released May 19, 2026 at Google I/O)
+**Status:** Generally available (released May 19, 2026 at Google I/O);
+Google's model list now labels it "legacy". No shutdown date.
 **Alias:** `flash-3.5` (was `flash` until 3.6 shipped)
 
 **Strengths:**
@@ -78,7 +168,7 @@ table:
   the model will silently spend output tokens on reasoning)
 
 **Best for:**
-- Pinning to prior-gen Flash behavior when 3.6 output differs
+- Pinning to prior-gen Flash behavior when 3.6–3.8 output differs
 - Agentic coding loops, terminal automation, multi-file projects
 - Multimodal document analysis where structure must be preserved
 
@@ -97,8 +187,9 @@ table:
 **Alias:** `flash-3`
 
 The previous-generation Flash. Use when you need to pin behavior
-established before the 3.5 cutover. New code should target `flash`
-(gemini-3.5-flash) instead.
+established before the 3.5 cutover. Google's deprecation page lists
+gemini-3.6-flash as its replacement, with no shutdown date. New code should
+target `flash` (gemini-3.8-flash) instead.
 
 **Pricing:**
 - Input: $0.30 / 1M tokens
@@ -106,12 +197,16 @@ established before the 3.5 cutover. New code should target `flash`
 
 #### gemini-3.1-pro-preview
 
-**Status:** Preview (Pro-tier upgrade pending — 3.5 Pro slated for June 2026)
-**Alias:** `pro`
+**Status:** Preview. **DEPRECATED from routing 2026-09-03** (Oskar): "its
+Pareto efficiency is too poor compared to the later Flash models." At today's
+rates it costs 2.7× the input and 3.2× the output of 3.8 Flash (1.3× / 1.6× once
+the Flash intro pricing ends), and 3.5 Flash already beat it on most coding and
+agentic benchmarks. The ID stays callable for pinned code.
+**Alias:** none — `pro` now resolves to gemini-3.8-flash. For maximum
+reasoning use Flash with `thinking_level='high'`.
 
 **Strengths:**
-- Most capable Gemini Pro currently in API
-- Advanced intelligence and complex problem-solving
+- Was the most capable Gemini Pro in the API
 - 1M context with tiered pricing above 200K
 
 **Specifications:**
@@ -120,16 +215,17 @@ established before the 3.5 cutover. New code should target `flash`
 - Multimodal: text, image, video, audio
 
 **Best for:**
-- Complex analysis requiring deep reasoning
-- Tasks where Pro-tier judgment matters more than cost
-- Cases where Flash output isn't quite enough
+- Nothing in new code. Pinned callers only.
 
 **Pricing:**
 - Input: $2.00 / 1M tokens (≤200K), $4.00 (>200K)
-- Output: $12.00 / 1M tokens (≤200K), $24.00 (>200K)
+- Output: $12.00 / 1M tokens (≤200K), $18.00 (>200K) — the July table here
+  said $24.00; Google's pricing page says $18.00 (fetched 2026-09-03)
 
-**Note:** Google has signaled `gemini-3.5-pro` rolling out in June 2026.
-When it ships, `pro` alias will likely repoint there.
+**Note:** Google announced `gemini-3.5-pro` at I/O on 2026-05-19 for June.
+As of 2026-09-03 it is not in the API model list or on the pricing page;
+DeepMind still lists it as "coming soon". When it ships it gets the same
+price/quality test against the current Flash before any alias points at it.
 
 ---
 
@@ -278,10 +374,13 @@ with up to 3 input images.
 ## Model Selection Guide
 
 ```
-Default Flash (frontier)?              → gemini-3.6-flash (alias: flash)
-Maximum reasoning?                     → gemini-3.1-pro-preview (alias: pro)
+Default Flash (frontier)?              → gemini-3.8-flash (alias: flash)
+Maximum reasoning?                     → gemini-3.8-flash, thinking_level='high' (alias: pro)
+Pro tier?                              → off routing since 2026-09-03; see gemini-3.1-pro-preview
 Routine / bulk / cheap / fastest?      → gemini-3.5-flash-lite (alias: lite)
-Pin to prior frontier Flash (3.5)?     → gemini-3.5-flash (alias: flash-3.5)
+No-thinking pass (minimal) on Flash?   → gemini-3.6-flash (alias: flash-3.6)
+Pin to prior frontier Flash (3.7)?     → gemini-3.7-flash (alias: flash-3.7)
+Pin to legacy Flash (3.5)?             → gemini-3.5-flash (alias: flash-3.5)
 Pin to older preview Flash?            → gemini-3-flash-preview (alias: flash-3)
 Image generation (fast)?               → nano-banana-2 (alias: image)
 Image generation (high-fidelity)?      → nano-banana-pro (alias: image-pro)
@@ -290,12 +389,22 @@ Image generation (high-fidelity)?      → nano-banana-pro (alias: image-pro)
 ## Thinking Configuration (Gemini 3.x family)
 
 Gemini 3.x models reason before responding. By default, the model spends
-output tokens on reasoning, then on the visible answer. For Gemini 3.5
-Flash specifically, the default is `medium` — down from `high` on prior
-3.x — and the parameter shape changed:
+output tokens on reasoning, then on the visible answer. From Gemini 3.5
+Flash on, the default is `medium` — down from `high` on prior 3.x — and the
+parameter shape changed:
 
 - **Old:** integer `thinking_budget`
 - **New:** string enum `thinking_level` ∈ {`minimal`, `low`, `medium`, `high`}
+
+Which models take `minimal` (all verified live 2026-09-03):
+
+| Model | `minimal` |
+|---|---|
+| gemini-3.8-flash | HTTP 400 — client downgrades to `low` |
+| gemini-3.7-flash | HTTP 400 — client downgrades to `low` |
+| gemini-3.6-flash | accepted |
+| gemini-3.5-flash | accepted |
+| gemini-3.5-flash-lite | accepted |
 
 The Python client exposes this as `invoke_gemini(..., thinking_level="...")`.
 Pass `None` (default) to let the model use its built-in default.
@@ -311,7 +420,7 @@ Pass `None` (default) to let the model use its built-in default.
 - Math, complex analysis
 
 **Why it matters:** A `max_output_tokens=50` request can return empty if
-thinking_level (default `medium` on 3.5) consumes all 50 tokens before
+thinking_level (default `medium` on 3.5–3.8) consumes all 50 tokens before
 emitting visible output. Symptom: response text is empty, `finishReason`
 is `MAX_TOKENS`. Fix: either raise `max_output_tokens` substantially or
 set `thinking_level='minimal'`.
@@ -331,9 +440,15 @@ on Flash-tier models.
 | Model | Status | Migration Target |
 |---|---|---|
 | gemini-3-pro-preview | Retired (March 9, 2026) | gemini-3.1-pro-preview |
-| gemini-2.0-flash-exp | Retiring June 1, 2026 | gemini-3.6-flash |
-| gemini-2.0-flash | Retiring June 1, 2026 | gemini-3.6-flash |
-| gemini-2.0-flash-lite | Retiring June 1, 2026 | gemini-3.5-flash-lite |
+| gemini-3-flash-preview | Callable, no shutdown date | gemini-3.6-flash (Google's listed target) |
+| gemini-3.1-flash-lite-preview | Retired (May 25, 2026) | gemini-3.1-flash-lite |
+| gemini-3.1-flash-lite | Shutdown May 7, 2027 | gemini-3.5-flash-lite |
+| gemini-3.1-flash-image-preview | Shutdown listed June 25, 2026 (still resolves) | gemini-3.1-flash-image |
+| gemini-3-pro-image-preview | Shutdown listed June 25, 2026 (still resolves) | gemini-3-pro-image |
+| gemini-2.5-flash-image (`nano-banana`) | Shutdown October 2, 2026 | gemini-3.1-flash-image |
+| gemini-2.0-flash-exp | Retired June 1, 2026 | gemini-3.6-flash |
+| gemini-2.0-flash | Retired June 1, 2026 | gemini-3.6-flash |
+| gemini-2.0-flash-lite | Retired June 1, 2026 | gemini-3.5-flash-lite |
 | gemini-1.5-pro | Retired (404) | gemini-2.5-pro |
 | gemini-1.5-flash | Retired (404) | gemini-3.6-flash |
 | gemini-1.0-* | Retired (404) | — |
