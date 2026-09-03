@@ -13,6 +13,7 @@ Credential priority:
 
 import json
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -48,7 +49,11 @@ if not HAS_REQUESTS and not HAS_GENAI:
 
 # Text generation models
 MODELS = {
-    # Gemini 3.6 — current frontier Flash (GA 2026-07-21)
+    # Gemini 3.8 — current frontier Flash (GA 2026-09-02)
+    "gemini-3.8-flash": "gemini-3.8-flash",
+    # Gemini 3.7 — prior frontier Flash (GA 2026-08-13)
+    "gemini-3.7-flash": "gemini-3.7-flash",
+    # Gemini 3.6 — older Flash (GA 2026-07-21)
     "gemini-3.6-flash": "gemini-3.6-flash",
     # Gemini 3.5 — prior frontier Flash (GA May 2026)
     "gemini-3.5-flash": "gemini-3.5-flash",
@@ -77,13 +82,16 @@ IMAGE_MODELS = {
     "nano-banana": "gemini-2.5-flash-image",
 }
 
-# Convenience aliases. `flash` points to the current frontier Flash (3.6, GA
-# 2026-07-21); `flash-3.5` and `flash-3` keep stable handles on the prior Flash
-# generations for code that pinned to them. `lite` repointed 2026-07-21 from
-# gemini-2.5-flash-lite to gemini-3.5-flash-lite (BREAKING: ~6x output cost,
-# $0.40 -> $2.50/M, in exchange for a current-generation model).
+# Convenience aliases. `flash` points to the current frontier Flash (3.8, GA
+# 2026-09-02); `flash-3.7`, `flash-3.6`, `flash-3.5` and `flash-3` keep stable
+# handles on the prior Flash generations for code that pinned to them. `lite`
+# repointed 2026-07-21 from gemini-2.5-flash-lite to gemini-3.5-flash-lite
+# (BREAKING: ~6x output cost, $0.40 -> $2.50/M, in exchange for a
+# current-generation model).
 MODEL_ALIASES = {
-    "flash": "gemini-3.6-flash",
+    "flash": "gemini-3.8-flash",
+    "flash-3.7": "gemini-3.7-flash",
+    "flash-3.6": "gemini-3.6-flash",
     "flash-3.5": "gemini-3.5-flash",
     "flash-3": "gemini-3-flash-preview",
     "pro": "gemini-3.1-pro-preview",
@@ -95,7 +103,12 @@ MODEL_ALIASES = {
     "image-pro": "nano-banana-pro",
 }
 
-DEFAULT_MODEL = "gemini-3.6-flash"
+DEFAULT_MODEL = "gemini-3.8-flash"
+
+# Flash 3.7 and 3.8 reject thinking_level='minimal' with HTTP 400 ("Thinking
+# level MINIMAL is not supported for this model"); 3.6, 3.5 and 3.5-lite accept
+# it. All five verified live through the CF gateway on 2026-09-03.
+_MINIMAL_THINKING_UNSUPPORTED = frozenset({"gemini-3.7-flash", "gemini-3.8-flash"})
 
 # ---------------------------------------------------------------------------
 # Cloudflare AI Gateway constants
@@ -567,9 +580,12 @@ def invoke_gemini(
         thinking_level: Reasoning budget for thinking models (Gemini 3.x).
             One of 'minimal', 'low', 'medium', 'high'. Default (None) lets
             the model use its built-in default — 'medium' for 3.x Flash
-            (incl. 3.6), which silently eats output budget. Set 'minimal' for tasks that
+            (incl. 3.8), which silently eats output budget. Set 'minimal' for tasks that
             don't need reasoning (transcription, classification, extraction).
-            Ignored by 2.5 models (which use a different parameter).
+            Flash 3.7 and 3.8 do not accept 'minimal' (HTTP 400); on those the
+            client downgrades it to 'low', the cheapest level they take, and
+            says so on stderr. Ignored by 2.5 models (which use a different
+            parameter).
 
     Returns:
         Response text if successful, None if error
@@ -581,6 +597,12 @@ def invoke_gemini(
     # Silently drop for non-3.x so callers can pass it uniformly without branching.
     if thinking_level is not None and not model_id.startswith("gemini-3"):
         thinking_level = None
+    if thinking_level == "minimal" and model_id in _MINIMAL_THINKING_UNSUPPORTED:
+        print(
+            f"Note: {model_id} does not support thinking_level='minimal'; using 'low'.",
+            file=sys.stderr,
+        )
+        thinking_level = "low"
 
     max_retries = 3
     for attempt in range(max_retries):
@@ -806,7 +828,7 @@ def invoke_with_structured_output(
     Args:
         prompt: The text prompt to send
         pydantic_model: Pydantic model class for response schema
-        model: Model name or alias (default: gemini-3-flash-preview).
+        model: Model name or alias (default: DEFAULT_MODEL, gemini-3.8-flash).
             Aliases: flash, pro, lite, stable-flash, stable-pro
         temperature: Sampling temperature (0.0–1.0)
         image_path: Optional path to a media file for multi-modal input.
@@ -892,7 +914,7 @@ def invoke_parallel(
 
     Args:
         prompts: List of text prompts to process
-        model: Model name or alias (default: gemini-3-flash-preview).
+        model: Model name or alias (default: DEFAULT_MODEL, gemini-3.8-flash).
             Aliases: flash, pro, lite, stable-flash, stable-pro
         temperature: Sampling temperature (0.0–1.0)
         max_workers: Maximum concurrent requests
