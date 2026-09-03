@@ -16,7 +16,7 @@ See [`SKILL.md`](SKILL.md) for the full protocol, profile table, system prompts,
 | Environment | Adversary | How it works | Cost |
 |---|---|---|---|
 | **Claude Code** (primary) | Native sub-Claude via the Task tool | `prepare()` → Task tool → `parse_response()`. Fresh context, same model. | Free |
-| **claude.ai, Codex, headless** with API creds | Gemini 3.1 Pro or Anthropic API | `challenge(adversary='auto')` resolves gemini > claude. Cross-context; gemini is cross-model. | Incremental API call |
+| **claude.ai, Codex, headless** with API creds | Gemini 3.8 Flash (thinking high) or Anthropic API | `challenge(adversary='auto')` resolves gemini > claude. Cross-context; gemini is cross-model. | Incremental API call |
 | **Any environment** | Caller assistant in adversary persona | `prepare_self()` → caller produces JSON in a dedicated response → `parse_response()`. Retains conversation context; explicit persona switch is the discipline. | Free |
 
 `adversary='auto'` (the default for `challenge()`) ladders gemini → claude → self based on credentials. Claude Code callers stay on `prepare()` + Task tool explicitly — subagent is strictly better than self there, and auto-detecting Claude Code is brittle.
