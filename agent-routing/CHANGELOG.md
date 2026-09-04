@@ -2,6 +2,12 @@
 
 All notable changes to the `agent-routing` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.1.0] - 2026-09-04
+
+### Other
+
+- agent-routing 2.1.0: measured cascade rungs, escalation signal, tier gap (#785)
+
 ## [2.1.0] - 2026-09-03
 
 Measured against a 14-repo seeded-bug agentic battery (~120 subagent runs;
