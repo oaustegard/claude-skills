@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.0903.1104"
+    "version": "2026.0904.0123"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -13,7 +13,7 @@
       "name": "ai-and-reasoning",
       "description": "AI model invocation, multi-agent orchestration, prompt distillation, and structured reasoning frameworks.",
       "source": "./plugins/ai-and-reasoning",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",
