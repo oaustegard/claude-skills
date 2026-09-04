@@ -1,10 +1,10 @@
 ---
 name: agent-routing
-description: Decide which model, effort level, and cascade shape each subagent gets, and how to keep improvement loops safe (evaluator-as-selector, stop on regression). Routes on measured cost-per-completed-task rather than per-token price, because a tier's token count varies more by task shape than price varies across tiers. Covers per-model effort semantics, the concision lever, cascade preconditions, context handoff, and watching a subagent fan-out live. Use when spawning subagents via the Agent or Workflow tools, when fanning out more than a handful of agents, or when asked which model or effort a task should get. Grounded in measured calibration (references/calibration-2026-07-15.md) plus a 2026-08 coding-cost study; Managed Agents API specifics are operational, not calibrated.
+description: Decide which model, effort level, and cascade shape each subagent gets, and how to keep improvement loops safe (evaluator-as-selector, stop on regression). Routes on measured cost-per-completed-task rather than per-token price, because a tier's token count varies more by task shape than price varies across tiers. Covers per-model effort semantics, the concision lever, cascade preconditions, context handoff, and watching a subagent fan-out live. Use when spawning subagents via the Agent or Workflow tools, when fanning out more than a handful of agents, or when asked which model or effort a task should get. Grounded in measured calibration (references/calibration-2026-07-15.md), a 2026-08 coding-cost study, and a 2026-09 agentic-repair battery that measured the cascade rungs directly; Managed Agents API specifics are operational, not calibrated.
 compatibility: Designed for Claude Code / Claude Code on the Web — assumes an orchestrator with Agent/Workflow subagent tools exposing per-call model and effort options. Not applicable to claude.ai chat use.
 metadata:
   author: Oskar Austegard and Claude
-  version: "2.0.0"
+  version: "2.1.0"
 ---
 
 # Agent Routing — model, effort, and cascade selection
@@ -103,6 +103,12 @@ enumerate test cases or weigh alternative designs; write it directly* — cut ou
 **37% on Sonnet** and **27% on Haiku**, at no quality cost. It composes with effort.
 Use it on every long-output generation spawn.
 
+**It does not reach work whose output is small.** On agentic bug repair — a patch plus a
+paragraph — the same instruction cut Sonnet output **2.9%**, at no quality change either
+way. The lever acts on deliberation the model would have written down, so a task that
+emits little has little to cut. Measure before carrying it to a new task family; "every
+long-output generation spawn" is the scope, and repair work is not in it.
+
 **Then stop.** Thinking below a model's natural level is load-bearing, and cutting
 into it buys tokens with correctness:
 
@@ -130,6 +136,14 @@ cost 2× the destination's entire job. Compute this before designing the ladder.
 **Second precondition: no verifier ⇒ no cascade.** Route by the table instead;
 silent cheap-tier errors compound with nothing to catch them.
 
+**The verifier's holder makes the escalation call. Never the worker.** A subagent asked
+whether it finished says yes: across 58 graded runs carrying an explicit "did you finish"
+field, 58 said yes and 44 had passed the held-out suite. Every one of the 14 failures
+self-reported success. The workers were not lying — they had passed the tests they could
+see, and those tests stay satisfiable while the task is unfinished. "Try it, and ask for
+help if you fail" therefore fails on exactly the tasks that need escalation. Put the
+decision wherever the stronger check lives; in a fan-out that is the orchestrator.
+
 The shape that worked (measured, 14/14 at 0.41× Opus):
 
 ```
@@ -139,14 +153,39 @@ if verify(result) fails:
                     prior=result, failure=test_output)
 ```
 
-Rungs can be **the same model at different effort** — often better than a tier jump,
-because it keeps rung 1 genuinely cheap.
+**Rung 2 is the same model one effort step up. A tier jump is the exception you justify.**
+Measured twice. On a second battery (14 seeded-bug repos, 2026-09-03) rung 2 ran from an
+identical failed attempt at both settings: `sonnet` @ `medium` and `opus` @ `high` rescued
+the same 4 of 5 tasks and both missed the same fifth, at 11,691 against 32,504 output
+tokens. Composed over the same rung 1, the same-model cascade cost **0.31×** always-`opus`
+and the tier jump **0.76×**. The tier jump costs 2.5× and buys nothing.
+
+**A cascade can beat the frontier solo arm on correctness, not only on cost.** In that run
+the `sonnet`→`sonnet` cascade solved 13/14 where always-`opus` solved 10/14. `opus`
+starting from the issue text fell into the same stop-early trap as `sonnet` on three
+tasks; `opus` starting from the failed patch and the failing assertions fixed all three.
+
+**Caching pushes the same way.** Caches are model-scoped with no escape hatch, so a tier
+jump discards rung 1's prefix while a same-model rung keeps at least the tools and system
+tiers. An `effort` change still invalidates the messages cache on every model, and the
+per-message effort escape hatch (`{"role": "system", "content": [], "output_config":
+{"effort": …}}`, beta `mid-conversation-output-config-2026-07-01`) is
+Opus 5 / Fable 5.1 / Mythos 5.1 only — not Sonnet 5. The real bill gap is therefore wider
+than the output-token ratio above. Every figure in this skill prices output tokens only;
+input and cache effects sit outside its cost model.
 
 **Carry the prior attempt and the raw failure output into the retry.** Informed retry
 fixed **12/12**; a blind re-attempt fixed **9/12** and failed one task *identically
 across all three replicates* — a systematic blind spot re-rolling never escapes. The
 extra input averaged 866 tokens, **5.9%** of the retry's cost. Input is 1/5 the price
 of output, so context is nearly free relative to thinking.
+
+**The artifacts, not the prior model's account of itself.** Adding rung 1's stated
+diagnosis on top of the patch and the assertions did nothing: 13/15 against 12/15 over
+three replicates, 1% fewer output tokens, and the whole difference was one replicate of
+one unstable task. It does not help and it does not anchor — SWE-Router (arXiv
+2607.00053) restarts its strong model from the task description to avoid an anchoring
+effect that is not there. Pass the diff and the test output; skip the rationale.
 
 **Don't pay a frontier model to write guidance.** An Opus diagnosis added zero over
 raw test output in two independent tests, at ~$0.15/task. The failing test already
@@ -221,7 +260,10 @@ iteration 2 and froze on the broken text for every iteration after.
 
 ## Escalation triggers (route up despite the table)
 
-- The verifier fails twice at the same tier.
+- The verifier fails twice at the same tier. **Route up for capability, not for
+  thoroughness** — `opus` @ `high` fell into the same stop-early trap as `sonnet` @ `low`
+  on three of four tasks built to reward a second look. A verifier catches that; a bigger
+  model does not.
 - The task requires weighing trade-offs with no checkable ground truth.
 - Output ships verbatim to a human without review.
 - The subagent must plan its own multi-step tool strategy over many turns.
@@ -259,14 +301,19 @@ Operational, not calibrated. Source: Anthropic Managed Agents notebook
 
 ## Measure before trusting this
 
-Everything above is measured on two batteries: a 300-call deterministic calibration
-(references/calibration-2026-07-15.md) and a 14-task hidden-test coding suite
-(2026-08-17, ~190 subagent runs). Re-measure when:
+Everything above is measured on three batteries: a 300-call deterministic calibration
+(references/calibration-2026-07-15.md), a 14-task hidden-test coding suite (2026-08-17,
+~190 subagent runs), and a 14-repo seeded-bug agentic battery (2026-09-03, ~120 subagent
+runs, `oaustegard/experiments` → `temporal-routing-headroom`) that measured the cascade
+rungs, the escalation signal, and the tier gap against each other. Re-measure when:
 
 - **A model or price revision lands.** Both the verbosity multipliers and the
   cost table above invert on either.
-- **The task family is off both batteries.** No deterministic task has made Haiku
-  fail on correctness yet, so the capability cliff is past what's been probed.
+- **The task family is off all three batteries.** No deterministic task has made Haiku
+  fail on correctness yet, so the capability cliff is past what's been probed. Seeded-bug
+  repair in a small module is now measured as *not* tier-separating: three probe shapes
+  aimed at thoroughness, at ambiguity the tests underdetermine, and at a repo with no test
+  suite at all, and `sonnet` @ `low` solved all six cells against `opus` @ `high`.
 - **Output length differs materially** from what was measured. The whole cost model
   keys on token volume; a 10× longer artifact re-opens the tier question.
 - **You need pass-rate differences of 1–2 tasks.** Run-to-run variance swamps them:
