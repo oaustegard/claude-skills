@@ -2,7 +2,7 @@
 name: optimizing-skills
 description: Disciplined, validation-gated revision of an EXISTING skill so each edit is a measured improvement rather than a guess. Use when editing, revising, or tuning a skill that already exists and there is evidence it underperforms (observed failures, drift, complaints) — invoke by name, or have versioning-skills / creating-skill defer to it before applying edits. Not for authoring a brand-new skill from scratch (use creating-skill) or one-off prose.
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # Optimizing Skills
@@ -30,7 +30,13 @@ improvement from a confident guess.
    silently degrade). `candidate` = `best` + your proposed edits.
 3. **Score both on the check set.** "Run" here = dispatch each check task to the
    **Agent tool** (`subagent_type=general-purpose`) with the skill version in
-   context, or evaluate by hand for small sets. Score **per criterion**, not one
+   context, or evaluate by hand for small sets. Give the scoring agent the skill
+   version and the task, and nothing else. Never hand it the ledger, your
+   revision notes, or the diagnosis that motivated the edit: it will solve the
+   task from those instead of from the skill, and the score stops measuring the
+   skill. WikiSkill (arXiv:2608.27454) ablated exactly this and lost 2.8 points
+   of final quality, 7.8 on their hardest split, by letting the worker read the
+   improver's knowledge store. Score **per criterion**, not one
    collapsed pass/fail. When a task carries several criteria, the criterion that
    decides accept/reject is **the failure that prompted this revision**; the
    others are regression guards that must not get worse. Collapsing criteria
@@ -93,11 +99,44 @@ catch slow drift and regressions that single-edit review misses. (SkillOpt
 fences this region with HTML-comment markers and only rewrites it at epoch
 boundaries — the same idea, manual cadence.)
 
+## Recording rejected proposals
+
+**FIRST action of any revision, before you score anything:**
+
+```bash
+python3 scripts/skill_ledger.py check --skill <name> --before best.md --after candidate.md
+```
+
+Exit 1 means this exact edit was proposed before and failed the gate. Read the
+recorded criterion and score, then propose something else. Do not re-score it.
+
+**After the gate decides, record the outcome — accepted or rejected:**
+
+```bash
+python3 scripts/skill_ledger.py record --skill <name> \
+    --before best.md --after candidate.md --outcome rejected \
+    --criterion "<the triggering failure>" --score-before 0.6 --score-after 0.6
+```
+
+The ledger computes the diff itself and appends it. A rejected candidate is the
+artifact worth keeping. The edit reverts and the record stays. The next
+session cannot see this one, which is why the record has to live outside your
+context rather than in it.
+
+This is WikiSkill's `skill-impact.md` (arXiv:2608.27454), whose outer loop
+keeps a never-rolled-back record of every proposal and its fate while the skill
+itself rolls back. Their proposer is told in prose not to repeat rejected
+approaches. `check` makes that mechanical instead, so it no longer depends on
+anyone having read the ledger. The script lives in claude-workspace at
+`scripts/skill_ledger.py`.
+
 ## Carry memory across revisions
 
-After a revision, record what you learned about editing **this** skill — which
-kinds of edits helped, which were brittle, redundant, or harmful — via
-`remember()` tagged with the skill name. Before the next revision, `recall()`
+The ledger above holds the artifacts: which diffs were tried and how they
+scored. `remember()` holds the judgment the diffs cannot carry. After a
+revision, record what you learned about editing **this** skill — which kinds of
+edits helped, which were brittle, redundant, or harmful — via `remember()`
+tagged with the skill name. Before the next revision, `recall()`
 it. This is the compounding part: each revision starts smarter than the last,
 the way SkillOpt's optimizer-side meta-skill conditions its future edits.
 
@@ -122,6 +161,9 @@ and verify each edit landed before scoring.
 - [ ] Candidate scored per-criterion against `best`; accept decided by the triggering-failure criterion, others as regression guards; shipped only if strictly better
 - [ ] For Agent-compiled artifacts (down-skilling, creating-skill): ≥2 author samples per version, or a fixed author across arms
 - [ ] Hard-won core left untouched unless doing a deliberate longitudinal review
+- [ ] Candidate run through `skill_ledger.py check` before scoring; a repeat was dropped, not re-scored
+- [ ] Scoring agent given the skill version and the task only, never the ledger or the diagnosis
+- [ ] Gate outcome recorded via `skill_ledger.py record`, rejections included
 - [ ] Lesson about editing this skill recorded via `remember()`
 
 For the deeper "dispatch reflection/scoring to the Agent tool" recipe and the
