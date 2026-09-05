@@ -2,6 +2,30 @@
 
 All notable changes to the `optimizing-skills` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.3.0] - 2026-09-05
+
+### Added
+
+- **Ledger step.** Every revision now runs `skill_ledger.py check` before
+  scoring and `skill_ledger.py record` after the gate decides, rejections
+  included. Previously a rejected candidate was discarded with nothing written
+  down, so a later session with no view of this one could propose the same edit
+  and pay to score it again. Imported from WikiSkill's `skill-impact.md`
+  (arXiv:2608.27454); the script lives in claude-workspace
+  (`scripts/skill_ledger.py`) and computes the diff itself rather than
+  accepting one from the proposing model.
+
+### Changed
+
+- **Gate step 3 isolates the scoring agent.** It receives the skill version and
+  the check task only, never the ledger, the revision notes, or the diagnosis
+  behind the edit. WikiSkill ablated this and measured final quality falling
+  from 63.7 to 60.9 on average, and 72.6 to 64.8 on their hardest split, when
+  the worker could read the improver's knowledge store.
+- **`remember()` is now scoped to judgment.** The ledger carries the diffs and
+  their scores; the memory carries what was learned about editing this
+  particular skill.
+
 ## [0.2.0] - 2026-05-29
 
 ### Other
