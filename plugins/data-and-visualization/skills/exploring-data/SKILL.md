@@ -2,7 +2,7 @@
 name: exploring-data
 description: Exploratory data analysis. Use when users upload .csv/.xlsx/.json/.parquet files or request "explore data", "analyze dataset", "EDA", "profile data". Small files get ydata-profiling HTML/JSON reports; large files (over 200MB or 5M rows) get fixed-memory DuckDB/sketch profiling. Also covers near-duplicate row detection, cross-file key overlap ("can these join?"), dataset drift vs a stored baseline, and time-series profiling.
 metadata:
-  version: 0.1.2
+  version: 0.2.0
 ---
 
 # Exploring Data
@@ -124,10 +124,13 @@ questions profilers don't:
 
 ### Near-duplicate rows
 ```bash
-python3 sketch_ops.py dups <file> [--threshold 0.9] [--cols a,b,c]
+python3 sketch_ops.py dups <file> [--threshold 0.9] [--cols a,b,c] [--unweighted]
 ```
 Exact duplicates counted by hash; near-duplicates via MinHash LSH over row
-tokens. Use `--cols` to restrict to the columns that define identity.
+tokens. `--threshold` is a **weighted** Jaccard cutoff: a token occurring c
+times in a row counts c times, so `new york new york` and `york new` score 0.5
+rather than 1.0. Pass `--unweighted` for set semantics, where repeats are
+discarded. Use `--cols` to restrict to the columns that define identity.
 
 ### Key overlap / join feasibility
 ```bash
