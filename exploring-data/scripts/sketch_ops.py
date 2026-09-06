@@ -2,7 +2,8 @@
 """Sketch-based exploration ops that profilers miss. Fixed memory, any file size.
 
 Subcommands:
-  dups <file> [--threshold 0.9] [--cols a,b]   near-duplicate row detection (MinHash LSH)
+  dups <file> [--threshold 0.9] [--cols a,b] [--unweighted]
+                                               near-duplicate row detection (MinHash LSH)
   overlap <fileA> <fileB> --key <col> [--key-b <col>]   key overlap / join feasibility (theta sketch)
   snapshot <file> --out <sketches.json>        persist HLL+KLL sketches per column
   drift <file> --baseline <sketches.json>      compare current file against a snapshot
@@ -12,6 +13,7 @@ Files stream through DuckDB in batches; sketches are the only state held.
 import base64
 import json
 import sys
+from collections import Counter
 from pathlib import Path
 
 try:
@@ -49,6 +51,28 @@ def batches(con, sql):
         yield rows
 
 
+def row_minhash(tokens, weighted=True, num_perm=128):
+    """MinHash over a row's tokens.
+
+    Weighted (the default) inserts c distinct elements (t, 0) ... (t, c-1) for
+    a token t occurring c times, so the signature estimates the weighted
+    Jaccard index sum(min(a_i, b_i)) / sum(max(a_i, b_i)). Unweighted collapses
+    the tokens to a set: `new york new york` and `york new` then score 1.0
+    against each other, because MinHash.update keeps a per-permutation minimum
+    and hashing a token twice changes nothing. Rows whose tokens are all
+    distinct produce the same signature either way.
+    """
+    m = MinHash(num_perm=num_perm)
+    if weighted:
+        for tok, c in Counter(tokens).items():
+            for j in range(c):
+                m.update(f"{tok}\x00{j}".encode())
+    else:
+        for tok in tokens:
+            m.update(tok.encode())
+    return m
+
+
 def cmd_dups(argv):
     path = Path(argv[0])
     thresh = float(argv[argv.index("--threshold") + 1]) if "--threshold" in argv else 0.9
@@ -56,6 +80,7 @@ def cmd_dups(argv):
     src = reader_sql(path)
     cols = ('"' + '", "'.join(argv[argv.index("--cols") + 1].split(",")) + '"'
             ) if "--cols" in argv else "*"
+    weighted = "--unweighted" not in argv
     lsh = MinHashLSH(threshold=thresh, num_perm=128)
     exact_seen, exact_dups, clusters, i = set(), 0, [], 0
     for rows in batches(con, f"SELECT {cols} FROM {src}"):
@@ -66,16 +91,15 @@ def cmd_dups(argv):
                 exact_dups += 1
                 continue
             exact_seen.add(key)
-            m = MinHash(num_perm=128)
-            for tok in " ".join(key).lower().split():
-                m.update(tok.encode())
+            m = row_minhash(" ".join(key).lower().split(), weighted=weighted)
             near = lsh.query(m)
             if near:
                 clusters.append((near[0], i))
             lsh.insert(f"row{i}", m)
     print(f"# Near-duplicate scan: {path.name}")
+    metric = "weighted Jaccard" if weighted else "Jaccard"
     print(f"{i:,} rows; {exact_dups:,} exact duplicates; "
-          f"{len(clusters):,} near-duplicate pairs at Jaccard>={thresh}")
+          f"{len(clusters):,} near-duplicate pairs at {metric}>={thresh}")
     for anchor, dup in clusters[:10]:
         print(f"  {anchor} ~ row{dup}")
     if len(clusters) > 10:

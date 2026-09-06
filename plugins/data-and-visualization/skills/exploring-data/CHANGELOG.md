@@ -2,6 +2,21 @@
 
 All notable changes to the `exploring-data` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.2.0] - 2026-09-06
+
+### Fixed
+
+- `scripts/sketch_ops.py dups`: build each row's MinHash from token *counts*, not the token set. `MinHash.update` keeps a per-permutation minimum, so hashing a token twice changed nothing and `new york new york` scored Jaccard 1.0 against `york new`. A token occurring c times now contributes c distinct elements `(t, 0) … (t, c-1)`, which makes the signature estimate the weighted Jaccard index `sum(min(a_i, b_i)) / sum(max(a_i, b_i))`. Rows whose tokens are all distinct are unaffected.
+
+### Added
+
+- `dups --unweighted`: keeps the pre-0.2.0 set semantics for callers that want them.
+- `tests/test_sketch_ops.py`: covers both metrics, including a pair that differs only in token counts.
+
+### Changed
+
+- The `dups` summary line now names the metric it used — `weighted Jaccard>=` by default, `Jaccard>=` under `--unweighted`.
+
 ## [0.1.2] - 2026-08-25
 
 ### Fixed
