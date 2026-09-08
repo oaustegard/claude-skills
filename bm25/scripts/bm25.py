@@ -2,8 +2,9 @@
 """
 bm25.py — ranked content search over any corpus, powered by bm25s.
 
-Stateless: each invocation walks the corpus, builds an index in memory,
-runs the queries, prints results, exits. No persistence, no cache.
+Each invocation walks the corpus, builds an index in memory, runs the queries,
+prints results, exits. A session-local disk cache under /home/claude/.bm25-cache
+lets a repeat run against the same corpus skip the rebuild; --no-cache bypasses it.
 
 CORPUS is one of:
   - a local directory path
