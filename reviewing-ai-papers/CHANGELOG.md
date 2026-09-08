@@ -4,6 +4,12 @@ All notable changes to the `reviewing-ai-papers` skill are documented in this fi
 
 ## [0.4.0] - 2026-09-08
 
+### Other
+
+- reviewing-ai-papers 0.4.0: the ablation the paper did not run (#790)
+
+## [0.4.0] - 2026-09-08
+
 ### Added
 
 - "The ablation the paper did not run": a four-step check over the paper's own
