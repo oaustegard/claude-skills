@@ -2,7 +2,7 @@
 name: semantic-grep
 description: In-process semantic search over text files or in-memory strings, using Gemini embeddings via the CF AI Gateway. Use when user wants fuzzy/conceptual search where exact-keyword grep would miss — "sessions discussing regulatory constraints", "code about retry logic", "notes mentioning burnout even if the word isn't there". Complements searching-codebases (regex/AST) and extracting-keywords (YAKE). Do NOT use when an exact string/regex match is what's wanted — grep/rg wins on speed and precision there.
 metadata:
-  version: 0.2.0
+  version: 0.2.1
 ---
 
 # Semantic Grep
@@ -130,7 +130,7 @@ was text-only and rejected non-text input with HTTP 400:
 
 `gemini-embedding-2-preview` (March 2026) is multimodal and currently top of MTEB. Set `model="gemini-embedding-2-preview"` to opt in once the preview stabilizes.
 
-## Limitations (v0.1.1)
+## Limitations
 
 - **No persistent index.** Every call re-embeds the corpus. Fine for <~1K chunks; prohibitive for real knowledge bases. Phase 2: cache embeddings by content hash.
 - **Token budget is approximated by char count (×1.5).** Conservative for mixed-script text; over-truncates English slightly. Real tokenizer would use the Gemini tokenizer endpoint but costs an extra call per embed.

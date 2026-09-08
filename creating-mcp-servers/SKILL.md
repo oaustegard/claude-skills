@@ -2,7 +2,7 @@
 name: creating-mcp-servers
 description: Creates production-ready MCP servers using FastMCP v2. Use when building MCP servers, optimizing tool descriptions for context efficiency, implementing progressive disclosure for multiple capabilities, or packaging servers for distribution.
 metadata:
-  version: 1.1.0
+  version: 1.2.0
 ---
 
 # Creating MCP Servers
@@ -11,19 +11,11 @@ Build production-ready MCP servers using FastMCP v2 with optimal context efficie
 
 ## Core Capabilities
 
-1. **Apply mandatory patterns** - Four critical requirements for consistency
+1. **Apply the core patterns** - Four requirements for consistency
 2. **Implement progressive disclosure** - Gateway patterns achieving 85-93% token reduction  
 3. **Optimize tool descriptions** - 65-70% token reduction through proper patterns
 4. **Bundle servers** - Package as MCPB files with validation
 5. **Proven gateway patterns** - Three complete implementations (Skills, API, Query)
-
-## Trigger Patterns
-
-**Activate this skill when:**
-- "MCP server", "create MCP", "build MCP", "FastMCP"
-- "progressive disclosure", "gateway pattern", "context efficient"
-- "optimize MCP", "reduce context", "tool descriptions"
-- "MCPB", "bundle MCP", "package server"
 
 ## Architecture Decision
 
@@ -53,7 +45,7 @@ Need FastMCP documentation?
 
 ## Mandatory Patterns (Summary)
 
-Four critical requirements for ALL implementations:
+Every implementation should meet these four requirements:
 
 1. **uv (never pip)** - `uv pip install fastmcp`
 2. **Optimized tool descriptions** - Annotations, Annotated, concise docstrings
@@ -92,7 +84,7 @@ Achieves 85-93% baseline reduction. See [references/PROGRESSIVE_DISCLOSURE.md](r
 Read LLMS_TXT.md → Find relevant URLs → web_fetch documentation
 
 ### Phase 2: Implement
-Load appropriate reference based on architecture decision. Apply all four mandatory patterns.
+Load appropriate reference based on architecture decision. Apply all four patterns.
 
 ### Phase 3: Package (Optional)
 ```bash
@@ -109,7 +101,7 @@ See [references/MCPB_BUNDLING.md](references/MCPB_BUNDLING.md) for manifest form
 - [LLMS_TXT.md](references/LLMS_TXT.md) - Complete FastMCP v2 documentation URLs
 
 **Core patterns:**
-- [MANDATORY_PATTERNS.md](references/MANDATORY_PATTERNS.md) - Four critical requirements
+- [MANDATORY_PATTERNS.md](references/MANDATORY_PATTERNS.md) - the four core requirements
 - [PROGRESSIVE_DISCLOSURE.md](references/PROGRESSIVE_DISCLOSURE.md) - Architecture for 5+ capabilities
 
 **Implementation:**

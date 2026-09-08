@@ -2,7 +2,7 @@
 name: categorizing-bsky-accounts
 description: Analyze and categorize Bluesky accounts by topic using keyword extraction. Use when users mention Bluesky account analysis, following/follower lists, topic discovery, account curation, or network analysis.
 metadata:
-  version: 0.2.1
+  version: 0.3.0
 ---
 
 # Categorizing Bluesky Accounts
@@ -230,44 +230,8 @@ This agentic pattern is more flexible than hardcoded keyword matching.
 **Built-in integration:**
 - **extracting-keywords**: Automatically delegates keyword extraction to this skill's optimized YAKE venv with domain-specific stopwords
 
-## Example Sessions
+## Categorizing Output
 
-**User:** "Can you analyze the accounts I follow on Bluesky and tell me what topics they focus on?"
-
-**Claude:**
-```bash
-python scripts/bluesky_analyzer.py --following user-handle.bsky.social --stopwords ai
-```
-
-Based on the output, I can see you follow:
-- **AI/ML researchers** (15 accounts): Focus on LLM safety, alignment, interpretability
-- **Software engineers** (20 accounts): Web development, React, TypeScript, DevOps
-- **Writers** (8 accounts): Tech journalism, newsletters, long-form content
-- **Scientists** (7 accounts): Climate science, biotech, physics
-
-**User:** "Find ML researchers in @alice's network"
-
-**Claude:**
-```bash
-python scripts/bluesky_analyzer.py --following alice.bsky.social --stopwords ai
-```
-
-I found 23 ML researchers in Alice's network:
-- 8 working on LLM alignment and safety
-- 6 focused on model evaluation and benchmarks
-- 5 in ML infrastructure and MLOps
-- 4 in computer vision and multimodal models
-
-**User:** "Here's a list of 30 accounts, categorize them"
-
-**Claude:**
-```bash
-python scripts/bluesky_analyzer.py --file accounts.txt --stopwords ai
-```
-
-Categorized into:
-- Climate Tech (8 accounts)
-- Biotech (6 accounts)
-- Fintech (5 accounts)
-- AI/ML (7 accounts)
-- Other (4 accounts)
+Group accounts by topic from their bio + keywords, using judgment rather than
+a fixed taxonomy — the categories and counts follow from what's actually in
+the data, not a template.

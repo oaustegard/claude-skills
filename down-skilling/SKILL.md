@@ -9,7 +9,7 @@ description: >-
   a smaller model with high reliability.
 metadata:
   author: Oskar Austegard and Opus
-  version: 1.3.0
+  version: 1.3.1
 ---
 
 # Down-Skilling: Opus → Haiku Distillation
@@ -30,8 +30,8 @@ needs stated explicitly.
 
 ## Economics: Why Examples Are Free
 
-Opus 4.8 costs 5× Haiku 4.5 on both sides ($5/$25 vs $1/$5 per MTok;
-2026-07 pricing). A task that costs $1.00 on Opus costs ~$0.20 on Haiku —
+Opus 5 costs 5× Haiku 4.5 on both sides ($5/$25 vs $1/$5 per MTok;
+2026-09 pricing). A task that costs $1.00 on Opus costs ~$0.20 on Haiku —
 but only if Haiku gets it right on the first try. One retry halves the
 savings; a few retries makes Haiku more expensive.
 

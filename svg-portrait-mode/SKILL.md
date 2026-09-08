@@ -2,7 +2,7 @@
 name: svg-portrait-mode
 description: 'Portrait Mode for SVGs — foveated vectorization with 4-zone selective detail. Combines vision annotations, MediaPipe segmentation/landmarks, and optional saliency. Like phone portrait mode, but vectorized. Use when vectorizing a portrait or photo where subject detail should outrank background detail.'
 metadata:
-  version: 0.6.2
+  version: 0.7.0
 ---
 
 # SVG Portrait Mode
@@ -173,8 +173,8 @@ Optional MediaPipe models (auto-downloaded on first use):
 - `blaze_face_short_range.tflite` — face detection fallback
 - `face_landmarker.task` — precise face oval (478 mesh points)
 
-Note: MediaPipe selfie segmenter is NOT used in v0.6.0. Zone detection comes from
-agent bboxes, with MP used only for face landmark refinement.
+Note: MediaPipe selfie segmenter is not used. Zone detection comes from agent
+bboxes, with MP used only for face landmark refinement.
 
 ```bash
 pip install opencv-python-headless scikit-image scipy scikit-learn --break-system-packages -q
@@ -202,25 +202,3 @@ comp.paste(orig_r, (0, 0))
 comp.paste(rend_r, (orig_r.width + gap, 0))
 comp.save('comparison.png')
 ```
-
-## What Changed from v0.5.0
-
-### Deleted
-- Per-zone image-to-svg calls (4 pipeline runs)
-- Per-zone smoothing (kuwahara, oilpaint per zone)
-- ClipPath compositing
-- Opaque crop + translate trick
-- Multi-pass segmentation (21 IM transforms × MP segmenter)
-- MediaPipe selfie segmenter dependency
-
-### Kept
-- Agent annotation API (focus_targets, focus_edges with bboxes)
-- MediaPipe face landmarks for precise face ovals
-- Four-zone concept (target / edge / periphery / background)
-
-### Added
-- Single-pass pipeline with unified palette
-- Zone-aware contour simplification (epsilon + min_area per zone)
-- Per-zone style transforms (desaturate, mute, warm/cool, opacity)
-- Automatic periphery generation (dilated foreground buffer)
-- Zone-tagged shapes in SVG output (<g> groups)

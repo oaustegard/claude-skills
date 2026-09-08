@@ -2,7 +2,7 @@
 name: sorting-groceries
 description: Sort grocery lists by aisle order using store aisle sign photos. Build aisle maps from uploaded images, match items to aisles, and output optimized shopping routes. Use when users upload aisle sign photos, request grocery list sorting, want shopping trip optimization, need store layout mapping, or mention grocery list organization.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Sorting Groceries by Aisle
@@ -24,15 +24,11 @@ Two inputs are needed. Prompt for whichever is missing:
 1. **Aisle sign images** — Photos of aisle markers, hanging signs, or endcap labels. Each typically shows an aisle number and category keywords (e.g., "Aisle 5: Coffee, Tea, Cocoa").
 2. **Grocery list** — Text, pasted note, or photo of a handwritten list. Any format.
 
-## Core Workflow
+## Building the Aisle Map
 
-### Step 1: Build the Aisle Map
-
-Read each uploaded aisle sign image. Extract:
-- **Aisle number** (or label like "A5", "Aisle 12")
-- **Category descriptions** exactly as printed (e.g., "Pasta, Sauces, Canned Vegetables")
-
-Compile into a structured map:
+Read each uploaded aisle sign image for its aisle number (or label, e.g. "A5")
+and category text exactly as printed (e.g., "Pasta, Sauces, Canned
+Vegetables"). Compile into a structured map:
 
 ```
 Aisle 1: Bread, Bakery Items, Tortillas
@@ -41,11 +37,14 @@ Aisle 3: Pasta, Sauces, Canned Goods
 ...
 ```
 
-If an image is blurry or partially unreadable, note what was legible and flag uncertainty.
+If an image is blurry or partially unreadable, note what was legible and flag
+uncertainty rather than guessing.
 
-### Step 2: Identify Perimeter Zones
+## Perimeter Zones
 
-Grocery stores have perimeter sections without numbered aisles. Infer these from context or common knowledge when not covered by the uploaded signs:
+Grocery stores also have unnumbered perimeter sections. Use the user's own
+signage wherever their photos cover it; otherwise fall back to this typical
+layout, run counterclockwise from the entrance:
 
 | Zone | Typical items |
 |------|---------------|
@@ -56,29 +55,20 @@ Grocery stores have perimeter sections without numbered aisles. Infer these from
 | **Meat & Seafood** | Fresh/frozen meat, poultry, fish |
 | **Frozen** | Frozen meals, ice cream, frozen vegetables |
 
-Position perimeter zones in typical store flow: **Produce → Deli/Bakery → Meat/Seafood → Dairy → Frozen** (usually along the store's outer walls, counterclockwise from entrance).
+Typical flow: **Produce → Deli/Bakery → Meat/Seafood → Dairy → Frozen**.
 
-If the user's aisle photos already include these sections, use the actual signage instead of defaults.
+## Matching Items to Aisles
 
-### Step 3: Parse the Grocery List
+Parse every item from the user's list, preserving their original wording
+alongside any normalized form (e.g. "parm" → parmesan cheese; "2 lbs chicken
+breast" → chicken breast, 2 lbs). Match each item to the aisle or perimeter
+zone its category text best fits. When an item could plausibly sit in more
+than one place (honey: baking vs. condiments), assign the most likely one and
+add a note rather than guessing silently — see Multi-Aisle Items below. An
+item that matches nothing goes to "couldn't place" rather than being forced
+into a guessed aisle.
 
-Extract every item from the user's list. Normalize:
-- "2 lbs chicken breast" → item: **chicken breast**, quantity: 2 lbs
-- "eggs" → item: **eggs**, quantity: (unspecified)
-- "parm" → item: **parmesan cheese**
-
-Preserve the user's original wording alongside any normalized form.
-
-### Step 4: Match Items to Aisles
-
-For each grocery item, find the best aisle match:
-
-1. **Direct keyword match** — Item name appears in or closely matches an aisle's category text (e.g., "pasta" → "Aisle 3: Pasta, Sauces")
-2. **Category inference** — Item belongs to a category listed on a sign (e.g., "marinara" → "Aisle 3: Sauces")
-3. **Perimeter zone match** — Item is a fresh/perishable product that lives on the store perimeter (e.g., "bananas" → Produce)
-4. **Best guess with note** — Item could plausibly be in multiple aisles. Assign the most likely one and add a note (e.g., "honey — Aisle 4: Baking, but may also be in Aisle 7: Condiments")
-
-### Step 5: Output the Sorted List
+## Output
 
 Present the final list grouped by aisle in store-walk order:
 

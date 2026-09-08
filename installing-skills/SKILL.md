@@ -2,7 +2,7 @@
 name: installing-skills
 description: Install skills from github.com/oaustegard/claude-skills into /mnt/skills/user. Use when user mentions "install skills", "load skills", "add skills", "update skills", "refresh skills", or references a skill not currently installed.
 metadata:
-  version: 0.1.0
+  version: 0.1.1
 ---
 
 # Installing Skills
@@ -37,8 +37,6 @@ Execute installation automatically when:
 - User explicitly requests skill installation/update
 - User references a skill not present in `/mnt/skills/user`
 - User mentions missing capabilities that match known skill patterns
-
-After installation, proceed with user's original request.
 
 ## Verification
 
