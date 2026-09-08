@@ -2,6 +2,23 @@
 
 All notable changes to the `reviewing-ai-papers` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.4.0] - 2026-09-08
+
+### Other
+
+- reviewing-ai-papers 0.4.0: the ablation the paper did not run (#790)
+
+## [0.4.0] - 2026-09-08
+
+### Added
+
+- "The ablation the paper did not run": a four-step check over the paper's own
+  ablation tables, with a required output block, replacing the untooled
+  "challenge novelty claims" guidance. Cites two diagnosed misses — SPD/hLLM
+  (arXiv:2609.01807), whose decoder is never ablated and whose Hungarian solve
+  is matched by a sort, and TTT-Embed (arXiv:2608.12569), whose residual query
+  vector is never compared against label-free constructions of the same object.
+
 ## [0.3.0] - 2026-08-25
 
 ### Added

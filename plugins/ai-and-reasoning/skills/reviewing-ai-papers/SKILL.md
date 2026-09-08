@@ -9,7 +9,7 @@ description: >-
   "summarise the method and its limits". The subject matter must itself be
   machine learning.
 metadata:
-  version: 0.3.0
+  version: 0.4.0
 ---
 
 # Reviewing AI Papers
@@ -53,10 +53,63 @@ document* is.
 ## Analytical Standards
 
 - **Maintain objectivity**: Extract factual insights without amplifying source hype
-- **Challenge novelty claims**: Identify what practitioners already use as baselines. Distinguish "applies existing techniques" from "genuinely new methods"
+- **Challenge novelty claims**: Identify what practitioners already use as baselines. Distinguish "applies existing techniques" from "genuinely new methods". The procedure for this is "The ablation the paper did not run" below. Run it; do not improvise a judgement
 - **Separate rigor from novelty**: Well-executed study of standard techniques ≠ methodological breakthrough
 - **Confidence transparency**: Distinguish established facts, emerging trends, speculative claims
 - **Contextual filtering**: Prioritize insights mapping to current challenges
+
+## The ablation the paper did not run
+
+Run this before writing any part of the assessment. It reads off the paper's
+own tables and needs no code, no reimplementation and no access to the data.
+
+A paper's ablation table names what its authors thought was contestable. The
+axis every row holds fixed is the one nobody argued, and it is where an
+unearned mechanism survives review.
+
+Four steps:
+
+1. List every ablation the paper reports and name the axis each one varies.
+2. Name the axis that no row varies.
+3. On that axis, name the cheapest mechanism producing the same output shape,
+   meaning what a practitioner would reach for having never read the paper.
+4. Determine whether the paper ran it.
+
+Emit this block in every review. A review without it is incomplete:
+
+```
+VARIED:               <axes the paper ablates>
+HELD FIXED:           <the axis no row varies>
+CHEAPEST ALTERNATIVE: <what a practitioner would use on that axis>
+RAN IT:               yes | no | partially, against <what>
+```
+
+Step 3 is where this fails. The alternative a paper argues against is the one
+its mechanism was built to beat, and adopting it as the comparator inherits the
+paper's framing. Write the comparator from what a practitioner would use, not
+from the alternatives the paper chose to name.
+
+`RAN IT: no` describes the paper's coverage. It does not settle whether the
+method works. State what the missing comparison would decide and what running
+it would cost. A mechanism can beat the cheap alternative; the paper simply
+does not say so yet. When the answer is `yes`, say so in the credibility
+assessment: a paper that ran the comparison is stronger for having run it.
+
+DIAGNOSED, twice, both times found after the fact:
+
+- **SPD/hLLM** (arXiv:2609.01807, 2026-09-08). Tables 3 and 4 ablate the
+  scoring head, the training signal and the backbone. No row varies the
+  decoder, and the Hungarian solve is the paper's contribution. Measured
+  afterwards: sorting one column of the score matrix ties the assignment
+  solve, +0.0008 [−0.0028, +0.0044] NDCG@10 over 1,785 slates. The paper's own
+  comparator, row-argmax with repair, does lose to the Hungarian, so its
+  ablation is correct as far as it goes and the finding sits one step past it.
+  (`oaustegard/experiments` PR #92.)
+- **TTT-Embed** (arXiv:2608.12569, 2026-08-14). Ablates reward scope and reward
+  budget. No row varies how the residual query vector is obtained, which is the
+  contribution. Two label-free constructions of the same object cost zero
+  reward budget and were not run: Rocchio over the top-k retrieved documents,
+  and the query-document modality-gap direction. (Memory `7461f178`.)
 
 ## Analysis Structure
 
