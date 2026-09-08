@@ -2,7 +2,7 @@
 name: iterating
 description: Multi-conversation methodology for iterative stateful work with context accumulation. Use when users request work that spans multiple sessions (research, debugging, refactoring, feature development), need to build on past progress, explicitly mention iterative work, work logs, project knowledge, or cross-conversation learning.
 metadata:
-  version: 1.1.0
+  version: 1.2.0
 ---
 
 # Iterating
@@ -31,9 +31,9 @@ fi
 
 See environment-specific reference for persistence and retrieval details.
 
-## Critical: Checkpoint Pattern
+## Checkpoint Pattern
 
-**The iterating skill enforces a checkpoint-and-save pattern to prevent work loss:**
+The iterating skill enforces a checkpoint-and-save pattern to prevent work loss:
 
 1. **Create/Update WorkLog** → Output for user → **STOP**
 2. User saves WorkLog to project knowledge (survives conversation limits)
@@ -41,14 +41,10 @@ See environment-specific reference for persistence and retrieval details.
 4. **Make incremental progress** on ONE item → Update WorkLog → **STOP**
 5. Repeat
 
-**Why this matters:**
-- Prevents token exhaustion mid-task
-- Survives 5-hour conversation limits
-- Allows user to review progress before continuing
-- Creates natural save points
-- Enables work across multiple conversations
-
-**NEVER skip the STOP step** - going "full waterfall" defeats the entire purpose of iterating.
+This matters because separate conversations don't share context automatically:
+skipping the STOP step ("full waterfall") produces work the user hasn't seen
+or been able to redirect, and risks losing everything mid-task if the
+conversation ends before a checkpoint lands.
 
 ## WorkLog Format
 
@@ -102,14 +98,14 @@ status: in_progress
 4. **STOP - Present WorkLog to user**
    - Explain what's planned
    - Tell user to save WorkLog to project knowledge
-   - Wait for user to say "continue" before doing ANY work
+   - Wait for user to say "continue" before starting work
 
 **Continuing work:**
 1. Detect environment
 2. Retrieve WorkLog using environment-specific method OR recognize pasted WorkLog
 3. Parse latest version and status
 4. Acknowledge: "From WorkLog vN, status: [status]. Progress: [X%]. Working on: [specific HIGH item]"
-5. **Execute ONE HIGH priority item** (not all of them!)
+5. **Execute ONE HIGH priority item.**
 6. Update WorkLog, increment version
 7. Persist using environment-specific method
 8. **STOP - Present updated WorkLog to user**
@@ -144,17 +140,9 @@ If user pastes content with WorkLog frontmatter at conversation start:
 - **[MED]**: Important but not urgent
 - **[LOW]**: Nice-to-have improvements
 
-**Claude works on ONE HIGH priority item per iteration** unless told otherwise.
-
-**Incremental progress pattern:**
-- Pick ONE HIGH item from WorkLog
-- Complete that specific item
-- Update WorkLog with progress
-- STOP for user to save
-- User says "continue" → Pick next HIGH item
-- Repeat
-
-This prevents token exhaustion and enables natural checkpoints.
+Claude works on one HIGH priority item per iteration (see Core Workflow above)
+unless told otherwise — this keeps each checkpoint reviewable instead of
+bundling several changes into one WorkLog update.
 
 ## File References
 
@@ -218,8 +206,6 @@ Or for longer projects:
 **Status changes:**
 - "Updated WorkLog status to [new_status]: [reason]"
 - "Please save updated WorkLog."
-
-**NEVER say:** "Now I'll continue with the next item..." - Always STOP and wait for user.
 
 ## Advanced Patterns
 

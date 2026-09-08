@@ -2,7 +2,7 @@
 name: sampling-bluesky-zeitgeist
 description: DEPRECATED - Use browsing-bluesky skill instead. Sample and analyze Bluesky firehose to identify trending topics and content clusters. Use when user asks about "what's happening on Bluesky", "Bluesky trends", "zeitgeist", "firehose analysis", or wants to see real-time topic clusters from the network.
 metadata:
-  version: 0.1.0
+  version: 0.1.1
   deprecated: true
   superseded_by: browsing-bluesky
 ---
@@ -83,7 +83,7 @@ Present the artifact link, then provide a brief prose summary:
 - Any notable velocity spikes
 - Interesting patterns (e.g., "Japanese-language posts spiking around [topic]")
 
-Keep summary to 2-3 sentences. The artifact is the main deliverable.
+Keep the summary brief — the artifact is the main deliverable.
 
 ## Refresh Workflow
 
