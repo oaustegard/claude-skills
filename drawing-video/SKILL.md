@@ -2,7 +2,7 @@
 name: drawing-video
 description: "Turn a short video into a narrated comic strip. Use when the user uploads a video (.mov/.mp4/etc.) and asks to make a comic from it, narrate it, draw it, Attenborough it, storyboard the clip, or otherwise wants a stills-plus-narration comic strip derived from footage. Covers probing and extracting frames, GROUNDING the actual storyline (native Gemini video parse or frame reading), composing narration in a chosen voice, generating comic panels with Gemini image models anchored to the real stills, QA-ing the panels, and compositing a titled strip. Do NOT use for plain video transcoding or trimming (that is processing-video) or for original illustration from a text prompt (that is invoking-gemini)."
 metadata:
-  version: 1.0.0
+  version: 1.0.1
 ---
 
 # drawing-video
@@ -29,7 +29,7 @@ For a subject hidden in clutter, pull a few full-res frames at specific timestam
 
 ## Stage 1 — GROUND THE STORYLINE (the gate)
 
-**Never narrate a scene whose subjects and action you have not confirmed from the footage.** Diagnosed failure 2026-07-18: built an entire "indoor cyclist in a garage" storyline off thumbnail-sized frames of a video that was actually a leashed dog watching a deer — no bicycle in any frame, the leash visible in four. Then fed the fiction to the image model, which dutifully drew it. A wrong storyline launders a hallucination into finished art. The absence of a clear read is not license to invent a vivid one.
+**Never narrate a scene whose subjects and action you have not confirmed from the footage.** Thumbnail-sized frames read poorly: one pass built an entire "indoor cyclist in a garage" storyline for a video that was actually a leashed dog watching a deer — no bicycle in any frame, the leash visible in four — then fed the fiction to the image model, which dutifully drew it. A wrong storyline launders a hallucination into finished art. The absence of a clear read is not license to invent a vivid one.
 
 Two ways to ground. **Prefer Mode B** — it is the more reliable and reads the whole clip, not sampled stills.
 
@@ -68,7 +68,7 @@ Either way, end Stage 1 with one plain paragraph: subjects, setting, arc. If the
 
 ## Stage 2 — Beats & narration
 
-**Let the video decide the panel count.** Break the clip into its natural beats — the distinct moments the story actually has — and make one panel per beat. Do NOT default to four or to a 2×2 grid. A 12-second perch-and-glide is three beats (sentinel → launch → glide); a busier clip may be five or six. Fewer, larger panels for a slow arc; more, tighter panels for rapid action. (Diagnosed 2026-07-18: a hardcoded 2×2 four-panel default is wrong — layout must fit the footage.)
+**Let the video decide the panel count.** Break the clip into its natural beats — the distinct moments the story actually has — and make one panel per beat. Do NOT default to four or to a 2×2 grid. A 12-second perch-and-glide is three beats (sentinel → launch → glide); a busier clip may be five or six. Fewer, larger panels for a slow arc; more, tighter panels for rapid action. A hardcoded 2×2 four-panel default is wrong — layout must fit the footage.
 
 Write one short caption per beat, in the requested voice (David Attenborough hushed-drama is the common ask; dial the stakes above what the mundane footage deserves). Captions must be short enough to render legibly in a box — one or two sentences.
 
@@ -89,7 +89,7 @@ Keep a **character/setting bible** in one line: the exact look of each recurring
 
 Model for all paths: **`gemini-3-pro-image`** (GA; was `gemini-3-pro-image-preview`). There is **no Gemini 3.5 *image* model** — 3.5 is text-only; the current image line is `gemini-3-pro-image` and `gemini-3.1-flash-image`. Do not use `gemini-2.5-flash-image`. (`gemini-3.5-flash` is the *video parser* in Stage 1, not an image model.)
 
-Four rules for per-panel drawing, each from a diagnosed defect on 2026-07-18:
+Four rules for per-panel drawing, each guarding against a defect observed 2026-07-18:
 
 1. **Anchor every panel to real stills.** Pass TWO images per panel: a single shared *anchor* still (canonical setting + subject) and the panel's own still. Instruct: "First reference = canonical setting+subject; second = this panel's framing; redraw as a comic panel." This is what keeps the drawn scene faithful instead of inventing.
 2. **State continuity explicitly.** "All N panels are ONE comic: identical setting, identical <subject> design (<character bible>)." Without it the woods and the animal drift panel to panel.
@@ -102,7 +102,7 @@ Run panels detached and adaptive-wait — `bash_tool` times out at ~50s and imag
 
 ## Stage 4 — QA, then compose
 
-**QA before shipping — do not present unseen panels.** If the local image viewer is available, look at every panel. If it is not (it went dark mid-session on 2026-07-18), QA through Gemini vision instead:
+**QA before shipping — do not present unseen panels.** If the local image viewer is available, look at every panel. If it is not (it can go dark mid-session), QA through Gemini vision instead:
 
 ```python
 from gemini_client import invoke_gemini
@@ -111,13 +111,13 @@ invoke_gemini(prompt=("QA this comic panel. JSON only: setting, subject, deer, "
    model="flash", image_path="panel_1.png", max_output_tokens=500, thinking_level="minimal")
 ```
 
-Check per panel: subjects match the grounded storyline, setting/subject consistent across panels, captions verbatim with **no stray text and no doubled words** (Gemini repeated "and and" once — 2026-07-18), creatures correct (adult vs fawn). Regenerate only the panels that fail — single-panel regen is cheap. For a one-shot page, QA the whole page the same way. (Note: the vision QA reports your own title/subtitle as "stray text" — that is expected, not a defect.)
+Check per panel: subjects match the grounded storyline, setting/subject consistent across panels, captions verbatim with **no stray text and no doubled words** (Gemini has repeated a word, e.g. "and and"), creatures correct (adult vs fawn). Regenerate only the panels that fail — single-panel regen is cheap. For a one-shot page, QA the whole page the same way. (Note: the vision QA reports your own title/subtitle as "stray text" — that is expected, not a defect.)
 
 **Compose** with PIL into the layout you designed in Stage 3. Strip any baked border first — image-model panels arrive with inconsistent baked frames (one dark, others white), which reads as a mismatched-border defect: crop a uniform ~8–10px inset off every panel, then draw one identical border on all. Cover-fit each panel into its designed box, add a title band, save to `/mnt/user-data/outputs/`, then `present_files`. (The one-shot page needs none of this — it arrives pre-composed; just QA and present.)
 
 ---
 
-## Pitfall summary (all diagnosed 2026-07-18, one session)
+## Pitfall summary (observed 2026-07-18)
 
 - Confabulated the storyline from thumbnails → **Stage 1 gate; prefer Mode B**.
 - Wrong prompt made the image model draw the fiction → **anchor to real stills**.
