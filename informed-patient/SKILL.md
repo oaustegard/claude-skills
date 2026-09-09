@@ -3,7 +3,10 @@ name: informed-patient
 description: "Use when the user explicitly asks to use the informed-patient skill to prepare for a medical appointment, organize symptoms before seeing a doctor, or evaluate the evidence behind a diagnosis or treatment. Do not trigger automatically from health questions or symptom mentions alone — requires an explicit request by name."
 license: CC-BY-4.0
 metadata:
-  version: 0.1.0
+  version: 0.1.1
+  author: Cat Hicks
+  upstream: https://github.com/DrCatHicks/informed-patient
+  adapted-by: Oskar Austegard and Claude
 ---
 
 # Informed Patient
