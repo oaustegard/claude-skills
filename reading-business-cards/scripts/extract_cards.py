@@ -16,7 +16,7 @@ Usage:
     --out     CSV path (default /mnt/user-data/outputs/cards.csv)
     --workers parallel API calls (default 6)
     --limit   only process the first N tiles (smoke test)
-    --model   model id (default claude-haiku-4-5-20251001)
+    --model   model id (default claude-haiku-4-5)
 """
 import argparse
 import base64
@@ -140,7 +140,7 @@ def main():
     ap.add_argument("--out", default="/mnt/user-data/outputs/cards.csv")
     ap.add_argument("--workers", type=int, default=6)
     ap.add_argument("--limit", type=int, default=0)
-    ap.add_argument("--model", default="claude-haiku-4-5-20251001")
+    ap.add_argument("--model", default="claude-haiku-4-5")
     args = ap.parse_args()
 
     manifest_path = os.path.join(args.work, "manifest.json")

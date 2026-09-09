@@ -2,7 +2,7 @@
 name: crafting-instructions
 description: Chooses the right FORMAT for instructions on Claude.ai — project instructions, a skill, or a standalone prompt — and gives the format-specific structure once chosen. Use when the question is which container an instruction belongs in ("should this be a skill or project instructions", "where do I put this", "how do I set up this project", "is this worth a skill"), or when someone has instructions and does not know how to package them. For the writing principles that apply inside any of the three formats, use writing-instructions. For building, testing and packaging a complete skill directory, use creating-skill.
 metadata:
-  version: 0.4.0
+  version: 0.5.0
 ---
 
 # Crafting Instructions for Claude
@@ -11,13 +11,10 @@ Choose the format for instructions on Claude.ai — Project instructions, Skills
 or standalone prompts — and structure them for the format chosen.
 
 **Overlap notice.** The Core Optimization Principles below also appear in
-`writing-instructions`, which carries them in more depth alongside model-aware
-calibration, complexity scaling and a quality checklist. The two skills were
-written independently and never reconciled; a 2026-08-24 retrieval measurement
-put their descriptions at 0.843 cosine, the most confusable pair in the
-92-skill catalogue. Until they are merged, this skill owns the **format
-decision** and `writing-instructions` owns **how to write well inside a
-format**.
+`writing-instructions`, which carries them in more depth. This skill owns the
+**format decision**; `writing-instructions` owns **how to write well inside a
+format**. The two descriptions are close enough that a request can land on
+either — route by which of those two questions is being asked.
 
 ## Decision Framework: Which Format to Use?
 
@@ -90,9 +87,8 @@ Provide goals and decision frameworks, not step-by-step procedures:
 - Minimize: Sequential steps, detailed execution, obvious operations
 - Rule: If Claude can infer procedure from goal, specify only the goal
 
-**Model-aware calibration:**
-- **Sonnet:** Include decision frameworks with explicit conditions and fallbacks. Concrete examples help more than abstract principles. When in doubt, add structure.
-- **Opus:** Lean harder into strategic goals over procedures. Trust Opus to handle ambiguity—overly procedural instructions can constrain its natural reasoning. Principles > rules. Context about WHY is particularly valuable since Opus uses it for autonomous judgment in edge cases.
+Current models plan from a stated goal. Write out a sequence only where one
+sequence is the safe one — destructive commands, auth flows, compliance steps.
 
 ### 5. Trust Base Behavior
 Claude's system prompt already covers:
@@ -111,7 +107,7 @@ See: [references/project-instructions.md](references/project-instructions.md)
 Key points:
 - Additive to system prompt (no duplication)
 - Focus on workspace-specific behavior
-- Enable extended thinking suggestions for complex domains
+- Name the domains that warrant deeper deliberation
 - Simple structure (headings/paragraphs) unless complexity demands more
 
 ### For Skills
@@ -176,17 +172,13 @@ Use both together for powerful combinations.
 
 ## Example Quality Awareness
 
-**CRITICAL for Claude 4.x:** Examples teach ALL patterns, including unintended ones.
+Examples teach every pattern they contain, including the ones you did not intend.
 
 When including examples:
 - Audit EVERY detail (format, verbosity, structure, tone)
 - Ensure ALL aspects demonstrate desired behavior
 - Better to omit examples than include mixed signals
 - If example uses bullets but you want prose, Claude will default to bullets
-
-**Model-aware calibration:**
-- **Sonnet:** Examples are highly influential—include 2-3 demonstrating desired patterns. Sonnet learns format/style strongly from examples.
-- **Opus:** Examples help but are less essential. Opus weights explicit instructions and principles more heavily than pattern-matching from examples. One clear example often suffices; omit entirely if examples can't perfectly align with all requirements.
 
 ## Structural Simplicity
 
@@ -200,19 +192,17 @@ Use structured markup (XML/JSON) only when:
 - Absolute certainty about content boundaries required
 - API-driven workflows needing structured parsing
 
-## Extended Thinking Guidance
+## Thinking Depth
 
-Extended thinking is UI toggle, not phrase-controlled.
+No prompt phrase turns thinking on. Current Claude models think adaptively by
+default, and depth is set by configuration — the `effort` setting on the API,
+the UI control on Claude.ai. "Think step by step" and hand-written trigger
+phrases buy nothing.
 
-In instructions, you CAN:
-- Make assistant aware it exists
-- Provide domain-specific indicators for suggesting it
-- ❌ NOT: Include "trigger phrases" (they don't work)
-
-Pattern:
+What instructions can usefully carry is which parts of the domain deserve more
+deliberation, so the reader knows where to raise effort:
 ```
-For tasks involving [specific complexity], suggest enabling Extended 
-thinking, explaining briefly why it would help for THIS task.
+[Specific complexity] in this domain is worth extra deliberation because [why].
 ```
 
 ## Complexity Scaling
@@ -221,34 +211,19 @@ Match instruction complexity to task needs:
 
 **Simple task** → Simple prompt or brief instructions
 **Medium task** → Structured guidance with decision frameworks
-**Complex task** → Comprehensive instructions + suggest extended thinking
+**Complex task** → Comprehensive instructions; raise effort
 
 Before adding complexity: Could simpler formulation work equally well?
 
-## Model Selection & Instruction Density
+## Instruction Density
 
-When crafting instructions, consider which model will execute them:
+Scale density to how far the task sits from what the model does unprompted.
+State the goal, the constraints, and how success is checked; add procedure only
+where order is fragile. When the choice is between another rule and more context
+about why, write the context — that is what the model cannot get elsewhere, and
+it is what it uses on the cases you did not enumerate.
 
-**For Sonnet-executed instructions:**
-- Explicit > implicit (state assumptions that might be obvious)
-- More decision trees, fewer abstract principles
-- Comprehensive edge case handling
-- Concrete fallback behaviors
-- Token-efficient but explicit
-
-**For Opus-executed instructions:**
-- Strategic goals > procedural steps
-- Principles and reasoning > exhaustive rules
-- Trust handling of unstated edge cases
-- Provide rich WHY context—Opus uses it for autonomous judgment
-- Permission to deviate when spirit conflicts with letter
-- Can state: "Use judgment for cases not covered here"
-
-**Instruction density heuristic:**
-- Sonnet: 1.0-1.2x the detail you'd give a competent junior
-- Opus: 0.6-0.8x the detail—more like briefing a senior peer
-
-**When uncertain:** Instructions optimized for Opus will still work with Sonnet (just less perfectly). Instructions over-optimized for Sonnet may constrain Opus unnecessarily.
+State explicitly that judgment applies to cases the instructions do not cover.
 
 ## Quality Checklist
 
@@ -281,7 +256,7 @@ Before delivering instructions:
 ✅ "Present in natural prose paragraphs"
 
 ❌ **Fake thinking triggers** - "Use 'think carefully' for deep thinking"
-✅ "Suggest Extended thinking toggle for [specific complexity]"
+✅ "Name where deliberation pays in this domain; set effort there"
 
 ❌ **Procedural micromanagement** - "Step 1: X, Step 2: Y..."
 ✅ "Goal: X. Quality standard: Y. Approach: Z."

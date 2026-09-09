@@ -2,7 +2,7 @@
 name: declauding
 description: Removes LLM prose tics from drafts — staged reveals, "it's not X, it's Y", significance tags, abstraction agency, coy headers, fragment cadence, the flatter slop patterns (copula avoidance, participle tails, forced triads, chatbot residue), the flat-certainty patterns the pass itself produces (bare adverbs, juridical vocabulary, verification compounds, privative coinages), and the confiding-essayist patterns (announced honesty, stranded auxiliaries, retroactive significance, totalizing claims, obituary headlines) — and returns plain human technical prose. Use when text needs editing for register, when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make this sound human", "remove the tics/claudisms", or asks for a voice/register pass on a post, README, report, PR description or essay. Also use before publishing any draft Claude wrote. Verifies the rewrite kept every claim. Produces either clean prose or an annotated HTML diff showing every edit with its original and reason.
 metadata:
-  version: 0.8.0
+  version: 0.8.1
 ---
 
 # Declauding
@@ -54,8 +54,8 @@ performing having had the thought?* Say the thing.
 Entries 24 to 36 are a second family — the flatter encyclopedic and chatbot
 patterns, where nothing is being staged and the writing is just running on
 defaults. Copula avoidance, participle tails, forced triads, chatbot residue.
-Different mechanism, same pass. Entries 37 and 38 are back in the staging family
-and sit last only because they arrived last.
+Different mechanism, same pass. Entries 37 and 38 are back in the staging
+family.
 
 Entries 43 to 47 are a third family, and they are this skill's own output. The
 register a clean pass lands in — flat, concrete, verdict-shaped — is the
@@ -91,6 +91,9 @@ human. The same holds for their existing published work when it is available and
 the current draft is not.
 
 ## Workflow
+
+Script paths below are relative to this skill's directory. From any other
+working directory, prefix them with `/mnt/skills/user/declauding/`.
 
 **1. Read the whole piece before editing anything.** Tics carry factual errors.
 A sentence written to sound important is disproportionately likely to be wrong,

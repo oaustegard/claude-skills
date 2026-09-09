@@ -2,7 +2,7 @@
 name: writing-instructions
 description: "Sentence-level and section-level craft for instructions Claude will actually follow, in any container — project instructions, a standalone prompt, or skill body text. Use when the text exists or is being drafted and the question is quality: \"why is Claude ignoring this instruction\", \"rewrite this prompt so it works\", \"improve my project instructions\", \"make this instruction stick\", \"is this too prescriptive\", \"how much structure does Sonnet need versus Opus\". Covers imperative construction, positive framing, strategic-versus-procedural calibration per model, extended thinking, complexity scaling, and a quality checklist. For deciding WHICH container the instruction belongs in, use crafting-instructions. For building, testing and packaging a whole skill directory, use creating-skill."
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # Writing Instructions for Claude
@@ -79,23 +79,21 @@ Duplicating system prompt behavior wastes tokens and can create conflicting sign
 
 ## Model-Aware Calibration
 
-Instructions may execute across Haiku, Sonnet, and Opus. Each model responds differently to instruction density and abstraction level.
+Instructions may execute across Haiku, Sonnet, and Opus. The tiers still differ in how much procedural detail they need — treat that as a direction to lean, not a ratio to compute; current models across all three tiers follow instructions more literally than the generation this calibration was first written against, so over-specifying for any of them now costs more than it buys.
 
-**Haiku (1.3–1.5× detail):** Lead with explicit imperative commands and concrete decision trees. Haiku follows direct procedures reliably but struggles with abstract principles. Provide exact conditions, specific fallbacks, and complete examples for every expected scenario. Structure as: "When X, do Y. When Z, do W."
+**Haiku:** Lead with explicit imperative commands and concrete decision trees. Provide exact conditions, specific fallbacks, and examples for the scenarios that matter. Structure as: "When X, do Y. When Z, do W."
 
-**Sonnet (1.0–1.2× detail):** Provide decision frameworks with explicit conditions alongside 2–3 concrete examples demonstrating desired patterns. Sonnet learns strongly from examples and handles moderate abstraction when anchored by demonstrations. Balance procedural clarity with strategic context.
+**Sonnet:** Provide decision frameworks with explicit conditions alongside a couple of concrete examples demonstrating desired patterns. Balance procedural clarity with strategic context.
 
-**Opus (0.6–0.8× detail):** Emphasize strategic goals, reasoning context, and principles over procedures. Opus uses rich WHY context for autonomous judgment in edge cases. One clear example often suffices. Overly procedural instructions constrain Opus unnecessarily. Frame as: "Goal is X because Y. Apply judgment for unstated cases."
+**Opus:** Emphasize strategic goals, reasoning context, and principles over procedures. Opus uses rich WHY context for autonomous judgment in edge cases; one clear example often suffices, and overly procedural instructions constrain it unnecessarily. Frame as: "Goal is X because Y. Apply judgment for unstated cases."
 
-**The density multiplier** is relative to what you'd tell a competent colleague for the same task.
+**Practical layering pattern:** Structure instructions so imperative commands come first, followed by decision frameworks and examples, with strategic reasoning and WHY context woven throughout. A single instruction set serves all three models when layered well.
 
-**Practical layering pattern:** Structure instructions so imperative commands come first (Haiku gets what it needs immediately), followed by decision frameworks and examples (Sonnet's sweet spot), with strategic reasoning and WHY context woven throughout (Opus leverages this for edge cases). A single instruction set serves all three models when layered well.
-
-**When uncertain about target model:** Optimize for Sonnet. Sonnet-optimized instructions work adequately on both Haiku (slightly verbose but functional) and Opus (slightly over-specified but not harmful).
+**When uncertain about target model:** Optimize for Sonnet — it degrades gracefully on both neighbors.
 
 ## Example Quality Awareness
 
-Examples are the most powerful and most dangerous instruction tool. Claude 4.x learns ALL patterns from examples — format, verbosity, structure, tone, terminology — including patterns you didn't intend to teach.
+Examples are the most powerful and most dangerous instruction tool. Current Claude models learn ALL patterns from examples — format, verbosity, structure, tone, terminology — including patterns you didn't intend to teach.
 
 **Rules for examples:**
 - Audit every detail: if the example uses bullets but you want prose, Claude defaults to bullets

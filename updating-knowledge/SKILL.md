@@ -2,7 +2,7 @@
 name: updating-knowledge
 description: Systematic research methodology for building comprehensive, current knowledge on any topic. Requires web_search tool. Use when questions require thorough investigation, recent developments post-cutoff, synthesis across multiple sources, or when Claude's knowledge may be outdated or incomplete. Triggered by "Research", "Investigate", "What's current on", "Latest info on", complex queries needing validation, or technical topics with recent changes.
 metadata:
-  version: 1.0.3
+  version: 1.1.0
 ---
 
 # Updating Knowledge
@@ -16,28 +16,18 @@ metadata:
 
 ## Preflight Check
 
-**CRITICAL: This skill requires web_search tool access.**
+This skill requires web_search tool access.
 
-Before proceeding:
-1. Verify web_search tool is available in tool set
-2. If NOT available:
-   - Immediately inform user: "I need web search enabled for research tasks. Please toggle on 'Web search' in the feature menu."
-   - DO NOT attempt research without web_search
-   - DO NOT proceed with workflow
+Verify it's available before proceeding. If it isn't, tell the user
+immediately — "I need web search enabled for research tasks. Please toggle on
+'Web search' in the feature menu." — and stop there rather than researching
+from memory alone or spending context on workarounds.
 
-If web_search is unavailable, fail fast—don't waste context attempting workarounds.
+## Trigger Disambiguation
 
-## Imperative Triggers
-
-Use this skill when:
-- User says "Research", "Investigate", "What's current on", "Latest info on", "Find out about"
-- Query requires synthesizing multiple authoritative sources
-- Topic likely changed since training cutoff
-- Technical/product questions where documentation is essential
-- Contradictory information needs resolution
-- Building comprehensive understanding for ongoing work
-
-**Note:** Avoid triggering on generic action verbs like "update" (which could mean file/code changes). Focus on explicit knowledge-gathering requests.
+Avoid triggering on generic action verbs like "update" (which could mean
+file/code changes instead) — trigger on the explicit knowledge-gathering
+requests named in the description above.
 
 ## Research Workflow
 
@@ -126,27 +116,11 @@ Sources: [URLs]
 **web_search patterns:**
 - Start specific, broaden if needed
 - Never repeat similar queries - make each unique
-- Use current date context when relevant (November 2025)
+- Use the actual current date when relevant — check it rather than assuming
 
 **Internal tools:**
 - Prioritize for company/personal data
 - Combine with web tools for comparative analysis
-
-## Output Efficiency
-
-**DO:**
-- Present findings concisely
-- Use thinking blocks for deliberation
-- Lead with key takeaways
-- State confidence explicitly when low
-- Cite sources inline
-
-**DON'T:**
-- Narrate research process unless asked
-- Include verbose phase descriptions
-- Over-explain methodology
-- Repeat information across sections
-- Document internal reasoning in output
 
 ## Example Outputs
 

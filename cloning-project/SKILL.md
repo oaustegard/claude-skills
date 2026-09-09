@@ -8,7 +8,7 @@ description: >-
   "recreate this setup somewhere else". Operates on the Claude.ai workspace
   you are talking in, and reads nothing from disk.
 metadata:
-  version: 1.2.0
+  version: 1.3.0
 ---
 
 # Cloning Project
@@ -137,12 +137,3 @@ Your project is now cloned with the same configuration and knowledge base.
 - Skip files that cannot be read
 - Report which files were successfully exported vs. skipped
 - Provide export anyway with available content
-
-## Usage Examples
-
-**Trigger phrases:**
-- "Clone this project"
-- "Export my project configuration"
-- "How do I copy this project setup?"
-- "Backup my project"
-- "Save this project's settings"

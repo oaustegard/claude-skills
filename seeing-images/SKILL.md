@@ -2,12 +2,16 @@
 name: seeing-images
 description: Augmented vision tools for analyzing images beyond native visual capabilities. Use when tasked with describing images in detail, reproducing images as SVGs, identifying subtle features, comparing image regions, reading degraded text, or any task requiring careful visual inspection. Also use when the image-to-svg skill needs ground truth about colors, shapes, or boundaries.
 metadata:
-  version: 1.0.0
+  version: 1.0.1
 ---
 
 # Seeing Images
 
-Compensatory vision tools based on empirically measured blindspots (vision diagnostic v1-v4, 2026-03-25).
+Compensatory vision tools based on blindspots measured by vision diagnostic
+v1-v4 on 2026-03-25. Which model it ran on is not recorded here and it has not
+been re-run since, so read the thresholds as measured-then: they say a tool
+exists for each failure, not that the current model fails at exactly that
+number. Re-run the diagnostic before relying on a specific threshold.
 
 ## When to Use
 
@@ -21,7 +25,7 @@ Activate this skill when:
 
 ## Known Blindspots (from diagnostics)
 
-These are MEASURED limitations — not guesses:
+Measured, not guessed:
 
 | Blindspot | Threshold | Compensatory Tool |
 |-----------|-----------|-------------------|
@@ -61,7 +65,7 @@ isolate(path, region=(x,y,w,h))              # 6. Remove context bias
 All functions in `scripts/see.py`. Every function that produces an image saves to `/home/claude/see_*.png` and returns the path. Use `view` tool on the returned path.
 
 ### grid(path, rows=3, cols=3, labels=True)
-Splits image into labeled cells for systematic inspection. This is the FIRST thing to call — it reduces attentional competition.
+Splits image into labeled cells for systematic inspection. Call it first: it reduces attentional competition.
 
 ### sample(path, points, radius=3)
 Returns exact RGB values at specified pixel coordinates. Use to verify what you think you see. Averages over a small radius to handle noise.
@@ -93,10 +97,10 @@ Median filter to reduce photographic noise, revealing subtle features hidden in 
 ### palette(path, n=8)
 Extracts the n most dominant colors using k-means clustering. Returns RGB values and their proportions. Essential for SVG reproduction.
 
-## Anti-Patterns
+## Accuracy Notes
 
-- Do NOT skip `grid()` for complex images — your attention is the bottleneck
-- Do NOT trust your color perception near context boundaries — always `sample()` or `isolate()`
-- Do NOT estimate counts above 15 — use `count_elements()`
-- Do NOT assume gradients are flat — use `gradient_map()` to verify
-- Do NOT describe faint features without `enhance()` verification
+Call `grid()` first on a complex image. Verify colors near context boundaries
+with `sample()` or `isolate()`, counts above 15 with `count_elements()`,
+gradients with `gradient_map()`, and faint features with `enhance()` before
+describing them. Each of these is a row of the blindspot table, so the tool
+call is the evidence — perception alone is not.
