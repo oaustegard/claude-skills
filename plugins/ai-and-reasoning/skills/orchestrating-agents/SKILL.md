@@ -2,7 +2,7 @@
 name: orchestrating-agents
 description: Orchestrates parallel API instances, delegated sub-tasks, and multi-agent workflows with streaming and tool-enabled delegation patterns. Routes by surface — native subagents in Cowork and Claude Code, httpx fan-out on claude.ai — and covers Gemini delegation via the Cloudflare AI Gateway on every surface. Use for parallel analysis, multi-perspective reviews, or complex task decomposition.
 metadata:
-  version: 0.6.0
+  version: 0.7.0
 ---
 
 ## SURFACE ROUTING — read first
@@ -39,8 +39,7 @@ MCP connections and cannot bring its own.
 Reach back into this skill on those surfaces only for what the runtime lacks:
 stall detection, or a long-lived `ConversationThread`. **Inter-agent messaging is
 NOT on that list** — the runtime ships `SendMessage` and `ListAgents`, and
-`AgentPool` reimplements them worse. Corrected 2026-08-12; this block previously
-sent readers to `AgentPool` for messaging the runtime already provides.
+`AgentPool` reimplements them worse.
 
 #### Native inter-agent messaging — `SendMessage` / `ListAgents`
 
@@ -118,33 +117,18 @@ config, often deliberately a Claude. This routing does not silently repoint them
 
 This skill enables programmatic API invocations for advanced workflows including parallel processing, task delegation, and multi-agent analysis using the Anthropic API.
 
-## When to Use This Skill
-
-**Primary use cases:**
-- **Parallel sub-tasks**: Break complex analysis into simultaneous independent streams
-- **Multi-perspective analysis**: Get 3-5 different expert viewpoints concurrently
-- **Delegation**: Offload specific subtasks to specialized API instances
-- **Recursive workflows**: Orchestrator coordinating multiple API instances
-- **High-volume processing**: Batch process multiple items concurrently
-
-**Trigger patterns:**
-- "Parallel analysis", "multi-perspective review", "concurrent processing"
-- "Delegate subtasks", "coordinate multiple agents"
-- "Run analyses from different perspectives"
-- "Get expert opinions from multiple angles"
-
 ## Quick Start
 
 ### Single Invocation
 
 ```python
 import sys
-sys.path.append('/home/user/claude-skills/orchestrating-agents/scripts')
+sys.path.append('/mnt/skills/user/orchestrating-agents/scripts')
 from claude_client import invoke_claude
 
 response = invoke_claude(
     prompt="Analyze this code for security vulnerabilities: ...",
-    model="claude-sonnet-4-6"
+    model="claude-sonnet-5"
 )
 print(response)
 ```
@@ -169,7 +153,7 @@ prompts = [
     }
 ]
 
-results = invoke_parallel(prompts, model="claude-sonnet-4-6")
+results = invoke_parallel(prompts, model="claude-sonnet-5")
 
 for i, result in enumerate(results):
     print(f"\n=== Perspective {i+1} ===")
@@ -385,7 +369,7 @@ pool = AgentPool(shared_system="Code review team")
 
 # Reservation pattern: name is reserved, rolled back on exception
 with pool.reserve("analyst", parent="lead") as res:
-    res.configure(system="You analyze code complexity.", model="claude-opus-4-6")
+    res.configure(system="You analyze code complexity.", model="claude-opus-5")
     # If configure or any other work raises, the name is released
 # Agent "analyst" is now live
 
@@ -493,21 +477,9 @@ For detailed caching workflows and best practices, see [references/workflows.md]
    - Don't parallelize sequential dependencies
    - Each parallel task should be self-contained
 
-2. **Set appropriate system prompts**
-   - Define clear roles/expertise for each instance
-   - Keeps responses focused and relevant
-
-3. **Handle errors gracefully**
-   - Always wrap invocations in try-except
-   - Provide fallback behavior for failures
-
-4. **Test with small batches first**
+2. **Test with small batches first**
    - Verify prompts work before scaling
    - Check token usage and costs
-
-5. **Consider alternatives**
-   - Not all tasks benefit from multiple instances
-   - Sometimes sequential with context is better
 
 ## Token Efficiency
 

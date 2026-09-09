@@ -2,6 +2,12 @@
 
 All notable changes to the `orchestrating-agents` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.7.0] - 2026-09-09
+
+### Other
+
+- prompt-audit: dated prompting patterns across the skill catalogue (#791)
+
 ## [0.6.0] - 2026-08-12
 
 ### Fixed

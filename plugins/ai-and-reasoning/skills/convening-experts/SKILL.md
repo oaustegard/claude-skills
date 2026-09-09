@@ -2,7 +2,7 @@
 name: convening-experts
 description: Convenes expert panels for problem-solving. Use when user mentions panel, experts, multiple perspectives, MECE, DMAIC, RAPID, Six Sigma, root cause analysis, strategic decisions, process improvement, or asks for philosophers/ancients (Socratic, Aristotelian, Stoic method experts).
 metadata:
-  version: 1.1.0
+  version: 1.2.0
 ---
 
 ## SURFACE ROUTING — read first
@@ -75,80 +75,20 @@ Claude selects 3-5 experts based on problem characteristics:
 
 ## Response Format
 
-### Single-Round Format
+Name the panel up front, then give each expert's view before synthesizing.
 
-```
-## Expert Panel: [Topic]
+**Single-round:** list the panel members, then each expert's independent
+analysis (in any clear order — parallel, not sequential), then a synthesis
+with attribution.
 
-**Panel Members:**
-- [Expert 1 Role]
-- [Expert 2 Role]
-- [Expert 3 Role]
+**Multi-round:** initial analysis from each expert, then a round where
+experts respond to specific points from named others (building on or
+challenging them), then convergence — resolving disagreements or flagging
+which remain productive — and a final synthesis. Skip rounds that would add
+nothing (e.g. no round 3 if round 2 already converged).
 
----
-
-### [Expert 1 Role]
-[Independent analysis and recommendations]
-
-### [Expert 2 Role]
-[Independent analysis and recommendations]
-
-### [Expert 3 Role]
-[Independent analysis and recommendations]
-
----
-
-## Synthesis
-[Integrated recommendations with decision framework]
-```
-
-### Multi-Round Format
-
-```
-## Expert Panel: [Topic]
-
-**Panel Members:**
-- [Expert 1 Role]
-- [Expert 2 Role]
-- [Expert 3 Role]
-
----
-
-## Round 1: Initial Analysis
-
-### [Expert 1 Role]
-[Initial perspective]
-
-### [Expert 2 Role]
-[Initial perspective]
-
-### [Expert 3 Role]
-[Initial perspective]
-
----
-
-## Round 2: Cross-Examination
-
-### [Expert 1 Role] responds to [Expert 2 Role]
-[Builds on or challenges specific points]
-
-### [Expert 2 Role] responds to [Expert 3 Role]
-[Integration or disagreement]
-
-### [Expert 3 Role] responds to [Expert 1 Role]
-[Synthesis attempt]
-
----
-
-## Round 3: Convergence (if needed)
-
-[Experts resolve disagreements and converge]
-
----
-
-## Final Synthesis
-[Integrated recommendations, highlighting consensus and productive disagreements]
-```
+Headers separating experts and rounds help the reader; the exact heading
+text doesn't matter.
 
 ## Expert Behavior Guidelines
 
@@ -268,51 +208,16 @@ Format: Multi-round (root cause needs collaborative analysis)
 
 ## Constraints
 
-**Never:**
-- Use fictional names for experts (use role titles only: "Software Engineer", not "Dr. John Smith, Software Engineer")
-- Invent MSD-specific details beyond general domain knowledge
-- Apply frameworks rigidly without problem context
-- Create artificial consensus when legitimate disagreements exist
-- Include experts who add no value (quality over quantity)
-- Make experts repeat information (each should contribute uniquely)
+Skip the panel entirely when the problem has one clearly correct answer —
+give a direct answer instead of manufacturing perspectives around it.
 
-**Always:**
-- Select experts genuinely relevant to problem
-- Show framework structure when applying consulting methods
-- Make cross-expert references specific and substantive
-- Provide decision-ready synthesis (not "here are perspectives, you decide")
-- Acknowledge uncertainty explicitly when present
+Four constraints have no other source of truth in this document, so they stay
+explicit. Don't invent fictional names for experts (role titles only —
+"Software Engineer", not "Dr. John Smith, Software Engineer"), and don't
+invent MSD-specific details beyond general domain knowledge; both would
+misrepresent a generic panel as grounded in specifics it doesn't have.
 
-## Activation Decision Tree
-
-```
-Is problem complex with multiple valid approaches?
-├─ Yes → Expert panel
-│   ├─ Spans multiple domains? → Multi-round discussion
-│   └─ Needs diverse perspectives? → Single-round consultation
-└─ No → Direct answer (don't force panel format)
-
-Requires systematic framework?
-├─ Yes → Include framework expert
-└─ No → Domain experts only
-
-MSD-specific context relevant?
-├─ Yes → Include domain experts, apply MSD constraints
-└─ No → Generic consulting approach
-```
-
-## Quality Indicators
-
-**Good panel:**
-- Each expert contributes unique insight
-- Cross-references are specific and substantive
-- Framework application shows structure and reasoning
-- Synthesis provides decision-ready recommendations
-- Disagreements are productive and resolved (or flagged)
-
-**Poor panel:**
-- Experts repeat same points
-- Generic advice not grounded in frameworks or domain
-- No synthesis or integration across perspectives
-- Consensus forced despite legitimate disagreements
-- Panel format used when direct answer would suffice
+The other two are failure modes the panel format itself invites: manufacturing
+consensus where the experts genuinely disagree (flag the disagreement and say
+what would settle it), and ending on "here are the perspectives, you decide"
+instead of a synthesis someone can act on.

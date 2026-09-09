@@ -2,7 +2,7 @@
 name: mapping-webapp
 description: Generate behavioral/feature documentation for web apps using code-first analysis. Reads source code via tree-sitting to produce _FEATURES.md, with optional visual verification via browser automation. Companion to tree-sitting. Use when documenting app behavior, creating feature inventories, generating behavioral ground truth for agents, or before modifying UI code. Triggers on "map features", "document app behavior", "feature inventory", "what does this app do".
 metadata:
-  version: 0.4.0
+  version: 0.4.1
 ---
 
 # Mapping Webapp
@@ -48,7 +48,7 @@ python /mnt/skills/user/mapping-webapp/scripts/featuremap.py \
 | `--viewport` | `1280x720` | Screenshot viewport (WxH) |
 | `--routes` | none | Comma-separated routes or path to routes file |
 | `--screenshots-dir` | `<codebase>/screenshots` | Where to store PNGs |
-| `--model` | `claude-sonnet-4-6` | Claude model for analysis/vision |
+| `--model` | `claude-sonnet-4-6` (set in `scripts/featuremap.py`; that file is the source of truth) | Claude model for analysis/vision |
 | `--dry-run` / `-n` | `false` | Discover only, print sitemap |
 
 ## Architecture: Code-First Pipeline

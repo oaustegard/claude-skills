@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.0908.1401"
+    "version": "2026.0909.0105"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -38,7 +38,7 @@
       "name": "code-intelligence",
       "description": "Codebase exploration, navigation, mapping, and static analysis tools for understanding unfamiliar codebases.",
       "source": "./plugins/code-intelligence",
-      "version": "2.5.1",
+      "version": "2.5.2",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",
@@ -80,7 +80,7 @@
       "name": "development-tools",
       "description": "Software development utilities: MCP servers, bookmarklets, frameworks, patching, and environment validation.",
       "source": "./plugins/development-tools",
-      "version": "1.2.0",
+      "version": "1.2.1",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",
@@ -135,7 +135,7 @@
       "name": "knowledge-and-memory",
       "description": "Research methodology, corpus search, persistent memory, iterative workflows, and project knowledge management.",
       "source": "./plugins/knowledge-and-memory",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",
@@ -156,7 +156,7 @@
       "name": "media-processing",
       "description": "Image manipulation, video/audio processing, file format conversion, SVG conversion, and computer vision augmentation.",
       "source": "./plugins/media-processing",
-      "version": "2.1.0",
+      "version": "2.2.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",

@@ -2,7 +2,7 @@
 name: invoking-github
 description: Enables GitHub repository operations (read/write/commit/PR) for Claude.ai chat environments. Use when users request GitHub commits, repository updates, DEVLOG persistence, or cross-session state management via GitHub branches. Not needed in Claude Code (has native git access).
 metadata:
-  version: 0.0.4
+  version: 0.1.0
 ---
 
 # Invoking GitHub
@@ -10,21 +10,6 @@ metadata:
 Programmatically interact with GitHub repositories from Claude.ai chat: read files, commit changes, create PRs, and persist state across sessions.
 
 ## When to Use This Skill
-
-**Primary use cases:**
-- Commit code/documentation from Claude.ai chat (mobile/web)
-- Auto-persist DEVLOG.md for iterating skill
-- Manage state across sessions via GitHub branches
-- Read and update repository files programmatically
-- Create pull requests from chat interface
-
-**Trigger patterns:**
-- "Commit this to the repository"
-- "Update the README on GitHub"
-- "Save this to a feature branch"
-- "Create a PR with these changes"
-- "Persist DEVLOG to GitHub"
-- "Read the config file from my repo"
 
 **Not needed for:**
 - Claude Code environments (use native git commands)
@@ -301,12 +286,7 @@ except GitHubAPIError as e:
    - Use `create_branch_from="main"` parameter
    - Create PR for review
 
-4. **Handle errors gracefully**
-   - Always wrap in try-except
-   - Provide fallback behavior
-   - Don't fail silently
-
-5. **Secure token management**
+4. **Secure token management**
    - Use fine-grained tokens with minimal scopes
    - Set expiration dates
    - Rotate regularly

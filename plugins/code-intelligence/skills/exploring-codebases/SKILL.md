@@ -15,7 +15,7 @@ description: >-
   (orienting-codebases); fetching or cloning a repo without analysing it
   (accessing-github-repos, cloning-project).
 metadata:
-  version: 2.5.1
+  version: 2.5.2
 ---
 
 # Exploring Codebases
@@ -42,8 +42,8 @@ the `tree-sitter` core package isn't installed — come back here and install it
 (the engine bundles its own grammars and does NOT use tree-sitter-language-pack).
 Treesit exits 0 and prints no error in that case, so zero symbols is the only
 signal you get. There is no `Errors:` line: that one appears for parse
-failures, and an absent parser never reaches parsing. The full signal, and the
-2026-08-24 measurement behind it, is in the tree-sitting skill's Setup section.
+failures, and an absent parser never reaches parsing. The full signal is in
+the tree-sitting skill's Setup section.
 
 ### 1. Get the repo (tarball, not per-file)
 
@@ -119,10 +119,10 @@ list near the top — that's your drill-target picker, ranked.
 
 **Never pipe the full output through `head`.** If you are about to truncate it,
 `--orient` was the correct mode and you have paid for thousands of lines you
-will not read. Diagnosed 2026-08-22 on a FreeToken review: a 5,697-line gather
-was cut at line 120, and every finding in that review came from `treesit`
-drilling and targeted reads instead. `--orient` returns the 115 lines that were
-actually used. The full mode's symbol inventory exists to be CITED, not read.
+will not read. One review's full gather ran to 5,697 lines and was cut at line
+120; every finding in it came from `treesit` drilling and targeted reads
+instead. `--orient` returns the ~115 lines that get used. The full mode's
+symbol inventory exists to be CITED, not read.
 
 ### 4. Reason about the combined output
 
@@ -194,8 +194,7 @@ agent per subsystem, and a subagent inherits nothing -- not the conversation,
 not this file, not the knowledge that scan artifacts are already on disk.
 Read [references/subagent-delegation.md](references/subagent-delegation.md)
 before writing the first agent prompt; it carries the four things every prompt
-must include and the 2026-07-16 measurement of what happens when they are
-missing.
+must include and what happens when they are missing.
 
 ## Notes
 

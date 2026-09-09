@@ -2,7 +2,7 @@
 name: reading-business-cards
 description: "Preprocesses photographed sheets of many business cards — slicing each into overlapping high-resolution tiles and de-glaring them with container tooling (OpenCV/ImageMagick) — then reads every card via cheap parallel temperature-0 API calls (Haiku or Sonnet) using a distilled extraction prompt, and writes deduped contact fields to a CSV. Use when a user has photos or scans holding multiple business cards per image, mentions glare or unreadable cards, batch card transcription, contact extraction, or wants to read many cards without an expensive in-conversation pass. Triggers on 'business cards', 'card scan', 'extract contacts', 'read these cards', 'card glare', 'too many cards per photo'."
 metadata:
-  version: 2.1.0
+  version: 2.2.0
 ---
 
 # Reading Business Cards
@@ -52,7 +52,7 @@ whose cards still clear that model's OCR floor:
 python3 scripts/prep_cards.py /mnt/user-data/uploads --out /home/claude/cards_work --model opus
 ```
 
-`--model opus|sonnet|haiku` (or a full id like `claude-opus-4-8`) sets the floor:
+`--model opus|sonnet|haiku` (or a full model id string) sets the floor:
 Opus tiles least, Haiku most. Default is `sonnet` (the safe middle). On a dense
 ~660px-card sheet this yields roughly 6 tiles/sheet for Opus, 9-12 for Sonnet,
 12-20 for Haiku. If the reader is the in-conversation model (the no-key path,
@@ -121,12 +121,12 @@ guidance:
    - Clean, high-resolution, upright cards (e.g. a flatbed scan), Haiku reads
      them correctly → keep Haiku for the full run.
    - Errors, or `high` confidence on wrong text → switch to Sonnet:
-     `--model claude-sonnet-4-6`. Sonnet via this same script is far cheaper
+     `--model claude-sonnet-5`. Sonnet via this same script is far cheaper
      than reading tiles in-conversation and is accurate on messy phone photos.
 4. Full run with the chosen model and your real output path:
    ```bash
    python3 scripts/extract_cards.py --work /home/claude/cards_work \
-       --out /mnt/user-data/outputs/cards.csv [--model claude-sonnet-4-6]
+       --out /mnt/user-data/outputs/cards.csv [--model claude-sonnet-5]
    ```
 
 The script prints raw vs unique counts and the low-confidence / parse-error
@@ -137,7 +137,7 @@ website, address, confidence`.
 
 From the finished CSV, take every row with `confidence = low` (and any
 `parse-error`). Re-run just those — extract the relevant tiles into a small work
-dir and run `extract_cards.py` on them with `--model claude-sonnet-4-6` (or Opus
+dir and run `extract_cards.py` on them with `--model claude-sonnet-5` (or Opus
 in-chat for the worst). Cards still wrong after that are too small, angled, or
 glare-clipped in the source — flag them for a re-shoot rather than re-running.
 

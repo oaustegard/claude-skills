@@ -3,16 +3,16 @@ name: bm25
 description: >-
   Ranked content search over a text corpus you point it at, using BM25 (via
   xhluca/bm25s). Corpus-agnostic: cloned repos, project knowledge stores,
-  uploaded files and archives, any local directory. Stateless — an in-memory
-  index per invocation, no cache. Use for "rank these documents", "search
-  this corpus", "which files are most about X", "find content about Y", or
-  any multi-word concept query against a known body of text where grep would
-  return everything or nothing. Needs a corpus on disk. Not for searching
-  stored memories or prior-session decisions (remembering), not for a named
-  symbol or a file's structure (tree-sitting), and not for a literal string
-  you could grep.
+  uploaded files and archives, any local directory. In-memory BM25 index per
+  invocation, with a session-local disk cache for repeat runs against the
+  same corpus. Use for "rank these documents", "search this corpus", "which
+  files are most about X", "find content about Y", or any multi-word concept
+  query against a known body of text where grep would return everything or
+  nothing. Needs a corpus on disk. Not for searching stored memories or
+  prior-session decisions (remembering), not for a named symbol or a file's
+  structure (tree-sitting), and not for a literal string you could grep.
 metadata:
-  version: 0.2.0
+  version: 0.2.1
 ---
 
 # bm25

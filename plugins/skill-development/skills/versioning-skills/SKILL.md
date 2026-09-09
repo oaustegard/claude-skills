@@ -2,7 +2,7 @@
 name: versioning-skills
 description: REQUIRED for all skill development. Automatically version control every skill file modification for rollback/comparison. Use after init_skill.sh, after every str_replace/create_file, and before packaging.
 metadata:
-  version: 1.1.0
+  version: 1.1.1
 ---
 
 # Versioning Skills
@@ -39,9 +39,9 @@ git commit -m "Add: validation workflow pattern"
 
 ## When User Asks "What Changed?"
 
-**CRITICAL: Never display diffs inline - redirect to files and provide links.**
-
-**ALSO CRITICAL: Only create diffs/changelogs when user explicitly asks "what changed?" or "show differences"**
+Never display diffs inline — redirect to files and provide links (see below).
+Only create a diff or changelog when the user explicitly asks ("what
+changed?", "show differences").
 
 **Don't preemptively create:**
 - CHANGELOG.md files
