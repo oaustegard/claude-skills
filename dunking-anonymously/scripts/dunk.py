@@ -18,10 +18,12 @@ import json
 import os
 import random
 import re
+import urllib.error
 import urllib.parse
 import urllib.request
 
-API = "https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread"
+HOSTS = ("public.api.bsky.app", "api.bsky.app")
+PATH = "/xrpc/app.bsky.feed.getPostThread"
 UA = "muninn-raven"
 
 FONT_DIR = "/usr/share/fonts/truetype/dejavu"
@@ -53,10 +55,23 @@ def post_uri(ref: str) -> str:
 
 
 def fetch(uri: str) -> dict:
-    url = f"{API}?{urllib.parse.urlencode({'uri': uri, 'depth': 0})}"
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        data = json.load(r)
+    """Query the public AppView. Falls back to api.bsky.app, which answers when
+    public.api.bsky.app 403s from a proxied environment."""
+    qs = urllib.parse.urlencode({"uri": uri, "depth": 0})
+    last = None
+    for host in HOSTS:
+        req = urllib.request.Request(f"https://{host}{PATH}?{qs}",
+                                     headers={"User-Agent": UA})
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                data = json.load(r)
+            break
+        except urllib.error.HTTPError as e:
+            if e.code not in (403, 429, 502, 503):
+                raise
+            last = e
+    else:
+        raise SystemExit(f"both AppView hosts refused the request ({last})")
     post = data.get("thread", {}).get("post")
     if not post:
         raise SystemExit(f"no post at {uri} (deleted, blocked, or wrong rkey)")
