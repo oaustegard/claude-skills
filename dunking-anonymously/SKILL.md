@@ -40,7 +40,8 @@ that gets skipped.
 
 Deps are PIL and the standard library. DejaVu Mono ships with the container. The
 API call is unauthenticated, so it needs no token and leaves no trace in anyone's
-notifications.
+notifications. See [README.md](README.md) for the host fallback and network
+surface.
 
 ## Redactions applied
 
@@ -105,8 +106,12 @@ facets were stripped by the client that wrote it has no mention to find. Catch
 it by reading the PNG and use `--redact "@handle"` as the fallback.
 
 **`no post at at://...`.** The post is deleted, the author blocks the public
-AppView, or the rkey is wrong. Not a transport failure — refetching will not fix
-it.
+AppView, or the rkey is wrong. Not a transport failure, so refetching will not
+fix it.
+
+**403 from the AppView.** `public.api.bsky.app` refuses some proxied
+environments. The script retries on `api.bsky.app`, which serves the same
+lexicon, and only gives up when both refuse.
 
 ## Verification
 
