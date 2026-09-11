@@ -2,7 +2,7 @@
 name: dunking-anonymously
 description: Renders a Bluesky post as an anonymised screenshot so its words can be criticised without a link back to whoever wrote them. Blacks out avatar, display name, handle and any at-mentions in declassified-document styling, then emits a PNG and its alt text. Use for anonymous dunk-quoting, "dunk on this without linking it", "screenshot this post with the author hidden", "quote this without naming them", "redact this before I share it", or when a bad take from a small account deserves an answer and its author does not deserve your followers.
 metadata:
-  version: 0.1.0
+  version: 0.1.1
 ---
 
 # Dunking anonymously
