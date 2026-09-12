@@ -2,7 +2,7 @@
 name: transcribing-images
 description: "Reads the visual content of slides, pages, and images the way a human would, not just their embedded text. Use when a PPTX or PDF has image slides, screenshots, charts, scanned figures, or flattened-to-image layouts that the built-in pptx/pdf skills read as empty; when asked to transcribe, describe, OCR, or extract what is shown in an image, slide deck, or document page; or when embedded-text extraction returned little or nothing from a visually rich file. Triggers on 'read this deck', 'what's on these slides', 'transcribe', 'OCR', 'extract text from image', 'describe this chart/diagram', .pptx/.pdf/.png/.jpg with visual content."
 metadata:
-  version: 0.1.1
+  version: 0.1.2
 ---
 
 # Transcribing Images
@@ -75,6 +75,12 @@ pages you already know are plain scanned text, when you want a zero-cost,
 fully-offline pass. For anything with a chart, diagram, or visual layout, the
 vision path is the correct tool; tesseract on those pages will quietly lose the
 content that mattered.
+
+When the deliverable is a file rather than a reading, use `ocring-pdfs` instead.
+It installs ocrmypdf at runtime (~18s) and writes the OCR back as an invisible
+text layer over the original page images, so the output is a PDF that
+`pdftotext` and `grep` can read. The `--engine tesseract` path here returns
+loose text with no page anchoring.
 
 ## Interactive shortcut
 
