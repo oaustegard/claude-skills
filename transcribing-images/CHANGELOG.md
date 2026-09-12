@@ -4,6 +4,12 @@ All notable changes to the `transcribing-images` skill are documented in this fi
 
 ## [0.1.2] - 2026-09-12
 
+### Other
+
+- Add ocring-pdfs skill; route file-deliverable OCR out of transcribing-images (#796)
+
+## [0.1.2] - 2026-09-12
+
 ### Changed
 
 - Route file-deliverable OCR to the new `ocring-pdfs` skill; the tesseract

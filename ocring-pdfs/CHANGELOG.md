@@ -4,6 +4,12 @@ All notable changes to the `ocring-pdfs` skill are documented in this file. The 
 
 ## [0.1.0] - 2026-09-12
 
+### Other
+
+- Add ocring-pdfs skill; route file-deliverable OCR out of transcribing-images (#796)
+
+## [0.1.0] - 2026-09-12
+
 ### Added
 
 - Initial release: runtime install of the ocrmypdf toolchain (18s measured) plus
