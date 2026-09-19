@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.0916.0228"
+    "version": "2026.0919.0910"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -100,7 +100,7 @@
       "name": "environment-and-config",
       "description": "Environment setup, credential management, container building, and workflow orchestration.",
       "source": "./plugins/environment-and-config",
-      "version": "2.0.0",
+      "version": "2.0.1",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",
