@@ -2,6 +2,12 @@
 
 All notable changes to the `muninn-boot` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.0.1] - 2026-09-20
+
+### Other
+
+- muninn-boot 2.0.1: document multi-part MCP boot, sync-replacement guard; CLAUDE.md boot sequence to 2.0.0
+
 ## [2.0.0] - 2026-09-19
 
 ### Other
