@@ -1,7 +1,7 @@
 ---
 name: muninn-boot
 metadata:
-  version: 2.0.0
+  version: 2.0.1
   source: https://github.com/oaustegard/muninn-utilities/tree/main/muninn-boot
 description: 'Puts oaustegard/muninn-utilities on the container Python path — runs scripts/boot.sh, which shallow-clones the repo (codeload tarball as fallback) and writes the .pth. The boot payload itself comes from the Muninn MCP connector: call its `boot` tool after this script. Trigger on the first message of any new Muninn conversation, or when the user says "boot up" / "boot" — unless the message contains "skip boot". Idempotent: a warm container exits in ~0s via a sentinel.'
 ---
@@ -26,7 +26,22 @@ itself. Marketplace sync now places claude-skills in every session
 Claude.ai), and the worker runs boot. "skinny boot" (`BOOT_MODE=perch`) has no
 effect until the worker's `boot` takes a mode.
 
+## MCP boot parts
+
+The `boot` tool's payload is larger than the harness output cap, so it comes
+in parts. Call `boot` with no arguments; its footer says whether the payload is
+complete or names the next part (`boot({part: 2})`, then 3, and so on). Call
+every part the footer names before replying. The harness may persist a part to
+a file instead of showing it ("Output too large ... saved to ..."); read that
+file in full. A part that was persisted has already been delivered, so never
+call `boot` again with the same `part` to recover it.
+
 ## boot.sh steps
+
+Check `metadata.version` at the top of this file right before running. Below
+2.0.0 the on-disk script is the old one that sideloads claude-skills and runs
+the Python `boot()` itself; marketplace sync can replace the copy mid-session,
+so a session may run 1.x once and 2.x next.
 
 1. Warm-path check: sentinel `/home/claude/.muninn-booted` present and
    `/home/claude/muninn-utilities/muninn_utils` exists → exit 0.
