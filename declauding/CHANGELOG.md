@@ -6,6 +6,12 @@ All notable changes to the `declauding` skill are documented in this file. The f
 
 ### Changed
 
+- model profiles as instructions, not results (0.9.1)
+
+## [0.9.1] - 2026-09-22
+
+### Changed
+
 - `references/models/*.md` rewritten as instructions. Each file now says where
   to look in that model's drafts and what to cut, with one specimen per rule,
   plus what to check in your own rewrite when you are that model. Scores,
