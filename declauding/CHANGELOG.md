@@ -4,6 +4,12 @@ All notable changes to the `declauding` skill are documented in this file. The f
 
 ## [0.9.3] - 2026-09-22
 
+### Fixed
+
+- trigger at task start; fixes from a live subagent test (0.9.3)
+
+## [0.9.3] - 2026-09-22
+
 ### Changed
 
 - Description triggers at the start of the task ("Load at the start of any task
