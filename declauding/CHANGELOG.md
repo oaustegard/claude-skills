@@ -6,6 +6,12 @@ All notable changes to the `declauding` skill are documented in this file. The f
 
 ### Added
 
+- per-model profiles via progressive disclosure (0.9.0)
+
+## [0.9.0] - 2026-09-22
+
+### Added
+
 - `references/models/` — per-model profiles loaded on demand: `opus-5.md`
   (Opus 5, and Opus 5.5 as an unmeasured prior), `opus-4.md`, `sonnet.md`,
   `haiku.md`, `fable.md`. Each has an **as author** half (entry composition of
