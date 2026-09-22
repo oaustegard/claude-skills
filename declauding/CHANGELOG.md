@@ -4,6 +4,12 @@ All notable changes to the `declauding` skill are documented in this file. The f
 
 ## [0.9.2] - 2026-09-22
 
+### Fixed
+
+- description as an invocation trigger (0.9.2)
+
+## [0.9.2] - 2026-09-22
+
 ### Changed
 
 - Frontmatter description rewritten as an invocation trigger. It opens with the
