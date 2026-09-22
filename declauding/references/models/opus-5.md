@@ -27,6 +27,13 @@ shorten the pass: spend it on steps 2b, 3 and 4.
 - After rewriting several instances of one flagged shape, check whether the
   rewrites all landed on the same new shape. Verdict headers rewritten into
   nominalized headers (entry 41) is the usual one.
+- Leave a title that states what happened in plain words. It is already a
+  label. Turning *Order dashboards undercounted a day's orders after a timezone
+  change* into *dashboard undercount of one day's orders after a timezone
+  change* swaps a sentence for a noun pile (entry 41).
+- Re-read every sentence you rewrote against entry 2. Rewrites of a staged
+  line tend to land on a reversal: *Finance found this problem; our monitoring
+  never flagged it.* State the fact once: *No alert fired; finance found it.*
 - Read your rewrite once against entries 43 to 47 alone. Your clean prose
   defaults to that register: `plainly`, `quietly`, `byte-identical`, `nothing`
   standing in for a search.

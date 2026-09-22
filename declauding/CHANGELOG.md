@@ -2,6 +2,25 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.9.3] - 2026-09-22
+
+### Changed
+
+- Description triggers at the start of the task ("Load at the start of any task
+  whose deliverable is prose another person will read … before drafting it"),
+  covers results saved to a file, and names postmortems. The 0.9.2 wording
+  ("run as the last step … before the push, post or publish") loaded in 0 of 3
+  subagent tasks that ended in a README, a PR description and a postmortem; the
+  new wording loaded in 2 of 3 on the same tasks, and one of the two ran the
+  lint on its draft. Skills get chosen when the task is read, not after the
+  draft exists.
+- Step 2b gives a fallback for contexts that cannot spawn a subagent: answer the
+  review prompt yourself if you did not write the draft; if you did, answer it
+  and say the review was not independent.
+- `models/opus-5.md` editor checks: leave a plain factual title alone, and
+  re-read rewritten sentences for entry-2 reversals. Both failures appeared in
+  an Opus 5.5 test pass that had read the profile.
+
 ## [0.9.2] - 2026-09-22
 
 ### Fixed

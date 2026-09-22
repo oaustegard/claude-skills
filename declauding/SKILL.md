@@ -1,8 +1,8 @@
 ---
 name: declauding
-description: Run as the last step before any prose Claude drafted reaches another reader — a PR description, commit message, README, doc, blog post, issue or review comment, report, release note or essay — before the push, post or publish, without being asked. Also use when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make it sound human", or asks for a voice, tone or register edit on a draft. Rewrites the constructions that mark prose as model-written (staged reveals, verdict headers, aphoristic closers, "it's not X, it's Y", em-dash drama, forced triads, flat-certainty adverbs) into plain technical prose, then checks the rewrite kept every claim. Not for fiction, poetry, code, or quoted text; for a full adversarial review of a deliverable use challenging.
+description: Load at the start of any task whose deliverable is prose another person will read — a PR description, commit message, README, doc, postmortem, blog post, issue or review comment, report, release note or essay — before drafting it, whether the result is pushed, posted, published or saved to a file, without being asked. Draft, then run this pass on the draft before handing it over. Also use when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make it sound human", or asks for a voice, tone or register edit. Rewrites the constructions that mark prose as model-written (staged reveals, verdict headers, aphoristic closers, "it's not X, it's Y", em-dash drama, forced triads, flat-certainty adverbs) into plain technical prose and checks the rewrite kept every claim. Not for fiction, poetry, code, or quoted text; for a full adversarial review of a deliverable use challenging.
 metadata:
-  version: 0.9.2
+  version: 0.9.3
 ---
 
 # Declauding
@@ -188,8 +188,10 @@ citation. Stage 2 reads a comma in context and finds the aphoristic closer, whic
 no regex reaches. Run both.
 
 Run stage 2 in a context that did not write the draft. A model reviewing its own
-prose is the actor that chose the words. With `--emit-prompt`, hand the prompt
-to a subagent rather than answering it in the session that wrote the draft.
+prose is the actor that chose the words. With `--emit-prompt`: if you did not
+write the draft, answer the prompt yourself; if you did, hand it to a subagent.
+If you wrote it and cannot spawn one, answer it anyway and say in your report
+that the review was not independent.
 
 For a full-document register review against a named voice signature — positive
 markers, drift across the piece, imposter test — use the `challenging` skill's
