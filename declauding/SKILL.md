@@ -1,8 +1,8 @@
 ---
 name: declauding
-description: Removes LLM prose tics from drafts — staged reveals, "it's not X, it's Y", significance tags, abstraction agency, coy headers, fragment cadence, the flatter slop patterns (copula avoidance, participle tails, forced triads, chatbot residue), the flat-certainty patterns the pass itself produces (bare adverbs, juridical vocabulary, verification compounds, privative coinages), and the confiding-essayist patterns (announced honesty, stranded auxiliaries, retroactive significance, totalizing claims, obituary headlines) — and returns plain human technical prose. Use when text needs editing for register, when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make this sound human", "remove the tics/claudisms", or asks for a voice/register pass on a post, README, report, PR description or essay. Also use before publishing any draft Claude wrote. Verifies the rewrite kept every claim. Produces either clean prose or an annotated HTML diff showing every edit with its original and reason.
+description: Run as the last step before any prose Claude drafted reaches another reader — a PR description, commit message, README, doc, blog post, issue or review comment, report, release note or essay — before the push, post or publish, without being asked. Also use when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make it sound human", or asks for a voice, tone or register edit on a draft. Rewrites the constructions that mark prose as model-written (staged reveals, verdict headers, aphoristic closers, "it's not X, it's Y", em-dash drama, forced triads, flat-certainty adverbs) into plain technical prose, then checks the rewrite kept every claim. Not for fiction, poetry, code, or quoted text; for a full adversarial review of a deliverable use challenging.
 metadata:
-  version: 0.9.1
+  version: 0.9.2
 ---
 
 # Declauding

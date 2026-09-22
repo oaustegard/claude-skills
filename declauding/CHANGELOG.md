@@ -2,6 +2,18 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.9.2] - 2026-09-22
+
+### Changed
+
+- Frontmatter description rewritten as an invocation trigger. It opens with the
+  agentic case (the last step before any prose Claude drafted reaches another
+  reader, without being asked) and names the artifacts: PR description, commit
+  message, README, doc, blog post, issue or review comment. The old text spent
+  its first 600 characters cataloguing tic families, which describes the skill
+  and does not tell a model mid-task when to load it. Adds a boundary against
+  `challenging`. 1017 -> 786 characters.
+
 ## [0.9.1] - 2026-09-22
 
 ### Changed
