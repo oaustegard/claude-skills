@@ -226,3 +226,14 @@ So, what's next? Is this a project that starts and ends with the current model?
 
 The result is the same as using the plus operation with a zero operand. For
 round-floor, the sign of the intermediate result decides the rounding.
+
+## Entry 3 nouns Opus 5 used (v0.9.0)
+
+Verbatim from the model-register-drift Opus 5 samples; both passed the 0.8.1
+noun list.
+
+The real fix was an N+1 on one endpoint. That's the actual heuristic.
+
+Negatives that must stay silent — a literal work and cost:
+
+The actual work happens in the worker thread. The actual cost was $41.

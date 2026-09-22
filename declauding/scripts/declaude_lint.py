@@ -28,7 +28,7 @@ RULES: list[tuple[str, str, str]] = [
     ("negation-first", r"\b(?:is|are|was|were)\s+[a-z]{3,20},\s*not\s+[a-z]{3,20}\.", "X is A, not B — mid-paragraph, check the reader was holding B"),
 
     # --- significance designation -------------------------------------------
-    ("significance", r"\bthe\s+(?:real|actual|true|useful|interesting|important|key)\s+(?:question|problem|issue|point|reason|answer|finding|story|move|tool|test|variable|number)\b", "the real/actual X"),
+    ("significance", r"\bthe\s+(?:real|actual|true|useful|interesting|important|key)\s+(?:question|problem|issue|point|reason|answer|finding|story|move|tool|test|variable|number|fix|heuristic|lesson|insight|takeaway|culprit|cause|trap|trick|win)\b", "the real/actual X"),
     ("significance", r"\bthe\s+(?:part|thing|bit|piece|detail)\s+(?:that|which)\b", "the part that — designation; the reader decides what matters"),
     ("significance", r"\bthe\s+(?:one|leg|row|line|number|question)\s+that\s+(?:matters|counts|transfers|makes the point|does the work|answers|explains)\b", "the X that matters"),
     ("significance", r"\b(?:here'?s|this is)\s+(?:the thing|where it gets interesting|what)\b", "here's the thing"),

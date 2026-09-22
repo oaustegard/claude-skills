@@ -165,6 +165,19 @@ closer, so **a clean report means nothing on its own.**
 Exit code 1 when it finds candidates, 0 when it does not, which makes it usable
 as a pre-commit hook.
 
+## Model profiles
+
+`references/models/` holds one file per model family: Opus 5 and 5.5, Opus 4.6
+and 4.8, Sonnet 4.6 and 5, Haiku 4.5, Fable 5.1. Each says what that model's
+drafts carry and how that model fails when it runs the pass itself. They come
+from the model-register-drift run in
+[`oaustegard/experiments`](https://github.com/oaustegard/experiments/tree/main/model-register-drift),
+where six models wrote the same post with no voice instruction. Opus 5 was
+third-cleanest of the six on this linter and the only model whose blind staging
+score cleared zero, so its profile moves the pass's effort from the scan to
+headers and closers. Opus 5.5 has no samples yet and uses the Opus 5 profile.
+The earned-exception tables moved to `references/exceptions.md` at the same time.
+
 ## Preservation and rank
 
 Two stages that are not the linter.
@@ -205,24 +218,18 @@ including the ones that came back negative.
 ## False positives
 
 `tests/sample-clean.md` is human-written prose and must lint to zero.
-`tests/sample-tics.md` is a corpus of real specimens and currently reports 167
+`tests/sample-tics.md` is a corpus of real specimens and currently reports 169
 candidates across 42 categories.
 
 ```sh
-python3 scripts/declaude_lint.py tests/sample-tics.md    # 167 candidates
+python3 scripts/declaude_lint.py tests/sample-tics.md    # 169 candidates
 python3 scripts/declaude_lint.py tests/sample-clean.md   # 0
-python3 scripts/declaude_lint.py SKILL.md --skip-quoted  # 15, all checked
+python3 scripts/declaude_lint.py SKILL.md --skip-quoted  # 12, all checked
 python3 scripts/declaude_lint.py README.md --skip-quoted # 20, all checked
 python3 scripts/declaude_diff.py tests/sample-clean.md tests/sample-clean.md  # 0
 python3 scripts/declaude_lint.py tests/sample-structure.html   # 10, HTML path
 python3 scripts/declaude_review.py tests/sample-structure.md --slots
 ```
-
-One of the fifteen on `SKILL.md` is the `reuse` detector catching five parallel
-table labels ("Staging shapes, entries…", "Encyclopedic shapes, entries…",
-"Reference-prose shapes, entries…", "Flat-certainty shapes, entries…",
-"Confiding-essayist shapes, entries…"). Five labels in a table series is the
-deliberate repetition entry 27 protects, so it stays.
 
 Three of the twenty on this README are `load-bearing`, which entry 19 does list
 as a metaphor and which here is the name of a repository. A proper name is the

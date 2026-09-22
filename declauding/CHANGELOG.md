@@ -2,6 +2,45 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.9.0] - 2026-09-22
+
+### Added
+
+- `references/models/` — per-model profiles loaded on demand: `opus-5.md`
+  (Opus 5, and Opus 5.5 as an unmeasured prior), `opus-4.md`, `sonnet.md`,
+  `haiku.md`, `fable.md`. Each has an **as author** half (entry composition of
+  that model's drafts, where the linter under- or over-reads it, which workflow
+  steps carry the pass) and an **as editor** half (how that model fails running
+  this skill). `SKILL.md` gains a Model profiles section with the index and the
+  loading rule: author profile when the draft's model is known, own profile when
+  the running model is known, one file for both when Claude cleans its own draft.
+- Entry 3 lint nouns: `fix`, `heuristic`, `lesson`, `insight`, `takeaway`,
+  `culprit`, `cause`, `trap`, `trick`, `win`. Opus 5 wrote "the real fix" and
+  "the actual heuristic" and both passed 0.8.1. `work` and `cost` were tried and
+  dropped: "the actual work" and "the real work" appear three times in
+  CPython's stdlib, all literal. Specimens and negatives in `tests/sample-tics.md`.
+
+### Changed
+
+- The five earned-exception tables moved from `SKILL.md` to
+  `references/exceptions.md`; `SKILL.md` keeps a pointer, two worked cases and
+  the modifiers-carry-content rule. Step 3 loads the file before any deletion.
+- The four-family narrative in "The one pattern" is now a table.
+- Header "The author's own writing outranks this skill" is now "Author's writing
+  sample" (entry 7, found by the structural review of this release).
+- `SKILL.md` 23,970 → about 21,400 bytes.
+
+### Provenance
+
+Evidence is `oaustegard/experiments` `model-register-drift/` (2026-08-23, and
+the Fable 5.1 addendum of 2026-09-01): ten samples from six models, blind
+pairwise staging judgments, and the hand-adjudicated specimens in
+`adjudication.json`. The hand count was retracted as a score there and is used
+here only for entry composition. Editor-half evidence is claude-skills PRs
+#769, #771, #779 (Opus-line passes) and #791 (Sonnet audit agents deleting
+evidence with framing). No Opus 5.5, Opus 4.x-as-editor, Haiku-as-editor or
+Fable-as-editor measurement exists; those sections say so.
+
 ## [0.8.1] - 2026-09-09
 
 ### Other

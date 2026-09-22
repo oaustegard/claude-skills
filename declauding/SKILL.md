@@ -2,7 +2,7 @@
 name: declauding
 description: Removes LLM prose tics from drafts — staged reveals, "it's not X, it's Y", significance tags, abstraction agency, coy headers, fragment cadence, the flatter slop patterns (copula avoidance, participle tails, forced triads, chatbot residue), the flat-certainty patterns the pass itself produces (bare adverbs, juridical vocabulary, verification compounds, privative coinages), and the confiding-essayist patterns (announced honesty, stranded auxiliaries, retroactive significance, totalizing claims, obituary headlines) — and returns plain human technical prose. Use when text needs editing for register, when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make this sound human", "remove the tics/claudisms", or asks for a voice/register pass on a post, README, report, PR description or essay. Also use before publishing any draft Claude wrote. Verifies the rewrite kept every claim. Produces either clean prose or an annotated HTML diff showing every edit with its original and reason.
 metadata:
-  version: 0.8.1
+  version: 0.9.0
 ---
 
 # Declauding
@@ -51,33 +51,49 @@ stating the finding.**
 The generative test, applied per sentence: *am I saying the thing, or
 performing having had the thought?* Say the thing.
 
-Entries 24 to 36 are a second family — the flatter encyclopedic and chatbot
-patterns, where nothing is being staged and the writing is just running on
-defaults. Copula avoidance, participle tails, forced triads, chatbot residue.
-Different mechanism, same pass. Entries 37 and 38 are back in the staging
-family.
+The register has four families. Read the one the draft needs first.
 
-Entries 43 to 47 are a third family, and they are this skill's own output. The
-register a clean pass lands in — flat, concrete, verdict-shaped — is the
-fastest-growing cluster of GitHub pull request descriptions there is: 0.70% of
-early 2025, 39.5% of August 2026, with `plainly`, `quietly`, `refusal`,
-`re-derived` and `byte-identical` among its highest-lift words.
-`references/corpus.md` has the measurement. Flat certainty has tics of its own,
-and the test is the same one register over: *am I stating the finding, or
-performing having settled it?*
+| Entries | Family | Mechanism |
+|---|---|---|
+| 1–23, 37–42 | Staging | The sentence performs a finding arriving: reveals, verdict headers, aphoristic closers, welded epigrams |
+| 24–36 | Encyclopedic and chatbot | Nothing is staged; the writing runs on defaults: copula avoidance, participle tails, forced triads, chatbot residue |
+| 43–47 | Flat certainty | This skill's own output. An adverb, compound or absolute negative stands in for evidence: `plainly`, `quietly`, `refusal`, `re-derived`, `byte-identical`, `nothing` |
+| 48–52 | Confiding essayist | Staging aimed at the reader's trust: announced honesty, stranded auxiliaries, obituary headlines. From Simon Willison's [llm-cliche-highlighter](https://github.com/simonw/tools/blob/main/llm-cliche-highlighter.html), updated 2026-08-27 |
 
-The response to that is not to put the staging back. It is to check that an
-adverb, a hyphenated compound or an absolute negative is carrying evidence
-rather than standing in for it.
+The flat-certainty register is where a clean pass lands, and it is now the
+fastest-growing cluster of GitHub pull request descriptions: 0.70% of early
+2025, 39.5% of August 2026 (`references/corpus.md`). Its test is the same one
+turned over: *am I stating the finding, or performing having settled it?* The
+fix is never to put the staging back. It is to check that the adverb, compound
+or negative carries evidence.
 
-Entries 48 to 52 are a fourth family and come from outside: Simon Willison's
-[llm-cliche-highlighter](https://github.com/simonw/tools/blob/main/llm-cliche-highlighter.html),
-updated 2026-08-27. They are the confiding-essayist voice — announced honesty, a
-reversal landed on a bare auxiliary, a grade applied to a passage the reader has
-already read, a part claimed as a whole, an obituary headline. Staging again, but
-aimed at the reader's trust rather than at a finding.
+## Model profiles
 
-## The author's own writing outranks this skill
+Models stage differently, and the difference changes where the pass should
+spend its effort. `references/models/` holds a profile per model family, each
+with two halves: what that model's drafts carry (**as author**) and how that
+model goes wrong when it runs this pass (**as editor**).
+
+| Model | Profile | As author, in one line |
+|---|---|---|
+| Opus 5, Opus 5.5 | `models/opus-5.md` | Lint-clean and heavily staged: verdict headers, quotable closers, welded maxims. 5.5 unmeasured; uses the Opus 5 profile |
+| Opus 4.6, 4.8 | `models/opus-4.md` | 4.8 is closer-heavy with em dashes the linter catches; 4.6 is the least staged Opus |
+| Sonnet 4.6, 5 | `models/sonnet.md` | Less staged than Opus; em dashes and negation-first reversals |
+| Haiku 4.5 | `models/haiku.md` | The flat family; most AI-detectable and most visible to the linter |
+| Fable 5.1 | `models/fable.md` | Least staged measured; residual bolded takeaways and headers |
+
+Load the author profile when the draft's model is known, and your own profile
+when you know which model you are. The common case is both at once: Claude
+wrote the draft and Claude is cleaning it. Read the one file for both halves,
+and run step 2b in a separate context. A declauding pass by the model that wrote
+a draft passed six sentences its reader then flagged (claude-skills PR #771).
+
+When the author is unknown or human, skip the profiles and run the general
+pass. One construction recurred across models: six of ten samples, from four of
+the six models, carried a contents-list standfirst (entry 42) such as *here's
+what happened, and what we should have measured*.
+
+## Author's writing sample
 
 If the user supplies a sample of their writing, read it before editing and match
 its habits: sentence lengths, paragraph openings, punctuation, recurring
@@ -119,8 +135,9 @@ construction used twice is a habit and counting is free.
 It has no judgment. Everything it flags still needs the sentence-level test, it
 reaches roughly two thirds of what a careful pass finds, and the third it misses
 is the expensive third: staged paragraph shape, staged closers, dressed metaphor,
-and every earned exception in the tables below. Step 2b takes part of that third;
-the rest is yours. Treat a clean report as meaningless on its own.
+and every earned exception. Step 2b takes part of that third; the rest is yours.
+Treat a clean report as meaningless on its own, and on Opus 5 drafts expect it:
+they were the third-cleanest of six models on this scan and the most staged.
 
 Use `--skip-quoted` on any draft that quotes bad prose as a specimen. Without it
 the scan reports the draft's own examples, which is how a real pass loses time.
@@ -147,15 +164,13 @@ arguments rather than from the file will hide them from this scan.
 python3 scripts/declaude_rank.py DRAFT.md --top 15
 ```
 
-A fitted direction in embedding space — the mean of `embed(was) - embed(now)`
-over the before/after pairs in `references/register.md` — that sorts sentences by
-how staged they look. It reaches the structural third the regex scan cannot, and
-it decides nothing: read each one and apply the sentence test. On the one pass it
-has been measured against it put all nine edited sentences at a median rank of 13
-of 53, where the regex scan had found one of the nine. It cannot rank documents
-and does not offer a score for one. Needs torch and transformers; every other
-stage is standard library. `references/preservation.md` has the numbers and the
-failures.
+Sorts sentences by how staged they look, using a fitted direction in embedding
+space (the mean of `embed(was) - embed(now)` over the register's before/after
+pairs). It shortlists and decides nothing. On the one pass it was measured
+against it ranked all nine edited sentences at a median of 13 of 53, where the
+regex scan had found one of the nine. It cannot score documents. Needs torch and
+transformers; every other stage is standard library. `references/preservation.md`
+has the numbers.
 
 **2b. Run the structural review.**
 
@@ -177,7 +192,8 @@ citation. Stage 2 reads a comma in context and finds the aphoristic closer, whic
 no regex reaches. Run both.
 
 Run stage 2 in a context that did not write the draft. A model reviewing its own
-prose is the actor that chose the words.
+prose is the actor that chose the words. With `--emit-prompt`, hand the prompt
+to a subagent rather than answering it in the session that wrote the draft.
 
 For a full-document register review against a named voice signature — positive
 markers, drift across the piece, imposter test — use the `challenging` skill's
@@ -185,11 +201,12 @@ markers, drift across the piece, imposter test — use the `challenging` skill's
 thorough one.
 
 **3. Sentence pass.** For every sentence, in order: stating or staging? Load
-`references/register.md` for the catalogue of tells and their fixes. On a draft
-this skill or another model already cleaned, read entries 43 to 47 first — a
-second pass over already-flat prose is where they live. On a personal essay, a
-launch post, or anything addressed to the reader as a confidant, read 48 to 52
-first instead.
+`references/register.md` for the catalogue of tells and their fixes, and
+`references/exceptions.md` before deleting any flagged shape — it lists when
+each shape carries a claim. Start with the family the draft needs: the author
+model's profile names it; on a draft this skill or another model already
+cleaned, read 43 to 47 first; on a personal essay, a launch post, or anything
+addressed to the reader as a confidant, read 48 to 52 first.
 
 **4. Structure pass.** Headers (are they labels or verdicts?), paragraph breaks
 (is an isolated line a real pivot or a drum roll?), fragment runs, rhetorical
@@ -290,62 +307,11 @@ example where the phrase is being discussed rather than used. The linter's
 
 Every entry fires on a shape, and a shape sometimes carries a claim. Cutting it
 then removes content while looking like it removed only style, and the result
-reads fluently, so a read-through does not catch it. Check before deleting.
-
-Staging shapes, entries 1 to 23 and 37:
-
-| Shape | Banned when | Earned when |
-|---|---|---|
-| "X rather than Y" (2) | You invented Y so you could reject it | The reader was genuinely holding Y — the draft proposed it, or it is the field's default |
-| "Nobody noticed" (3) | Unfalsifiable claim about others' inattention | You can name the mechanism and duration: "nobody noticed for six weeks because the dashboard only alarms on nulls" |
-| Isolated one-line paragraph (9) | Gravitas beat | Real pivot: new actor, category shift, time jump |
-| Colon before the payload (8) | Withholding for a beat | The payload is a list, a definition, or a code block |
-| Short declarative closer (12) | Compresses the section into a moral | States a fact: "Default retries are back to 3." |
-| Em dash (16) | The dash stages a beat before the punch | A genuine inline aside, or the author's sample uses them at that rate |
-| Metaphor (6, 37) | It dresses a mechanism you could name | It is the clearest available description and no plain noun fits |
-
-Encyclopedic shapes, entries 24 to 36:
-
-| Shape | Banned when | Earned when |
-|---|---|---|
-| Participle tail (25) | The tail asserts significance the sentence has not earned | The clause carries a sourced claim — make it its own sentence rather than cutting it |
-| Forced triad (26) | The count came from rhythm | There are genuinely three things, or a superlative or ranking rides on the phrasing |
-| Elegant variation (27) | The same referent renamed for variety | The second term names a genuinely different thing |
-| False range (28) | X and Y are not endpoints of any scale | A real range with real endpoints |
-| Inline-header list (29) | The label restates the item | The label is a real index: a term being defined, an option name, a case name |
-| Typographic tells (30) | Bold, emoji or Title Case scattered mechanically | Bold on a term at first use; the document already uses emoji; a house style requires Title Case |
-
-Reference-prose shapes, entries 39 to 42:
-
-| Shape | Banned when | Earned when |
-|---|---|---|
-| Welded epigram (39) | The second clause restates the first as a maxim | Both clauses carry distinct facts a reader can act on |
-| Latinate state verb (40) | Register formality for a program doing nothing | The word is the system's own documented state — a queue whose states are `waiting` and `held` |
-| Nominalized header (41) | It names a topic area instead of the content | The noun is a term this document defines, standing alone as its label — "Overcorrection", "Provenance" |
-| Filler and hedging (32) | Hedges stack and none names a condition | One hedge names a real condition: "on the two runs that finished" |
-| Diff-anchored (34) | The doc narrates the change that produced it | The document is version-scoped by design: changelogs, release notes, migration guides |
-| Subjectless fragment (35) | The actor is known and matters | The register is clipped throughout — release notes, a feature table, a CLI help string |
-| Predicate hyphenation (36) | Every pair is hyphenated in both positions | House style or a quoted source sets it |
-
-Flat-certainty shapes, entries 43 to 47:
-
-| Shape | Banned when | Earned when |
-|---|---|---|
-| Flat-certainty adverb (43) | It asserts the reader's reaction — "provably safe", "quietly dropped" | It names a contrast the reader can check: "silently" against a version that logs |
-| Juridical vocabulary (44) | A program state described as an adjudication | It is the system's own documented word — a policy engine whose API says `deny` |
-| Verification compound (45) | The method is compressed into an adjective and never shown | The number is beside it: "byte-identical" next to the diff, "mutation-checked" next to 14 of 15 |
-| Privative coinage (46) | A minted adjective replaces the measurement | The field's term ("unsatisfiable"), or the absence is the finding and stated once |
-| Exhaustive negation (47) | A universal negative stands in for the search | The scope is bounded and named: "none of the 46 chunks exceeds 0.57%" |
-
-Confiding-essayist shapes, entries 48 to 52:
-
-| Shape | Banned when | Earned when |
-|---|---|---|
-| Announced candour (48) | Sincerity claimed for a sentence that could have carried it | Reported speech, or one "to be clear" correcting a misreading the draft caused |
-| Stranded auxiliary (49) | The verb is elided so the clause lands as a beat | Both halves are measured — "reads passed on all 12 shards, writes on none" |
-| Retroactive significance (50) | It grades a passage the reader has already read | A "which is why" introducing a consequence the reader has not seen |
-| Totalizing designation (51) | A part is claimed as the whole, or a superlative ranks an unnamed set | A real count of one over a named set — "the only one of the six runs that finished" |
-| Obituary headline (52) | A verdict borrowed from a form built to overstate | The phrase belongs to something quoted or named |
+reads fluently, so a read-through does not catch it. `references/exceptions.md`
+has a banned-when and earned-when row for each shape; check the row before
+deleting. Two common cases: "X rather than Y" is earned when the reader was
+already holding Y, and a short closer is earned when it states a fact
+("Default retries are back to 3.") rather than a moral.
 
 **Modifiers inside a watched phrase carry content.** "The single most important
 new build" ranks that item against every other item; "the important new build"
@@ -400,6 +366,15 @@ The register is a working document, not a standard. Adding to it:
    a rule that fires on it is a bad rule, and the false-positive budget is the
    thing that keeps the linter worth running.
 4. Bump `metadata.version`.
+
+A model profile in `references/models/` needs samples written by that model with
+no voice instruction, scored the way `oaustegard/experiments`
+`model-register-drift/` did: the linter normalised per 1000 words, entries
+adjudicated by hand in a context that wrote none of the samples, and blind
+pairwise judging on the staging question. Report the entry composition and the
+blind result, not the hand count as a score; that count did not converge across
+passes and was retracted. Add the row to the model table above. A model with no
+samples gets the nearest measured profile, marked as a prior.
 
 Promote a phrase to its own register entry only after it appears twice in real
 drafts. Reuse is the strongest evidence that a construction is a habit rather
