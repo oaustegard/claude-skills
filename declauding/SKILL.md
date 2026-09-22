@@ -2,7 +2,7 @@
 name: declauding
 description: Removes LLM prose tics from drafts — staged reveals, "it's not X, it's Y", significance tags, abstraction agency, coy headers, fragment cadence, the flatter slop patterns (copula avoidance, participle tails, forced triads, chatbot residue), the flat-certainty patterns the pass itself produces (bare adverbs, juridical vocabulary, verification compounds, privative coinages), and the confiding-essayist patterns (announced honesty, stranded auxiliaries, retroactive significance, totalizing claims, obituary headlines) — and returns plain human technical prose. Use when text needs editing for register, when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make this sound human", "remove the tics/claudisms", or asks for a voice/register pass on a post, README, report, PR description or essay. Also use before publishing any draft Claude wrote. Verifies the rewrite kept every claim. Produces either clean prose or an annotated HTML diff showing every edit with its original and reason.
 metadata:
-  version: 0.9.0
+  version: 0.9.1
 ---
 
 # Declauding
@@ -69,29 +69,25 @@ or negative carries evidence.
 
 ## Model profiles
 
-Models stage differently, and the difference changes where the pass should
-spend its effort. `references/models/` holds a profile per model family, each
-with two halves: what that model's drafts carry (**as author**) and how that
-model goes wrong when it runs this pass (**as editor**).
+When you know which model wrote the draft, read its file in
+`references/models/` before step 2. When you know which model you are, read your
+own file too. Each file has two sections: what to look for in that model's
+drafts, and what to check in your own rewrite when you are that model.
 
-| Model | Profile | As author, in one line |
+| Model | File | Where its tics sit |
 |---|---|---|
-| Opus 5, Opus 5.5 | `models/opus-5.md` | Lint-clean and heavily staged: verdict headers, quotable closers, welded maxims. 5.5 unmeasured; uses the Opus 5 profile |
-| Opus 4.6, 4.8 | `models/opus-4.md` | 4.8 is closer-heavy with em dashes the linter catches; 4.6 is the least staged Opus |
-| Sonnet 4.6, 5 | `models/sonnet.md` | Less staged than Opus; em dashes and negation-first reversals |
-| Haiku 4.5 | `models/haiku.md` | The flat family; most AI-detectable and most visible to the linter |
-| Fable 5.1 | `models/fable.md` | Least staged measured; residual bolded takeaways and headers |
+| Opus 5, Opus 5.5 | `models/opus-5.md` | Headers and paragraph closers; the linter misses most of them |
+| Opus 4.6, 4.8 | `models/opus-4.md` | Closers, em dashes, one metaphor reused across paragraphs |
+| Sonnet 4.6, 5 | `models/sonnet.md` | Em dashes and negation-first reversals |
+| Haiku 4.5 | `models/haiku.md` | The encyclopedic family; the linter catches most of it |
+| Fable 5.1 | `models/fable.md` | Bolded list leads and takeaways |
 
-Load the author profile when the draft's model is known, and your own profile
-when you know which model you are. The common case is both at once: Claude
-wrote the draft and Claude is cleaning it. Read the one file for both halves,
-and run step 2b in a separate context. A declauding pass by the model that wrote
-a draft passed six sentences its reader then flagged (claude-skills PR #771).
+When Claude is cleaning its own draft, one file covers both sections; run step
+2b in a subagent or separate context. When the author is unknown or human, skip
+the profiles.
 
-When the author is unknown or human, skip the profiles and run the general
-pass. One construction recurred across models: six of ten samples, from four of
-the six models, carried a contents-list standfirst (entry 42) such as *here's
-what happened, and what we should have measured*.
+On any model's draft, check the opening for a contents-list standfirst (entry
+42): *here's what happened, and what we should have measured*.
 
 ## Author's writing sample
 
@@ -136,8 +132,8 @@ It has no judgment. Everything it flags still needs the sentence-level test, it
 reaches roughly two thirds of what a careful pass finds, and the third it misses
 is the expensive third: staged paragraph shape, staged closers, dressed metaphor,
 and every earned exception. Step 2b takes part of that third; the rest is yours.
-Treat a clean report as meaningless on its own, and on Opus 5 drafts expect it:
-they were the third-cleanest of six models on this scan and the most staged.
+Treat a clean report as meaningless on its own, and expect one on Opus 5
+drafts, which stage heavily in shapes the scan cannot see.
 
 Use `--skip-quoted` on any draft that quotes bad prose as a specimen. Without it
 the scan reports the draft's own examples, which is how a real pass loses time.
@@ -367,14 +363,11 @@ The register is a working document, not a standard. Adding to it:
    thing that keeps the linter worth running.
 4. Bump `metadata.version`.
 
-A model profile in `references/models/` needs samples written by that model with
-no voice instruction, scored the way `oaustegard/experiments`
-`model-register-drift/` did: the linter normalised per 1000 words, entries
-adjudicated by hand in a context that wrote none of the samples, and blind
-pairwise judging on the staging question. Report the entry composition and the
-blind result, not the hand count as a score; that count did not converge across
-passes and was retracted. Add the row to the model table above. A model with no
-samples gets the nearest measured profile, marked as a prior.
+To add a model profile, sample that model with no voice instruction and score
+it as `oaustegard/experiments` `model-register-drift/` did. Write the file as
+instructions: where to look, what to cut, with one specimen per rule. Leave the
+scores in the experiment; the file gets one evidence line. Add a row to the
+Model profiles table.
 
 Promote a phrase to its own register entry only after it appears twice in real
 drafts. Reuse is the strongest evidence that a construction is a habit rather

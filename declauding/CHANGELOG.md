@@ -2,6 +2,21 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.9.1] - 2026-09-22
+
+### Changed
+
+- `references/models/*.md` rewritten as instructions. Each file now says where
+  to look in that model's drafts and what to cut, with one specimen per rule,
+  plus what to check in your own rewrite when you are that model. Scores,
+  confidence intervals and entry counts are gone from the files; each keeps one
+  evidence line pointing at `oaustegard/experiments` `model-register-drift/`.
+  The numbers told the reader how the profile was earned and did not change what
+  the pass does.
+- `SKILL.md` Model profiles table and step 2 note state where each model's tics
+  sit rather than how it ranked. Extending tells profile authors to write
+  instructions and leave the scores in the experiment.
+
 ## [0.9.0] - 2026-09-22
 
 ### Added
