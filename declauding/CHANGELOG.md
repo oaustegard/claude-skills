@@ -20,6 +20,13 @@ All notable changes to the `declauding` skill are documented in this file. The f
   new wording loaded in 2 of 3 on the same tasks, and one of the two ran the
   lint on its draft. Skills get chosen when the task is read, not after the
   draft exists.
+
+  Confirmed outside any repository (headless `claude -p` from an empty
+  directory, no CLAUDE.md, same three tasks with a neutral diff for the PR):
+  the new wording loaded in 15 of 15 runs, always before drafting, and 14 of
+  15 linted their own draft; the 0.9.2 wording loaded in 1 of 9. A code-only
+  control loaded it in 0 of 2. Inside claude-workspace the new wording loaded
+  in 2 of 3, where the repo's own prose routing competes with it.
 - Step 2b gives a fallback for contexts that cannot spawn a subagent: answer the
   review prompt yourself if you did not write the draft; if you did, answer it
   and say the review was not independent.
