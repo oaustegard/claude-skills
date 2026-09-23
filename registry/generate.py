@@ -180,6 +180,48 @@ def build_plugins_dir(root: Path, categories: dict) -> None:
         )
 
 
+def standalone_skills(root: Path) -> list[Path]:
+    """Skills that ship hooks become their own plugin as well as joining a category.
+
+    A category bundle cannot carry a skill's hooks: Claude Code reads hooks only
+    from a plugin's root hooks/hooks.json, and installing a bundle should not wire
+    hooks nobody asked for. So any skill with hooks/hooks.json also gets
+    plugins/<skill>/ with the hooks at the plugin root and the skill under skills/.
+    Hook commands reference ${CLAUDE_PLUGIN_ROOT}/skills/<skill>/...
+    """
+    return sorted(d for d in root.iterdir()
+                  if d.is_dir() and (d / "SKILL.md").exists() and (d / "hooks" / "hooks.json").exists()
+                  and not is_deprecated(d) and not d.name.startswith("."))
+
+
+def build_standalone_plugins(root: Path, categories: dict) -> list[Path]:
+    """Create plugins/<skill>/ for every skill in standalone_skills(); return them."""
+    out = []
+    for sd in standalone_skills(root):
+        if sd.name in categories:
+            print(f"WARN: standalone plugin {sd.name} collides with a category name, skipping",
+                  file=sys.stderr)
+            continue
+        dest = root / "plugins" / sd.name
+        (dest / ".claude-plugin").mkdir(parents=True, exist_ok=True)
+        shutil.copytree(sd, dest / "skills" / sd.name, ignore=_ignore_symlinks)
+        shutil.copytree(sd / "hooks", dest / "hooks", ignore=_ignore_symlinks)
+        meta = _frontmatter(sd)
+        plugin_json = {"name": sd.name, "description": meta.get("description", ""),
+                       "version": get_skill_version(sd) or "0.0.0"}
+        (dest / ".claude-plugin" / "plugin.json").write_text(json.dumps(plugin_json, indent=2) + "\n")
+        out.append(sd)
+    return out
+
+
+def _frontmatter(skill_dir: Path) -> dict:
+    try:
+        fm, _ = parse_skill_md(skill_dir / "SKILL.md")
+        return fm or {}
+    except Exception:
+        return {}
+
+
 def build_marketplace(root: Path, categories: dict) -> Marketplace:
     """Build marketplace.json with one plugin entry per category."""
     marketplace = Marketplace()
@@ -218,6 +260,21 @@ def build_marketplace(root: Path, categories: dict) -> Marketplace:
         )
         marketplace.plugins.append(entry)
 
+    for sd in standalone_skills(root):
+        if sd.name in categories:
+            continue
+        marketplace.plugins.append(PluginEntry(
+            name=sd.name,
+            description=_frontmatter(sd).get("description", ""),
+            source=f"./plugins/{sd.name}",
+            version=get_skill_version(sd) or "0.0.0",
+            homepage=f"https://github.com/{REPO}",
+            repository=f"https://github.com/{REPO}",
+            license="MIT",
+            category="Hooks",
+            keywords=[sd.name, "hooks"] + collect_keywords(sd),
+        ))
+
     return marketplace
 
 
@@ -230,7 +287,9 @@ def main():
 
     # Build plugins/ directory with symlinks
     build_plugins_dir(root, categories)
-    print(f"Built plugins/ directory ({len(categories)} category plugins)")
+    standalone = build_standalone_plugins(root, categories)
+    print(f"Built plugins/ directory ({len(categories)} category plugins, "
+          f"{len(standalone)} standalone hook plugins)")
 
     # Generate marketplace.json
     marketplace = build_marketplace(root, categories)
@@ -242,7 +301,7 @@ def main():
     out_path.write_text(
         json.dumps(marketplace.to_dict(), indent=2, ensure_ascii=False) + "\n"
     )
-    print(f"Wrote {out_path} ({len(marketplace.plugins)} category plugins)")
+    print(f"Wrote {out_path} ({len(marketplace.plugins)} plugins)")
 
 
 if __name__ == "__main__":

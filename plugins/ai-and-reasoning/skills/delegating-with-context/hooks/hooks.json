@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Agent|Task|mcp__.*__create_session",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 120,
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/delegating-with-context/scripts/context_hook.py\""
+          }
+        ]
+      }
+    ]
+  }
+}
