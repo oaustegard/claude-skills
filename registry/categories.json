@@ -79,6 +79,7 @@
         "creating-video",
         "detecting-tips-zones",
         "drawing-video",
+        "drawing-with-pycairo",
         "image-to-svg",
         "parsing-video",
         "processing-images",
