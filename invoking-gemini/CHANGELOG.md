@@ -146,6 +146,12 @@ input, and got the pitch direction wrong both times.
 
 All notable changes to the `invoking-gemini` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.9.0] - 2026-09-24
+
+### Other
+
+- invoking-gemini 0.9.0: add Gemini 3.8 Flash TTS (speech generation)
+
 ## [0.8.0] - 2026-09-03
 
 ### Other
