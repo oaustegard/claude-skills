@@ -1,6 +1,6 @@
 # Gemini Models Reference
 
-Detailed information about available Gemini models (as of September 2026).
+Detailed information about available Gemini models (as of September 2026; speech models added 2026-09-24).
 
 ## Model Comparison
 
@@ -308,6 +308,48 @@ The `lite` alias now resolves to `gemini-3.5-flash-lite`.
 - Output: $10.00 / 1M tokens (≤200K), $20.00 (>200K)
 
 ---
+
+### Speech Generation Models (TTS)
+
+**Released 2026-09-23, GA** on the Gemini API and AI Studio (Gemini Enterprise
+in preview). Google's announcement claims #1 on Hume AI's Voice Design
+Benchmark (71.4) and the #1 and #2 spots on its Overall Quality Index.
+
+#### gemini-3.8-flash-tts
+
+- Flagship expressive TTS: acting, regional accents, long-form multi-turn
+  stability. 130 languages, auto-detected.
+- Limits: 8,192 input tokens / 16,384 output tokens per request; up to two
+  speakers.
+- Pricing: $0.50 in (text) / $9.00 out (audio) per 1M through 2026-12-31, then
+  $1.00 / $18.00. Batch half. About 32 audio tokens per second of speech
+  (measured 2026-09-24), so ~$0.02 per minute.
+
+#### gemini-3.8-flash-lite-tts
+
+- Cheaper workhorse for bulk narration, voice-agent cascades and read-aloud;
+  101 languages. $0.50 / $6.00 per 1M through 2026-12-31, then $1.00 / $12.00.
+- Google's named replacement for `gemini-3.1-flash-tts-preview` ($1 / $20).
+
+#### API shape (verified through the CF gateway, 2026-09-24)
+
+- Use the **Interactions API**: `POST v1beta/interactions` with
+  `{"model", "input": [{"type": "user_input", "content": [{"type": "text",
+  "text", "annotations": [{"type": "speech_metadata", "style"}]}]}],
+  "response_format": {"type": "audio", "mime_type": "audio/wav",
+  "sample_rate": 24000}, "generation_config": {"speech_config": [{"voice"}]}}`.
+  Audio is base64 at `steps[].content[]` where `type == "audio"`.
+- `generateContent` with `responseModalities: ["AUDIO"]` also returns audio,
+  but a "Style: text" prefix is spoken aloud and `systemInstruction` returns
+  HTTP 400 "Developer instruction is not enabled for this model".
+- Voices: 30 studio voices plus 2,059 persona voices (`GET v1beta/voices`,
+  paged by `next_page_token`, max 1,000 per page). Designed voices come from
+  `POST v1beta/voices` with `{"store": true, "voice": {"type": "prompted",
+  "prompted": {"input": "<description>"}, ...}}` and return a `voice_...` id
+  (1-year expiry, 200 per project) plus a `sample_audio` preview.
+- Output is watermarked with SynthID.
+- The model can paraphrase: it added "Hmm," and swapped pronouns in a scripted
+  narration. Check scripted output with ASR.
 
 ### Image Generation Models
 
