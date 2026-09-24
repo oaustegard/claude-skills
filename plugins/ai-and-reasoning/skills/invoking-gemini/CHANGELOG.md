@@ -1,5 +1,20 @@
 # invoking-gemini - Changelog
 
+## 2026-09-24
+
+### Added — speech generation (Gemini 3.8 Flash TTS, GA 2026-09-23)
+- `generate_speech()` writes a WAV from text with a prebuilt or designed voice
+  and an optional style; `design_voice()` creates a stored voice from a
+  description; `list_voices()` pages the 2,089-voice library. Run through the
+  CF gateway on 2026-09-24, they returned a 7.8 s WAV, a stored voice id with
+  its sample, and 2,092 voices (the library plus this project's designs).
+- `SPEECH_MODELS` / `SPEECH_ALIASES` (`tts`, `tts-lite`) are kept apart from
+  `MODEL_ALIASES`, so `invoke_gemini()` cannot resolve to an audio model.
+- The calls use the Interactions API. On `generateContent` a "Style:" prefix is
+  spoken and `systemInstruction` is refused.
+- `_rest_request()` sends a direct-mode API key in the `x-goog-api-key` header
+  rather than the URL.
+
 ## 2026-09-03
 
 ### ⚠️ BREAKING — `flash` alias and `DEFAULT_MODEL` repointed to gemini-3.8-flash
@@ -130,6 +145,12 @@ input, and got the pitch direction wrong both times.
 
 
 All notable changes to the `invoking-gemini` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+## [0.9.0] - 2026-09-24
+
+### Other
+
+- invoking-gemini 0.9.0: add Gemini 3.8 Flash TTS (speech generation)
 
 ## [0.8.0] - 2026-09-03
 

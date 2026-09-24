@@ -111,6 +111,14 @@ MODEL_ALIASES = {
 
 DEFAULT_MODEL = "gemini-3.8-flash"
 
+# Speech (TTS) models — GA 2026-09-23. Kept out of MODEL_ALIASES on purpose:
+# they return audio, not text, so invoke_gemini() must never resolve to them.
+SPEECH_MODELS = {
+    "gemini-3.8-flash-tts": "gemini-3.8-flash-tts",            # expressive, 130 languages
+    "gemini-3.8-flash-lite-tts": "gemini-3.8-flash-lite-tts",  # bulk / read-aloud, 101 languages
+}
+SPEECH_ALIASES = {"tts": "gemini-3.8-flash-tts", "tts-lite": "gemini-3.8-flash-lite-tts"}
+
 # Flash 3.7 and 3.8 reject thinking_level='minimal' with HTTP 400 ("Thinking
 # level MINIMAL is not supported for this model"); 3.6, 3.5 and 3.5-lite accept
 # it. All five verified live through the CF gateway on 2026-09-03.
@@ -786,6 +794,156 @@ def generate_image(
     return None
 
 
+def _rest_request(method: str, path: str, body: dict | None = None,
+                  params: dict | None = None, timeout: int = 180) -> dict:
+    """Call a v1beta REST path (e.g. 'interactions', 'voices') via the CF
+    gateway, or directly with GOOGLE_API_KEY in a header (never in the URL).
+    Retries 429/5xx; a 4xx raises with Google's error body."""
+    cf = get_cf_credentials()
+    if cf:
+        url = (f"{_CF_GATEWAY_BASE}/{cf['CF_ACCOUNT_ID']}/{cf['CF_GATEWAY_ID']}"
+               f"/google-ai-studio/v1beta/{path}")
+        headers = {"cf-aig-authorization": f"Bearer {cf['CF_API_TOKEN']}"}
+        if cf.get("GOOGLE_API_KEY"):
+            headers["x-goog-api-key"] = cf["GOOGLE_API_KEY"]
+    else:
+        url = f"https://generativelanguage.googleapis.com/v1beta/{path}"
+        headers = {"x-goog-api-key": get_google_api_key()}
+    headers["Content-Type"] = "application/json"
+    for attempt in range(4):
+        r = requests.request(method, url, json=body, params=params, headers=headers, timeout=timeout)
+        if r.status_code in (429, 500, 502, 503, 504) and attempt < 3:
+            time.sleep(1.0 * 2 ** attempt)
+            continue
+        if r.status_code >= 400:
+            raise _NonRetriableAPIError(f"HTTP {r.status_code} from Gemini: {(r.text or '')[:600]}")
+        return r.json()
+    raise RuntimeError("unreachable")
+
+
+def generate_speech(
+    text: str,
+    output_path: str | None = None,
+    voice: str = "Charon",
+    style: str | None = None,
+    model: str = "tts",
+    sample_rate: int = 24000,
+) -> dict | None:
+    """
+    Synthesize speech with Gemini 3.8 Flash TTS and save it as WAV.
+
+    Uses the Interactions API. generateContent also returns audio for these
+    models, but it has no style channel: a "Style: text" prefix is SPOKEN, and
+    systemInstruction is refused ("Developer instruction is not enabled for
+    this model"). Style goes in a speech_metadata annotation here.
+
+    Args:
+        text: What to say. Inline events work: <laugh>, <sigh>, <breath>,
+            <short pause>; CAPITALS stress a word.
+        output_path: WAV path; defaults under /mnt/user-data/outputs/ or /tmp/.
+        voice: A prebuilt name ("Charon", "Algenib", "en-gb-storyteller-4" —
+            see list_voices()) or a designed voice id ("voice_...").
+        style: Turn-level delivery, e.g. "quiet and dry, unhurried".
+        model: "tts" (gemini-3.8-flash-tts) or "tts-lite".
+        sample_rate: Output rate in Hz (24000 default; mono 16-bit PCM).
+
+    Returns:
+        {'path', 'seconds', 'audio_tokens'} on success, None on failure.
+    """
+    import base64
+    resolved = SPEECH_ALIASES.get(model, model)
+    if resolved not in SPEECH_MODELS:
+        print(f"Error: '{model}' is not a speech model. Known: {list(SPEECH_MODELS) + list(SPEECH_ALIASES)}",
+              file=sys.stderr)
+        return None
+    part = {"type": "text", "text": text}
+    if style:
+        part["annotations"] = [{"type": "speech_metadata", "style": style}]
+    body = {"model": resolved,
+            "input": [{"type": "user_input", "content": [part]}],
+            "response_format": {"type": "audio", "mime_type": "audio/wav", "sample_rate": sample_rate},
+            "generation_config": {"speech_config": [{"voice": voice}]}}
+    try:
+        j = _rest_request("POST", "interactions", body)
+        audio = [c for st in j.get("steps", []) for c in st.get("content", []) if c.get("type") == "audio"]
+        if not audio:
+            print(f"Error: no audio in response: {json.dumps(j)[:300]}", file=sys.stderr)
+            return None
+        data = base64.b64decode(audio[-1]["data"])
+    except Exception as e:
+        print(f"Error: speech generation failed: {e}", file=sys.stderr)
+        return None
+    if output_path is None:
+        out_dir = Path("/mnt/user-data/outputs") if Path("/mnt/user-data/outputs").exists() else Path("/tmp")
+        output_path = str(out_dir / f"gemini_speech_{int(time.time())}.wav")
+    Path(output_path).write_bytes(data)
+    # WAV body is 16-bit mono PCM after a 44-byte RIFF header
+    return {"path": output_path, "seconds": max(0, len(data) - 44) / (2 * sample_rate),
+            "audio_tokens": j.get("usage", {}).get("total_output_tokens")}
+
+
+def design_voice(description: str, display_name: str, gender: str | None = None,
+                 language_code: str = "en-US", model: str = "tts") -> dict | None:
+    """
+    Create a stored voice from a natural-language description (voice design).
+
+    POST v1beta/voices with type "prompted". Prompted voices must be stored
+    (store=true): the id ('voice_...') lasts one year, max 200 per project.
+    The description shapes delivery too — "thoughtful pauses" in it produced
+    1-1.8 s mid-line pauses that no per-line style removed (2026-09-24).
+
+    Returns:
+        {'id', 'expire_time', 'sample_path'} on success, None on failure.
+    """
+    import base64
+    voice = {"model": SPEECH_ALIASES.get(model, model), "type": "prompted",
+             "display_name": display_name, "language_code": language_code,
+             "prompted": {"input": description}}
+    if gender:
+        voice["gender"] = gender
+    try:
+        j = _rest_request("POST", "voices", {"store": True, "voice": voice})
+    except Exception as e:
+        print(f"Error: voice design failed: {e}", file=sys.stderr)
+        return None
+    sample = (j.get("sample_audio") or {}).get("data")
+    sample_path = None
+    if sample:
+        sample_path = f"/tmp/{j['id']}_sample.wav"
+        Path(sample_path).write_bytes(base64.b64decode(sample))
+    return {"id": j.get("id"), "expire_time": j.get("expire_time"), "sample_path": sample_path}
+
+
+def list_voices(**filters) -> list | None:
+    """
+    List the voice library (2,089 prebuilt voices as of 2026-09-24, plus this
+    project's designed voices), paging through next_page_token.
+
+    Filters are server-side query params: gender ('male'|'female'|'neutral'),
+    pitch ('low'|'medium'|'high'), search (substring of the description).
+    `accent` needs the exact string ('Winchester English', not 'British'), so
+    filter accents client-side on the returned 'accent' field.
+
+    Returns:
+        list of voice dicts (id, display_name, language_code, accent, gender,
+        pitch, persona, description), or None on failure.
+    """
+    out, token = [], None
+    try:
+        while True:
+            params = {"page_size": 1000, **filters}
+            if token:
+                params["page_token"] = token
+            j = _rest_request("GET", "voices", params=params, timeout=60)
+            out += j.get("voices", [])
+            token = j.get("next_page_token")
+            if not token:
+                return out
+    except Exception as e:
+        print(f"Error: listing voices failed: {e}", file=sys.stderr)
+        return None
+
+
 def _sdk_response_to_dict(response_obj) -> dict:
     """Convert a google.generativeai SDK response to a REST-like dict.
 
@@ -956,12 +1114,14 @@ def get_available_models() -> dict:
     """Return dict of registered Gemini models grouped by category.
 
     Returns:
-        dict with keys 'text', 'image', 'aliases'
+        dict with keys 'text', 'image', 'speech', 'aliases', 'speech_aliases'
     """
     return {
         "text": list(MODELS.keys()),
         "image": list(IMAGE_MODELS.keys()),
+        "speech": list(SPEECH_MODELS.keys()),
         "aliases": dict(MODEL_ALIASES),
+        "speech_aliases": dict(SPEECH_ALIASES),
     }
 
 

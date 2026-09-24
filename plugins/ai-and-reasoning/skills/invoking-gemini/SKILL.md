@@ -1,8 +1,8 @@
 ---
 name: invoking-gemini
-description: Invokes Google Gemini models for structured outputs, image generation, multi-modal tasks, and Google-specific features. Use when users request Gemini, image generation, structured JSON output, Google API integration, or cost-effective parallel processing.
+description: Invokes Google Gemini models for structured outputs, image generation, text-to-speech narration, multi-modal tasks, and Google-specific features. Use when users request Gemini, image generation, Gemini TTS or a synthesized voice, structured JSON output, Google API integration, or cost-effective parallel processing.
 metadata:
-  version: 0.8.0
+  version: 0.9.0
 ---
 
 # Invoking Gemini
@@ -15,6 +15,11 @@ Delegate tasks to Google's Gemini models when they offer advantages over Claude.
 - Blog header images, illustrations, diagrams
 - Style-guided image creation (risograph, editorial, etc.)
 - Text rendering in images
+
+**Speech (TTS):**
+- Narration, voice-over, read-aloud with style direction per line
+- A custom voice designed from a written description
+- Two-speaker dialogue
 
 **Structured outputs:**
 - JSON Schema validation with property ordering guarantees
@@ -126,6 +131,48 @@ result = generate_image(
 )
 ```
 
+## Speech Generation (TTS)
+
+Gemini 3.8 Flash TTS and Flash-Lite TTS went GA on 2026-09-23. Output is WAV,
+24 kHz mono 16-bit, SynthID-watermarked.
+
+```python
+from gemini_client import generate_speech, design_voice, list_voices
+
+r = generate_speech("Odin kept two ravens. <short pause> Huginn was thought.",
+                    output_path="/tmp/line.wav", voice="Algenib",
+                    style="quiet and dry, unhurried")
+# {'path': '/tmp/line.wav', 'seconds': 4.2, 'audio_tokens': 135} or None
+
+v = design_voice("A low, dry, quietly amused male voice with a faint rasp. "
+                 "Soft southern British accent.", "narrator", gender="male",
+                 language_code="en-GB")      # {'id': 'voice_...', 'sample_path': ...}
+generate_speech("...", voice=v["id"])
+
+lows = list_voices(gender="male", pitch="low")   # library of 2,089 prebuilt voices
+```
+
+- **Voices:** 30 studio voices (`Charon`, `Kore`, `Algenib` "gravelly",
+  `Enceladus` "breathy", ...) plus 2,059 persona voices with ids like
+  `en-gb-storyteller-4`. `list_voices()` returns accent, pitch, gender and a
+  description for each; the `accent` filter needs the exact string ("Winchester
+  English"), so filter accents on the returned field.
+- **Style:** pass `style=` (a `speech_metadata` annotation). Do not prefix the
+  text with "Style: ..." — the 3.8 models read the prefix aloud, and
+  `systemInstruction` is rejected. Inline events go in the text: `<laugh>`,
+  `<sigh>`, `<breath>`, `<short pause>`; CAPITALS stress a word.
+- **Designed voices** are stored (1-year expiry, 200 per project). The
+  description sets baseline delivery too: "thoughtful pauses" in it produced
+  1–1.8 s mid-line pauses that no per-line style removed.
+- **The model can change words.** Seen in a 29-line narration: "Hmm, I get
+  things wrong", "tell them" for "tell him". Anything with subtitles or a
+  fixed script needs an ASR check (faster-whisper `medium.en`) and a retake.
+- **Cost:** about 32 audio tokens per second of speech, $9/M through
+  2026-12-31 on 3.8 Flash TTS ($6/M Lite), so a minute is about $0.02.
+- Voice replication (cloning from a 30 s sample plus a recorded consent clip) is
+  not wired in, and is unavailable in the EEA, UK, Switzerland, India, Illinois
+  and Texas.
+
 ## Basic Text Usage
 
 ```python
@@ -233,6 +280,16 @@ Batch is half of standard. Output prices include thinking tokens.
 |-------|-------|----------|-----------|
 | gemini-3.1-flash-image-preview | `image`, `nano-banana-2` | $0.25 | $0.067 |
 | gemini-3-pro-image-preview | `image-pro`, `nano-banana-pro` | $2.00 | $0.134 |
+
+### Speech Models
+
+| Model | Alias | Input/1M | Output/1M (audio) | Notes |
+|-------|-------|----------|-------------------|-------|
+| gemini-3.8-flash-tts | `tts` | $0.50 → $1.00 | $9.00 → $18.00 | GA 2026-09-23. Expressive, 130 languages, 2 speakers. Use `generate_speech()`, not `invoke_gemini()`. |
+| gemini-3.8-flash-lite-tts | `tts-lite` | $0.50 → $1.00 | $6.00 → $12.00 | GA 2026-09-23. Bulk / read-aloud, 101 languages. Replaces gemini-3.1-flash-tts-preview ($1 / $20). |
+
+Speech aliases live in `SPEECH_ALIASES`, not `MODEL_ALIASES`, so a text call can
+never resolve to an audio model.
 
 See [references/models.md](references/models.md) for full details.
 
