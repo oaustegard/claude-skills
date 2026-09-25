@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.0924.1350"
+    "version": "2026.0925.0430"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -169,6 +169,7 @@
         "drawing-video",
         "drawing-with-pycairo",
         "image-to-svg",
+        "listening-to-music",
         "parsing-video",
         "processing-images",
         "processing-video",
