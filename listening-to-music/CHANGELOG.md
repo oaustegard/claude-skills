@@ -4,6 +4,12 @@ All notable changes to the `listening-to-music` skill are documented in this fil
 
 ## [0.2.0] - 2026-09-25
 
+### Other
+
+- listening-to-music 0.2.0: sheet music in and out
+
+## [0.2.0] - 2026-09-25
+
 ### Added
 
 - Sheet music, both directions, on a shared events JSON (`notes.py`):
