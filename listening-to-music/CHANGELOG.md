@@ -4,6 +4,12 @@ All notable changes to the `listening-to-music` skill are documented in this fil
 
 ## [0.1.0] - 2026-09-25
 
+### Other
+
+- listening-to-music: render, look at and measure generated music (0.1.0)
+
+## [0.1.0] - 2026-09-25
+
 ### Added
 
 - `render_strudel.mjs`: render Strudel code through superdough in headless Chromium to a float WAV; `--events` dumps per-layer note events.
