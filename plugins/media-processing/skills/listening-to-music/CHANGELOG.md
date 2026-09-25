@@ -2,11 +2,23 @@
 
 All notable changes to the `listening-to-music` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [0.1.0] - 2026-09-25
+## [0.2.0] - 2026-09-25
 
 ### Other
 
-- listening-to-music: render, look at and measure generated music (0.1.0)
+- listening-to-music 0.2.0: sheet music in and out
+
+## [0.2.0] - 2026-09-25
+
+### Added
+
+- Sheet music, both directions, on a shared events JSON (`notes.py`):
+  - `score.py`: engrave events as a score (music21 + Verovio PNG), key-aware spelling, `--harmony` beat-by-beat chord names, Roman numerals and rub flags, `--zoom` for high-resolution pages.
+  - `transcribe.py`: monophonic melody (and `--bass`) from audio with glide folding, gap merging, onset snapping and pitch-specific re-attack splitting (`--no-split` for echo-heavy leads).
+  - `compare_notes.py`: mir_eval note precision/recall/F1 with and without offsets, unmatched notes listed, `--align` for unknown downbeats, `--octave-free`.
+  - `read_score.py`: MusicXML/MXL/MIDI/ABC/Humdrum, music21 corpus, and images/PDF via oemer OMR, into events.
+  - `to_strudel.py`: events into Strudel code, one `<...>` step per bar.
+- SKILL.md section with measured accuracies (round trip 100%, transcription 87%/82%, OMR 6%, reading engraved images directly 100% on a blind test).
 
 ## [0.1.0] - 2026-09-25
 
