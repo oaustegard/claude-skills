@@ -4,7 +4,7 @@ description: Decide which model, effort level, and cascade shape each subagent g
 compatibility: Designed for Claude Code / Claude Code on the Web — assumes an orchestrator with Agent/Workflow subagent tools. Only the Workflow tool sets a subagent's effort; the Agent tool sets its model. Not applicable to claude.ai chat use.
 metadata:
   author: Oskar Austegard and Claude
-  version: "2.2.0"
+  version: "2.3.0"
 ---
 
 # Agent Routing — model, effort, and cascade selection
@@ -82,12 +82,28 @@ thinking as a share of output on identical prompts:
 | Sonnet 5 | **2.9%** | 47.7% (61.7% without concision) |
 | Haiku 4.5 | **88–91%** | 88–91% |
 
-`low` was a near kill-switch on Sonnet 5: it dropped 14/14 → 10/14. **These are Sonnet 5
-numbers.** Sonnet 5.5 recalibrated its effort levels, so do not carry the kill-switch
-reading or the `medium` floor over until they are re-measured. Claude Code's
-`<reasoning_effort>` tag on Sonnet 5.5 reads 4 at `low` and 5 at `medium` (2026-09-28), a
-hint that `low` no longer switches thinking off; the tag's scale is unknown and is not
-comparable across models (Opus 5.5 reads 5 at `low`).
+`low` was a near kill-switch on Sonnet 5: it dropped 14/14 → 10/14. **Sonnet 5.5 is
+different.** On the 14-repo seeded-bug battery (2026-09-29, two replicates,
+`temporal-routing-headroom`):
+
+| arm | solved (r1, r2) | output tokens, 14 tasks | $/completed |
+|---|---|---|---|
+| Sonnet 5 @ `low` (2026-09-03) | 9/14 | 16,779 | — |
+| Sonnet 5.5 @ `low` | 10, 11 | 11,466 | $0.0104 |
+| Sonnet 5.5 @ `medium` | 11, 12 | 10,853 | $0.0090 |
+| Sonnet 5.5 @ `high` | 12, 12 | 14,488 | $0.0121 |
+| Opus 5.5 @ `high` | 11, 13 | 18,464 | $0.0284 |
+| Opus 5 @ `high` (2026-09-03) | 10/14 | 55,674 | $0.1392 |
+
+- `low` and `medium` cost the same on Sonnet 5.5 for this work, and `low` missed only
+  trap tasks. Claude Code's `<reasoning_effort>` tag agrees: 4 at `low`, 5 at `medium`.
+- `high` bought the paired traps: `lru_ttl` and `wrap_text` went from 0 of 2 at `low` to
+  2 of 2 and 1 of 2.
+- Sonnet 5.5 @ `high` matched Opus 5.5 @ `high` at 24 of 28 each, for **0.43×** the cost
+  per completed task. Seeded repair does not separate tiers, so this says the two are
+  close on this family and nothing about harder work.
+- The token counts are one replicate (budget deltas from r2); thinking share could not
+  be measured, because Claude Code omits thinking text.
 
 **Effort does not reach Haiku 4.5.** The Messages API rejects `effort` on it; Claude
 Code's Workflow `agent()` accepts the option and drops it (0 of 12 Haiku probes carried an
@@ -97,7 +113,8 @@ attributed to `low` sits inside the 23% run-to-run gap measured below. Tune Haik
 prompt; the routing table lists its effort as n/a.
 
 - **Tune Sonnet with the prompt as well as the knob.** On Sonnet 5, `medium` was the
-  working floor and `low` overshot into thinking-off.
+  working floor and `low` overshot into thinking-off; on Sonnet 5.5 `low` is a usable
+  rung 1 and `high` is the rung that caught the traps.
 - Buy depth only for judgment-heavy roles; drop triage and formatting roles to `low`
   without touching the expensive role's budget.
 
@@ -179,6 +196,11 @@ identical failed attempt at both settings: `sonnet` @ `medium` and `opus` @ `hig
 the same 4 of 5 tasks and both missed the same fifth, at 11,691 against 32,504 output
 tokens. Composed over the same rung 1, the same-model cascade cost **0.31×** always-`opus`
 and the tier jump **0.76×**. The tier jump costs 2.5× and buys nothing.
+
+Those rungs are Sonnet 5. On Sonnet 5.5, `low` and `medium` solved the same tasks at the
+same cost, so the step that changes anything is `low` → `high`: `high` is where the
+paired traps started getting caught (see the effort table above). The cascade itself has
+not been run on 5.5.
 
 **A cascade can beat the frontier solo arm on correctness, not only on cost.** In that run
 the `sonnet`→`sonnet` cascade solved 13/14 where always-`opus` solved 10/14. `opus`
@@ -343,9 +365,10 @@ runs, `oaustegard/experiments` → `temporal-routing-headroom`) that measured th
 rungs, the escalation signal, and the tier gap against each other. Re-measure when:
 
 - **A model or price revision lands.** Both the verbosity multipliers and the
-  cost table above invert on either. Sonnet 5.5 (2026-09-29) is such a revision: every
-  Sonnet figure here was measured on Sonnet 5, and the Sonnet/Opus boundary in the
-  routing table has not been measured on the 5.5 generation.
+  cost table above invert on either. Sonnet 5.5 (2026-09-29) is such a revision. Its
+  effort levels are measured above on the seeded-bug battery only; the other Sonnet
+  figures in this skill are Sonnet 5 data, and the verbosity multipliers and the
+  generation-suite costs have not been re-run on the 5.5 generation.
 - **The task family is off all three batteries.** No deterministic task has made Haiku
   fail on correctness yet, so the capability cliff is past what's been probed. Seeded-bug
   repair in a small module is now measured as *not* tier-separating: three probe shapes
