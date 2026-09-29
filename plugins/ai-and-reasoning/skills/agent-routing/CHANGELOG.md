@@ -2,6 +2,22 @@
 
 All notable changes to the `agent-routing` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.3.0] - 2026-09-29
+
+### Other
+
+- agent-routing 2.3.0: Sonnet 5.5 effort measured
+
+## [2.3.0] - 2026-09-29
+
+### Added
+
+- Sonnet 5.5 effort measured on the seeded-bug battery, two replicates: `low` 10 and
+  11 of 14, `medium` 11 and 12, `high` 12 and 12, against Sonnet 5 `low` at 9/14. `low`
+  no longer switches thinking off. Sonnet 5.5 @ `high` matched Opus 5.5 @ `high` (24 of
+  28 each) at 0.43x the cost per completed task. Opus 5.5 emitted a third of Opus 5's
+  output on the same tasks.
+
 ## [2.2.0] - 2026-09-29
 
 ### Other
