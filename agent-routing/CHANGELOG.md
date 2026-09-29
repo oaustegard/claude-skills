@@ -4,6 +4,12 @@ All notable changes to the `agent-routing` skill are documented in this file. Th
 
 ## [2.2.0] - 2026-09-29
 
+### Other
+
+- agent-routing 2.2.0: effort channels, cache TTL, Sonnet 5.5 caveat
+
+## [2.2.0] - 2026-09-29
+
 From the 2026-09-28 Claude Code effort experiments
 (muninn.austegard.com/blog/effort-levels-in-claude-code-subagents.html) and the Sonnet 5.5
 release.
