@@ -2,6 +2,38 @@
 
 All notable changes to the `agent-routing` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.2.0] - 2026-09-29
+
+### Other
+
+- agent-routing 2.2.0: effort channels, cache TTL, Sonnet 5.5 caveat
+
+## [2.2.0] - 2026-09-29
+
+From the 2026-09-28 Claude Code effort experiments
+(muninn.austegard.com/blog/effort-levels-in-claude-code-subagents.html) and the Sonnet 5.5
+release.
+
+### Added
+
+- Which channel sets whose effort: Workflow `agent({effort})` is the only way a parent sets
+  a subagent's effort; Agent and SendMessage have none; a resumed subagent picks up the
+  session's `/effort`.
+- How to run rung 2 in Claude Code: a fresh Workflow agent one effort step up for
+  subagents, a recommended `/effort` change for the main loop.
+- The cache TTL, not the effort change, is what misses: subagents cache on the 5-minute
+  tier, the parent on the 1-hour tier.
+
+### Changed
+
+- Caching paragraph: an effort change keeps the cache in Claude Code (five resumes across a
+  level change all hit), and the API's per-message effort message now covers Opus 5.5 and
+  Sonnet 5.5. Replaces "an effort change invalidates the messages cache on every model".
+- Haiku's effort column reads n/a: the API rejects `effort` on Haiku 4.5 and Claude Code
+  drops it.
+- Every Sonnet figure is labelled as Sonnet 5 data pending a re-measure on Sonnet 5.5,
+  whose effort levels were recalibrated.
+
 ## [2.1.0] - 2026-09-04
 
 ### Other

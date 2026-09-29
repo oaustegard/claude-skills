@@ -1,10 +1,10 @@
 ---
 name: agent-routing
-description: Decide which model, effort level, and cascade shape each subagent gets, and how to keep improvement loops safe (evaluator-as-selector, stop on regression). Routes on measured cost-per-completed-task rather than per-token price, because a tier's token count varies more by task shape than price varies across tiers. Covers per-model effort semantics, the concision lever, cascade preconditions, context handoff, and watching a subagent fan-out live. Use when spawning subagents via the Agent or Workflow tools, when fanning out more than a handful of agents, or when asked which model or effort a task should get. Grounded in measured calibration (references/calibration-2026-07-15.md), a 2026-08 coding-cost study, and a 2026-09 agentic-repair battery that measured the cascade rungs directly; Managed Agents API specifics are operational, not calibrated.
-compatibility: Designed for Claude Code / Claude Code on the Web — assumes an orchestrator with Agent/Workflow subagent tools exposing per-call model and effort options. Not applicable to claude.ai chat use.
+description: Decide which model, effort level, and cascade shape each subagent gets, and how to keep improvement loops safe (evaluator-as-selector, stop on regression). Routes on measured cost-per-completed-task rather than per-token price, because a tier's token count varies more by task shape than price varies across tiers. Covers per-model effort semantics, the concision lever, cascade preconditions, context handoff, and watching a subagent fan-out live. Use when spawning subagents via the Agent or Workflow tools, when choosing how to escalate a failed attempt, when fanning out more than a handful of agents, or when asked which model or effort a task should get. Grounded in measured calibration (references/calibration-2026-07-15.md), a 2026-08 coding-cost study, and a 2026-09 agentic-repair battery that measured the cascade rungs directly; Managed Agents API specifics are operational, not calibrated.
+compatibility: Designed for Claude Code / Claude Code on the Web — assumes an orchestrator with Agent/Workflow subagent tools. Only the Workflow tool sets a subagent's effort; the Agent tool sets its model. Not applicable to claude.ai chat use.
 metadata:
   author: Oskar Austegard and Claude
-  version: "2.1.0"
+  version: "2.2.0"
 ---
 
 # Agent Routing — model, effort, and cascade selection
@@ -40,7 +40,7 @@ Opus 5 $5/$25 per MTok.
 
 | | short output | long output |
 |---|---|---|
-| **checkable** | `haiku` @ `low` + verifier | `sonnet` @ `medium` + concision + verifier |
+| **checkable** | `haiku` + verifier | `sonnet` @ `medium` + concision + verifier |
 | **judgment** | `sonnet` @ `medium` | `sonnet`/`opus` @ `high` |
 
 Output length is the discriminator because it is what the verbosity multiplier
@@ -51,10 +51,10 @@ a 700-token module that costs it 13,000 tokens of thinking to produce.
 
 | Task shape | Model | Effort | Verify with |
 |---|---|---|---|
-| Extraction, classification, format transforms, schema-bound output | `haiku` | `low` | schema / spot-check |
-| Closed-form computation, state tracking, multi-hop lookup | `haiku` | `low` | deterministic check |
-| Constraint-bound generation (exact counts, required tokens, lipograms) | `haiku` | `low` | mechanical checker |
-| Bulk scans/greps, per-file summaries, fan-out reads | `haiku` | `low` | sample audit |
+| Extraction, classification, format transforms, schema-bound output | `haiku` | n/a | schema / spot-check |
+| Closed-form computation, state tracking, multi-hop lookup | `haiku` | n/a | deterministic check |
+| Constraint-bound generation (exact counts, required tokens, lipograms) | `haiku` | n/a | mechanical checker |
+| Bulk scans/greps, per-file summaries, fan-out reads | `haiku` | n/a | sample audit |
 | **Code generation from a spec; any long structured artifact** | **`sonnet`** | **`medium`** | run the tests |
 | Code edits with tests available | `sonnet` | `medium` | run the tests |
 | Judging / scoring another model's output | `sonnet`+ | `medium` | — (judge ≠ worker) |
@@ -63,8 +63,9 @@ a 700-token module that costs it 13,000 tokens of thinking to produce.
 
 Haiku holds the top four rows on merit: 240/240 measured across nested modular
 arithmetic, 30-hop chains, 25-operation state tracking, trap-laden word math, and
-5-constraint generation — at `effort: low`, some with CoT suppressed
-(references/calibration-2026-07-15.md). **Do not up-tier short checkable work "to be
+5-constraint generation, some with CoT suppressed
+(references/calibration-2026-07-15.md). Those runs requested `effort: low`; Haiku ignores
+effort, so the column says n/a (see below). **Do not up-tier short checkable work "to be
 safe"**; there is no measured benefit and it costs 3–5×. The burden of proof is on
 routing up.
 
@@ -81,20 +82,39 @@ thinking as a share of output on identical prompts:
 | Sonnet 5 | **2.9%** | 47.7% (61.7% without concision) |
 | Haiku 4.5 | **88–91%** | 88–91% |
 
-`low` is a near kill-switch on Sonnet and a mild trim on Haiku. Sonnet at `low`
-dropped 14/14 → 10/14; Haiku at `low` shed only ~26% of its tokens. So:
+`low` was a near kill-switch on Sonnet 5: it dropped 14/14 → 10/14. **These are Sonnet 5
+numbers.** Sonnet 5.5 recalibrated its effort levels, so do not carry the kill-switch
+reading or the `medium` floor over until they are re-measured. Claude Code's
+`<reasoning_effort>` tag on Sonnet 5.5 reads 4 at `low` and 5 at `medium` (2026-09-28), a
+hint that `low` no longer switches thinking off; the tag's scale is unknown and is not
+comparable across models (Opus 5.5 reads 5 at `low`).
 
-- **Tune Sonnet with the prompt, not the effort knob.** `medium` is the working
-  floor; `low` overshoots into thinking-off.
-- **Tune Haiku with the prompt too**, because the knob barely moves it.
-- Effort is set **on the agent, not per session** — an `effort` inside a per-session
-  `model` override is silently ignored. Levels: `low`, `medium`, `high`, `xhigh`,
-  `max`. Not every model accepts every level; an invalid pair is rejected at
-  agent-create. The create response echoes the resolved config — if `effort` returns
-  `None`, the org's beta header (`managed-agents-2026-04-01`) doesn't carry the
-  feature and the field was dropped, not rejected.
+**Effort does not reach Haiku 4.5.** The Messages API rejects `effort` on it; Claude
+Code's Workflow `agent()` accepts the option and drops it (0 of 12 Haiku probes carried an
+effort tag or a transcript effort field). The identical 88–91% thinking share at `low` and
+`medium` above is that fact seen from the token side, and the ~26% token drop once
+attributed to `low` sits inside the 23% run-to-run gap measured below. Tune Haiku with the
+prompt; the routing table lists its effort as n/a.
+
+- **Tune Sonnet with the prompt as well as the knob.** On Sonnet 5, `medium` was the
+  working floor and `low` overshot into thinking-off.
 - Buy depth only for judgment-heavy roles; drop triage and formatting roles to `low`
   without touching the expensive role's budget.
+
+### Setting effort — which channel reaches which agent
+
+Measured in Claude Code on 2026-09-28 (muninn.austegard.com/blog/effort-levels-in-claude-code-subagents.html):
+
+| channel | reaches | notes |
+|---|---|---|
+| Workflow `agent(prompt, {effort})` | one subagent | 24/24 Sonnet and Opus probes ran at the requested level while the session sat elsewhere. **The only way a parent sets a subagent's effort.** |
+| Agent tool, SendMessage | nothing | No `effort` parameter. The subagent runs at the session's level when it starts or resumes. |
+| Session setting (`/effort`) | main loop, and every subagent at its next turn | A resumed subagent picks up the new level. The model cannot change this itself; it recommends a level and the human sets it. |
+| Managed Agents | agent config | Set on the agent, not per session: an `effort` inside a per-session `model` override is silently ignored. If the create response echoes `effort: None`, the org's beta header (`managed-agents-2026-04-01`) doesn't carry the feature and the field was dropped. |
+
+A Workflow run needs the user's opt-in (ultracode, an explicit request, or a user-invoked
+skill that names it). Without one, a subagent spawned through the Agent tool gets the
+session's level, and the routing table's effort column is advisory.
 
 ## The concision lever, and its limit
 
@@ -165,14 +185,29 @@ the `sonnet`→`sonnet` cascade solved 13/14 where always-`opus` solved 10/14. `
 starting from the issue text fell into the same stop-early trap as `sonnet` on three
 tasks; `opus` starting from the failed patch and the failing assertions fixed all three.
 
-**Caching pushes the same way.** Caches are model-scoped with no escape hatch, so a tier
-jump discards rung 1's prefix while a same-model rung keeps at least the tools and system
-tiers. An `effort` change still invalidates the messages cache on every model, and the
-per-message effort escape hatch (`{"role": "system", "content": [], "output_config":
-{"effort": …}}`, beta `mid-conversation-output-config-2026-07-01`) is
-Opus 5 / Fable 5.1 / Mythos 5.1 only — not Sonnet 5. The real bill gap is therefore wider
-than the output-token ratio above. Every figure in this skill prices output tokens only;
-input and cache effects sit outside its cost model.
+**How to run rung 2 in Claude Code.** For a subagent, launch a fresh Workflow `agent()`
+one effort step up and pass it the diff and the test output; Agent and SendMessage cannot
+change a subagent's effort. For the main loop, recommend the next level and let the human
+set `/effort`; the session keeps its cache and carries on.
+
+**Caching pushes the same way.** Caches are model-scoped, so a tier jump discards rung 1's
+prefix. An effort change does not: in Claude Code on 2026-09-28, five subagent resumes
+across a level change (Low→Medium, High→Extra, Extra→Max) all read their full prefix from
+cache, and the parent read 97,839 tokens from cache on its first request after a change.
+On the API the per-message effort message (`{"role": "system", "content": [],
+"output_config": {"effort": …}}`, beta `mid-conversation-output-config-2026-07-01`) keeps
+the cache on Fable 5.1, Mythos 5.1, Opus 5, Opus 5.5 and Sonnet 5.5 with thinking on; a
+change to the top-level `effort` still invalidates the messages cache.
+
+**The TTL is what misses.** Every miss in that experiment followed a gap longer than five
+minutes. Subagents write only to the 5-minute tier and the parent to the 1-hour tier, so a
+subagent resumed after five idle minutes rebuilds its whole prefix (about 54k tokens for a
+bare general-purpose agent). Resume a subagent for a quick retry; after a longer gap, start
+a fresh one, since same-model agents share a cached prefix (32 of 36 fresh probes read from
+cache on their first request).
+
+Every figure in this skill prices output tokens only; input and cache effects sit outside
+its cost model.
 
 **Carry the prior attempt and the raw failure output into the retry.** Informed retry
 fixed **12/12**; a blind re-attempt fixed **9/12** and failed one task *identically
@@ -308,7 +343,9 @@ runs, `oaustegard/experiments` → `temporal-routing-headroom`) that measured th
 rungs, the escalation signal, and the tier gap against each other. Re-measure when:
 
 - **A model or price revision lands.** Both the verbosity multipliers and the
-  cost table above invert on either.
+  cost table above invert on either. Sonnet 5.5 (2026-09-29) is such a revision: every
+  Sonnet figure here was measured on Sonnet 5, and the Sonnet/Opus boundary in the
+  routing table has not been measured on the 5.5 generation.
 - **The task family is off all three batteries.** No deterministic task has made Haiku
   fail on correctness yet, so the capability cliff is past what's been probed. Seeded-bug
   repair in a small module is now measured as *not* tier-separating: three probe shapes
