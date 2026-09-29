@@ -4,6 +4,12 @@ All notable changes to the `agent-routing` skill are documented in this file. Th
 
 ## [2.3.0] - 2026-09-29
 
+### Other
+
+- agent-routing 2.3.0: Sonnet 5.5 effort measured
+
+## [2.3.0] - 2026-09-29
+
 ### Added
 
 - Sonnet 5.5 effort measured on the seeded-bug battery, two replicates: `low` 10 and
