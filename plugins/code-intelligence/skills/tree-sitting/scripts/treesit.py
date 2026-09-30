@@ -345,6 +345,8 @@ def main():
     rebuild_cache = args.rebuild_cache
     stats = cache.scan(args.repo, skip=skip, use_cache=use_cache, rebuild_cache=rebuild_cache)
     elapsed = (time.perf_counter() - t0) * 1000
+    if stats.get('grammar_hint'):
+        print(f"WARNING: {stats['grammar_hint']}", file=sys.stderr)
 
     if args.stats:
         cached_marker = " (cached)" if stats.get('loaded_from_cache', False) else ""

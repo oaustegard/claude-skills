@@ -13,62 +13,125 @@ import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# Lazy load — parsers loaded on demand from bundled .so files.
+# Grammar sources, tried in order per language (first that loads wins):
+#   1. user-built  $TREESIT_PARSERS_DIR or ~/.cache/tree-sitting/parsers,
+#                  libtree_sitter_<lang>.{dylib,so} compiled on this host
+#   2. bundled     parsers/libtree_sitter_<lang>.so — Linux x86_64 only
+#   3. PyPI wheel  `pip install tree-sitter-<lang>` — every platform with a
+#                  wheel, which is how macOS and Linux arm64 get grammars
 # We deliberately do NOT depend on tree-sitter-language-pack: its 1.6.x
-# wheel layout is broken in the Claude.ai container (installs into
-# _native/ with no top-level package dir) AND it tries to download
-# grammars at runtime from a domain that isn't in the network allowlist.
-# The bundled parsers/*.so files are loaded directly via ctypes against
-# the bare `tree-sitter` package, which does install cleanly.
+# wheel layout is broken in the Claude.ai container and it downloads grammars
+# at runtime from a domain outside the network allowlist.
 _parsers: dict = {}
+_languages: dict = {}
+_grammar_sources: dict = {}  # lang -> 'user' | 'bundled' | 'wheel' | None
 _PARSERS_DIR = Path(__file__).parent.parent / 'parsers'
 
+# The languages this skill extracts symbols for; a missing grammar for one of
+# these is worth a warning. Other EXT_TO_LANG entries load if a wheel exists.
+CORE_LANGS = ('python', 'javascript', 'typescript', 'tsx', 'go', 'rust',
+              'ruby', 'java', 'c', 'html', 'markdown', 'mojo')
 
-def _so_path(lang: str) -> Path | None:
-    """Resolve a language name to its bundled .so path, or None if not bundled."""
-    # Grammar filenames follow libtree_sitter_<lang>.so and export a
-    # matching tree_sitter_<lang> symbol.
-    p = _PARSERS_DIR / f'libtree_sitter_{lang}.so'
-    return p if p.is_file() else None
+# lang -> (module, function) where the wheel's naming isn't tree_sitter_<lang>.language
+_WHEEL_OVERRIDES = {
+    'typescript': ('tree_sitter_typescript', 'language_typescript'),
+    'tsx': ('tree_sitter_typescript', 'language_tsx'),
+}
 
 
-def _load_language(lang: str):
-    """Load a tree_sitter.Language from a bundled .so via ctypes.
-
-    Returns None if the grammar isn't bundled or loading fails.
-    """
-    so = _so_path(lang)
-    if so is None:
+def _wheel_package(lang: str) -> str | None:
+    """PyPI package that provides lang's grammar, or None if there isn't one."""
+    if lang == 'mojo':
         return None
+    module = _WHEEL_OVERRIDES.get(lang, (f'tree_sitter_{lang}',))[0]
+    return module.replace('_', '-')
 
+
+def _user_parsers_dir() -> Path:
+    env = os.environ.get('TREESIT_PARSERS_DIR')
+    return Path(env) if env else Path.home() / '.cache' / 'tree-sitting' / 'parsers'
+
+
+def _load_shared_lib(path: Path, lang: str):
+    """Load a tree_sitter.Language from a compiled grammar via ctypes, or None."""
     try:
         from ctypes import CDLL, c_char_p, c_void_p, py_object, pythonapi
 
         from tree_sitter import Language
     except ImportError:
         return None
-
     try:
-        lib = CDLL(str(so))
+        lib = CDLL(str(path))
         fn = getattr(lib, f'tree_sitter_{lang}')
         fn.restype = c_void_p
-        # Wrap the language function's return value in a PyCapsule, which is
-        # the forward-compatible API for tree_sitter.Language in 0.23+.
-        # (Passing the raw int still works but emits a DeprecationWarning.)
-        #
-        # tree-sitter version note (2026-06-28): the core library/CLI released
-        # v0.26.10 (bugfix-only), but the PyPI `tree-sitter` binding loaded here
-        # still lags at 0.25.x — no 0.26.x wheel exists yet, so this skill keeps
-        # installing the unpinned binding (auto-upgrades when it ships). The
-        # bundled parsers/*.so are ABI-versioned; when the 0.26.x binding lands,
-        # re-run tests/ to confirm the grammars still load — 0.26 may raise the
-        # minimum grammar ABI and require rebuilding the .so files.
+        # Wrap the pointer in a PyCapsule — the forward-compatible
+        # tree_sitter.Language API since 0.23.
         pythonapi.PyCapsule_New.restype = py_object
         pythonapi.PyCapsule_New.argtypes = [c_void_p, c_char_p, c_void_p]
         capsule = pythonapi.PyCapsule_New(fn(), b"tree_sitter.Language", None)
         return Language(capsule)
     except Exception:
+        # Wrong OS/arch (an ELF .so on macOS raises OSError here), missing
+        # symbol, or an ABI the binding rejects.
         return None
+
+
+def _load_wheel(lang: str):
+    """Load a tree_sitter.Language from an installed tree-sitter-<lang> wheel, or None."""
+    module, func = _WHEEL_OVERRIDES.get(lang, (f'tree_sitter_{lang}', 'language'))
+    try:
+        import importlib
+
+        from tree_sitter import Language
+        return Language(getattr(importlib.import_module(module), func)())
+    except Exception:
+        return None
+
+
+def _load_language(lang: str):
+    """Load lang's grammar from the first source that works; None if none does."""
+    for source, candidates in (
+        ('user', [_user_parsers_dir() / f'libtree_sitter_{lang}{ext}'
+                  for ext in ('.dylib', '.so')]),
+        ('bundled', [_PARSERS_DIR / f'libtree_sitter_{lang}.so']),
+    ):
+        for path in candidates:
+            if path.is_file():
+                language = _load_shared_lib(path, lang)
+                if language is not None:
+                    _grammar_sources[lang] = source
+                    return language
+    language = _load_wheel(lang)
+    _grammar_sources[lang] = 'wheel' if language is not None else None
+    return language
+
+
+def _get_language(lang: str):
+    """Memoized _load_language."""
+    if lang not in _languages:
+        _languages[lang] = _load_language(lang)
+    return _languages[lang]
+
+
+def grammar_source(lang: str) -> str | None:
+    """Where lang's grammar loaded from ('user'/'bundled'/'wheel'), or None."""
+    _get_language(lang)
+    return _grammar_sources.get(lang)
+
+
+def missing_grammar_hint(langs) -> str | None:
+    """One-line install hint for CORE_LANGS in langs whose grammar didn't load."""
+    missing = sorted(lang for lang in set(langs) if lang in CORE_LANGS and _get_language(lang) is None)
+    if not missing:
+        return None
+    pkgs = sorted({pkg for lang in missing if (pkg := _wheel_package(lang))})
+    parts = [f"no grammar for {', '.join(missing)} — those files were skipped."]
+    if pkgs:
+        parts.append(f"Fix: pip install tree-sitter {' '.join(pkgs)}")
+    if 'mojo' in missing:
+        parts.append(f"Mojo has no wheel: compile oaustegard/tree-sitter-mojo's src/ "
+                     f"into {_user_parsers_dir()}/libtree_sitter_mojo.dylib")
+    return ' '.join(parts)
 
 EXT_TO_LANG = {
     '.py': 'python', '.pyi': 'python',
@@ -213,7 +276,7 @@ def _get_parser(lang: str):
             _parsers[lang] = None
             return None
 
-        language = _load_language(lang)
+        language = _get_language(lang)
         if language is None:
             _parsers[lang] = None
         else:
@@ -1348,6 +1411,7 @@ class CodeCache:
         self.root: Path | None = None
         self.files: dict[str, FileEntry] = {}  # relpath -> FileEntry
         self._symbol_index: dict[str, list[Symbol]] = {}  # name -> [Symbol, ...]
+        self._fingerprint_langs: set[str] = set()
 
     @property
     def is_loaded(self) -> bool:
@@ -1357,7 +1421,9 @@ class CodeCache:
         """Compute a stable fingerprint of the scanned tree.
 
         Hash over sorted (relpath, size, mtime_ns) for all candidate files,
-        combined with CACHE_FORMAT_VERSION and sorted(skip).
+        combined with CACHE_FORMAT_VERSION, sorted(skip), and where each
+        present language's grammar loads from — so installing a grammar
+        invalidates a cache written while it was missing.
 
         Args:
             root: Root directory path
@@ -1371,6 +1437,7 @@ class CodeCache:
 
         # Collect all candidate files: (relpath, size, mtime_ns)
         file_stats = []
+        langs = set()
 
         for dirpath, dirnames, filenames in os.walk(root_path):
             # Prune directories to skip
@@ -1388,6 +1455,7 @@ class CodeCache:
                     relpath = str(fp.relative_to(root_path))
                     stat = fp.stat()
                     file_stats.append((relpath, stat.st_size, stat.st_mtime_ns))
+                    langs.add(EXT_TO_LANG[ext])
                 except OSError:
                     # File disappeared or is unreadable; skip it
                     continue
@@ -1397,6 +1465,8 @@ class CodeCache:
         hash_parts.append(f'version:{CACHE_FORMAT_VERSION}')
         hash_parts.extend(f'{relpath}:{size}:{mtime}' for relpath, size, mtime in sorted(file_stats))
         hash_parts.extend(f'skip:{d}' for d in sorted(skip_dirs))
+        hash_parts.extend(f'grammar:{lang}:{grammar_source(lang)}' for lang in sorted(langs))
+        self._fingerprint_langs = langs
 
         hash_input = '\n'.join(hash_parts).encode('utf-8')
         return hashlib.sha256(hash_input).hexdigest()
@@ -1420,6 +1490,7 @@ class CodeCache:
         total_bytes = 0
         errors = 0
         loaded_from_cache = False
+        seen_langs = set()
 
         # Determine cache path and fingerprint
         cache_path = cache_path_for(str(self.root)) if use_cache else None
@@ -1443,6 +1514,7 @@ class CodeCache:
                     lang = EXT_TO_LANG.get(fp.suffix.lower())
                     if not lang:
                         continue
+                    seen_langs.add(lang)
                     relpath = str(fp.relative_to(self.root))
                     try:
                         source = fp.read_bytes()
@@ -1480,6 +1552,8 @@ class CodeCache:
             'errors': errors,
             'languages': sorted(set(e.lang for e in self.files.values())),
             'loaded_from_cache': loaded_from_cache,
+            'grammar_hint': missing_grammar_hint(
+                self._fingerprint_langs if loaded_from_cache else seen_langs),
         }
 
     def _try_load_cache(self, cache_path: Path, fingerprint: str) -> bool:
