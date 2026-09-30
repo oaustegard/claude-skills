@@ -48,6 +48,7 @@ def scan(
         f"Scanned {stats['files']} files ({stats['bytes']//1024} KB) in {stats['elapsed_ms']}ms\n"
         f"Symbols: {stats['symbols']} | Languages: {', '.join(stats['languages'])}\n"
         f"Errors: {stats['errors']}"
+        + (f"\nWARNING: {stats['grammar_hint']}" if stats.get('grammar_hint') else "")
     )
 
 

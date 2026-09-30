@@ -9,6 +9,7 @@ Or:  cd /home/user/claude-skills/tree-sitting && python -m pytest tests/test_cli
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -85,8 +86,8 @@ impl Config {
         queries: list of query strings (e.g., ['find:greet', 'find:Config'])
         flags: list of flag strings (e.g., ['--no-cache', '--stats'])
         """
-        python = "/home/claude/.venv/bin/python"
-        treesit_py = "/home/user/claude-skills/tree-sitting/scripts/treesit.py"
+        python = sys.executable
+        treesit_py = str(Path(__file__).resolve().parent.parent / "scripts" / "treesit.py")
 
         cmd = [python, treesit_py, repo_path]
         if flags:
