@@ -4,7 +4,7 @@ Tests the --no-cache and --rebuild-cache flags, cache file creation/loading,
 and the "(cached)" marker in stats output.
 
 Run: python -m pytest tests/test_cli_cache.py -v
-Or:  cd /home/user/claude-skills/tree-sitting && python -m pytest tests/test_cli_cache.py -v
+Or:  cd tree-sitting && python -m pytest tests/test_cli_cache.py -v
 """
 
 import os
@@ -103,7 +103,7 @@ impl Config {
             capture_output=True,
             text=True,
             env=env,
-            cwd="/home/user/claude-skills/tree-sitting"
+            cwd=str(Path(treesit_py).parent.parent)
         )
 
         return result.stdout, result.stderr, result.returncode
