@@ -9,6 +9,7 @@ import fnmatch
 import hashlib
 import json
 import os
+import sys
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -16,9 +17,9 @@ from pathlib import Path
 # Grammar sources, tried in order per language (first that loads wins):
 #   1. user-built  $TREESIT_PARSERS_DIR or ~/.cache/tree-sitting/parsers,
 #                  libtree_sitter_<lang>.{dylib,so} compiled on this host
-#   2. bundled     parsers/libtree_sitter_<lang>.so — Linux x86_64 only
-#   3. PyPI wheel  `pip install tree-sitter-<lang>` — every platform with a
-#                  wheel, which is how macOS and Linux arm64 get grammars
+#   2. bundled     parsers/libtree_sitter_<lang>.so (Linux x86_64) or .dylib
+#                  (macOS universal), built by scripts/build_grammars.py
+#   3. PyPI wheel  `pip install tree-sitter-<lang>` — e.g. Linux arm64
 # We deliberately do NOT depend on tree-sitter-language-pack: its 1.6.x
 # wheel layout is broken in the Claude.ai container and it downloads grammars
 # at runtime from a domain outside the network allowlist.
@@ -26,6 +27,7 @@ _parsers: dict = {}
 _languages: dict = {}
 _grammar_sources: dict = {}  # lang -> 'user' | 'bundled' | 'wheel' | None
 _PARSERS_DIR = Path(__file__).parent.parent / 'parsers'
+_BUNDLED_EXT = '.dylib' if sys.platform == 'darwin' else '.so'
 
 # The languages this skill extracts symbols for; a missing grammar for one of
 # these is worth a warning. Other EXT_TO_LANG entries load if a wheel exists.
@@ -93,7 +95,7 @@ def _load_language(lang: str):
     for source, candidates in (
         ('user', [_user_parsers_dir() / f'libtree_sitter_{lang}{ext}'
                   for ext in ('.dylib', '.so')]),
-        ('bundled', [_PARSERS_DIR / f'libtree_sitter_{lang}.so']),
+        ('bundled', [_PARSERS_DIR / f'libtree_sitter_{lang}{_BUNDLED_EXT}']),
     ):
         for path in candidates:
             if path.is_file():
@@ -128,9 +130,8 @@ def missing_grammar_hint(langs) -> str | None:
     parts = [f"no grammar for {', '.join(missing)} — those files were skipped."]
     if pkgs:
         parts.append(f"Fix: pip install tree-sitter {' '.join(pkgs)}")
-    if 'mojo' in missing:
-        parts.append(f"Mojo has no wheel: compile oaustegard/tree-sitter-mojo's src/ "
-                     f"into {_user_parsers_dir()}/libtree_sitter_mojo.dylib")
+    build = Path(__file__).parent / 'build_grammars.py'
+    parts.append(f"Or compile them: python3 {build} {' '.join(missing)}")
     return ' '.join(parts)
 
 EXT_TO_LANG = {
