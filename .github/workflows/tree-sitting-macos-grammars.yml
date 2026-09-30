@@ -1,0 +1,72 @@
+name: tree-sitting macOS grammars
+
+# Builds tree-sitting/parsers/*.dylib (universal arm64 + x86_64) on a real Mac,
+# proves each one loads and the test suite passes against them, then commits.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'tree-sitting/scripts/build_grammars.py'
+      - '.github/workflows/tree-sitting-macos-grammars.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install tree-sitter pytest pyyaml
+
+      - name: Build grammars
+        run: python tree-sitting/scripts/build_grammars.py --out tree-sitting/parsers
+
+      - name: Verify every grammar loads from the bundle
+        env:
+          TREESIT_PARSERS_DIR: ${{ runner.temp }}/empty
+        run: |
+          for f in tree-sitting/parsers/*.dylib; do lipo -info "$f"; done
+          python - <<'EOF'
+          import sys
+          sys.path.insert(0, 'tree-sitting/scripts')
+          import engine
+          got = {lang: engine.grammar_source(lang) for lang in engine.CORE_LANGS}
+          print(got)
+          bad = [lang for lang, src in got.items() if src != 'bundled']
+          sys.exit(f'not loaded from bundle: {bad}' if bad else 0)
+          EOF
+
+      - name: Test suite against the bundled dylibs
+        env:
+          TREESIT_PARSERS_DIR: ${{ runner.temp }}/empty
+        run: python -m pytest -q tree-sitting/tests
+
+      - name: Commit dylibs and regenerated plugin copy
+        run: |
+          python registry/generate.py .
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add tree-sitting/parsers/*.dylib .claude-plugin/marketplace.json plugins/
+          if git diff --cached --quiet; then
+            echo "dylibs unchanged"
+            exit 0
+          fi
+          git commit -m "chore(tree-sitting): build macOS grammars [skip ci]"
+          for attempt in 1 2 3; do
+            git push origin HEAD:main && exit 0
+            git fetch origin main
+            git rebase origin/main || { git rebase --abort; exit 1; }
+          done
+          exit 1

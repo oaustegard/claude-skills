@@ -38,6 +38,12 @@ Detail levels (tree overview rows show per-file symbol lists with line ranges):
 import argparse
 import os
 import sys
+
+if sys.version_info < (3, 10):
+    # The grammars are tree-sitter ABI 15, which needs the tree-sitter >= 0.25
+    # binding, which needs Python 3.10. macOS's /usr/bin/python3 is 3.9.
+    sys.exit(f"tree-sitting needs Python 3.10+ (this is {sys.version.split()[0]} "
+             f"at {sys.executable}). Run it with a newer python3.")
 import time
 
 

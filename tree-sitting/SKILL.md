@@ -2,7 +2,7 @@
 name: tree-sitting
 description: Symbol-level navigation of a local checkout using tree-sitter ASTs. Answers where a symbol is defined, what lines it spans, which symbols a file exposes, what a directory holds, and where a name is referenced — every answer carries exact line ranges to feed straight into a scoped read. Use for "where is X defined", "who calls X", "find the function/class named", "what's in this file", "give me the line range for", "show me the source of", "list the symbols in", or before editing a file you have not read. Each invocation auto-scans and is self-contained. Not for first-encounter repo orientation (use exploring-codebases), for what a codebase DOES rather than what it contains (featuring), for binding-resolved Python caller sets (searching-codebases), or for literal text and regex matching (plain ripgrep).
 metadata:
-  version: 0.9.0
+  version: 0.10.0
 ---
 
 # tree-sitting
@@ -12,23 +12,16 @@ ranges, so the next step is a scoped `Read`.
 
 ## Setup
 
-Grammars load from the first source that works: `$TREESIT_PARSERS_DIR`
-(default `~/.cache/tree-sitting/parsers/`), then the bundled `parsers/*.so`
-(Linux x86_64 only), then PyPI wheels.
+Needs Python 3.10+ and `pip install tree-sitter`. On macOS, `/usr/bin/python3`
+is 3.9 and will not work; use a Homebrew or uv Python. Grammars are bundled
+for Linux x86_64 (`parsers/*.so`) and macOS (`parsers/*.dylib`).
 
-```bash
-pip install tree-sitter                      # Linux x86_64: done
-pip install tree-sitter tree-sitter-{python,javascript,typescript,go,rust,ruby,java,c,html,markdown}   # macOS, arm64
-```
-
-Use the pip that belongs to the `python3` you run the CLI with. Mojo has no
-wheel. To get it, compile `src/parser.c src/scanner.c` from
-`oaustegard/tree-sitter-mojo` with `cc -shared -fPIC -I src` into
-`~/.cache/tree-sitting/parsers/libtree_sitter_mojo.dylib`.
-
-A file whose grammar didn't load is skipped, and stderr prints
-`WARNING: no grammar for …` with the install command. Fix that before
-trusting an empty result.
+If a file's grammar doesn't load, the file is skipped and stderr prints
+`WARNING: no grammar for …` with the fix. Resolve that before trusting an empty
+result. On other platforms, run `python3 scripts/build_grammars.py` (needs git
+and cc), which puts grammars in `~/.cache/tree-sitting/parsers/`. That
+directory, or `$TREESIT_PARSERS_DIR`, takes precedence over the bundle.
+Installed `tree-sitter-<lang>` wheels are the last fallback.
 
 ## Use
 

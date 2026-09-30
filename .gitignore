@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+# tree-sitting grammars are shipped, including in the generated plugin copy
+!tree-sitting/parsers/*.so
+!plugins/*/skills/tree-sitting/parsers/*.so
 .Python
 
 # Virtual environments
