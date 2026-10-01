@@ -53,21 +53,30 @@ jobs:
           TREESIT_PARSERS_DIR: ${{ runner.temp }}/empty
         run: python -m pytest -q tree-sitting/tests
 
+      # The release job regenerates marketplace.json and plugins/ on the same
+      # push, so rebasing our generated files onto its conflicts. Each attempt
+      # resets to origin/main, re-applies the dylibs and regenerates instead.
       - name: Commit dylibs and regenerated plugin copy
         run: |
-          python registry/generate.py .
+          mkdir -p "$RUNNER_TEMP/dylibs"
+          cp tree-sitting/parsers/*.dylib "$RUNNER_TEMP/dylibs/"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add tree-sitting/parsers/*.dylib .claude-plugin/marketplace.json plugins/
-          if git diff --cached --quiet; then
-            echo "dylibs unchanged"
-            exit 0
-          fi
-          git commit -m "chore(tree-sitting): build macOS grammars [skip ci]"
           for attempt in 1 2 3; do
+            git fetch -q origin main
+            git reset -q --hard origin/main
+            cp "$RUNNER_TEMP/dylibs/"*.dylib tree-sitting/parsers/
+            python registry/generate.py .
+            git add tree-sitting/parsers/*.dylib plugins/
+            if git diff --cached --quiet; then
+              # marketplace.json alone always differs: its version is a timestamp
+              echo "dylibs and plugin copy already current"
+              exit 0
+            fi
+            git add .claude-plugin/marketplace.json
+            git commit -q -m "chore(tree-sitting): build macOS grammars [skip ci]"
             git push origin HEAD:main && exit 0
-            git fetch origin main
-            git rebase origin/main || { git rebase --abort; exit 1; }
+            sleep $((attempt * 10))
           done
           exit 1
 
