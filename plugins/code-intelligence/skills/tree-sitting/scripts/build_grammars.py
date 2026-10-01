@@ -4,7 +4,8 @@
 Produces libtree_sitter_<lang>.dylib on macOS (universal arm64 + x86_64) and
 libtree_sitter_<lang>.so elsewhere. Needs git and a C compiler.
 
-    build_grammars.py                 # all grammars -> ~/.cache/tree-sitting/parsers
+    build_grammars.py                 # all grammars -> where the engine reads them:
+                                      # $TREESIT_PARSERS_DIR or ~/.cache/tree-sitting/parsers
     build_grammars.py --out DIR mojo  # selected grammars -> DIR
 
 The release workflow runs this on macOS to produce the bundled parsers/*.dylib.
@@ -15,6 +16,9 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+from engine import _user_parsers_dir  # noqa: E402 — one resolver for reader and writer
 
 # lang -> (repo, git ref, grammar subdirectory). Refs match the PyPI wheel
 # versions the test suite passes against.
@@ -66,17 +70,24 @@ def build(langs: list[str], out: Path) -> list[Path]:
     return built
 
 
-def main() -> None:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[1])
     ap.add_argument('langs', nargs='*', metavar='LANG',
                     help=f'default: all ({", ".join(GRAMMARS)})')
-    ap.add_argument('--out', type=Path,
-                    default=Path.home() / '.cache' / 'tree-sitting' / 'parsers')
-    args = ap.parse_args()
+    ap.add_argument('--out', type=Path, default=None,
+                    help='default: $TREESIT_PARSERS_DIR or ~/.cache/tree-sitting/parsers')
+    args = ap.parse_args(argv)
     unknown = set(args.langs) - set(GRAMMARS)
     if unknown:
         ap.error(f'unknown grammar: {", ".join(sorted(unknown))}')
-    build(args.langs or list(GRAMMARS), args.out)
+    args.out = args.out or _user_parsers_dir()
+    args.langs = args.langs or list(GRAMMARS)
+    return args
+
+
+def main() -> None:
+    args = parse_args()
+    build(args.langs, args.out)
 
 
 if __name__ == '__main__':

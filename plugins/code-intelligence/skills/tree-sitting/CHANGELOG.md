@@ -2,6 +2,12 @@
 
 All notable changes to the `tree-sitting` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.10.1] - 2026-10-01
+
+### Fixed
+
+- macOS dylibs in the release zip; build output follows TREESIT_PARSERS_DIR
+
 ## [0.10.0] - 2026-09-30
 
 ### Added
