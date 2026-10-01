@@ -70,3 +70,26 @@ jobs:
             git rebase origin/main || { git rebase --abort; exit 1; }
           done
           exit 1
+
+      # The release job zips the skill when SKILL.md's version changes, which
+      # can be before this job has committed the dylibs (v0.10.0 shipped
+      # without them). Re-zip the current version's release from this tree.
+      - name: Refresh release zip with the dylibs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="tree-sitting-v$(python .github/scripts/extract-version.py tree-sitting)"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            echo "$TAG not released yet; the release job will zip the committed dylibs"
+            exit 0
+          fi
+          TMP=$(mktemp -d)
+          cp -R tree-sitting "$TMP/"
+          ( cd "$TMP"
+            source "$GITHUB_WORKSPACE/.github/scripts/apply-skillignore.sh"
+            apply_skillignore tree-sitting
+            zip -qr tree-sitting.zip tree-sitting/ )
+          n=$(unzip -l "$TMP/tree-sitting.zip" | grep -c '\.dylib$')
+          [ "$n" -eq 12 ] || { echo "expected 12 dylibs in zip, found $n"; exit 1; }
+          gh release upload "$TAG" "$TMP/tree-sitting.zip" --clobber
+          echo "replaced $TAG zip ($n dylibs)"

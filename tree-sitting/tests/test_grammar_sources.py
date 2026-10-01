@@ -72,3 +72,12 @@ def test_wheel_fallback_without_bundled(tmp_path, monkeypatch):
     _reset_memos(monkeypatch)
     assert engine._get_parser('python') is not None
     assert engine.grammar_source('python') == 'wheel'
+
+
+def test_build_grammars_writes_where_engine_reads(tmp_path, monkeypatch):
+    import build_grammars
+    monkeypatch.setenv('TREESIT_PARSERS_DIR', str(tmp_path / 'custom'))
+    assert build_grammars.parse_args([]).out == engine._user_parsers_dir() == tmp_path / 'custom'
+    monkeypatch.delenv('TREESIT_PARSERS_DIR')
+    assert build_grammars.parse_args([]).out == engine._user_parsers_dir()
+    assert build_grammars.parse_args(['--out', str(tmp_path)]).out == tmp_path
