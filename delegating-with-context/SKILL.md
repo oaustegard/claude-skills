@@ -2,7 +2,7 @@
 name: delegating-with-context
 description: Delegates work to a subagent or spawned session by writing only the task, while a PreToolUse hook pages the parent transcript through Jev and appends the chunks that task needs. Use before writing any Agent tool prompt or create_session prompt, and when asked to delegate this, hand this off, use a subagent, spawn an agent, run agents in parallel, or brief a subagent on what we have done so far.
 metadata:
-  version: 0.2.0
+  version: 0.2.1
 ---
 
 # Delegating with context
@@ -77,6 +77,7 @@ injection to a careful delegate.
 | Many small per-item judgments (label 400 rows) | Jev or Gemini directly, per `docs/delegation.md` in claude-workspace; a subagent costs ~32k tokens before it reads its prompt |
 | Choosing which model or agent type should run the work | `agent-routing` |
 | Parallel API fan-out from claude.ai, where hooks do not run | `orchestrating-agents` |
+| A long job relayed through many fresh subagents that must carry a running result (a tally, a register, a board) | Have each step maintain a compact state file and check its invariants in the harness after every step. Kept chunks hold facts, not a running count: once the events outgrow the budget the count is gone (`oaustegard/experiments/clm-relay-needles`) |
 
 ## Earned exceptions to "write only the task"
 
@@ -181,3 +182,7 @@ Evidence: with ~20k tokens of selected chunks a fresh subagent found 99/105
 required facts, against 102/105 with the whole ~81k-token transcript and 82/105
 with a written brief; method and caveats in
 `oaustegard/experiments/subagent-context-filter/RESULTS.md`.
+
+Related evidence, 2026-10-01: relaying a long stream through one fresh call per chunk, Jev keeping lines
+verbatim kept 835/835 required lines exactly, while a subagent copying them into its own notes retyped one with an
+invented hash; for a running register the subagent's in-place table won (`oaustegard/experiments/clm-relay-needles`).

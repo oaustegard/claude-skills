@@ -1,5 +1,11 @@
 # delegating-with-context - Changelog
 
+## 0.2.1 — 2026-10-02
+- "When NOT to use": a relay of fresh subagents that must carry a running
+  result needs a model-maintained state file with invariant checks, not
+  passed chunks. Evidence line for verbatim extraction over model copying.
+  Both from `oaustegard/experiments/clm-relay-needles`.
+
 ## 0.2.0 — 2026-09-23
 - Covers `create_session`: the hook matches `mcp__*__create_session` and
   labels the appended block as reference data from the parent session and
