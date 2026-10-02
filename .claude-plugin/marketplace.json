@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.1001.0011"
+    "version": "2026.1002.0200"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -237,7 +237,7 @@
       "name": "delegating-with-context",
       "description": "Delegates work to a subagent or spawned session by writing only the task, while a PreToolUse hook pages the parent transcript through Jev and appends the chunks that task needs. Use before writing any Agent tool prompt or create_session prompt, and when asked to delegate this, hand this off, use a subagent, spawn an agent, run agents in parallel, or brief a subagent on what we have done so far.",
       "source": "./plugins/delegating-with-context",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",
