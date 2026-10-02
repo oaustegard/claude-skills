@@ -21,6 +21,12 @@
   chunks the task needs. `scripts/preview.py` shows the selection before the
   prompt is written. Measured in `oaustegard/experiments/subagent-context-filter`.
 
+## [0.2.1] - 2026-10-02
+
+### Other
+
+- delegating-with-context 0.2.1: running-result relays need gated state, not chunks
+
 ## [0.1.0] - 2026-09-23
 
 ### Other
