@@ -25,6 +25,12 @@
 
 All notable changes to the `browsing-bluesky` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.7.0] - 2026-10-07
+
+### Other
+
+- Migrate hardcoded model defaults to the 5.5 generation
+
 ## [0.6.0] - 2026-08-30
 
 ### Added

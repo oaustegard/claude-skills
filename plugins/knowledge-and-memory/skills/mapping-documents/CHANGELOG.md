@@ -2,6 +2,12 @@
 
 ## [0.2.0] - 2026-10-07
 
+### Other
+
+- Migrate hardcoded model defaults to the 5.5 generation
+
+## [0.2.0] - 2026-10-07
+
 ### Changed
 
 - Default model `claude-sonnet-4-6` -> `claude-sonnet-5-5` (`docmap.py`, SKILL.md).

@@ -4,6 +4,12 @@ All notable changes to the `mapping-webapp` skill are documented in this file. T
 
 ## [0.5.0] - 2026-10-07
 
+### Other
+
+- Migrate hardcoded model defaults to the 5.5 generation
+
+## [0.5.0] - 2026-10-07
+
 ### Changed
 
 - Default model `claude-sonnet-4-6` -> `claude-sonnet-5-5` in `analyze.py`, `describe.py`,

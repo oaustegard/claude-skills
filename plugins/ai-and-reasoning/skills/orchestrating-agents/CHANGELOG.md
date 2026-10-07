@@ -4,6 +4,12 @@ All notable changes to the `orchestrating-agents` skill are documented in this f
 
 ## [0.8.0] - 2026-10-07
 
+### Other
+
+- Migrate hardcoded model defaults to the 5.5 generation
+
+## [0.8.0] - 2026-10-07
+
 ### Changed
 
 - Default model moved from `claude-sonnet-4-6` to `claude-sonnet-5-5`; docs and

@@ -4,6 +4,12 @@ All notable changes to the `challenging` skill are documented in this file. The 
 
 ## [0.13.0] - 2026-10-07
 
+### Other
+
+- Migrate hardcoded model defaults to the 5.5 generation
+
+## [0.13.0] - 2026-10-07
+
 ### Changed
 
 - the Claude adversary runs on `claude-sonnet-5-5` (was `claude-sonnet-5`); text is
