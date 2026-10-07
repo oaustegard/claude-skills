@@ -2,7 +2,7 @@
 name: declauding
 description: Load at the start of any task whose deliverable is prose another person will read — a PR description, commit message, README, doc, postmortem, blog post, issue or review comment, report, release note or essay — before drafting it, whether the result is pushed, posted, published or saved to a file, without being asked. Draft, then run this pass on the draft before handing it over. Also use when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make it sound human", or asks for a voice, tone or register edit. Rewrites the constructions that mark prose as model-written (staged reveals, verdict headers, aphoristic closers, "it's not X, it's Y", em-dash drama, forced triads, flat-certainty adverbs) into plain technical prose and checks the rewrite kept every claim. Not for fiction, poetry, code, or quoted text; for a full adversarial review of a deliverable use challenging.
 metadata:
-  version: 0.9.3
+  version: 0.10.0
 ---
 
 # Declauding
@@ -80,6 +80,7 @@ drafts, and what to check in your own rewrite when you are that model.
 | Opus 4.6, 4.8 | `models/opus-4.md` | Closers, em dashes, one metaphor reused across paragraphs |
 | Sonnet 4.6, 5 | `models/sonnet.md` | Em dashes and negation-first reversals |
 | Haiku 4.5 | `models/haiku.md` | The encyclopedic family; the linter catches most of it |
+| Sonnet 5.5, Haiku 5.5 | not yet profiled | Use the same tier's file as a prior and expect drift |
 | Fable 5.1 | `models/fable.md` | Bolded list leads and takeaways |
 
 When Claude is cleaning its own draft, one file covers both sections; run step

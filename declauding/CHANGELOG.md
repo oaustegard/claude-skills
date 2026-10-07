@@ -2,6 +2,13 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.10.0] - 2026-10-07
+
+### Changed
+
+- `declaude_review.py` stage 2 now calls `claude-sonnet-5-5` without `temperature` (a 400 on Sonnet 5.5), with `max_tokens` raised to 8000 to leave room for adaptive thinking.
+- The model-profile table notes that Sonnet 5.5 and Haiku 5.5 are not yet profiled.
+
 ## [0.9.3] - 2026-09-22
 
 ### Fixed

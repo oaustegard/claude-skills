@@ -204,8 +204,9 @@ def call_gemini(prompt: str, key: str) -> str:
 def call_anthropic(prompt: str, key: str) -> str:
     req = urllib.request.Request(
         "https://api.anthropic.com/v1/messages",
-        data=json.dumps({"model": "claude-sonnet-4-6", "max_tokens": 2000,
-                         "temperature": 0,
+        # Sonnet 5.5 rejects a non-default temperature, and thinks adaptively, so
+        # max_tokens leaves room for thinking and the text blocks are joined below.
+        data=json.dumps({"model": "claude-sonnet-5-5", "max_tokens": 8000,
                          "messages": [{"role": "user", "content": prompt}]}).encode(),
         headers={"content-type": "application/json", "x-api-key": key,
                  "anthropic-version": "2023-06-01"})

@@ -15,7 +15,7 @@ description: >-
   (orienting-codebases); fetching or cloning a repo without analysing it
   (accessing-github-repos, cloning-project).
 metadata:
-  version: 2.5.2
+  version: 2.6.0
 ---
 
 # Exploring Codebases

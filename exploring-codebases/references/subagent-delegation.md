@@ -36,6 +36,8 @@ Every subagent prompt must therefore carry:
 4. **An output spec** — what to report, a line budget, and "file paths +
    line refs" so results are verifiable.
 
-Routing (see the `agent-routing` skill): multi-turn exploration is outside
-Haiku's calibrated zone — use `sonnet` for subsystem agents and keep the
-final cross-cluster synthesis in the orchestrator.
+Routing (see the `agent-routing` skill): Haiku 5.5 handles short multi-turn
+work when a verifier sits behind it, but exploration has no verifier. Use
+`sonnet` for subsystem agents. On a wide fan-out of narrow reads, `haiku` is
+20× cheaper per spawn; sample-audit its reports if you use it. Keep the final
+cross-cluster synthesis in the orchestrator.

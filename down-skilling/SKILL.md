@@ -1,7 +1,7 @@
 ---
 name: down-skilling
 description: >-
-  Distill Opus-level reasoning into optimized instructions for Haiku 4.5
+  Distill Opus-level reasoning into optimized instructions for Haiku 5.5
   (and Sonnet). Generates explicit, procedural prompts with n-shot examples
   that maximize smaller model performance on a given task. Use when user says
   "down-skill", "distill for Haiku", "optimize for Haiku", "make this work
@@ -9,13 +9,13 @@ description: >-
   a smaller model with high reliability.
 metadata:
   author: Oskar Austegard and Opus
-  version: 1.3.1
+  version: 1.4.0
 ---
 
 # Down-Skilling: Opus → Haiku Distillation
 
 Translate your reasoning capabilities into explicit, structured instructions
-that Haiku 4.5 can execute reliably. You are a compiler: your input is
+that Haiku 5.5 can execute reliably. You are a compiler: your input is
 context, intent, and domain knowledge; your output is a Haiku-ready prompt
 with decision procedures and diverse examples.
 
@@ -30,16 +30,20 @@ needs stated explicitly.
 
 ## Economics: Why Examples Are Free
 
-Opus 5 costs 5× Haiku 4.5 on both sides ($5/$25 vs $1/$5 per MTok;
-2026-09 pricing). A task that costs $1.00 on Opus costs ~$0.20 on Haiku —
-but only if Haiku gets it right on the first try. One retry halves the
-savings; a few retries makes Haiku more expensive.
+Opus 5.5 costs 40× Haiku 5.5 on both sides ($4/$20 vs $0.10/$0.50 per MTok
+for prompts up to 100K tokens; 2026-10 pricing), and Sonnet 5.5 costs 20×. A task that costs
+$1.00 on Opus costs ~$0.025 on Haiku, so retries no longer erase the saving: Haiku
+can fail and retry a dozen times and still cost less than one Opus attempt. (At Haiku
+4.5's $1/$5 it was 5×, and one retry halved the saving.) What a misfire costs now is
+mostly *silent* error, a plausible wrong answer no verifier caught, not dollars.
 
 **The math that matters:**
-- Input tokens are cheap (Haiku 4.5: $1.00/MTok input vs $5.00/MTok output)
-- Adding 2,000 tokens of examples costs ~$0.002 per call
-- A single failed-then-retried call costs ~$0.008+ in wasted output
-- **Examples pay for themselves if they prevent even 1-in-5 retries**
+- Input tokens are cheap (Haiku 5.5: $0.10/MTok input vs $0.50/MTok output)
+- Adding 2,000 tokens of examples costs ~$0.0002 per call
+- Give the orchestrator a verifier and an informed retry (the prior output plus
+  the check's failure output). On a 2026-10-07 repair battery, Haiku 5.5 rescued
+  every rung-1 miss that way (`agent-routing`)
+- **Examples pay for themselves by preventing the misfires a verifier cannot see**
 
 **What this means for prompt design:**
 - If you're sending an 8K token document, you can afford 3-4K tokens of
@@ -49,9 +53,10 @@ savings; a few retries makes Haiku more expensive.
 - The constraint is not token cost but diminishing returns: after 5-7
   examples, additional examples rarely improve performance
 
-**Bottom line:** Every example that prevents a Haiku misfire saves 5-25×
-its input cost in wasted output tokens. Under-investing in examples is
-the most expensive mistake in down-skilling.
+**Bottom line:** At 5.5 prices, examples are nearly free and retries are
+cheap, so spend on examples that prevent an error no check would catch.
+Under-investing in examples is still the most expensive mistake in
+down-skilling, because its cost arrives as a wrong answer that ships.
 
 ## Before Distilling: Check Whether the Task Needs It (2026-07 calibration)
 
@@ -327,8 +332,8 @@ rate from 95% to 0% (n=25 across two probes).
 | Medium inputs (500-4K tokens) | 2,500-4,000 tokens of examples (4-6 examples) |
 | Long inputs (4K-8K tokens) | 3,000-5,000 tokens of examples (5-7 examples) |
 
-These budgets assume Haiku's 200K context window. The constraint is
-diminishing returns, not cost — after 7 examples the marginal benefit
+Context is no constraint here: Haiku 5.5 has a 1M window, though prices
+double past 100K tokens of prompt. The limit is diminishing returns: after 7 examples the marginal benefit
 drops sharply unless the task has a very large classification space.
 
 ### Example Quality Criteria
