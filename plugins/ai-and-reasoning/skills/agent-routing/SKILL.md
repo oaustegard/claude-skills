@@ -1,17 +1,44 @@
 ---
 name: agent-routing
-description: Decide which model, effort level, and cascade shape each subagent gets, and how to keep improvement loops safe (evaluator-as-selector, stop on regression). Routes on measured cost-per-completed-task rather than per-token price, because a tier's token count varies more by task shape than price varies across tiers. Covers per-model effort semantics, the concision lever, cascade preconditions, context handoff, and watching a subagent fan-out live. Use when spawning subagents via the Agent or Workflow tools, when choosing how to escalate a failed attempt, when fanning out more than a handful of agents, or when asked which model or effort a task should get. Grounded in measured calibration (references/calibration-2026-07-15.md), a 2026-08 coding-cost study, and a 2026-09 agentic-repair battery that measured the cascade rungs directly; Managed Agents API specifics are operational, not calibrated.
+description: Decide which model, effort level, and cascade shape each subagent gets, and how to keep improvement loops safe (evaluator-as-selector, stop on regression). Routes on measured cost-per-completed-task rather than per-token price, because a tier's token count varies more by task shape than price varies across tiers. Covers per-model effort semantics, the concision lever, cascade preconditions, context handoff, and watching a subagent fan-out live. Use when spawning subagents via the Agent or Workflow tools, when choosing how to escalate a failed attempt, when fanning out more than a handful of agents, or when asked which model or effort a task should get. Grounded in measured calibration (references/calibration-2026-07-15.md), a 2026-08 coding-cost study, a 2026-09 agentic-repair battery that measured the cascade rungs directly, and a 2026-10 Haiku 5.5 ladder on the same battery that priced subagents per spawn; Managed Agents API specifics are operational, not calibrated.
 compatibility: Designed for Claude Code / Claude Code on the Web — assumes an orchestrator with Agent/Workflow subagent tools. Only the Workflow tool sets a subagent's effort; the Agent tool sets its model. Not applicable to claude.ai chat use.
 metadata:
   author: Oskar Austegard and Claude
-  version: "2.3.0"
+  version: "2.4.0"
 ---
 
 # Agent Routing — model, effort, and cascade selection
 
+## Current prices, and what changed in 2026-10
+
+| model | $/MTok in | out | cache read | one fresh Agent-tool spawn (measured) |
+|---|---|---|---|---|
+| Haiku 5.5 | $0.10 | $0.50 | $0.01 | **$0.005–0.011** |
+| Sonnet 5.5 | $2 | $10 | $0.20 | **$0.17** |
+| Opus 5.5 | $4 | $20 | $0.20 | ~$0.34 (2× Sonnet, not measured) |
+| Fable 5.1 | $10 | $50 | $0.25 | — |
+
+Haiku 5.5 is **20× under Sonnet 5.5 on every token class** (Haiku 4.5 was 2–5×), and its
+prices hold for prompts up to 100K tokens ($0.50/$2.50 beyond). On the 14-repo
+seeded-bug battery it solved 11/14 at rung 1, which is the pass set Sonnet 5.5 at `low` gets. With
+the same-model informed retry it solved **14/14 for $0.12 in total, less than one Sonnet 5.5 spawn**
+(`oaustegard/experiments` → `temporal-routing-headroom`, 2026-10-07). Where the Haiku
+4.5 figures below say Haiku loses on cost, rerun the arithmetic at 5.5 prices before
+trusting them.
+
+**In Claude Code, price a subagent per spawn first.** A fresh Agent-tool subagent
+writes a ~55K-token prefix (system prompt, tools, skills list) to the 5-minute cache on its
+first request. On short repair tasks that prefix outweighed everything the subagent
+produced: a Sonnet 5.5 spawn cost $0.17 input-side, 14× the $0.0121 output-only figure
+this skill used to quote per completed task. Same-model spawns in sequence share the
+cached prefix (reads cost 0.1×), so serialise spawns of one model when they can wait,
+and count spawns before counting output tokens. Every table further down prices output
+tokens only. That is still right for comparing tiers on long outputs, but it understates
+what a spawn costs.
+
 ## The rule that decides everything
 
-**Cost is output tokens × output price.** Prices span ~5× across tiers. Token
+**Cost is output tokens × output price, plus the spawn's prefix.** Prices span ~5× across tiers. Token
 counts span up to **7× within a single tier** depending on task shape. The shape
 therefore decides more than the tier does, and *routing on the per-token discount
 gets the answer backwards*.
@@ -28,9 +55,11 @@ tiers at equal quality where noted:
 | sonnet + concision | 2,951 | 13/14 | $0.0305 | 0.42× |
 | **sonnet cascade** (below) | — | **14/14** | **$0.0315** | **0.41×** |
 
-Haiku is 5× cheaper per token and cost **30% more per solved task** than Opus,
-because it emitted 6.7× the tokens. Prices: Haiku 4.5 $1/$5, Sonnet 5 $2/$10,
-Opus 5 $5/$25 per MTok.
+Haiku 4.5 was 5× cheaper per token and cost **30% more per solved task** than Opus,
+because it emitted 6.7× the tokens. Prices then: Haiku 4.5 $1/$5, Sonnet 5 $2/$10,
+Opus 5 $5/$25 per MTok. At Haiku 5.5's $0.50 output price the same 20,051 tokens would
+cost $0.010 a task, a fifth of Sonnet's $0.048. Whether Haiku 5.5 is as verbose as 4.5
+on generation is unmeasured. It would have to emit about 95K tokens a task to lose on output cost.
 
 ## Two questions before spawning
 
@@ -40,12 +69,21 @@ Opus 5 $5/$25 per MTok.
 
 | | short output | long output |
 |---|---|---|
-| **checkable** | `haiku` + verifier | `sonnet` @ `medium` + concision + verifier |
-| **judgment** | `sonnet` @ `medium` | `sonnet`/`opus` @ `high` |
+| **checkable** | `haiku` + verifier | `haiku` + verifier, informed retry on `haiku`, then `sonnet` @ `high` |
+| **judgment** | `sonnet` @ `medium` | `sonnet` @ `high`, or `opus` when the work must be discovered |
 
-Output length is the discriminator because it is what the verbosity multiplier
-multiplies. Haiku's premium is invisible on a 200-token JSON object and ruinous on
-a 700-token module that costs it 13,000 tokens of thinking to produce.
+On Haiku 4.5, output length was the discriminator, because it is what the verbosity multiplier
+multiplies: Haiku 4.5's premium was invisible on a 200-token JSON object and ruinous on a
+700-token module that cost it 13,000 tokens of thinking. At 5.5 prices verbosity no
+longer decides it, so the checkable column now starts on Haiku at any output length. The
+long-output cell is projected from price and from the repair battery, and has not been
+measured on generation.
+
+The judgment row splits on whether the prompt **names its deliverable** or leaves the
+work to be found. Sonnet 5.5 finishes a named deliverable well. Given an
+audit-and-update goal, it listed findings, raised doubts and stopped to ask, and Oskar
+moved that session to Opus 5.5 mid-task (2026-10-07; one session, an observation, not a
+measurement).
 
 ## Routing table
 
@@ -55,8 +93,8 @@ a 700-token module that costs it 13,000 tokens of thinking to produce.
 | Closed-form computation, state tracking, multi-hop lookup | `haiku` | n/a | deterministic check |
 | Constraint-bound generation (exact counts, required tokens, lipograms) | `haiku` | n/a | mechanical checker |
 | Bulk scans/greps, per-file summaries, fan-out reads | `haiku` | n/a | sample audit |
-| **Code generation from a spec; any long structured artifact** | **`sonnet`** | **`medium`** | run the tests |
-| Code edits with tests available | `sonnet` | `medium` | run the tests |
+| **Code edits with tests available** | **`haiku` → `haiku` informed retry** | session | run the tests (the orchestrator's, not the worker's) |
+| Code generation from a spec; any long structured artifact | `haiku` → `sonnet` @ `high` on a second failure | `medium` | run the tests (Haiku 5.5 unmeasured here) |
 | Judging / scoring another model's output | `sonnet`+ | `medium` | — (judge ≠ worker) |
 | Ambiguity resolution, novel synthesis, architecture, taste | `sonnet`/`opus` | `high` | human or panel |
 | Long-horizon multi-step agentic work, cross-file reasoning | `sonnet`/`opus` | `high`/`xhigh` | milestone checks |
@@ -64,13 +102,16 @@ a 700-token module that costs it 13,000 tokens of thinking to produce.
 Haiku holds the top four rows on merit: 240/240 measured across nested modular
 arithmetic, 30-hop chains, 25-operation state tracking, trap-laden word math, and
 5-constraint generation, some with CoT suppressed
-(references/calibration-2026-07-15.md). Those runs requested `effort: low`; Haiku ignores
-effort, so the column says n/a (see below). **Do not up-tier short checkable work "to be
+(references/calibration-2026-07-15.md). Those were Haiku 4.5 runs, which requested
+`effort: low` and ignored it, so the column says n/a. Haiku 5.5 does take effort (see
+below); until it is measured, leave it at its default. **Do not up-tier short checkable work "to be
 safe"**; there is no measured benefit and it costs 3–5×. The burden of proof is on
 routing up.
 
-Haiku loses the generation rows on cost alone, not capability — it scored 14/14 on
-the same suite Opus swept.
+Haiku 4.5 lost the generation rows on cost alone, not capability: it scored 14/14 on
+the same suite Opus swept. At 5.5 prices that cost argument is gone (see the top of this
+file), so the generation rows now start on Haiku behind a test verifier, pending a
+generation-suite run on 5.5.
 
 ## Effort is model-specific — verify per model before reusing a level
 
@@ -111,6 +152,12 @@ effort tag or a transcript effort field). The identical 88–91% thinking share 
 `medium` above is that fact seen from the token side, and the ~26% token drop once
 attributed to `low` sits inside the 23% run-to-run gap measured below. Tune Haiku with the
 prompt; the routing table lists its effort as n/a.
+
+**Haiku 5.5 takes effort.** The API accepts `low` through `max` on it, defaults to
+`medium`, and thinks adaptively by default; `budget_tokens` and non-default `temperature`
+are 400s. Whether Claude Code's Workflow `agent({effort})` reaches a Haiku 5.5 subagent,
+and what `low` does to its pass rate, are both unmeasured. The 2026-10-07 ladder ran it at
+the session's level through the Agent tool.
 
 - **Tune Sonnet with the prompt as well as the knob.** On Sonnet 5, `medium` was the
   working floor and `low` overshot into thinking-off; on Sonnet 5.5 `low` is a usable
@@ -166,9 +213,14 @@ Misnaming the failure mode is worse than not intervening.
 **Precondition, checked first: is the cheap tier actually cheaper per task?** The
 first rung is never free, so a cascade pays only when the cheap tier's *measured*
 cost per completed task is below the destination's. Verbosity can erase a price
-discount outright — Haiku at $0.067/task against Sonnet's $0.031 made
+discount outright — Haiku 4.5 at $0.067/task against Sonnet's $0.031 made
 `haiku → sonnet` worse than Sonnet alone **regardless of `p_fail`**: the attempt
 cost 2× the destination's entire job. Compute this before designing the ladder.
+
+Haiku 5.5 passes this precondition. A Haiku 5.5 rung-1 spawn cost $0.0077 against $0.17 for a Sonnet 5.5
+spawn, and it solved the same 11 of 14 repairs Sonnet 5.5 solves at `low`. A Haiku first
+rung now pays even when it fails often. A failed attempt is about 5% of the Sonnet job it
+precedes.
 
 **Second precondition: no verifier ⇒ no cascade.** Route by the table instead;
 silent cheap-tier errors compound with nothing to catch them.
@@ -189,6 +241,19 @@ if verify(result) fails:
     result = sonnet(task, effort=medium, concise,   # rung 2: fixed 12/12
                     prior=result, failure=test_output)
 ```
+
+**Haiku 5.5 ladder (measured 2026-10-07, 14 seeded-bug repos, one replicate):**
+
+```
+result = haiku(task)                                   # rung 1: 11/14, $0.108 for 14 spawns
+if verify(result) fails:                               # the orchestrator's hidden suite
+    result = haiku(task, prior=diff, failure=output)   # rung 2: rescued 3/3, $0.015
+```
+
+14/14 for $0.123. Sonnet 5.5 at rung 2 rescued the same 3/3 for $0.511, 35× the
+per-spawn cost, and bought nothing more. All three rung-1 misses named the second defect
+in their own summaries and left it as "outside the reported bug". The informed retry
+supplies the evidence that the shortcut was wrong; the tier adds nothing to that.
 
 **Rung 2 is the same model one effort step up. A tier jump is the exception you justify.**
 Measured twice. On a second battery (14 seeded-bug repos, 2026-09-03) rung 2 ran from an
@@ -317,6 +382,10 @@ iteration 2 and froze on the broken text for every iteration after.
 
 ## Escalation triggers (route up despite the table)
 
+- The prompt names a goal rather than a deliverable (audit-and-update, follow-through
+  across repos, "find what's outdated and fix it"). Sonnet 5.5 tends to stop and ask
+  where Opus 5.5 carries on (observed 2026-10-07).
+
 - The verifier fails twice at the same tier. **Route up for capability, not for
   thoroughness** — `opus` @ `high` fell into the same stop-early trap as `sonnet` @ `low`
   on three of four tasks built to reward a second look. A verifier catches that; a bigger
@@ -362,11 +431,15 @@ Everything above is measured on three batteries: a 300-call deterministic calibr
 (references/calibration-2026-07-15.md), a 14-task hidden-test coding suite (2026-08-17,
 ~190 subagent runs), and a 14-repo seeded-bug agentic battery (2026-09-03, ~120 subagent
 runs, `oaustegard/experiments` → `temporal-routing-headroom`) that measured the cascade
-rungs, the escalation signal, and the tier gap against each other. Re-measure when:
+rungs, the escalation signal, and the tier gap against each other, rerun on 2026-10-07
+with Haiku 5.5 at both rungs and priced per spawn from the subagent transcripts
+(`harness/subagent_cost.py` there). Re-measure when:
 
 - **A model or price revision lands.** Both the verbosity multipliers and the
-  cost table above invert on either. Sonnet 5.5 (2026-09-29) is such a revision. Its
-  effort levels are measured above on the seeded-bug battery only; the other Sonnet
+  cost table above invert on either. Sonnet 5.5 (2026-09-29) and Haiku 5.5 (2026-10, 10×
+  cheaper than Haiku 4.5) are such revisions. Haiku 5.5 is measured on the seeded-bug battery only;
+  its verbosity on the generation suite, and what `effort` does to it, are not. Sonnet
+  5.5's effort levels are measured above on the seeded-bug battery only; the other Sonnet
   figures in this skill are Sonnet 5 data, and the verbosity multipliers and the
   generation-suite costs have not been re-run on the 5.5 generation.
 - **The task family is off all three batteries.** No deterministic task has made Haiku

@@ -1,3 +1,11 @@
+## 0.7.0 — 2026-10-07
+
+- Image-transcription aliases moved to the current generation: `haiku` ->
+  `claude-haiku-5-5` (was `claude-haiku-4-5-20251001`), `opus` -> `claude-opus-5-5`
+  (was `claude-opus-4-7`). The latency / cost / recall table was measured on the old
+  models and has not been re-measured. Requests go through `claude_client.invoke_claude`,
+  which no longer sends sampling parameters to these models.
+
 ## 0.6.0 — 2026-08-28
 
 - Authentication prefers `MUNINN_BSKY_HANDLE` / `MUNINN_BSKY_APP_PASSWORD`,

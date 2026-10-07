@@ -176,8 +176,8 @@ def _transcribe_vision(path: str, model_alias: str, max_tokens: int,
     except ImportError:
         # Fallback registry if the bsky skill isn't present in this env.
         _MODEL_REGISTRY = {
-            "haiku": ("anthropic", "claude-haiku-4-5-20251001"),
-            "opus": ("anthropic", "claude-opus-4-7"),
+            "haiku": ("anthropic", "claude-haiku-5-5"),
+            "opus": ("anthropic", "claude-opus-5-5"),
             "gemini-lite": ("gemini", "gemini-2.5-flash-lite"),
             "gemini-flash": ("gemini", "gemini-2.5-flash"),
             "gemini-3.5-flash": ("gemini", "gemini-3.5-flash"),

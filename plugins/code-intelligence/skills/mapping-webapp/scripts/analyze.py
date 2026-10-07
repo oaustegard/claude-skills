@@ -192,7 +192,7 @@ def _get_api_url() -> str:
 def analyze_page(
     page: PageInfo,
     codebase: Path,
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
 ) -> dict:
     """Generate a behavioral description of a page by analyzing its source code.
 
@@ -277,7 +277,7 @@ def analyze_page(
 def analyze_pages(
     pages: list[PageInfo],
     codebase: Path,
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
 ) -> list[dict]:
     """Analyze all pages via code reading.
 

@@ -143,7 +143,7 @@ trivial subtasks.
 │ invoke_parallel() with:                     │
 │ - Targeted context slices (not full)        │
 │ - Skill-specific system prompts             │
-│ - Low temperature (0.3) for consistency     │
+│ - Low temperature (0.3) on legacy models    │
 └──────────────────┬──────────────────────────┘
                    │ Responses
                    ▼

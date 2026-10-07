@@ -110,8 +110,8 @@ Examples:
         help="Directory for screenshot PNGs (default: <codebase>/screenshots)",
     )
     parser.add_argument(
-        "--model", default="claude-sonnet-4-6",
-        help="Claude model for analysis/vision (default: claude-sonnet-4-6)",
+        "--model", default="claude-sonnet-5-5",
+        help="Claude model for analysis/vision (default: claude-sonnet-5-5)",
     )
     parser.add_argument(
         "--routes",

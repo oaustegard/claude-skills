@@ -144,7 +144,7 @@ def build_tree(problem: str, max_depth: int = 2) -> Node:
 
         raw_results = invoke_parallel(
             prompts,
-            model="claude-sonnet-4-6",
+            model="claude-sonnet-5-5",
             max_tokens=2048
         )
 
@@ -191,7 +191,7 @@ def evaluate_leaves(leaves: list, criteria: list[str]) -> None:
         raw = invoke_claude(
             prompt=_evaluator_prompt(leaves, criteria),
             system=EVALUATOR_SYSTEM,
-            model="claude-sonnet-4-6",
+            model="claude-sonnet-5-5",
             max_tokens=4096,
             temperature=0.8,
         )

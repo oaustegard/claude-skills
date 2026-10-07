@@ -11,7 +11,7 @@ Single synchronous invocation with full control:
 ```python
 invoke_claude(
     prompt: str | list[dict],
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
     system: str | list[dict] | None = None,
     max_tokens: int = 4096,
     temperature: float = 1.0,
@@ -25,15 +25,15 @@ invoke_claude(
 
 **Parameters:**
 - `prompt`: The user message (string or list of content blocks)
-- `model`: Claude model to use (default: claude-sonnet-4-6)
+- `model`: Claude model to use (default: claude-sonnet-5-5)
 - `system`: Optional system prompt (string or list of content blocks)
 - `max_tokens`: Maximum tokens in response (default: 4096)
-- `temperature`: Randomness 0-1 (default: 1.0)
+- `temperature`: Randomness 0-1 (default: 1.0). Ignored on current models (Sonnet 5.5, Haiku 5.5, Opus 5.x), which reject non-default sampling parameters
 - `streaming`: Enable streaming response (default: False)
 - `cache_system`: Add cache_control to system prompt (requires 1024+ tokens, default: False)
 - `cache_prompt`: Add cache_control to user prompt (requires 1024+ tokens, default: False)
 - `messages`: Pre-built messages list for multi-turn (overrides prompt)
-- `**kwargs`: Additional API parameters (top_p, top_k, etc.)
+- `**kwargs`: Additional API parameters (top_p / top_k are dropped on current models, like temperature)
 
 **Returns:** Response text as string
 
@@ -46,7 +46,7 @@ Concurrent invocations using lightweight workflow pattern:
 ```python
 invoke_parallel(
     prompts: list[dict],
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
     max_tokens: int = 4096,
     max_workers: int = 5,
     shared_system: str | list[dict] | None = None,
@@ -74,7 +74,7 @@ Stream responses in real-time with optional callbacks:
 invoke_claude_streaming(
     prompt: str | list[dict],
     callback: callable = None,
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
     system: str | list[dict] | None = None,
     max_tokens: int = 4096,
     temperature: float = 1.0,
@@ -98,7 +98,7 @@ Parallel invocations with per-agent streaming callbacks:
 invoke_parallel_streaming(
     prompts: list[dict],
     callbacks: list[callable] = None,
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
     max_tokens: int = 4096,
     max_workers: int = 5,
     shared_system: str | list[dict] | None = None,
@@ -135,7 +135,7 @@ Manages multi-turn conversations with automatic caching:
 ```python
 thread = ConversationThread(
     system: str | list[dict] | None = None,
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
     max_tokens: int = 4096,
     temperature: float = 1.0,
     cache_system: bool = True

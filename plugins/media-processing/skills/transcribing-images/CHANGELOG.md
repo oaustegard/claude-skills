@@ -2,6 +2,15 @@
 
 All notable changes to the `transcribing-images` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.2.0] - 2026-10-07
+
+### Changed
+
+- Fallback model registry in `transcribe_pages.py` moved to `claude-haiku-5-5` (was
+  `claude-haiku-4-5-20251001`) and `claude-opus-5-5` (was `claude-opus-4-7`), matching
+  `browsing-bluesky/scripts/image_transcribe.py`. Adaptive thinking on these models
+  counts against `--max-tokens` (default 4000); raise it if a page comes back empty.
+
 ## [0.1.2] - 2026-09-12
 
 ### Other

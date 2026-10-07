@@ -60,17 +60,65 @@ except ImportError:
 
 _BLOCKED_KWARGS = {
     "stream": "use invoke_claude_streaming() or the streaming=True kwarg instead",
-    "tools": "not supported — the wrapper reads content[0].text and assumes text",
-    "tool_choice": "requires tools; not supported by the text-only response reader",
-    "thinking": "extended thinking changes response shape; content[0] may be a thinking block",
+    "tools": "not supported — the wrapper reads text blocks only and assumes a text reply",
+    "tool_choice": "requires tools; not supported by the text-only response reader (forced tool_choice also 400s on Sonnet 5.5 / Opus 5.5)",
+    "thinking": "thinking config is not wrapped; budget_tokens / type=enabled return 400 on 5.x models, which think adaptively by default",
 }
 
 
-def _filter_kwargs(kwargs: dict, fn_name: str) -> dict:
+# Sampling parameters. Current models (Sonnet 5.5, Haiku 5.5, Opus 5.x, Sonnet 5,
+# Opus 4.7/4.8, Fable) return HTTP 400 for any non-default value, or reject the
+# parameters entirely. Only the legacy families below still accept them.
+_SAMPLING_PARAMS = ("temperature", "top_p", "top_k")
+_LEGACY_SAMPLING_MARKERS = (
+    "-4-6", "-4-5", "-4-1", "-4-2025", "claude-3", "haiku-4-5",
+)
+
+
+def _accepts_sampling(model: str) -> bool:
+    """True only for legacy model families that still accept temperature/top_p/top_k.
+
+    Unknown ids return False: omitting sampling params is always safe, sending
+    them to a current model is an HTTP 400.
+    """
+    m = (model or "").lower()
+    return any(marker in m for marker in _LEGACY_SAMPLING_MARKERS)
+
+
+def _extract_text(message) -> str:
+    """Join the text blocks of a Messages API response.
+
+    Adaptive-thinking models (Sonnet 5.5, Haiku 5.5, Opus 5.5) may put a
+    ``thinking`` block (empty text) at content[0], so never index content[0].
+    Accepts an SDK Message object or its dict form.
+    """
+    content = (message.get("content") if isinstance(message, dict)
+               else getattr(message, "content", None)) or []
+    parts = []
+    for block in content:
+        if isinstance(block, dict):
+            btype, text = block.get("type"), block.get("text")
+        else:
+            btype, text = getattr(block, "type", None), getattr(block, "text", None)
+        if btype == "text" and text is not None:
+            parts.append(text)
+    if not parts:
+        raise ClaudeInvocationError(
+            "Response contained no text block",
+            details=[(b.get("type") if isinstance(b, dict) else getattr(b, "type", None))
+                     for b in content],
+        )
+    return "".join(parts)
+
+
+def _filter_kwargs(kwargs: dict, fn_name: str, model: str | None = None) -> dict:
     """Strip kwargs that would break invoke_claude*'s assumptions. Warn on drop.
 
     Callers who genuinely need tools, thinking, or streaming should use the
     anthropic SDK directly — the wrappers here own a narrower contract.
+
+    When ``model`` is given and does not accept sampling parameters, top_p /
+    top_k (and temperature) in kwargs are dropped silently.
     """
     import warnings
     safe = {}
@@ -81,8 +129,15 @@ def _filter_kwargs(kwargs: dict, fn_name: str) -> dict:
                 RuntimeWarning, stacklevel=3,
             )
             continue
+        if model is not None and k in _SAMPLING_PARAMS and not _accepts_sampling(model):
+            continue
         safe[k] = v
     return safe
+
+
+def _sampling_params(model: str, temperature: float) -> dict:
+    """Request-body fragment for temperature: empty on models that reject it."""
+    return {"temperature": temperature} if _accepts_sampling(model) else {}
 
 
 def get_anthropic_api_key() -> str:
@@ -320,7 +375,7 @@ def _format_message_with_cache(
 # @lat: [[orchestration#Claude API Client]]
 def invoke_claude(
     prompt: str | list[dict],
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
     system: str | list[dict] | None = None,
     max_tokens: int = 4096,
     temperature: float = 1.0,
@@ -337,10 +392,12 @@ def invoke_claude(
 
     Args:
         prompt: The user message to send to Claude (string or list of content blocks)
-        model: Claude model to use (default: claude-sonnet-4-6)
+        model: Claude model to use (default: claude-sonnet-5-5)
         system: Optional system prompt to set context/role (string or list of content blocks)
         max_tokens: Maximum tokens in response (default: 4096)
-        temperature: Randomness 0-1 (default: 1.0)
+        temperature: Randomness 0-1 (default: 1.0). Ignored (not sent) on current
+            models such as Sonnet 5.5, Haiku 5.5 and Opus 5.x, which reject
+            non-default sampling parameters; only legacy 4.x/3.x ids receive it.
         streaming: Enable streaming response (default: False)
         cache_system: Add cache_control to system prompt (requires 1024+ tokens, default: False)
         cache_prompt: Add cache_control to user prompt (requires 1024+ tokens, default: False)
@@ -353,7 +410,8 @@ def invoke_claude(
             - Return Retry(prompt=..., system=...) to retry with modified inputs
             - Return Fail(message=...) to abort immediately
             - Return None to use default behavior (retry transient, raise others)
-        **kwargs: Additional API parameters (top_p, top_k, etc.)
+        **kwargs: Additional API parameters (top_p / top_k are dropped on current
+            models, like temperature)
 
     Returns:
         str: Response text from Claude
@@ -410,14 +468,14 @@ def invoke_claude(
     current_system = system
     last_error = None
 
-    safe_kwargs = _filter_kwargs(kwargs, "invoke_claude")
+    safe_kwargs = _filter_kwargs(kwargs, "invoke_claude", model)
 
     for attempt in range(max_retries + 1):
         # Build message parameters fresh each attempt (prompt/system may change)
         message_params = {
             "model": model,
             "max_tokens": max_tokens,
-            "temperature": temperature,
+            **_sampling_params(model, temperature),
             **safe_kwargs
         }
 
@@ -442,7 +500,7 @@ def invoke_claude(
                 return full_response
             else:
                 message = client.messages.create(**message_params)
-                return message.content[0].text
+                return _extract_text(message)
 
         except (anthropic.APIStatusError, anthropic.APIConnectionError, Exception) as e:
             kind = _classify_error(e)
@@ -509,7 +567,7 @@ def _build_messages(
 def invoke_claude_streaming(
     prompt: str | list[dict],
     callback: callable = None,
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
     system: str | list[dict] | None = None,
     max_tokens: int = 4096,
     temperature: float = 1.0,
@@ -526,7 +584,7 @@ def invoke_claude_streaming(
         model: Claude model identifier
         system: Optional system prompt
         max_tokens: Maximum tokens in response
-        temperature: Sampling temperature (0-1)
+        temperature: Sampling temperature (0-1). Ignored on current models (see invoke_claude)
         cache_system: Add cache_control to system (requires 1024+ tokens)
         cache_prompt: Add cache_control to user prompt (requires 1024+ tokens)
         **kwargs: Additional API parameters
@@ -556,9 +614,9 @@ def invoke_claude_streaming(
     stream_params = dict(
         model=model,
         max_tokens=max_tokens,
-        temperature=temperature,
         messages=messages,
-        **_filter_kwargs(kwargs, "invoke_claude_streaming")
+        **_sampling_params(model, temperature),
+        **_filter_kwargs(kwargs, "invoke_claude_streaming", model)
     )
     if system:
         stream_params["system"] = _format_system_with_cache(system, cache_system)
@@ -587,7 +645,7 @@ def invoke_claude_streaming(
 # @lat: [[orchestration#Parallel Execution]]
 def invoke_parallel(
     prompts: list[dict],
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
     max_tokens: int = 4096,
     max_workers: int = 5,
     shared_system: str | list[dict] | None = None,
@@ -603,7 +661,7 @@ def invoke_parallel(
         prompts: List of dicts, each containing:
             - 'prompt' (required): The user message
             - 'system' (optional): System prompt (appended to shared_system if both provided)
-            - 'temperature' (optional): Temperature override
+            - 'temperature' (optional): Temperature override (ignored on current models)
             - 'cache_system' (optional): Cache individual system prompt
             - 'cache_prompt' (optional): Cache individual user prompt
             - Other invoke_claude parameters
@@ -717,7 +775,7 @@ def invoke_parallel(
 def invoke_parallel_streaming(
     prompts: list[dict],
     callbacks: list[callable] = None,
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
     max_tokens: int = 4096,
     max_workers: int = 5,
     shared_system: str | list[dict] | None = None,
@@ -892,7 +950,7 @@ class InterruptToken:
 def invoke_parallel_interruptible(
     prompts: list[dict],
     interrupt_token: InterruptToken = None,
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
     max_tokens: int = 4096,
     max_workers: int = 5,
     shared_system: str | list[dict] | None = None,
@@ -981,7 +1039,7 @@ class ConversationThread:
     def __init__(
         self,
         system: str | list[dict] | None = None,
-        model: str = "claude-sonnet-4-6",
+        model: str = "claude-sonnet-5-5",
         max_tokens: int = 4096,
         temperature: float = 1.0,
         cache_system: bool = True,
@@ -995,7 +1053,7 @@ class ConversationThread:
             system: System prompt for this conversation
             model: Claude model to use
             max_tokens: Maximum tokens per response
-            temperature: Temperature setting
+            temperature: Temperature setting (ignored on current models, see invoke_claude)
             cache_system: Cache the system prompt (default: True)
             max_turns: Optional maximum number of turns before stopping (None = unlimited)
             continuation_prompt: Default prompt for send_continuation() calls.
@@ -1122,9 +1180,11 @@ def get_available_models() -> list[str]:
         list[str]: List of model identifiers
     """
     return [
-        "claude-sonnet-4-6",               # Latest Sonnet (default)
-        "claude-opus-4-6",                  # Latest Opus (highest capability)
-        "claude-haiku-4-5-20251001",        # Haiku 4.5 (fast, cost-effective)
+        "claude-sonnet-5-5",                # Sonnet 5.5 (default), $2/$10 per MTok
+        "claude-opus-5-5",                  # Opus 5.5 (highest capability), $4/$20 per MTok
+        "claude-haiku-5-5",                 # Haiku 5.5 (fast, cheapest), $0.10/$0.50 per MTok, up to 100K-token prompts
+        "claude-opus-4-6",                  # Legacy Opus 4.6
+        "claude-haiku-4-5-20251001",        # Legacy Haiku 4.5
         "claude-sonnet-4-5-20250929",       # Legacy Sonnet 4.5
         "claude-sonnet-4-20250514",         # Legacy Sonnet 4
         "claude-opus-4-20250514",           # Legacy Opus 4
@@ -1159,7 +1219,7 @@ def parse_json_response(raw: str) -> dict:
 
 def invoke_claude_json(
     prompt: str | list[dict],
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
     system: str | list[dict] | None = None,
     max_tokens: int = 4096,
     temperature: float = 1.0,
@@ -1181,7 +1241,7 @@ def invoke_claude_json(
         model: Claude model to use
         system: Optional system prompt
         max_tokens: Maximum tokens in response
-        temperature: Randomness 0-1
+        temperature: Randomness 0-1 (ignored on current models, see invoke_claude)
         cache_system: Add cache_control to system prompt
         cache_prompt: Add cache_control to user prompt
         messages: Optional pre-built messages list

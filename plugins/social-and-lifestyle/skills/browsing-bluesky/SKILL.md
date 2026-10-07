@@ -2,7 +2,7 @@
 name: browsing-bluesky
 description: Browse Bluesky content via API and firehose - search posts, fetch user activity, sample trending topics, read feeds and lists, analyze and categorize accounts. Supports authenticated access for personalized feeds. Use for Bluesky research, user monitoring, trend analysis, feed reading, firehose sampling, account categorization.
 metadata:
-  version: 0.6.0
+  version: 0.7.0
 ---
 
 # Browsing Bluesky
@@ -251,6 +251,9 @@ run each — sample size is small, treat as directional):
 | `gemini-3.5-flash` | ~10s | ~$0.014 | 100% |
 | `haiku` | ~7s | ~$0.008 | 18% (summarizes) |
 | `opus` | ~20s | ~$0.12 | 91% |
+
+The `haiku` and `opus` rows were measured on Haiku 4.5 and Opus 4.7. The aliases now
+resolve to `claude-haiku-5-5` and `claude-opus-5-5`; those rows have not been re-measured.
 
 Requires either `ANTHROPIC_API_KEY` (or `API_KEY` in `/mnt/project/claude.env`)
 for the `haiku` / `opus` aliases, or CF AI Gateway credentials in

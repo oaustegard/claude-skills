@@ -6,7 +6,9 @@ transcription via a chosen model. Used opportunistically by bsky.py when
 posts have images with missing or empty alt text.
 
 The model is chosen by the caller via `model_alias`. Empirical results on
-dense terminal screenshots (May 2026, n=3 images, single run each):
+dense terminal screenshots (May 2026, n=3 images, single run each; the haiku and
+opus rows were measured on Haiku 4.5 and Opus 4.7, before the aliases moved to
+claude-haiku-5-5 and claude-opus-5-5, and have not been re-measured):
 
     alias              latency   $/image   chord-token recall   notes
     -------------------------------------------------------------------
@@ -39,8 +41,8 @@ _GEMINI_CLIENT_PATH = "/mnt/skills/user/invoking-gemini/scripts"
 # routing path (Anthropic Messages API vs. Gemini via Cloudflare AI Gateway).
 _MODEL_REGISTRY = {
     # Anthropic
-    "haiku": ("anthropic", "claude-haiku-4-5-20251001"),
-    "opus":  ("anthropic", "claude-opus-4-7"),
+    "haiku": ("anthropic", "claude-haiku-5-5"),
+    "opus":  ("anthropic", "claude-opus-5-5"),
     # Gemini — recommended order: lite for routine, flash for token-perfect,
     # 3.5-flash for premium reasoning alongside transcription.
     "gemini-lite":       ("gemini", "gemini-2.5-flash-lite"),

@@ -2,6 +2,18 @@
 
 All notable changes to the `reasoning-semiformally` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.4.0] - 2026-10-07
+
+### Other
+
+- Retarget model-choice guidance to the 5.5 generation
+
+## [0.4.0] - 2026-10-07
+
+### Changed
+
+- The model routing names the 5.5 generation: Haiku 5.5 reads `haiku.md`, and Sonnet 5.5, Opus and Fable read `sonnet.md`.
+
 ## [0.3.1] - 2026-09-09
 
 ### Fixed

@@ -2,7 +2,7 @@
 name: orchestrating-agents
 description: Orchestrates parallel API instances, delegated sub-tasks, and multi-agent workflows with streaming and tool-enabled delegation patterns. Routes by surface — native subagents in Cowork and Claude Code, httpx fan-out on claude.ai — and covers Gemini delegation via the Cloudflare AI Gateway on every surface. Use for parallel analysis, multi-perspective reviews, or complex task decomposition.
 metadata:
-  version: 0.7.0
+  version: 0.8.0
 ---
 
 ## SURFACE ROUTING — read first
@@ -128,10 +128,17 @@ from claude_client import invoke_claude
 
 response = invoke_claude(
     prompt="Analyze this code for security vulnerabilities: ...",
-    model="claude-sonnet-5"
+    model="claude-sonnet-5-5"
 )
 print(response)
 ```
+
+Default model is `claude-sonnet-5-5` ($2/$10 per MTok); `claude-opus-5-5` ($4/$20) for
+open-ended work and `claude-haiku-5-5` ($0.10/$0.50, prompts up to 100K tokens, 1M context)
+for cheap first-pass calls. These models reject non-default sampling parameters, so
+`temperature` / `top_p` / `top_k` are accepted by the wrappers but only sent to legacy
+(4.x / 3.x) model ids. They also think adaptively; the wrappers return the joined `text`
+blocks, never `content[0]`.
 
 ### Parallel Multi-Perspective Analysis
 
@@ -153,7 +160,7 @@ prompts = [
     }
 ]
 
-results = invoke_parallel(prompts, model="claude-sonnet-5")
+results = invoke_parallel(prompts, model="claude-sonnet-5-5")
 
 for i, result in enumerate(results):
     print(f"\n=== Perspective {i+1} ===")
@@ -369,7 +376,7 @@ pool = AgentPool(shared_system="Code review team")
 
 # Reservation pattern: name is reserved, rolled back on exception
 with pool.reserve("analyst", parent="lead") as res:
-    res.configure(system="You analyze code complexity.", model="claude-opus-5")
+    res.configure(system="You analyze code complexity.", model="claude-opus-5-5")
     # If configure or any other work raises, the name is released
 # Agent "analyst" is now live
 
@@ -467,7 +474,7 @@ For detailed caching workflows and best practices, see [references/workflows.md]
 **Cost management:**
 - Each invocation consumes API credits
 - Monitor usage in Anthropic Console
-- Use smaller models (haiku) for simple tasks
+- Use smaller models (`claude-haiku-5-5`) for simple tasks
 - Use prompt caching for repeated context (90% savings)
 - Cache lifetime: 5 minutes, refreshed on each use
 

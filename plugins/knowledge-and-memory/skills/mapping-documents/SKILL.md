@@ -2,7 +2,7 @@
 name: mapping-documents
 description: Generate navigable semantic maps from PDF documents. Extracts section structure via font analysis, then runs LLM extraction per section for claims, symbols, and dependencies — all page-anchored. Produces _MAP.md (progressive disclosure), .symbols.json (definition index), .anchors.json (claim references), and a _USAGE.md snippet for CLAUDE.md. Use when analyzing papers, specs, or legal docs; when asked to "map this document", "index this PDF", "what does this paper say"; or when a coding agent needs grounded reference material from a PDF source. Analogous to tree-sitting but for prose documents.
 metadata:
-  version: 0.1.3
+  version: 0.2.0
 ---
 
 # Mapping Documents
@@ -122,7 +122,7 @@ Options:
   --structure-only             Skip LLM pass (free, fast)
   --out DIR                    Output directory (default: .)
   --api-key KEY                Anthropic API key
-  --model MODEL                Model (default: claude-sonnet-4-6)
+  --model MODEL                Model (default: claude-sonnet-5-5)
   --workers N                  Parallel workers (default: 4)
   --no-usage-snippet           Skip _USAGE.md generation
   -v                           Verbose structural parsing

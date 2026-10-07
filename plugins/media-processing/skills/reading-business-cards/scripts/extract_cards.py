@@ -5,7 +5,7 @@ Haiku with the distilled prompt in prompts/haiku_extract.md, parse the JSON each
 call returns, dedupe across overlapping tiles, and write one CSV.
 
 This is the cheap path: instead of a large model reading 1,000 tiles in one
-conversation, the script fans the tiles out to Haiku (temperature 0) in parallel.
+conversation, the script fans the tiles out to Haiku in parallel (temperature 0 on legacy models; current models reject it).
 Haiku only has to follow an explicit schema, which the prompt + examples lock in.
 
 Usage:
@@ -16,7 +16,7 @@ Usage:
     --out     CSV path (default /mnt/user-data/outputs/cards.csv)
     --workers parallel API calls (default 6)
     --limit   only process the first N tiles (smoke test)
-    --model   model id (default claude-haiku-4-5)
+    --model   model id (default claude-haiku-5-5)
 """
 import argparse
 import base64
@@ -48,18 +48,38 @@ def load_api_key():
     sys.exit("No API key. Set API_KEY env var or provide /mnt/project/claude.env")
 
 
-def call_haiku(api_key, system_prompt, img_b64, model, max_retries=4):
-    body = json.dumps({
+# Sampling parameters: Haiku 5.5, Sonnet 5.5 and Opus 5.x return HTTP 400 for any
+# non-default temperature, so it is only sent to legacy families.
+_LEGACY_SAMPLING_MARKERS = ("-4-6", "-4-5", "-4-1", "-4-2025", "claude-3", "haiku-4-5")
+
+
+def _accepts_sampling(model):
+    """True only for legacy model families that still accept temperature/top_p/top_k."""
+    m = (model or "").lower()
+    return any(marker in m for marker in _LEGACY_SAMPLING_MARKERS)
+
+
+def _build_body(system_prompt, img_b64, model):
+    """Request body for one tile. temperature 0 only where the model accepts it."""
+    body = {
         "model": model,
-        "max_tokens": 1500,
-        "temperature": 0,
+        # 5.x models think adaptively and thinking tokens count against max_tokens,
+        # so leave headroom beyond the ~1.5K the JSON itself needs.
+        "max_tokens": 4096,
         "system": system_prompt,
         "messages": [{"role": "user", "content": [
             {"type": "image", "source": {"type": "base64",
                                          "media_type": "image/png", "data": img_b64}},
             {"type": "text", "text": "Transcribe this tile. Output JSON only."},
         ]}],
-    }).encode()
+    }
+    if _accepts_sampling(model):
+        body["temperature"] = 0
+    return body
+
+
+def call_haiku(api_key, system_prompt, img_b64, model, max_retries=4):
+    body = json.dumps(_build_body(system_prompt, img_b64, model)).encode()
     req = urllib.request.Request(API_URL, data=body, headers={
         "x-api-key": api_key,
         "anthropic-version": "2023-06-01",
@@ -140,7 +160,7 @@ def main():
     ap.add_argument("--out", default="/mnt/user-data/outputs/cards.csv")
     ap.add_argument("--workers", type=int, default=6)
     ap.add_argument("--limit", type=int, default=0)
-    ap.add_argument("--model", default="claude-haiku-4-5")
+    ap.add_argument("--model", default="claude-haiku-5-5")
     args = ap.parse_args()
 
     manifest_path = os.path.join(args.work, "manifest.json")

@@ -231,9 +231,9 @@ def auto_grid(h, w, overlap, target=1500):
 # limiter is pixels resolving 6pt glyphs, not model intelligence. Tune via
 # --floor-px and validate on a sample (see SKILL Stage 2).
 MODEL_FLOORS = {
-    "opus":   350,   # claude-opus-4-x  : lowest floor -> fewest/biggest tiles
-    "sonnet": 450,   # claude-sonnet-4-x: moderate (the safe default)
-    "haiku":  600,   # claude-haiku-4-x : needs big cards; validate regardless
+    "opus":   350,   # claude-opus-*    : lowest floor -> fewest/biggest tiles
+    "sonnet": 450,   # claude-sonnet-*  : moderate (the safe default)
+    "haiku":  600,   # claude-haiku-*   : needs big cards; validate regardless
 }
 DOWNSCALE_CAP = 1568  # model downscales any image to ~this on the long edge
 
@@ -305,7 +305,7 @@ def main():
                          "grid from each image's size (the default).")
     ap.add_argument("--model", default="sonnet",
                     help="reader model the tiles are sized for: opus | sonnet | "
-                         "haiku (or a full id like claude-opus-4-8). Sets the OCR "
+                         "haiku (or a full id like claude-opus-5-5). Sets the OCR "
                          "floor -> Opus tiles least, Haiku most. Default sonnet.")
     ap.add_argument("--target-px", type=int, default=0,
                     help="explicit max tile long edge; overrides --model sizing. "

@@ -60,7 +60,7 @@ def verify_page(
     screenshots_dir: Path,
     codebase: Path,
     viewport: str = "1280x720",
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
 ) -> tuple[PageCapture, dict]:
     """Capture and verify a single page via vision.
 
@@ -134,7 +134,7 @@ def verify_pages(
     screenshots_dir: Path,
     codebase: Path,
     viewport: str = "1280x720",
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
 ) -> tuple[list[PageCapture], list[dict]]:
     """Verify multiple pages via vision, merging with code descriptions.
 

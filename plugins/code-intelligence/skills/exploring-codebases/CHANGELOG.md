@@ -2,6 +2,18 @@
 
 All notable changes to the `exploring-codebases` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.6.0] - 2026-10-07
+
+### Other
+
+- Retarget model-choice guidance to the 5.5 generation
+
+## [2.6.0] - 2026-10-07
+
+### Changed
+
+- Subagent routing reflects `agent-routing` 2.4.0. Exploration stays on `sonnet` because it has no verifier, and a wide fan-out of narrow reads may use Haiku 5.5, 20× cheaper per spawn, behind a sample audit.
+
 ## [2.5.2] - 2026-09-09
 
 ### Other

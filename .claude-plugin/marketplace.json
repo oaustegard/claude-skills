@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.1002.0200"
+    "version": "2026.1007.1946"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -13,7 +13,7 @@
       "name": "ai-and-reasoning",
       "description": "AI model invocation, multi-agent orchestration, prompt distillation, and structured reasoning frameworks.",
       "source": "./plugins/ai-and-reasoning",
-      "version": "2.3.0",
+      "version": "2.4.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",
@@ -39,7 +39,7 @@
       "name": "code-intelligence",
       "description": "Codebase exploration, navigation, mapping, and static analysis tools for understanding unfamiliar codebases.",
       "source": "./plugins/code-intelligence",
-      "version": "2.5.2",
+      "version": "2.6.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",
@@ -157,7 +157,7 @@
       "name": "media-processing",
       "description": "Image manipulation, video/audio processing, file format conversion, SVG conversion, and computer vision augmentation.",
       "source": "./plugins/media-processing",
-      "version": "2.2.0",
+      "version": "2.3.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",

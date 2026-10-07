@@ -63,7 +63,7 @@ def invoke_with_retry(
     base_delay_ms: float = 1000.0,
     max_delay_ms: float = 10000.0,
     is_continuation: bool = False,
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
     system: str | list[dict] | None = None,
     max_tokens: int = 4096,
     temperature: float = 1.0,
@@ -81,7 +81,7 @@ def invoke_with_retry(
         model: Claude model identifier
         system: Optional system prompt
         max_tokens: Maximum response tokens
-        temperature: Sampling temperature
+        temperature: Sampling temperature (ignored on current models; see invoke_claude)
         **kwargs: Additional parameters passed to invoke_claude
 
     Returns:
@@ -129,7 +129,7 @@ def invoke_parallel_with_reconciliation(
     prompts: list[dict],
     *,
     reconcile: Callable[[list[dict], "TaskTracker"], list[dict]] | None = None,
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
     max_tokens: int = 4096,
     max_workers: int = 5,
     shared_system: str | list[dict] | None = None,
@@ -361,7 +361,7 @@ class ConcurrencyLimiter:
 def invoke_parallel_managed(
     prompts: list[dict],
     *,
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
     max_tokens: int = 4096,
     max_workers: int = 5,
     shared_system: str | list[dict] | None = None,
