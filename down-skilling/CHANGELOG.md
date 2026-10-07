@@ -4,6 +4,12 @@ All notable changes to the `down-skilling` skill are documented in this file. Th
 
 ## [1.6.0] - 2026-10-07
 
+### Other
+
+- down-skilling 1.6.0: anti-invention examples optional on Haiku 5.5
+
+## [1.6.0] - 2026-10-07
+
 ### Changed
 
 - The anti-invention ("model the silence") examples are optional on Haiku 5.5. A retest on the original rewrite task, 8 runs per version (`experiments/downskill-shots`, round 2), found 0/8 invented technical details for every version. That includes the example set that produced 19/20 on Haiku 4.5. The no-invention rule and the fact-listing step stay: without them, 3/8 rewrites invented facts.
