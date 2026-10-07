@@ -4,6 +4,12 @@ All notable changes to the `down-skilling` skill are documented in this file. Th
 
 ## [1.4.0] - 2026-10-07
 
+### Other
+
+- Retarget model-choice guidance to the 5.5 generation
+
+## [1.4.0] - 2026-10-07
+
 ### Changed
 
 - Retargeted to Haiku 5.5 ($0.10/$0.50, 40× under Opus 5.5 and 20× under Sonnet 5.5). The economics section no longer says retries erase the saving. It now points at silent errors as the cost examples prevent, and at the verifier plus informed retry that `agent-routing` measured on Haiku 5.5. The context note reflects Haiku 5.5's 1M window and its 100K-token price step. The 2026-07 calibration and the gap catalog stay labelled as Haiku 4.5 data.

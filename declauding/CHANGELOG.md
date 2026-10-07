@@ -4,6 +4,12 @@ All notable changes to the `declauding` skill are documented in this file. The f
 
 ## [0.10.0] - 2026-10-07
 
+### Other
+
+- Retarget model-choice guidance to the 5.5 generation
+
+## [0.10.0] - 2026-10-07
+
 ### Changed
 
 - `declaude_review.py` stage 2 now calls `claude-sonnet-5-5` without `temperature` (a 400 on Sonnet 5.5), with `max_tokens` raised to 8000 to leave room for adaptive thinking.
