@@ -9,7 +9,7 @@ description: >-
   a smaller model with high reliability.
 metadata:
   author: Oskar Austegard and Opus
-  version: 1.5.0
+  version: 1.6.0
 ---
 
 # Down-Skilling: Opus → Haiku Distillation
@@ -91,9 +91,14 @@ example in 1 of 2 runs, so state it as a rule.
      example at that boundary, with its `<reasoning>`. Never a judgment rule
      without the example that calibrates it.
 4. Rerun. Stop when the test set passes; typical-case examples add nothing here.
-5. Keep the anti-invention examples ([model the silence](#when-the-input-could-be-abstract-model-the-silence))
-   for rewriting and summarisation. They were measured on Haiku 4.5 (95% → 0%
-   invented details) and have not been retested on 5.5.
+5. For rewriting and summarisation, keep an explicit no-invention rule and a
+   step that lists the source's facts before writing. The anti-invention examples
+   ([model the silence](#when-the-input-could-be-abstract-model-the-silence)) are
+   optional on 5.5. Retested 2026-10-07 on the same rewrite task: the example set
+   that made Haiku 4.5 invent technical details in 19 of 20 runs produced 0 of 8 on
+   5.5, as did every other version. Without a no-invention rule, though, 3 of 8
+   rewrites invented facts ("We tested it across a range of workloads"). With the
+   rule alone it was 1 of 8, and with the rule plus the calibrated examples 0 of 8.
 
 Typically this ends at 0–3 examples, not 4–7. The rest of this file is the
 Haiku 4.5 method. Use it for Haiku 4.5, and for the boundary examples step 3 calls for.
