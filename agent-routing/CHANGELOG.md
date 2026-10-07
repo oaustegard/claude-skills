@@ -4,6 +4,12 @@ All notable changes to the `agent-routing` skill are documented in this file. Th
 
 ## [2.4.0] - 2026-10-07
 
+### Other
+
+- agent-routing 2.4.0: Haiku 5.5 ladder, per-spawn pricing
+
+## [2.4.0] - 2026-10-07
+
 ### Changed
 
 - Repriced for the 5.5 generation. Haiku 5.5 is $0.10/$0.50, 20× under Sonnet 5.5 on every token class, so the Haiku 4.5 cost arguments (the verbosity penalty, the failed `haiku → sonnet` precondition) no longer hold, and they are marked as 4.5 data.

@@ -4,6 +4,21 @@ All notable changes to the `tiling-tree` skill are documented in this file. The 
 
 ## [1.1.0] - 2026-10-07
 
+### Added
+
+- add mapping-features skill for behavioral web app documentation (#432)
+- dynamic boot, read_file tool, dispatch mode, all-tools-all-modes (#333)
+
+### Other
+
+- Migrate hardcoded model defaults to the 5.5 generation
+- Deprecate mapping-codebases; adopt ruff 0.16.0 baseline (#747)
+- Remove _MAP.md files, direct agents to tree-sitting for code navigation (#545)
+- Regenerate _MAP.md files after @lat: backlink insertion (#504)
+- Lattice v2: bidirectional source-anchored knowledge graph (#503)
+
+## [1.1.0] - 2026-10-07
+
 ### Changed
 
 - Splitter and evaluator calls use `claude-sonnet-5-5` (was `claude-sonnet-4-6`). The

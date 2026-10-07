@@ -4,6 +4,12 @@ All notable changes to the `transcribing-images` skill are documented in this fi
 
 ## [0.2.0] - 2026-10-07
 
+### Other
+
+- Migrate hardcoded model defaults to the 5.5 generation
+
+## [0.2.0] - 2026-10-07
+
 ### Changed
 
 - Fallback model registry in `transcribe_pages.py` moved to `claude-haiku-5-5` (was

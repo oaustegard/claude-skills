@@ -57,6 +57,20 @@
 - Section header context pointers
 - Parallel execution via orchestrating-agents
 
+## [0.4.0] - 2026-10-07
+
+### Added
+
+- add mapping-features skill for behavioral web app documentation (#432)
+- structural task discipline for Muninn — checklists, recall gate, cross-session persistence
+
+### Other
+
+- Migrate hardcoded model defaults to the 5.5 generation
+- Deprecate mapping-codebases; adopt ruff 0.16.0 baseline (#747)
+- Add surface routing to orchestration skills (native CC workflows vs custom) (#675)
+- Remove _MAP.md files, direct agents to tree-sitting for code navigation (#545)
+
 ## [0.3.0] - 2026-02-28
 
 ### Added

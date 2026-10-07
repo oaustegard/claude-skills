@@ -4,6 +4,12 @@ All notable changes to the `reading-business-cards` skill are documented in this
 
 ## [2.3.0] - 2026-10-07
 
+### Other
+
+- Migrate hardcoded model defaults to the 5.5 generation
+
+## [2.3.0] - 2026-10-07
+
 ### Changed
 
 - `extract_cards.py` defaults to `claude-haiku-5-5` (was `claude-haiku-4-5`); docs use
