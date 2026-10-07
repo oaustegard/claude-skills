@@ -23,6 +23,20 @@ except ImportError:
 API_URL = "https://api.anthropic.com/v1/messages"
 API_VERSION = "2023-06-01"
 
+# Sampling parameters (temperature / top_p / top_k): current models (Sonnet 5.5,
+# Haiku 5.5, Opus 5.x, Sonnet 5, Opus 4.7/4.8, Fable) return HTTP 400 for any
+# non-default value or reject them entirely. Only legacy families accept them.
+_LEGACY_SAMPLING_MARKERS = ("-4-6", "-4-5", "-4-1", "-4-2025", "claude-3", "haiku-4-5")
+
+
+def _accepts_sampling(model: str) -> bool:
+    """True only for legacy model families that still accept temperature/top_p/top_k.
+
+    Unknown ids return False: omitting sampling params is always safe.
+    """
+    m = (model or "").lower()
+    return any(marker in m for marker in _LEGACY_SAMPLING_MARKERS)
+
 
 def _get_api_key() -> str:
     """Resolve API key from env or project files."""
@@ -42,11 +56,16 @@ def _get_api_key() -> str:
 def call_claude(
     prompt: str,
     system: str = "",
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
     max_tokens: int = 4096,
     temperature: float = 0.3,
 ) -> str:
-    """Single Claude API call. Returns response text."""
+    """Single Claude API call. Returns response text.
+
+    ``temperature`` is ignored (not sent) on current models such as Sonnet 5.5,
+    Haiku 5.5 and Opus 5.x, which reject non-default sampling parameters.
+    Only text blocks are returned; leading ``thinking`` blocks are skipped.
+    """
     headers = {
         "x-api-key": _get_api_key(),
         "anthropic-version": API_VERSION,
@@ -55,9 +74,10 @@ def call_claude(
     body = {
         "model": model,
         "max_tokens": max_tokens,
-        "temperature": temperature,
         "messages": [{"role": "user", "content": prompt}],
     }
+    if _accepts_sampling(model):
+        body["temperature"] = temperature
     if system:
         body["system"] = system
 
@@ -74,7 +94,7 @@ def call_claude(
 def call_claude_json(
     prompt: str,
     system: str = "",
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
     max_tokens: int = 4096,
     temperature: float = 0.2,
 ) -> dict:
@@ -88,7 +108,7 @@ def call_claude_json(
 
 def call_parallel(
     prompts: list[dict],
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
     max_tokens: int = 4096,
     max_workers: int = 5,
 ) -> list[str]:
@@ -96,7 +116,7 @@ def call_parallel(
     Run multiple prompts in parallel. Each prompt dict has:
       - prompt: str (user message)
       - system: str (system message)
-      - temperature: float (optional, default 0.3)
+      - temperature: float (optional, default 0.3; ignored on current models)
 
     Returns list of response strings in same order as input.
     """

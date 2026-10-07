@@ -2,7 +2,7 @@
 name: tiling-tree
 description: Exhaustive problem space exploration using the MIT Synthetic Neurobiology "tiling tree" method. Partitions a problem into MECE (Mutually Exclusive, Collectively Exhaustive) subsets recursively via parallel subagents, then evaluates leaf ideas against specified criteria. Use when users say "tiling tree", "tile the solution space", "exhaustively explore approaches to", "what are all the ways to", or request a MECE breakdown of a problem. Requires orchestrating-agents skill.
 metadata:
-  version: 1.0.1
+  version: 1.1.0
   depends_on: orchestrating-agents
 ---
 

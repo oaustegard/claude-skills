@@ -116,7 +116,7 @@ def _get_api_url() -> str:
 def describe_page(
     capture: PageCapture,
     codebase: Path,
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
 ) -> dict:
     """Generate a behavioral description of a captured page using Claude vision.
 
@@ -222,7 +222,7 @@ def describe_page(
 def describe_all_pages(
     captures: list[PageCapture],
     codebase: Path,
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
 ) -> list[dict]:
     """Describe all captured pages using Claude vision.
 

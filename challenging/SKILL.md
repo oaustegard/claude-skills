@@ -2,7 +2,7 @@
 name: challenging
 description: Cross-context adversarial review for deliverables before shipping. Use when producing blog posts, technical recommendations, analysis briefs, code, or any artifact where accuracy matters more than speed. Triggers on "challenge this", "review before shipping", "adversarial pass", "stress test this".
 metadata:
-  version: 0.12.0
+  version: 0.13.0
 ---
 
 # Challenging — Adversarial Review

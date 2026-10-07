@@ -1,5 +1,17 @@
 # mapping-documents - Changelog
 
+## [0.2.0] - 2026-10-07
+
+### Changed
+
+- Default model `claude-sonnet-4-6` -> `claude-sonnet-5-5` (`docmap.py`, SKILL.md).
+
+### Fixed
+
+- `_semantic_extract` joins the response's `text` blocks instead of reading
+  `content[0].text`, which failed on adaptive-thinking models that lead with an empty
+  `thinking` block.
+
 ## [0.1.2] - 2026-04-17
 
 ### Added

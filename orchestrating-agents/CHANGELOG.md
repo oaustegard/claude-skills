@@ -2,6 +2,24 @@
 
 All notable changes to the `orchestrating-agents` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.0] - 2026-10-07
+
+### Changed
+
+- Default model moved from `claude-sonnet-4-6` to `claude-sonnet-5-5`; docs and
+  examples use `claude-opus-5-5` and `claude-haiku-5-5`, with current prices and
+  Haiku 5.5's 1M context. `get_available_models()` lists the 5.5 ids first and
+  keeps the 4.x ids as legacy.
+
+### Fixed
+
+- `temperature`, `top_p` and `top_k` are no longer sent to models that reject
+  them (Sonnet 5.5, Haiku 5.5, Opus 5.x and other current models return HTTP 400).
+  `_accepts_sampling(model)` is true only for legacy families; the `temperature`
+  parameters stay in every signature and are ignored elsewhere.
+- Responses are read by joining `text` blocks instead of `content[0].text`, which
+  broke on adaptive-thinking models that lead with an empty `thinking` block.
+
 ## [0.7.0] - 2026-09-09
 
 ### Other

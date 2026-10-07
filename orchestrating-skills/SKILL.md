@@ -8,7 +8,7 @@ description: >-
   perspectives, when context is large and subtasks only need portions, or when
   orchestrating-agents spawns too many redundant subagents.
 metadata:
-  version: 0.3.0
+  version: 0.4.0
   depends_on: []
 ---
 
@@ -147,7 +147,7 @@ Returns:
 Parameters:
 - `context` (str): Full context to process
 - `task` (str): What to accomplish
-- `model` (str): Claude model, default `claude-sonnet-4-6`
+- `model` (str): Claude model, default `claude-sonnet-5-5` ($2/$10 per MTok). Sampling parameters (temperature) are only sent to legacy 4.x/3.x ids; Sonnet 5.5, Haiku 5.5 and Opus 5.5 reject them, so on those models the internal temperatures (0.2-0.3) are ignored
 - `max_tokens` (int): Per-subagent token limit, default 2048
 - `synthesis_max_tokens` (int): Synthesis token limit, default 4096
 - `max_workers` (int): Parallel subagent limit, default 5

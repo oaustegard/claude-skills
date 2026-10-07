@@ -96,7 +96,7 @@ class SpawnReservation:
 
     Usage:
         with pool.reserve("analyst") as res:
-            res.configure(system="You analyze data.", model="claude-sonnet-4-6")
+            res.configure(system="You analyze data.", model="claude-sonnet-5-5")
             # If this raises, the name is released
         # Agent "analyst" is now live in the pool
     """
@@ -106,14 +106,18 @@ class SpawnReservation:
         self.name = name
         self.parent = parent
         self.system: str | None = None
-        self.model: str = "claude-sonnet-4-6"
+        self.model: str = "claude-sonnet-5-5"
         self.max_tokens: int = 4096
         self.temperature: float = 1.0
         self._committed = False
 
     def configure(self, *, system: str = None, model: str = None,
                   max_tokens: int = None, temperature: float = None):
-        """Set agent configuration before commit."""
+        """Set agent configuration before commit.
+
+        ``temperature`` is ignored on current models (Sonnet 5.5, Haiku 5.5,
+        Opus 5.x), which reject non-default sampling parameters.
+        """
         if system is not None:
             self.system = system
         if model is not None:
@@ -186,7 +190,7 @@ class AgentPool:
     EXECUTE_MODE = EXECUTE_MODE
 
     def __init__(self, shared_system: str = None, max_agents: int = 10,
-                 max_depth: int = 3, model: str = "claude-sonnet-4-6"):
+                 max_depth: int = 3, model: str = "claude-sonnet-5-5"):
         self.shared_system = shared_system
         self.max_agents = max_agents
         self.max_depth = max_depth
@@ -253,7 +257,7 @@ class AgentPool:
 
         Usage:
             with pool.reserve("analyst", parent="lead") as res:
-                res.configure(system="...", model="claude-opus-4-6")
+                res.configure(system="...", model="claude-opus-5-5")
         """
         reservation = SpawnReservation(self, name, parent)
         yield reservation

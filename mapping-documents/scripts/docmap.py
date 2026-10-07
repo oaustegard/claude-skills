@@ -372,7 +372,7 @@ Respond ONLY with valid JSON (no fences):
 
 
 def _semantic_extract(section: Section, genre: str, api_key: str,
-                      model: str = "claude-sonnet-4-6") -> dict:
+                      model: str = "claude-sonnet-5-5") -> dict:
     """Call Claude API to extract semantic information from a section."""
     import anthropic
 
@@ -397,7 +397,10 @@ def _semantic_extract(section: Section, genre: str, api_key: str,
                 )
             }],
         )
-        raw = response.content[0].text.strip()
+        # Adaptive-thinking models lead with an empty "thinking" block; join text blocks.
+        raw = "".join(
+            b.text for b in response.content if getattr(b, "type", None) == "text"
+        ).strip()
         raw = re.sub(r'^```(?:json)?\s*', '', raw)
         raw = re.sub(r'\s*```$', '', raw)
         return json.loads(raw)
@@ -635,7 +638,7 @@ def main():
                         help='Skip LLM semantic extraction')
     parser.add_argument('--out', default='.', help='Output directory')
     parser.add_argument('--api-key', help='Anthropic API key (or set ANTHROPIC_API_KEY / API_KEY)')
-    parser.add_argument('--model', default='claude-sonnet-4-6',
+    parser.add_argument('--model', default='claude-sonnet-5-5',
                         help='Model for semantic extraction')
     parser.add_argument('--workers', type=int, default=4,
                         help='Parallel workers for semantic extraction')

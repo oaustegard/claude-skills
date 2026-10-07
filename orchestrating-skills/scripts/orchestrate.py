@@ -84,7 +84,7 @@ Return ONLY valid JSON:
 def _plan(
     context: str,
     task: str,
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
 ) -> dict:
     """Phase 1: LLM reads full context once, produces decomposition plan."""
     system = ORCHESTRATOR_SYSTEM.format(catalog=skill_catalog())
@@ -113,7 +113,7 @@ def _plan(
 
 def _execute(
     prompts: list[dict],
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
     max_tokens: int = 2048,
     max_workers: int = 5,
 ) -> list[str]:
@@ -142,7 +142,7 @@ def _persist(
     task: str,
     synthesized_result: str,
     subtask: dict,
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
     verbose: bool = False,
 ) -> str | None:
     """
@@ -209,7 +209,7 @@ def _persist(
 def _synthesize(
     original_task: str,
     collected: str,
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
     max_tokens: int = 4096,
 ) -> str:
     """Phase 4: Synthesize collected results into final response."""
@@ -230,7 +230,7 @@ def _synthesize(
 def orchestrate(
     context: str,
     task: str,
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
     max_tokens: int = 2048,
     synthesis_max_tokens: int = 4096,
     max_workers: int = 5,
@@ -339,7 +339,7 @@ def _run_remember_subtasks(
     remember_subtasks: list[dict],
     task: str,
     synthesized_result: str,
-    model: str = "claude-sonnet-4-6",
+    model: str = "claude-sonnet-5-5",
     verbose: bool = False,
 ) -> list[str]:
     """Execute all remember subtasks and return list of stored memory IDs."""
@@ -361,7 +361,7 @@ def main():
     parser = argparse.ArgumentParser(description="Skill-aware orchestration")
     parser.add_argument("--context-file", "-c", required=True)
     parser.add_argument("--task", "-t", required=True)
-    parser.add_argument("--model", "-m", default="claude-sonnet-4-6")
+    parser.add_argument("--model", "-m", default="claude-sonnet-5-5")
     parser.add_argument("--max-tokens", type=int, default=2048)
     parser.add_argument("--max-workers", type=int, default=5)
     parser.add_argument("--verbose", "-v", action="store_true")

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0 (2026-10-07)
+
+### Changed
+- Default model `claude-sonnet-4-6` -> `claude-sonnet-5-5` in `client.py`, `orchestrate.py` and docs
+
+### Fixed
+- `call_claude` no longer sends `temperature` to models that reject it (Sonnet 5.5,
+  Haiku 5.5, Opus 5.x return HTTP 400); `_accepts_sampling(model)` is true only for
+  legacy families. The `temperature` parameters stay in the signatures and are ignored on current models.
+
 ## 0.3.0 (2026-02-28)
 
 ### Added

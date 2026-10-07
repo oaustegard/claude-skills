@@ -2,7 +2,7 @@
 name: reading-business-cards
 description: "Preprocesses photographed sheets of many business cards — slicing each into overlapping high-resolution tiles and de-glaring them with container tooling (OpenCV/ImageMagick) — then reads every card via cheap parallel temperature-0 API calls (Haiku or Sonnet) using a distilled extraction prompt, and writes deduped contact fields to a CSV. Use when a user has photos or scans holding multiple business cards per image, mentions glare or unreadable cards, batch card transcription, contact extraction, or wants to read many cards without an expensive in-conversation pass. Triggers on 'business cards', 'card scan', 'extract contacts', 'read these cards', 'card glare', 'too many cards per photo'."
 metadata:
-  version: 2.2.0
+  version: 2.3.0
 ---
 
 # Reading Business Cards
@@ -95,7 +95,7 @@ per-token dollars; the coarser the grid (Opus), the fewer reads.
 
 **The API runner is an optional optimization, only when an API key is present**
 (`API_KEY` in env / `/mnt/project/claude.env`). It sends each tile to a model in
-a separate parallel temperature-0 call using the distilled prompt, dedupes, and
+a separate parallel call (temperature 0 on legacy models; current models reject sampling parameters) using the distilled prompt, dedupes, and
 writes the CSV — reading outside the chat context, so it is cheaper per token and
 runs many tiles at once. Without a key it cannot run; use the in-session path.
 The runner bills the API account per token; it buys parallelism and a cheaper
@@ -103,8 +103,8 @@ meter, never accuracy.
 
 ### Running the API runner (keyed path)
 
-**Validate the model on a sample before the full run.** Haiku is ~6x cheaper but
-its OCR is weaker; on phone photos of loose or angled cards it confidently
+**Validate the model on a sample before the full run.** Haiku (default `claude-haiku-5-5`, $0.10/$0.50 per MTok, ~20x cheaper
+per token than Sonnet 5.5) has weaker OCR; on phone photos of loose or angled cards it confidently
 misreads names and marks the errors `high` confidence. (Gemini's free tier was
 tested 2026-06-15 and read these poorly — do not reach for it here.) Tested
 guidance:
@@ -121,12 +121,12 @@ guidance:
    - Clean, high-resolution, upright cards (e.g. a flatbed scan), Haiku reads
      them correctly → keep Haiku for the full run.
    - Errors, or `high` confidence on wrong text → switch to Sonnet:
-     `--model claude-sonnet-5`. Sonnet via this same script is far cheaper
+     `--model claude-sonnet-5-5`. Sonnet via this same script is far cheaper
      than reading tiles in-conversation and is accurate on messy phone photos.
 4. Full run with the chosen model and your real output path:
    ```bash
    python3 scripts/extract_cards.py --work /home/claude/cards_work \
-       --out /mnt/user-data/outputs/cards.csv [--model claude-sonnet-5]
+       --out /mnt/user-data/outputs/cards.csv [--model claude-sonnet-5-5]
    ```
 
 The script prints raw vs unique counts and the low-confidence / parse-error
@@ -137,7 +137,7 @@ website, address, confidence`.
 
 From the finished CSV, take every row with `confidence = low` (and any
 `parse-error`). Re-run just those — extract the relevant tiles into a small work
-dir and run `extract_cards.py` on them with `--model claude-sonnet-5` (or Opus
+dir and run `extract_cards.py` on them with `--model claude-sonnet-5-5` (or Opus
 in-chat for the worst). Cards still wrong after that are too small, angled, or
 glare-clipped in the source — flag them for a re-shoot rather than re-running.
 
@@ -176,7 +176,7 @@ carry a red `#index` matching the manifest; extract one row per `#index`.
   may still read `low`; a finer tile grid helps, a re-shoot helps more.
 - `--binarize` trades color/logo fidelity for text crispness. Use it only for
   text-only cards, not as a default.
-- Model accuracy is the real bottleneck, not the pipeline. On tested phone
+- Model accuracy is the real bottleneck, not the pipeline. On tested phone (Haiku 4.5, Sonnet 4.x; not re-measured on the 5.5 models)
   photos of loose/angled cards, Haiku confidently misread names and companies
   (e.g. "Clint Emerson/CableQuest" → "Cliff Emerson/Quest") and marked errors
   `high` confidence; its inconsistent misreadings also defeated cross-tile

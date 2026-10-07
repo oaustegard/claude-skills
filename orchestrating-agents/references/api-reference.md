@@ -6,14 +6,32 @@ Detailed API documentation for the orchestrating-agents skill.
 
 ### Available Models (as of 2026)
 
-| Model | Description | Max Output | Best For |
-|-------|-------------|------------|----------|
-| claude-sonnet-4-6 | Sonnet 4.6 (default) | 64K | Balanced speed/intelligence |
-| claude-opus-4-6 | Opus 4.6 | 128K | Highest capability, agents |
-| claude-haiku-4-5-20251001 | Haiku 4.5 | 64K | Fast, cost-effective |
-| claude-sonnet-4-6 | Sonnet 4.5 (legacy) | 64K | Legacy support |
-| claude-sonnet-4-20250514 | Sonnet 4 (legacy) | 64K | Legacy support |
-| claude-opus-4-20250514 | Opus 4 (legacy) | 32K | Legacy support |
+| Model | Description | Price (in/out per MTok) | Best For |
+|-------|-------------|-------------------------|----------|
+| claude-sonnet-5-5 | Sonnet 5.5 (default) | $2 / $10 | Balanced speed/intelligence |
+| claude-opus-5-5 | Opus 5.5 | $4 / $20 | Highest capability, agents, open-ended work |
+| claude-haiku-5-5 | Haiku 5.5 | $0.10 / $0.50 (prompts up to 100K tokens) | Fast, cheapest; extraction, classification, first rung of a try/escalate ladder |
+| claude-opus-4-6 | Opus 4.6 (legacy) | | Legacy support |
+| claude-haiku-4-5-20251001 | Haiku 4.5 (legacy) | | Legacy support |
+| claude-sonnet-4-5-20250929 | Sonnet 4.5 (legacy) | | Legacy support |
+| claude-sonnet-4-20250514 | Sonnet 4 (legacy) | | Legacy support |
+| claude-opus-4-20250514 | Opus 4 (legacy) | | Legacy support |
+
+Haiku 5.5 has a 1M-token context window (Haiku 4.5 had 200K).
+
+### Behaviour of the 5.5 models
+
+- **Sampling parameters.** Sonnet 5.5 and Haiku 5.5 return HTTP 400 for any
+  non-default `temperature` / `top_p` / `top_k`; Opus 5.5 rejects them entirely.
+  `claude_client.py` only sends them for legacy families (`-4-6`, `-4-5`, `-4-1`,
+  `-4-2025`, `claude-3`, `haiku-4-5`); on current models the `temperature`
+  argument is accepted and ignored.
+- **Adaptive thinking.** The 5.5 models think by default, so `content[0]` can be
+  an empty `thinking` block. The client joins all `text` blocks instead of reading
+  `content[0].text`.
+- **No forced tool choice, no `budget_tokens`.** `tool_choice` of type `any` / `tool`
+  and `thinking: {type: "enabled"}` return 400; the client's blocked-kwargs filter
+  drops `tools`, `tool_choice` and `thinking`.
 
 ## Rate Limits
 
@@ -78,16 +96,21 @@ invoke_claude(
 
 ### Temperature
 
-Controls randomness (0.0-1.0):
+Controls randomness (0.0-1.0) on **legacy models only** (Sonnet 4.x, Haiku 4.5, Opus 4.6
+and older). Sonnet 5.5, Haiku 5.5 and Opus 5.5 reject non-default sampling parameters
+with HTTP 400, so `claude_client.py` ignores `temperature` / `top_p` / `top_k` for them;
+steer those models with the prompt instead. Example on a legacy model:
 
 ```python
 invoke_claude(
     prompt="Generate creative story ideas",
+    model="claude-sonnet-4-5-20250929",
     temperature=0.9  # More creative/random
 )
 
 invoke_claude(
     prompt="Calculate the result",
+    model="claude-sonnet-4-5-20250929",
     temperature=0.1  # More deterministic
 )
 ```
@@ -342,7 +365,7 @@ def progress_callback(chunk):
 response = invoke_claude_streaming(
     prompt="Write a comprehensive analysis...",
     callback=progress_callback,
-    model="claude-sonnet-4-6",
+    model="claude-sonnet-5-5",
     max_tokens=4096
 )
 ```

@@ -351,7 +351,7 @@ def _claude_raw(user_prompt: str, system_prompt: str) -> dict:
             'content-type': 'application/json',
         },
         json={
-            'model': 'claude-sonnet-5',
+            'model': 'claude-sonnet-5-5',
             'max_tokens': 32768,
             'system': system_prompt,
             'messages': [{'role': 'user', 'content': user_prompt}],
@@ -365,7 +365,7 @@ def _claude_raw(user_prompt: str, system_prompt: str) -> dict:
         stop = data.get('stop_reason', 'unknown')
         raise ValueError(f"Claude returned no content (stop_reason={stop})")
     # Extract by block type, not position — models with extended thinking
-    # (e.g. claude-sonnet-5) prepend 'thinking' blocks to the text block.
+    # (e.g. claude-sonnet-5-5) prepend 'thinking' blocks to the text block.
     text = ''.join(b.get('text', '') for b in content if b.get('type') == 'text')
     if not text:
         raise ValueError(f"Claude content block has no text: {json.dumps(content[0])[:200]}")

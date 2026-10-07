@@ -2,6 +2,14 @@
 
 All notable changes to the `mapping-webapp` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.5.0] - 2026-10-07
+
+### Changed
+
+- Default model `claude-sonnet-4-6` -> `claude-sonnet-5-5` in `analyze.py`, `describe.py`,
+  `verify.py`, `featuremap.py` and the `--model` docs. The scripts already join `text`
+  blocks and send no sampling parameters, so no other change was needed.
+
 ## [0.4.1] - 2026-09-09
 
 ### Other

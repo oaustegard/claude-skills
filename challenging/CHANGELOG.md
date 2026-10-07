@@ -2,6 +2,13 @@
 
 All notable changes to the `challenging` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.13.0] - 2026-10-07
+
+### Changed
+
+- the Claude adversary runs on `claude-sonnet-5-5` (was `claude-sonnet-5`); text is
+  still extracted by block type, which the 5.5 models' adaptive thinking requires
+
 ## [0.12.0] - 2026-09-03
 
 ### Added
