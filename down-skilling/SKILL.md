@@ -9,7 +9,7 @@ description: >-
   a smaller model with high reliability.
 metadata:
   author: Oskar Austegard and Opus
-  version: 1.4.0
+  version: 1.5.0
 ---
 
 # Down-Skilling: Opus → Haiku Distillation
@@ -43,7 +43,8 @@ mostly *silent* error, a plausible wrong answer no verifier caught, not dollars.
 - Give the orchestrator a verifier and an informed retry (the prior output plus
   the check's failure output). On a 2026-10-07 repair battery, Haiku 5.5 rescued
   every rung-1 miss that way (`agent-routing`)
-- **Examples pay for themselves by preventing the misfires a verifier cannot see**
+- What prevents the misfires a verifier cannot see is a test set run before shipping,
+  not a larger example block (see Start Bare below)
 
 **What this means for prompt design:**
 - If you're sending an 8K token document, you can afford 3-4K tokens of
@@ -53,10 +54,49 @@ mostly *silent* error, a plausible wrong answer no verifier caught, not dollars.
 - The constraint is not token cost but diminishing returns: after 5-7
   examples, additional examples rarely improve performance
 
-**Bottom line:** At 5.5 prices, examples are nearly free and retries are
-cheap, so spend on examples that prevent an error no check would catch.
-Under-investing in examples is still the most expensive mistake in
-down-skilling, because its cost arrives as a wrong answer that ships.
+**Bottom line:** At 5.5 prices, tokens are no longer the constraint. The
+expensive mistakes are a judgment rule shipped without the example that
+calibrates it, and examples standing in for a test set. Both cost you a wrong
+answer that ships.
+
+## Haiku 5.5: Start Bare, Then Add Only What a Miss Asks For
+
+Measured 2026-10-07 on three of this skill's own distilled prompts (feedback
+extraction, moderation, SQL), each run as shipped, with its `<examples>`
+stripped, and bare (task, label names and output schema only); two replicates
+(`oaustegard/experiments` → `downskill-shots`):
+
+| arm | rule-determined items | items an example settles |
+|---|---|---|
+| shipped (rules + examples) | 40/40 | 22/24 |
+| bare (no rules, no examples) | 38/40 | 20/24 |
+| rules without examples | 40/40 | **15/24** |
+
+Three things follow. Haiku 5.5 does not need examples to apply a rule. Rules
+written for an example-heavy prompt mislead it once the examples are gone, because
+it reads them literally: "surface content hostile → flag" flagged a harsh opinion
+about an article, which the example had shown as APPROVED. And a house convention the
+model would not guess (spending counts completed orders only) transferred through its
+example in 1 of 2 runs, so state it as a rule.
+
+**Procedure on Haiku 5.5:**
+
+1. Write the bare prompt: role, task, every valid label, the output schema.
+2. Write 10–20 test inputs with expected outputs, at least a third of them at
+   decision boundaries. Run the bare prompt on them.
+3. For each miss, add the smallest thing that fixes it:
+   - an unstated default or house convention ("some" means `LIMIT 10`; spending
+     counts completed orders) → one explicit rule;
+   - a judgment boundary (opinion versus harassment, MIXED versus NEGATIVE) → one
+     example at that boundary, with its `<reasoning>`. Never a judgment rule
+     without the example that calibrates it.
+4. Rerun. Stop when the test set passes; typical-case examples add nothing here.
+5. Keep the anti-invention examples ([model the silence](#when-the-input-could-be-abstract-model-the-silence))
+   for rewriting and summarisation. They were measured on Haiku 4.5 (95% → 0%
+   invented details) and have not been retested on 5.5.
+
+Typically this ends at 0–3 examples, not 4–7. The rest of this file is the
+Haiku 4.5 method. Use it for Haiku 4.5, and for the boundary examples step 3 calls for.
 
 ## Before Distilling: Check Whether the Task Needs It (2026-07 calibration)
 
@@ -118,8 +158,10 @@ When triggered, perform these steps:
 3. **Generate the distilled prompt** following the structure in
    [Prompt Architecture](#prompt-architecture)
 
-4. **Generate 4-7 diverse examples** following the principles in
-   [Example Design](#example-design) — this is the highest-leverage step
+4. **Add examples.** On Haiku 5.5, only at the boundaries a bare run missed
+   (see [Start Bare](#haiku-55-start-bare-then-add-only-what-a-miss-asks-for)),
+   usually 0–3. On Haiku 4.5, generate 4–7 diverse examples per
+   [Example Design](#example-design); that was the highest-leverage step there.
 
 5. **Audit your example set before delivering.** Two checks, both must pass:
    - **Source-anchoring**: for each example output, every concrete fact
@@ -170,8 +212,8 @@ Haiku responds best to this specific sequencing:
 </process>
 
 <examples>
-[4-7 diverse examples showing input → output pairs]
-[This section should be the LARGEST part of the prompt]
+[Haiku 5.5: 0-3 boundary examples, each calibrating a judgment rule]
+[Haiku 4.5: 4-7 diverse examples; the LARGEST part of the prompt]
 [See Example Design section for distribution requirements]
 </examples>
 
@@ -203,7 +245,7 @@ Apply these when generating any Haiku-targeted prompt:
 
 ### Context Management
 - Front-load critical instructions (Haiku attends strongly to position)
-- Budget rule of thumb: instructions + rules ≤ 800 tokens, examples get
+- Budget rule of thumb (Haiku 4.5): instructions + rules ≤ 800 tokens, examples get
   the rest. For a task processing an 8K document, 3-4K tokens of examples
   is well within budget and pays for itself in reliability
 - Pass only the 1-3 most relevant context snippets, not full documents
@@ -226,7 +268,10 @@ Apply these when generating any Haiku-targeted prompt:
 
 ## Example Design
 
-**Examples are the single highest-leverage investment in a Haiku prompt.**
+**On Haiku 4.5, examples were the single highest-leverage investment.** On Haiku 5.5
+their job narrows to calibrating judgment rules and showing what to leave unsaid; see
+[Start Bare](#haiku-55-start-bare-then-add-only-what-a-miss-asks-for). The rest of this
+section is the 4.5 method.
 Rules tell Haiku what to do; examples show it what "done right" looks
 like. When rules and examples conflict, Haiku follows the examples.
 When rules are ambiguous, Haiku extrapolates from examples. This makes
@@ -238,9 +283,9 @@ you should invest heavily here. A prompt with 800 tokens of rules and
 3,000 tokens of examples will outperform one with 2,000 tokens of rules
 and 500 tokens of examples almost every time.
 
-### Minimum Example Count: 4
+### Minimum Example Count: 4 (Haiku 4.5)
 
-Generate **4-7 diverse examples** per distilled prompt. Fewer than 4 is
+For Haiku 4.5, generate **4-7 diverse examples** per distilled prompt. Fewer than 4 is
 under-investing. The marginal cost of each example is negligible compared
 to the reliability improvement. Use this distribution:
 
@@ -324,7 +369,7 @@ want to prevent. On a voice-rewrite task, switching from un-anchored
 examples to this pattern dropped Haiku's architectural-hallucination
 rate from 95% to 0% (n=25 across two probes).
 
-### Example Sizing Guidance
+### Example Sizing Guidance (Haiku 4.5)
 
 | Task processing... | Recommended example budget |
 |---------------------|---------------------------|

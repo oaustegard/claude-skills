@@ -2,6 +2,16 @@
 
 All notable changes to the `down-skilling` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.5.0] - 2026-10-07
+
+### Added
+
+- A "Start Bare" procedure for Haiku 5.5. Write the bare prompt and a 10–20 item test set, then add one rule for each unstated default and one example for each judgment boundary a run misses. Measured on three of the skill's own prompts (`experiments/downskill-shots`): rule-determined items scored 40/40 with or without examples. Items an example settles scored 22/24 as shipped, 20/24 bare, and 15/24 with the examples stripped but the rules kept.
+
+### Changed
+
+- Example count and sizing guidance (4–7 examples, examples as the largest section) is now labelled as the Haiku 4.5 method. The workflow step and the prompt architecture template name both models.
+
 ## [1.4.0] - 2026-10-07
 
 ### Other
