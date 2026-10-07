@@ -2,6 +2,19 @@
 
 All notable changes to the `agent-routing` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.4.0] - 2026-10-07
+
+### Changed
+
+- Repriced for the 5.5 generation. Haiku 5.5 is $0.10/$0.50, 20× under Sonnet 5.5 on every token class, so the Haiku 4.5 cost arguments (the verbosity penalty, the failed `haiku → sonnet` precondition) no longer hold, and they are marked as 4.5 data.
+- Checkable work now starts on Haiku at any output length. Code edits with tests route `haiku` → `haiku` informed retry, measured 14/14 for $0.12 on the seeded-bug battery, where the Sonnet 5.5 rung 2 rescued the same 3 tasks at 35× the per-spawn cost.
+- The judgment row splits on whether the prompt names its deliverable. A goal-shaped prompt, where the work has to be found, is a new escalation trigger to Opus 5.5.
+
+### Added
+
+- Per-spawn pricing for Claude Code subagents. A fresh spawn writes a ~55K-token prefix to cache, which cost $0.17 on Sonnet 5.5 and $0.005–0.011 on Haiku 5.5, and outweighed the output on short tasks.
+- Haiku 5.5 effort semantics: it accepts `low` to `max` with a default of `medium`. Whether the Workflow tool reaches it is unmeasured.
+
 ## [2.3.0] - 2026-09-29
 
 ### Other
