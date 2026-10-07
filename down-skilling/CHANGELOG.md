@@ -4,6 +4,12 @@ All notable changes to the `down-skilling` skill are documented in this file. Th
 
 ## [1.5.0] - 2026-10-07
 
+### Other
+
+- down-skilling 1.5.0: start bare on Haiku 5.5
+
+## [1.5.0] - 2026-10-07
+
 ### Added
 
 - A "Start Bare" procedure for Haiku 5.5. Write the bare prompt and a 10–20 item test set, then add one rule for each unstated default and one example for each judgment boundary a run misses. Measured on three of the skill's own prompts (`experiments/downskill-shots`): rule-determined items scored 40/40 with or without examples. Items an example settles scored 22/24 as shipped, 20/24 bare, and 15/24 with the examples stripped but the rules kept.
