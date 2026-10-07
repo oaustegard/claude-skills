@@ -45,6 +45,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           GITHUB_REPOSITORY: ${{ github.repository }}
+          PUSH_BEFORE: ${{ github.event.before }}
           WORKFLOW_DISPATCH_SKILL: ${{ inputs.skill_name }}
           WORKFLOW_DISPATCH_VERSION: ${{ inputs.version }}
         run: .github/scripts/release-skill.sh

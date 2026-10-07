@@ -138,12 +138,23 @@ else
   # Try Python script first (works with frontmatter), fall back to VERSION file detection
   SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+  # Diff the whole push, not just its last commit: a push carrying several
+  # version bumps in separate commits must release all of them. PUSH_BEFORE is
+  # github.event.before; it is all zeros for a new branch and may be absent
+  # from the clone after a force push, so fall back to HEAD~1 in those cases.
+  BASE="${PUSH_BEFORE:-}"
+  if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] \
+     || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+    BASE="HEAD~1"
+  fi
+  echo "Detecting version changes in $BASE..HEAD"
+
   if command -v python3 &> /dev/null && [ -f "$SCRIPT_DIR/detect-version-changes.py" ]; then
     # Use Python script to detect frontmatter version changes
-    SKILLS=$(python3 "$SCRIPT_DIR/detect-version-changes.py" HEAD~1 HEAD)
+    SKILLS=$(python3 "$SCRIPT_DIR/detect-version-changes.py" "$BASE" HEAD)
   else
     # Fall back to VERSION file detection (backward compatibility)
-    SKILLS=$(git diff --name-only HEAD~1 HEAD | grep '^[^/]*/VERSION$' | cut -d'/' -f1 | tr '\n' ' ')
+    SKILLS=$(git diff --name-only "$BASE" HEAD | grep '^[^/]*/VERSION$' | cut -d'/' -f1 | tr '\n' ' ')
   fi
 fi
 
