@@ -9,7 +9,7 @@ description: >-
   a smaller model with high reliability.
 metadata:
   author: Oskar Austegard and Opus
-  version: 1.6.0
+  version: 1.7.0
 ---
 
 # Down-Skilling: Opus → Haiku Distillation
@@ -91,14 +91,26 @@ example in 1 of 2 runs, so state it as a rule.
      example at that boundary, with its `<reasoning>`. Never a judgment rule
      without the example that calibrates it.
 4. Rerun. Stop when the test set passes; typical-case examples add nothing here.
-5. For rewriting and summarisation, keep an explicit no-invention rule and a
-   step that lists the source's facts before writing. The anti-invention examples
+5. For rewriting and summarisation, keep an explicit no-invention rule: without
+   one, 3 of 8 rewrites stated facts the source does not ("We tested it across a
+   range of workloads"). Don't count on a fact-listing step against invention. On
+   5.5, 0 of 64 rewrites invented a technical detail whether that step was hidden in
+   the process, a visible `<facts>` block, a list supplied in the prompt, or absent
+   (retested 2026-10-08). The anti-invention examples
    ([model the silence](#when-the-input-could-be-abstract-model-the-silence)) are
-   optional on 5.5. Retested 2026-10-07 on the same rewrite task: the example set
-   that made Haiku 4.5 invent technical details in 19 of 20 runs produced 0 of 8 on
-   5.5, as did every other version. Without a no-invention rule, though, 3 of 8
-   rewrites invented facts ("We tested it across a range of workloads"). With the
-   rule alone it was 1 of 8, and with the rule plus the calibrated examples 0 of 8.
+   optional too: the set that drove Haiku 4.5 to 19 of 20 produced 0 of 8 on 5.5.
+6. A fact list decides what the rewrite carries over, so choose it on purpose:
+   - A list Haiku writes itself records the source's claims about itself as facts
+     ("the team describes it as a paradigm shift"), and the rewrite repeats them
+     (8/8). If those should go, say so as a rule.
+   - A list supplied in the prompt is followed omissions and all: a supplied list
+     that left out "it is launching" produced 2 of 8 rewrites calling the product
+     "in beta". Supply one only when it has been checked against the source.
+7. Don't instruct Haiku 5.5's reasoning ("think in 3-5 steps", "in your reasoning,
+   first list..."). Anthropic's system card measures it near 0% at following
+   instructions about the content of its own thinking (figure 6.4.2.4.A). Put any
+   step whose result you need into the visible output, where it can be checked, and
+   set reasoning length with the effort parameter.
 
 Typically this ends at 0–3 examples, not 4–7. The rest of this file is the
 Haiku 4.5 method. Use it for Haiku 4.5, and for the boundary examples step 3 calls for.
@@ -244,7 +256,7 @@ Apply these when generating any Haiku-targeted prompt:
   BAD: "Assess whether the code is production-ready"
   GOOD: "Check: (a) no TODO comments, (b) all functions have error
   handling, (c) no hardcoded secrets. Score pass/fail per item."
-- Bound reasoning depth: "Think in 3-5 steps, then give your answer"
+- Bound reasoning depth: "Think in 3-5 steps, then give your answer" (Haiku 4.5; on 5.5 this lands in reasoning it does not take instructions about, see step 7 above)
 - Provide a fallback for uncertainty: "If you cannot determine X,
   respond with: 'UNCERTAIN: [brief reason]'"
 
