@@ -56,9 +56,7 @@ curl -o .github/workflows/install-skills.yml \
 
 For complete documentation, see [templates/installation/README.md](templates/installation/README.md)
 
-## Contributing Skills
-
-Note: If your skill contribution is just a marketing ploy I'll simply delete it.
+## Adding Skills
 
 ### Via ZIP Upload (Easiest)
 
