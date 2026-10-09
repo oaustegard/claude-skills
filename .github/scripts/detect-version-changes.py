@@ -22,10 +22,12 @@ def get_skill_md_changes(commit_before: str, commit_after: str) -> list[str]:
     cmd = ["git", "diff", "--name-only", commit_before, commit_after]
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
 
-    # Filter for SKILL.md files
+    # Top-level <skill>/SKILL.md only, matching the workflow's '*/SKILL.md' trigger.
+    # plugins/**/SKILL.md are generated copies; releasing them failed the run of
+    # 2026-10-09 (911d58f) when a push carried them alongside the skill.
     changed_files = []
     for line in result.stdout.strip().split('\n'):
-        if line and line.endswith('/SKILL.md'):
+        if line and line.endswith('/SKILL.md') and line.count('/') == 1:
             changed_files.append(line)
 
     return changed_files
