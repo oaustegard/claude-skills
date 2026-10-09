@@ -2,6 +2,19 @@
 
 All notable changes to the `agent-routing` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.5.0] - 2026-10-09
+
+### Changed
+
+- Code edits with tests now route `haiku` → `haiku` informed retry → `sonnet` on a second failure. On 295 SWE-bench Verified tasks (`swe-ladder`), Haiku 5.5 resolved 256 at rung 1; on its 39 misses the informed Haiku retry resolved 30 for $1.43 and Sonnet 5.5 escalation 34 for $13.53, with Sonnet's set containing Haiku's. Sonnet moves to the third rung; that order is projected, not measured.
+- The informed-versus-blind retry evidence now includes the SWE-bench controls: blind Haiku re-roll 8/39, Sonnet from the issue text 17/39. Neither blind arm solved a task its informed counterpart missed.
+- Real repair is recorded as separating the tiers modestly (Sonnet est. 92.5% vs Haiku 86.8%), where seeded repair did not.
+
+### Added
+
+- Per-spawn cost on SWE-bench-sized tasks: $0.024–0.037 for Haiku 5.5, $0.23–0.35 for Sonnet 5.5.
+- The caveat that the SWE-bench rung-2 feedback was the hidden test suite, so the informed-retry rows are a ceiling for a real verifier.
+
 ## [2.4.0] - 2026-10-07
 
 ### Other
