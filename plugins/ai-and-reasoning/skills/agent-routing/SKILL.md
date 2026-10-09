@@ -1,22 +1,22 @@
 ---
 name: agent-routing
-description: Decide which model, effort level, and cascade shape each subagent gets, and how to keep improvement loops safe (evaluator-as-selector, stop on regression). Routes on measured cost-per-completed-task rather than per-token price, because a tier's token count varies more by task shape than price varies across tiers. Covers per-model effort semantics, the concision lever, cascade preconditions, context handoff, and watching a subagent fan-out live. Use when spawning subagents via the Agent or Workflow tools, when choosing how to escalate a failed attempt, when fanning out more than a handful of agents, or when asked which model or effort a task should get. Grounded in measured calibration (references/calibration-2026-07-15.md), a 2026-08 coding-cost study, a 2026-09 agentic-repair battery that measured the cascade rungs directly, and a 2026-10 Haiku 5.5 ladder on the same battery that priced subagents per spawn; Managed Agents API specifics are operational, not calibrated.
+description: Decide which model, effort level, and cascade shape each subagent gets, and how to keep improvement loops safe (evaluator-as-selector, stop on regression). Routes on measured cost-per-completed-task rather than per-token price, because a tier's token count varies more by task shape than price varies across tiers. Covers per-model effort semantics, the concision lever, cascade preconditions, context handoff, and watching a subagent fan-out live. Use when spawning subagents via the Agent or Workflow tools, when choosing how to escalate a failed attempt, when fanning out more than a handful of agents, or when asked which model or effort a task should get. Grounded in a 2026-07 calibration, a 2026-08 coding-cost study, a 2026-09 seeded-bug repair battery, a 2026-10 Haiku 5.5 ladder priced per spawn, and a 2026-10 retry-versus-escalation ladder on 295 SWE-bench Verified tasks; Managed Agents API specifics are operational, not calibrated.
 compatibility: Designed for Claude Code / Claude Code on the Web — assumes an orchestrator with Agent/Workflow subagent tools. Only the Workflow tool sets a subagent's effort; the Agent tool sets its model. Not applicable to claude.ai chat use.
 metadata:
   author: Oskar Austegard and Claude
-  version: "2.4.0"
+  version: "2.5.0"
 ---
 
 # Agent Routing — model, effort, and cascade selection
 
 ## Current prices, and what changed in 2026-10
 
-| model | $/MTok in | out | cache read | one fresh Agent-tool spawn (measured) |
-|---|---|---|---|---|
-| Haiku 5.5 | $0.10 | $0.50 | $0.01 | **$0.005–0.011** |
-| Sonnet 5.5 | $2 | $10 | $0.20 | **$0.17** |
-| Opus 5.5 | $4 | $20 | $0.20 | ~$0.34 (2× Sonnet, not measured) |
-| Fable 5.1 | $10 | $50 | $0.25 | — |
+| model | $/MTok in | out | cache read | one Agent-tool spawn, small seeded repo | one spawn, SWE-bench Verified |
+|---|---|---|---|---|---|
+| Haiku 5.5 | $0.10 | $0.50 | $0.01 | **$0.005–0.011** | **$0.024–0.037** |
+| Sonnet 5.5 | $2 | $10 | $0.20 | **$0.17** | **$0.23–0.35** |
+| Opus 5.5 | $4 | $20 | $0.20 | ~$0.34 (2× Sonnet, not measured) | — |
+| Fable 5.1 | $10 | $50 | $0.25 | — | — |
 
 Haiku 5.5 is **20× under Sonnet 5.5 on every token class** (Haiku 4.5 was 2–5×), and its
 prices hold for prompts up to 100K tokens ($0.50/$2.50 beyond). On the 14-repo
@@ -25,6 +25,14 @@ the same-model informed retry it solved **14/14 for $0.12 in total, less than on
 (`oaustegard/experiments` → `temporal-routing-headroom`, 2026-10-07). Where the Haiku
 4.5 figures below say Haiku loses on cost, rerun the arithmetic at 5.5 prices before
 trusting them.
+
+On real issues the picture holds with a smaller margin. Over 295 SWE-bench Verified tasks
+(django and sympy) Haiku 5.5 resolved **256 (86.8%)** at rung 1 for $7.06 in total. On its
+39 misses, rung 2 with the failing tests' output resolved **30 retrying Haiku ($1.43) and
+34 escalating to Sonnet 5.5 ($13.53)**. Sonnet solved every task the Haiku retry did and 4
+more (p = 0.125) (`oaustegard/experiments` → `swe-ladder`, 2026-10-09). Real repair spawns
+run longer than seeded ones, so a spawn costs 3–5× the small-repo figure on Haiku and
+1.5–2× on Sonnet; the ratio between the tiers stays near 10×.
 
 **In Claude Code, price a subagent per spawn first.** A fresh Agent-tool subagent
 writes a ~55K-token prefix (system prompt, tools, skills list) to the 5-minute cache on its
@@ -93,7 +101,7 @@ measurement).
 | Closed-form computation, state tracking, multi-hop lookup | `haiku` | n/a | deterministic check |
 | Constraint-bound generation (exact counts, required tokens, lipograms) | `haiku` | n/a | mechanical checker |
 | Bulk scans/greps, per-file summaries, fan-out reads | `haiku` | n/a | sample audit |
-| **Code edits with tests available** | **`haiku` → `haiku` informed retry** | session | run the tests (the orchestrator's, not the worker's) |
+| **Code edits with tests available** | **`haiku` → `haiku` informed retry → `sonnet` on a second failure** | session | run the tests (the orchestrator's, not the worker's) |
 | Code generation from a spec; any long structured artifact | `haiku` → `sonnet` @ `high` on a second failure | `medium` | run the tests (Haiku 5.5 unmeasured here) |
 | Judging / scoring another model's output | `sonnet`+ | `medium` | — (judge ≠ worker) |
 | Ambiguity resolution, novel synthesis, architecture, taste | `sonnet`/`opus` | `high` | human or panel |
@@ -255,6 +263,28 @@ per-spawn cost, and bought nothing more. All three rung-1 misses named the secon
 in their own summaries and left it as "outside the reported bug". The informed retry
 supplies the evidence that the shortcut was wrong; the tier adds nothing to that.
 
+**On SWE-bench Verified the tier adds a little (measured 2026-10-09, 295 tasks, one sample
+per arm):**
+
+| on Haiku's 39 rung-1 misses | resolved | rung cost |
+|---|---|---|
+| `haiku`, issue text only (blind re-roll) | 8/39 | $1.05 |
+| `sonnet`, issue text only | 17/39 | $10.34 |
+| `haiku`, prior diff + failing tests' output | **30/39** | **$1.43** |
+| `sonnet`, prior diff + failing tests' output | **34/39** | **$13.53** |
+
+Over the whole ladder, `haiku → haiku` resolved 286/295 for $8.49 and `haiku → sonnet`
+290/295 for $20.59, so Sonnet's 4 extra tasks cost about $3 each. Sonnet's set contained
+the Haiku retry's, so Sonnet belongs at the third rung: `haiku`, `haiku` informed, then
+`sonnet` only on what the retry still fails. That sends Sonnet 9 tasks instead of 39. The
+three-rung order is a projection, not a measurement: the Sonnet arm started from the
+rung-1 diff, not the rung-2 one.
+
+The failing tests' output in that run was SWE-bench's hidden suite, an oracle no deployed
+ladder has. Read the informed-retry rows as the ceiling for whatever verifier the
+orchestrator holds; the Haiku-versus-Sonnet gap between them is a fair comparison, because
+both arms got identical input.
+
 **Rung 2 is the same model one effort step up. A tier jump is the exception you justify.**
 Measured twice. On a second battery (14 seeded-bug repos, 2026-09-03) rung 2 ran from an
 identical failed attempt at both settings: `sonnet` @ `medium` and `opus` @ `high` rescued
@@ -298,7 +328,11 @@ its cost model.
 
 **Carry the prior attempt and the raw failure output into the retry.** Informed retry
 fixed **12/12**; a blind re-attempt fixed **9/12** and failed one task *identically
-across all three replicates* — a systematic blind spot re-rolling never escapes. The
+across all three replicates* — a systematic blind spot re-rolling never escapes. On
+SWE-bench Verified the gap is wider: a Haiku retry with the failing tests' output fixed
+30/39 of Haiku's misses, a blind Haiku re-roll 8/39, and Sonnet from the issue text alone
+17/39. Neither blind arm solved a task its informed counterpart missed. The failure output
+moved 22 tasks for Haiku; switching to Sonnet moved 9 without it and 4 with it. The
 extra input averaged 866 tokens, **5.9%** of the retry's cost. Input is 1/5 the price
 of output, so context is nearly free relative to thinking.
 
@@ -427,13 +461,15 @@ Operational, not calibrated. Source: Anthropic Managed Agents notebook
 
 ## Measure before trusting this
 
-Everything above is measured on three batteries: a 300-call deterministic calibration
+Everything above is measured on four batteries: a 300-call deterministic calibration
 (references/calibration-2026-07-15.md), a 14-task hidden-test coding suite (2026-08-17,
 ~190 subagent runs), and a 14-repo seeded-bug agentic battery (2026-09-03, ~120 subagent
 runs, `oaustegard/experiments` → `temporal-routing-headroom`) that measured the cascade
 rungs, the escalation signal, and the tier gap against each other, rerun on 2026-10-07
 with Haiku 5.5 at both rungs and priced per spawn from the subagent transcripts
-(`harness/subagent_cost.py` there). Re-measure when:
+(`harness/subagent_cost.py` there), and 295 SWE-bench Verified django and sympy tasks
+graded Docker-free (2026-10-09, ~530 subagent runs, `oaustegard/experiments` →
+`swe-ladder`). Re-measure when:
 
 - **A model or price revision lands.** Both the verbosity multipliers and the
   cost table above invert on either. Sonnet 5.5 (2026-09-29) and Haiku 5.5 (2026-10, 10×
@@ -442,11 +478,14 @@ with Haiku 5.5 at both rungs and priced per spawn from the subagent transcripts
   5.5's effort levels are measured above on the seeded-bug battery only; the other Sonnet
   figures in this skill are Sonnet 5 data, and the verbosity multipliers and the
   generation-suite costs have not been re-run on the 5.5 generation.
-- **The task family is off all three batteries.** No deterministic task has made Haiku
+- **The task family is off all four batteries.** No deterministic task has made Haiku
   fail on correctness yet, so the capability cliff is past what's been probed. Seeded-bug
   repair in a small module is now measured as *not* tier-separating: three probe shapes
   aimed at thoroughness, at ambiguity the tests underdetermine, and at a repo with no test
-  suite at all, and `sonnet` @ `low` solved all six cells against `opus` @ `high`.
+  suite at all, and `sonnet` @ `low` solved all six cells against `opus` @ `high`. Real
+  repair separates the tiers modestly: on SWE-bench Verified, Sonnet 5.5 alone is
+  estimated at 92.5% against Haiku 5.5's 86.8%, with all of the gap on the tasks Haiku
+  misses (Sonnet solved 50/50 sampled Haiku successes).
 - **Output length differs materially** from what was measured. The whole cost model
   keys on token volume; a 10× longer artifact re-opens the tier question.
 - **You need pass-rate differences of 1–2 tasks.** Run-to-run variance swamps them:
