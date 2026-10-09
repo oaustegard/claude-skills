@@ -2,7 +2,7 @@
 name: deciding-with-confidence
 description: "Routes, triages, flags and rates a piece of text with a probability for every option: which department or queue a ticket goes to, which intent a message expresses, whether a yes/no condition holds (is this tool call grounded, should the agent ask first, is the customer angry), and how severe or urgent it is on a rubric, each with a calibrated confidence. Runs Claude Haiku in the request and response shapes of OpenAI's Decisions API, for when no purpose-built decision model is at hand. Use for \"route this ticket\", \"triage these\", \"classify with a confidence\", \"give me a probability that\", \"rate the severity\", \"score against this rubric\", guardrail checks before a tool call, or \"a Decisions API without OpenAI\"."
 metadata:
-  version: 0.1.0
+  version: 0.1.1
 ---
 
 # Deciding with confidence
@@ -18,8 +18,9 @@ temperature-scaled from a labelled eval. Disagreement between samples lowers
 
 Expect about 85% of what a purpose-built decision model gets: on the bundled
 104-item eval, accuracy 0.846 against Jev's 0.894, with a calibration error
-(ECE 0.041) that matches it. Haiku's wrong answers come at low confidence, so a
-threshold sends them on. `references/method.md` has the comparison and numbers.
+(ECE 0.041) that matches it. The whole accuracy gap was on eight-way intent
+questions; yes/no and rubric questions tied. Disagreement between samples is
+the strongest warning sign. `references/method.md` has the numbers.
 
 ## When NOT to use this skill
 
@@ -107,8 +108,10 @@ them. Rewrite the options (distinct, observable criteria) before sampling more.
 5. **Act on it with thresholds, never on the top answer alone.**
    - `agreement < 1` (the samples' top answers differ): escalate. On the bundled
      eval, unanimous answers were 92% right and split ones 44%.
-   - Top probability under 0.7: escalate. That sent 28% of items onward and
-     left 4 wrong in 104.
+   - Top probability under 0.7: escalate. Together with the split rule that
+     sent 23 of 104 items onward and left 6 wrong, assuming the escalation
+     target got every escalated item right. The 0.7 was chosen on the same
+     data, so treat it as a starting point.
    - Set the final thresholds from labelled examples of your own traffic,
      weighing the cost of a false positive against a false negative.
 

@@ -61,12 +61,17 @@ What the numbers support:
 - Jev is ahead on accuracy (+3–5 points) and Brier, and 14x faster. One
   standard error at n=104 is about 3.4 points, so that gap is suggestive
   rather than settled, and the differences between k values are noise.
-- After calibration decider's ECE matches Jev's, and the two fail
-  differently. Jev's choice misses come at 0.91–0.97; decider's at 0.5–0.67.
-  Escalating every answer whose top probability is under 0.7 sends 29 of 104
-  items onward and leaves decider 4 wrong answers; the same threshold sends
-  12 of Jev's onward and leaves 5. Where a stronger model is available behind
-  it, decider trades more escalations for about the same residual error.
+- After calibration decider's ECE matches Jev's, and their wrong answers sit
+  at similar confidence: 9 of decider's 16 misses had a top probability under
+  0.7, and 6 of Jev's 11. Accuracy is level on the yes/no (87.5%) and rubric
+  (87.5%) items; the whole gap is on the eight-way intent items (82.8% against
+  90.6%).
+- Escalating every answer under 0.7 or with split samples sends 23 of 104
+  items onward and leaves decider 6 wrong; a 0.7 threshold on Jev sends 12
+  onward and leaves 5. Both assume escalated items are resolved correctly,
+  and 0.7 was chosen on this same data. (On the uncalibrated pool the same
+  threshold sent 29 onward and left 4: calibration sharpens choice answers,
+  so fewer fall under it.)
 - Agreement between samples is the most useful signal. At k=3 the 88
   unanimous items were 92% right and the 16 split items 44%. Escalate a split
   answer (`diagnostics.agreement < 1`) to a stronger model.
