@@ -33,3 +33,9 @@
   calibration (T = 0.62) fitted on it.
 - Ported from `oaustegard/claude-workspace` `scripts/decide.py`, without its
   Jev comparison backend.
+
+## [0.1.1] - 2026-10-09
+
+### Other
+
+- deciding-with-confidence 0.1.1: correct the miss-confidence and escalation claims
