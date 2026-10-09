@@ -81,6 +81,10 @@ EOF
 
 Use `--set body_html=@body.html` instead, or assemble the spec in Python with `json.dump(spec, f)` so escaping is automatic.
 
+## Examples
+
+- Before/after on a shared fixture (Vibe Rooster): [before](https://skill-fixture-before.theroost.dev?vr_gallery=1) · [after, composed with this skill only](https://composing-html-after.theroost.dev?vr_gallery=1)
+
 ## Tests
 
 ```sh
