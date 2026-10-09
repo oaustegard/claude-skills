@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.1008.0103"
+    "version": "2026.1009.2025"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -23,6 +23,7 @@
         "agent-routing",
         "challenging",
         "convening-experts",
+        "deciding-with-confidence",
         "delegating-with-context",
         "down-skilling",
         "gating",
@@ -231,6 +232,20 @@
         "fetching-blocked-urls",
         "hello-demo",
         "using-webctl"
+      ]
+    },
+    {
+      "name": "deciding-with-confidence",
+      "description": "Routes, triages, flags and rates a piece of text with a probability for every option: which department or queue a ticket goes to, which intent a message expresses, whether a yes/no condition holds (is this tool call grounded, should the agent ask first, is the customer angry), and how severe or urgent it is on a rubric, each with a calibrated confidence. Runs Claude Haiku in the request and response shapes of OpenAI's Decisions API, for when no purpose-built decision model is at hand. Use for \"route this ticket\", \"triage these\", \"classify with a confidence\", \"give me a probability that\", \"rate the severity\", \"score against this rubric\", guardrail checks before a tool call, or \"a Decisions API without OpenAI\".",
+      "source": "./plugins/deciding-with-confidence",
+      "version": "0.1.0",
+      "repository": "https://github.com/oaustegard/claude-skills",
+      "homepage": "https://github.com/oaustegard/claude-skills",
+      "license": "MIT",
+      "category": "Agents",
+      "keywords": [
+        "deciding-with-confidence",
+        "agents"
       ]
     },
     {

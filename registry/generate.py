@@ -180,17 +180,26 @@ def build_plugins_dir(root: Path, categories: dict) -> None:
         )
 
 
-def standalone_skills(root: Path) -> list[Path]:
-    """Skills that ship hooks become their own plugin as well as joining a category.
+def _ships_hooks(d: Path) -> bool:
+    return (d / "hooks" / "hooks.json").exists()
 
-    A category bundle cannot carry a skill's hooks: Claude Code reads hooks only
-    from a plugin's root hooks/hooks.json, and installing a bundle should not wire
-    hooks nobody asked for. So any skill with hooks/hooks.json also gets
-    plugins/<skill>/ with the hooks at the plugin root and the skill under skills/.
-    Hook commands reference ${CLAUDE_PLUGIN_ROOT}/skills/<skill>/...
+
+def _ships_agents(d: Path) -> bool:
+    return any((d / "agents").glob("*.md"))
+
+
+def standalone_skills(root: Path) -> list[Path]:
+    """Skills that ship hooks or subagents become their own plugin as well as joining a category.
+
+    A category bundle cannot carry them: Claude Code reads hooks only from a
+    plugin's root hooks/hooks.json and subagents only from its root agents/, and
+    installing a bundle should not wire hooks or agents nobody asked for. So any
+    skill with hooks/hooks.json or agents/*.md also gets plugins/<skill>/ with
+    those at the plugin root and the skill under skills/. Hook commands reference
+    ${CLAUDE_PLUGIN_ROOT}/skills/<skill>/...
     """
     return sorted(d for d in root.iterdir()
-                  if d.is_dir() and (d / "SKILL.md").exists() and (d / "hooks" / "hooks.json").exists()
+                  if d.is_dir() and (d / "SKILL.md").exists() and (_ships_hooks(d) or _ships_agents(d))
                   and not is_deprecated(d) and not d.name.startswith("."))
 
 
@@ -205,7 +214,9 @@ def build_standalone_plugins(root: Path, categories: dict) -> list[Path]:
         dest = root / "plugins" / sd.name
         (dest / ".claude-plugin").mkdir(parents=True, exist_ok=True)
         shutil.copytree(sd, dest / "skills" / sd.name, ignore=_ignore_symlinks)
-        shutil.copytree(sd / "hooks", dest / "hooks", ignore=_ignore_symlinks)
+        for part in ("hooks", "agents"):
+            if (sd / part).is_dir():
+                shutil.copytree(sd / part, dest / part, ignore=_ignore_symlinks)
         meta = _frontmatter(sd)
         plugin_json = {"name": sd.name, "description": meta.get("description", ""),
                        "version": get_skill_version(sd) or "0.0.0"}
@@ -271,8 +282,8 @@ def build_marketplace(root: Path, categories: dict) -> Marketplace:
             homepage=f"https://github.com/{REPO}",
             repository=f"https://github.com/{REPO}",
             license="MIT",
-            category="Hooks",
-            keywords=[sd.name, "hooks"] + collect_keywords(sd),
+            category="Hooks" if _ships_hooks(sd) else "Agents",
+            keywords=[sd.name, "hooks" if _ships_hooks(sd) else "agents"] + collect_keywords(sd),
         ))
 
     return marketplace
@@ -289,7 +300,7 @@ def main():
     build_plugins_dir(root, categories)
     standalone = build_standalone_plugins(root, categories)
     print(f"Built plugins/ directory ({len(categories)} category plugins, "
-          f"{len(standalone)} standalone hook plugins)")
+          f"{len(standalone)} standalone hook or agent plugins)")
 
     # Generate marketplace.json
     marketplace = build_marketplace(root, categories)

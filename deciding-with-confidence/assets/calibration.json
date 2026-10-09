@@ -1,0 +1,12 @@
+{
+  "choice": {
+    "temperature": 0.621,
+    "n": 64,
+    "nll_before": 0.406,
+    "nll_after": 0.3372,
+    "ece_before": 0.0814,
+    "ece_after": 0.0789
+  },
+  "fitted": "2026-10-09",
+  "source": "claude-workspace eval, 2026-10-09: tests/data/decider_eval.jsonl (= assets/eval.jsonl), k=3 pools, cli transport"
+}
