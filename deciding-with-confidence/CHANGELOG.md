@@ -1,5 +1,17 @@
 # deciding-with-confidence - Changelog
 
+## 0.1.1 - 2026-10-09
+
+### Fixed
+- SKILL.md and references/method.md overstated how differently the two models
+  fail. Measured with the shipped calibration, 9 of decider's 16 misses and 6
+  of Jev's 11 had a top probability under 0.7; the claim that Jev's misses sat
+  at 0.91-0.97 held for 4 of its 11. The escalation figures now use the
+  calibrated pool and the combined rule (under 0.7 or split samples: 23 of 104
+  escalated, 6 left wrong) and state that they assume escalated items are
+  resolved correctly. method.md adds accuracy by question type: the whole
+  gap is on eight-way intent questions.
+
 ## 0.1.0 - 2026-10-09
 
 ### Added
