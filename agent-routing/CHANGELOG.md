@@ -4,6 +4,12 @@ All notable changes to the `agent-routing` skill are documented in this file. Th
 
 ## [2.5.0] - 2026-10-09
 
+### Other
+
+- agent-routing 2.5.0: SWE-bench Verified retry-vs-escalation ladder
+
+## [2.5.0] - 2026-10-09
+
 ### Changed
 
 - Code edits with tests now route `haiku` → `haiku` informed retry → `sonnet` on a second failure. On 295 SWE-bench Verified tasks (`swe-ladder`), Haiku 5.5 resolved 256 at rung 1; on its 39 misses the informed Haiku retry resolved 30 for $1.43 and Sonnet 5.5 escalation 34 for $13.53, with Sonnet's set containing Haiku's. Sonnet moves to the third rung; that order is projected, not measured.
