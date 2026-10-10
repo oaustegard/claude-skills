@@ -9,7 +9,7 @@ description: >-
   a smaller model with high reliability.
 metadata:
   author: Oskar Austegard and Opus
-  version: 1.7.0
+  version: 1.7.1
 ---
 
 # Down-Skilling: Opus → Haiku Distillation
@@ -394,8 +394,8 @@ rate from 95% to 0% (n=25 across two probes).
 | Medium inputs (500-4K tokens) | 2,500-4,000 tokens of examples (4-6 examples) |
 | Long inputs (4K-8K tokens) | 3,000-5,000 tokens of examples (5-7 examples) |
 
-Context is no constraint here: Haiku 5.5 has a 1M window, though prices
-double past 100K tokens of prompt. The limit is diminishing returns: after 7 examples the marginal benefit
+Context is no constraint here: Haiku 5.5 has a 1M window, though a prompt
+over 100K tokens is billed at 5× on both sides ($0.50/$2.50 per MTok). The limit is diminishing returns: after 7 examples the marginal benefit
 drops sharply unless the task has a very large classification space.
 
 ### Example Quality Criteria
