@@ -2,6 +2,12 @@
 
 All notable changes to the `down-skilling` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.7.1] - 2026-10-10
+
+### Other
+
+- down-skilling 1.7.1: Haiku 5.5 long-context price is 5×, not double
+
 ## [1.7.0] - 2026-10-08
 
 ### Other
