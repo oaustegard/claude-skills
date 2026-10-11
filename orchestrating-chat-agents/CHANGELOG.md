@@ -4,6 +4,12 @@ All notable changes to the `orchestrating-chat-agents` skill (formerly `orchestr
 
 ## [1.0.0] - 2026-10-11
 
+### Other
+
+- orchestrating-agents renamed orchestrating-chat-agents; old name deprecated
+
+## [1.0.0] - 2026-10-11
+
 ### Changed
 
 - Renamed from `orchestrating-agents`. Shown names only, three models sent 10 of 45 parallel-dispatch requests to the old name; `orchestrating-chat-agents` caught 19/21 of this skill's own requests against 15/21, with no more misroutes from other skills (experiments subagent-skill-choice). `orchestrating-agents` stays as a deprecated stub whose scripts load these.

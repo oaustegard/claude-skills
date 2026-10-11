@@ -57,6 +57,12 @@
 - Section header context pointers
 - Parallel execution via orchestrating-agents
 
+## [0.4.1] - 2026-10-11
+
+### Other
+
+- orchestrating-agents renamed orchestrating-chat-agents; old name deprecated
+
 ## [0.4.0] - 2026-10-07
 
 ### Added

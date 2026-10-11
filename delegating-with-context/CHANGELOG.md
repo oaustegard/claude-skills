@@ -21,6 +21,12 @@
   chunks the task needs. `scripts/preview.py` shows the selection before the
   prompt is written. Measured in `oaustegard/experiments/subagent-context-filter`.
 
+## [0.2.2] - 2026-10-11
+
+### Other
+
+- orchestrating-agents renamed orchestrating-chat-agents; old name deprecated
+
 ## [0.2.1] - 2026-10-02
 
 ### Other
