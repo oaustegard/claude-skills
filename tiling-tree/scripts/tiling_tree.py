@@ -3,7 +3,7 @@
 Tiling Tree — exhaustive MECE problem space exploration via parallel subagents.
 
 Implements the MIT Synthetic Neurobiology "tiling tree" method.
-Depends on: orchestrating-agents skill
+Depends on: orchestrating-chat-agents skill
 
 Usage:
     python3 tiling_tree.py "How can we generate energy?"
@@ -17,12 +17,12 @@ from dataclasses import dataclass, field
 
 # ── Dependency setup ──────────────────────────────────────────────────────────
 
-sys.path.insert(0, '/mnt/skills/user/orchestrating-agents/scripts')
+sys.path.insert(0, '/mnt/skills/user/orchestrating-chat-agents/scripts')
 
 try:
     from claude_client import invoke_claude, invoke_parallel, parse_json_response
 except ImportError as e:
-    print(f"ERROR: orchestrating-agents skill not found at /mnt/skills/user/orchestrating-agents/\n{e}")
+    print(f"ERROR: orchestrating-chat-agents skill not found at /mnt/skills/user/orchestrating-chat-agents/\n{e}")
     sys.exit(1)
 
 

@@ -2,7 +2,7 @@
 name: api-credentials
 description: Securely manages API credentials for multiple providers (Anthropic Claude, Google Gemini, GitHub). Use when skills need to access stored API keys for external service invocations.
 metadata:
-  version: 0.0.3
+  version: 0.0.4
 ---
 
 # API Credentials Management
@@ -14,7 +14,7 @@ metadata:
 - Or `API_CREDENTIALS.json` (combined file)
 
 See updated skill documentation:
-- [orchestrating-agents](../orchestrating-agents/SKILL.md#setup)
+- [orchestrating-chat-agents](../orchestrating-chat-agents/SKILL.md#setup)
 - [invoking-gemini](../invoking-gemini/SKILL.md#setup)
 - [invoking-github](../invoking-github/SKILL.md#quick-start)
 

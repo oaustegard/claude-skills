@@ -63,6 +63,6 @@ Skip it for a single sequential operation (just call the function), for a next s
 
 ## Complements
 
-- **[orchestrating-agents](../orchestrating-agents)** — parallel API instances and delegated sub-tasks. `flowing` orders and gates work *within* one container; orchestrating-agents fans work *out* across many.
+- **[orchestrating-chat-agents](../orchestrating-chat-agents)** — parallel API instances and delegated sub-tasks. `flowing` orders and gates work *within* one container; orchestrating-chat-agents fans work *out* across many.
 - **[tiling-tree](../tiling-tree)** — MECE partitioning of a problem space. Tiling-tree decides *what* the branches are; `flowing` enforces the execution order once they exist.
 - **[tracking-todos](../tracking-todos)** — a human-legible checklist for loose, evolving work. `flowing` is for procedures whose shape is known up front and worth encoding as a graph.

@@ -12,7 +12,8 @@ dispatch $11.61 of Haiku work. The same tasks through this skill's runner cost o
 
 Several skills in this repo sit close together. Their names alone mislead: given only the names,
 Haiku, Sonnet and Opus picked the right one for 55–85% of 58 test requests, and the commonest
-mistake was sending a "run these in parallel" request to `orchestrating-agents`. Given the
+mistake was sending a "run these in parallel" request to `orchestrating-agents`, since renamed
+`orchestrating-chat-agents` for that reason. Given the
 descriptions, all three picked correctly 173 times out of 174
 ([`experiments/subagent-skill-choice`](https://github.com/oaustegard/experiments/tree/main/subagent-skill-choice)).
 So Claude routes well; this table is for people.
@@ -22,7 +23,7 @@ So Claude routes well; this table is for people.
 | run 10+ independent tasks in parallel, decide Agent tool vs Workflow vs `claude -p`, or stop launches eating your context | **dispatching-subagents** |
 | pick the model or effort level for a subagent, or decide whether to retry or escalate | `agent-routing` |
 | write an Agent or `create_session` prompt that carries the right part of this conversation | `delegating-with-context` |
-| fan out over the Anthropic API from claude.ai chat, where there is no Agent tool | `orchestrating-agents` |
+| fan out over the Anthropic API from claude.ai chat, where there is no Agent tool | `orchestrating-chat-agents` |
 | write the script for a workflow you have already opted into | `workflow-authoring` (built in) |
 | run a fixed sequence of steps with retries, gates and resume, with no model judgment between steps | `flowing` |
 | classify or extract per item at volume, with a cheap non-Claude model | `invoking-gemini` |
@@ -79,3 +80,4 @@ and matches the schema. Write permission is spelled `Edit(//absolute/path)`; `Wr
 - `SKILL.md`: the decision rule, procedures, failure modes and verification, for Claude.
 - `scripts/headless_fanout.py`: the runner.
 - `scripts/test_headless_fanout.py`: offline tests against a fake `claude` binary.
+- `references/native-messaging.md`: `SendMessage` and `ListAgents` between native subagents, moved here from `orchestrating-agents`.

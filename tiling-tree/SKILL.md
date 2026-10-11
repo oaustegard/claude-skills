@@ -1,9 +1,9 @@
 ---
 name: tiling-tree
-description: Exhaustive problem space exploration using the MIT Synthetic Neurobiology "tiling tree" method. Partitions a problem into MECE (Mutually Exclusive, Collectively Exhaustive) subsets recursively via parallel subagents, then evaluates leaf ideas against specified criteria. Use when users say "tiling tree", "tile the solution space", "exhaustively explore approaches to", "what are all the ways to", or request a MECE breakdown of a problem. Requires orchestrating-agents skill.
+description: Exhaustive problem space exploration using the MIT Synthetic Neurobiology "tiling tree" method. Partitions a problem into MECE (Mutually Exclusive, Collectively Exhaustive) subsets recursively via parallel subagents, then evaluates leaf ideas against specified criteria. Use when users say "tiling tree", "tile the solution space", "exhaustively explore approaches to", "what are all the ways to", or request a MECE breakdown of a problem. Requires orchestrating-chat-agents skill.
 metadata:
-  version: 1.1.0
-  depends_on: orchestrating-agents
+  version: 1.1.1
+  depends_on: orchestrating-chat-agents
 ---
 
 # Tiling Tree
@@ -25,11 +25,11 @@ Key insight from the source method: always look for the "third option" that fall
 
 ## Setup
 
-Requires `orchestrating-agents` skill to be installed. Load it first:
+Requires `orchestrating-chat-agents` skill to be installed. Load it first:
 
 ```python
 import sys
-sys.path.insert(0, '/mnt/skills/user/orchestrating-agents/scripts')
+sys.path.insert(0, '/mnt/skills/user/orchestrating-chat-agents/scripts')
 
 from claude_client import invoke_claude, invoke_parallel, parse_json_response
 ```

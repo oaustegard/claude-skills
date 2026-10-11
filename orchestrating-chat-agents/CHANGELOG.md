@@ -1,6 +1,13 @@
-# orchestrating-agents - Changelog
+# orchestrating-chat-agents - Changelog
 
-All notable changes to the `orchestrating-agents` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+All notable changes to the `orchestrating-chat-agents` skill (formerly `orchestrating-agents`) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+## [1.0.0] - 2026-10-11
+
+### Changed
+
+- Renamed from `orchestrating-agents`. Shown names only, three models sent 10 of 45 parallel-dispatch requests to the old name; `orchestrating-chat-agents` caught 19/21 of this skill's own requests against 15/21, with no more misroutes from other skills (experiments subagent-skill-choice). `orchestrating-agents` stays as a deprecated stub whose scripts load these.
+- The native `SendMessage` / `ListAgents` notes moved to `dispatching-subagents/references/native-messaging.md`; this skill now covers surfaces without native subagents, plus Gemini delegation.
 
 ## [0.8.1] - 2026-10-11
 

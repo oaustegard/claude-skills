@@ -2,7 +2,7 @@
 name: convening-experts
 description: Convenes expert panels for problem-solving. Use when user mentions panel, experts, multiple perspectives, MECE, DMAIC, RAPID, Six Sigma, root cause analysis, strategic decisions, process improvement, or asks for philosophers/ancients (Socratic, Aristotelian, Stoic method experts).
 metadata:
-  version: 1.2.0
+  version: 1.2.1
 ---
 
 ## SURFACE ROUTING — read first
@@ -18,7 +18,7 @@ managed runtime now does the same job. Which one to use depends on your surface:
   workflows shipped in research preview (Claude Code v2.1.154+, 2026).
 - **In claude.ai chat or the bare API (no workflow runtime): use this skill.**
   Parallel API instances over httpx is the only fan-out path here. `muninn_utils.dispatch`
-  (17 pre-built lenses) already implements this panel over orchestrating-agents' execution
+  (17 pre-built lenses) already implements this panel over orchestrating-chat-agents' execution
   model — prefer it over rebuilding the panel by hand. Proceed below.
 
 Discriminator: do you have a native subagent/Task tool or a workflow command? Yes

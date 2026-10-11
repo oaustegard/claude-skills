@@ -6,9 +6,9 @@ description: >-
   parallel, and synthesizes results. Self-answers trivial lookups inline. No SDK
   dependency — uses raw HTTP via httpx. Use when tasks require multiple analytical
   perspectives, when context is large and subtasks only need portions, or when
-  orchestrating-agents spawns too many redundant subagents.
+  orchestrating-chat-agents spawns too many redundant subagents.
 metadata:
-  version: 0.4.0
+  version: 0.4.1
   depends_on: []
 ---
 

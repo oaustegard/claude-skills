@@ -56,7 +56,7 @@ from pathlib import Path
 # model registry and the empirical cost/recall Pareto data; don't re-derive it.
 _TRANSCRIBE_CORE = "/mnt/skills/user/browsing-bluesky/scripts"
 _GEMINI_CLIENT_PATH = "/mnt/skills/user/invoking-gemini/scripts"
-_CLAUDE_CLIENT_PATH = "/mnt/skills/user/orchestrating-agents/scripts"
+_CLAUDE_CLIENT_PATH = "/mnt/skills/user/orchestrating-chat-agents/scripts"
 
 _MAX_BYTES = 5 * 1024 * 1024  # Anthropic / Gemini per-image base64 ceiling.
 

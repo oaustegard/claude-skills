@@ -69,6 +69,7 @@
         "invoking-gemini",
         "llm-as-computer",
         "orchestrating-agents",
+        "orchestrating-chat-agents",
         "reviewing-ai-papers",
         "tiling-tree",
         "verifying-claims"

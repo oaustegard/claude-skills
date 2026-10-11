@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-The existing `orchestrating-agents` + `tiling-tree` pattern exhibits two inefficiencies
+The existing `orchestrating-chat-agents` + `tiling-tree` pattern exhibits two inefficiencies
 identified in SkillOrchestra (arXiv 2602.19672):
 
 1. **Reflexive spawning**: Every leaf task spawns a subagent regardless of difficulty.
