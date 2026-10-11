@@ -2,7 +2,7 @@
 name: orchestrating-agents
 description: Orchestrates parallel API instances, delegated sub-tasks, and multi-agent workflows with streaming and tool-enabled delegation patterns. Routes by surface — native subagents in Cowork and Claude Code, httpx fan-out on claude.ai — and covers Gemini delegation via the Cloudflare AI Gateway on every surface. Use for parallel analysis, multi-perspective reviews, or complex task decomposition.
 metadata:
-  version: 0.8.0
+  version: 0.8.1
 ---
 
 ## SURFACE ROUTING — read first
@@ -27,6 +27,11 @@ decides the row. Everything below is elaboration.
 and in-session resume — all of which this skill would reimplement worse. Route
 model and effort per **`agent-routing`** (calibrated on 300 measured Haiku calls);
 do not re-derive that here.
+
+Which native mechanism to use (Agent tool, Workflow, or headless `claude -p`
+children launched from one background command) is **`dispatching-subagents`**.
+In Claude Code the `claude` binary authenticates through the host, so a headless
+fan-out needs no API key either.
 
 Cowork adds one option Claude Code doesn't: subagents can be **declared** rather
 than spawned ad hoc, as `agents/*.md` in a plugin — frontmatter `name`,
