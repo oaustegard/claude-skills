@@ -2,6 +2,16 @@
 
 All notable changes to the `agent-routing` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.6.0] - 2026-10-11
+
+### Added
+
+- Effort channel table: `claude -p --effort` reaches a headless child (Sonnet 5.5: `low` 0 thinking tokens, `high` 112–197), with no workflow opt-in.
+
+### Changed
+
+- Mechanism choice (Agent tool vs Workflow vs headless children) moves to the new `dispatching-subagents` skill; the description drops "fanning out more than a handful of agents", which that skill now owns.
+
 ## [2.5.0] - 2026-10-09
 
 ### Other

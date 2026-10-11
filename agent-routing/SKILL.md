@@ -1,10 +1,10 @@
 ---
 name: agent-routing
-description: Decide which model, effort level, and cascade shape each subagent gets, and how to keep improvement loops safe (evaluator-as-selector, stop on regression). Routes on measured cost-per-completed-task rather than per-token price, because a tier's token count varies more by task shape than price varies across tiers. Covers per-model effort semantics, the concision lever, cascade preconditions, context handoff, and watching a subagent fan-out live. Use when spawning subagents via the Agent or Workflow tools, when choosing how to escalate a failed attempt, when fanning out more than a handful of agents, or when asked which model or effort a task should get. Grounded in a 2026-07 calibration, a 2026-08 coding-cost study, a 2026-09 seeded-bug repair battery, a 2026-10 Haiku 5.5 ladder priced per spawn, and a 2026-10 retry-versus-escalation ladder on 295 SWE-bench Verified tasks; Managed Agents API specifics are operational, not calibrated.
+description: Decide which model, effort level, and cascade shape each subagent gets, and how to keep improvement loops safe (evaluator-as-selector, stop on regression). Routes on measured cost-per-completed-task rather than per-token price, because a tier's token count varies more by task shape than price varies across tiers. Covers per-model effort semantics, the concision lever, cascade preconditions, context handoff, and watching a subagent fan-out live. Use when choosing a subagent's model or effort, when choosing how to escalate a failed attempt, or when asked which model or effort a task should get. Grounded in a 2026-07 calibration, a 2026-08 coding-cost study, a 2026-09 seeded-bug repair battery, a 2026-10 Haiku 5.5 ladder priced per spawn, and a 2026-10 retry-versus-escalation ladder on 295 SWE-bench Verified tasks; Managed Agents API specifics are operational, not calibrated.
 compatibility: Designed for Claude Code / Claude Code on the Web — assumes an orchestrator with Agent/Workflow subagent tools. Only the Workflow tool sets a subagent's effort; the Agent tool sets its model. Not applicable to claude.ai chat use.
 metadata:
   author: Oskar Austegard and Claude
-  version: "2.5.0"
+  version: "2.6.0"
 ---
 
 # Agent Routing — model, effort, and cascade selection
@@ -181,12 +181,18 @@ Measured in Claude Code on 2026-09-28 (muninn.austegard.com/blog/effort-levels-i
 |---|---|---|
 | Workflow `agent(prompt, {effort})` | one subagent | 24/24 Sonnet and Opus probes ran at the requested level while the session sat elsewhere. **The only way a parent sets a subagent's effort.** |
 | Agent tool, SendMessage | nothing | No `effort` parameter. The subagent runs at the session's level when it starts or resumes. |
+| `claude -p --effort LEVEL` | one headless child | Measured 2026-10-11 on Sonnet 5.5: `low` gave 0 thinking tokens, `high` gave 112–197 on the same prompt (2 runs each). Needs no workflow opt-in; `dispatching-subagents` runs these children in bulk. |
 | Session setting (`/effort`) | main loop, and every subagent at its next turn | A resumed subagent picks up the new level. The model cannot change this itself; it recommends a level and the human sets it. |
 | Managed Agents | agent config | Set on the agent, not per session: an `effort` inside a per-session `model` override is silently ignored. If the create response echoes `effort: None`, the org's beta header (`managed-agents-2026-04-01`) doesn't carry the feature and the field was dropped. |
 
 A Workflow run needs the user's opt-in (ultracode, an explicit request, or a user-invoked
 skill that names it). Without one, a subagent spawned through the Agent tool gets the
-session's level, and the routing table's effort column is advisory.
+session's level, and the routing table's effort column is advisory, unless the task can
+run as a headless `claude -p` child, which takes `--effort` directly.
+
+This skill picks the model and effort. Which mechanism launches the child (Agent tool,
+Workflow, or headless children), and what the launching costs the parent, is
+`dispatching-subagents`.
 
 ## The concision lever, and its limit
 

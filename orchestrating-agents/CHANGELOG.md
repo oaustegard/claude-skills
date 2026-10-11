@@ -2,6 +2,12 @@
 
 All notable changes to the `orchestrating-agents` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.1] - 2026-10-11
+
+### Changed
+
+- Native-subagent routing points to `dispatching-subagents` for the choice between the Agent tool, Workflow, and headless `claude -p` children.
+
 ## [0.8.0] - 2026-10-07
 
 ### Other
