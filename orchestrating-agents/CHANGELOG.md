@@ -4,6 +4,12 @@ All notable changes to the `orchestrating-agents` skill are documented in this f
 
 ## [0.8.1] - 2026-10-11
 
+### Other
+
+- dispatching-subagents 0.1.0: choose Agent, Workflow or headless claude -p
+
+## [0.8.1] - 2026-10-11
+
 ### Changed
 
 - Native-subagent routing points to `dispatching-subagents` for the choice between the Agent tool, Workflow, and headless `claude -p` children.

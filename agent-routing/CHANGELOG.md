@@ -4,6 +4,12 @@ All notable changes to the `agent-routing` skill are documented in this file. Th
 
 ## [2.6.0] - 2026-10-11
 
+### Other
+
+- dispatching-subagents 0.1.0: choose Agent, Workflow or headless claude -p
+
+## [2.6.0] - 2026-10-11
+
 ### Added
 
 - Effort channel table: `claude -p --effort` reaches a headless child (Sonnet 5.5: `low` 0 thinking tokens, `high` 112–197), with no workflow opt-in.
