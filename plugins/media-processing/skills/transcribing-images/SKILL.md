@@ -2,7 +2,7 @@
 name: transcribing-images
 description: "Reads the visual content of slides, pages, and images the way a human would, not just their embedded text. Use when a PPTX or PDF has image slides, screenshots, charts, scanned figures, or flattened-to-image layouts that the built-in pptx/pdf skills read as empty; when asked to transcribe, describe, OCR, or extract what is shown in an image, slide deck, or document page; or when embedded-text extraction returned little or nothing from a visually rich file. Triggers on 'read this deck', 'what's on these slides', 'transcribe', 'OCR', 'extract text from image', 'describe this chart/diagram', .pptx/.pdf/.png/.jpg with visual content."
 metadata:
-  version: 0.2.0
+  version: 0.2.1
 ---
 
 # Transcribing Images

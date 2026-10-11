@@ -34,7 +34,7 @@ import urllib.request
 
 # Defer Anthropic + Gemini client imports to call-time so the module loads
 # cleanly in environments where their dependencies aren't on sys.path.
-_CLAUDE_CLIENT_PATH = "/mnt/skills/user/orchestrating-agents/scripts"
+_CLAUDE_CLIENT_PATH = "/mnt/skills/user/orchestrating-chat-agents/scripts"
 _GEMINI_CLIENT_PATH = "/mnt/skills/user/invoking-gemini/scripts"
 
 # Model aliases → backend + model identifier. The backend tag selects the

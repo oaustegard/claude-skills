@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Integration Test for orchestrating-agents skill
+Integration Test for orchestrating-chat-agents skill
 
 This script demonstrates:
 1. Simple single invocation

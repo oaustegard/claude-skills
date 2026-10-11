@@ -1,6 +1,6 @@
 # Function Reference
 
-Complete signatures and usage for every function the `orchestrating-agents`
+Complete signatures and usage for every function the `orchestrating-chat-agents`
 skill exposes. Extracted from SKILL.md to keep the always-loaded surface small;
 read this when you need exact parameters or return shapes.
 

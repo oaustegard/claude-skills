@@ -2,7 +2,7 @@
 name: dispatching-subagents
 description: Chooses how to launch subagents from Claude Code (the Agent tool, a Workflow script, or headless claude -p children) and runs a headless fan-out from one background command. Use for "fan this out to 50 agents", "run these tasks in parallel", "launch subagents for each file", "should I spawn agents or write a workflow", "batch this through Haiku", "run claude -p in parallel", "dispatch a task list without the launches eating my context", or before any launch of more than a handful of subagents, where the launching itself is the cost. Covers the parent-turn cost of each mechanism, concurrency ceilings, what context and tools each child gets, effort control, output contracts, a cost ledger, and resume after interruption.
 metadata:
-  version: 0.1.0
+  version: 0.1.1
 ---
 
 # Dispatching subagents
@@ -125,6 +125,9 @@ Measured 2026-10-11, Claude Code 2.1.296:
   Its `next` can report a slot free before the agent stops. Dispatch one
   replacement per completion notification instead (diagnosed 2026-10-11, the
   codex build).
+- Subagents that must talk to each other use `SendMessage` / `ListAgents`; the
+  measured traps (reply by agentId, never by the envelope's `from`; subagents have
+  no `ListAgents`) are in [references/native-messaging.md](references/native-messaging.md).
 - Put `[no-context]` in judge and eval prompts where the `delegating-with-context`
   hook is installed, or the judge sees the parent discussing what it scores.
 
@@ -140,7 +143,7 @@ bulk phase on a small container, a Workflow step can shell out to
 | situation | use instead |
 |---|---|
 | which model or effort a child should get, cascades, escalation | `agent-routing` |
-| fan-out from claude.ai chat, where no Agent tool or `claude` binary exists | `orchestrating-agents` |
+| fan-out from claude.ai chat, where no Agent tool or `claude` binary exists | `orchestrating-chat-agents` |
 | per-item classification at large volume, where a cheap non-Claude model is enough | `invoking-gemini` |
 | a deterministic multi-step pipeline with no model judgment between steps | `flowing` |
 | work that must outlive this session or container | `create_session` (claude-workspace `docs/delegation.md`) |

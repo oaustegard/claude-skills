@@ -1,6 +1,6 @@
 # Claude API Reference
 
-Detailed API documentation for the orchestrating-agents skill.
+Detailed API documentation for the orchestrating-chat-agents skill.
 
 ## API Models
 

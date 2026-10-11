@@ -1,3 +1,0 @@
-# orchestrating-agents
-
-Orchestrate parallel API instances, delegated sub-tasks, and multi-agent workflows with streaming and tool-enabled delegation patterns. Use for parallel analysis, multi-perspective reviews, or complex task decomposition.
