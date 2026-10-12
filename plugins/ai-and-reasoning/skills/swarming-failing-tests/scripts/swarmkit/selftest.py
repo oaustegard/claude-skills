@@ -116,7 +116,7 @@ def cli(repo: Path, *args: str, env: dict | None = None) -> subprocess.Completed
 
 def run(repo: Path, wt: Path, *args: str, env: dict | None = None) -> str:
     p = cli(repo, "run", "--fake", "--wt-root", str(wt), "--poll", "0.3", "--sample", "4", "--idle-max", "5",
-            "--full-every", "99", "--quick-every", "0", *args, env=env)
+            "--full-every", "99", "--quick-every", "0", "--no-idle-refresh", *args, env=env)
     return p.stdout + p.stderr
 
 
@@ -325,6 +325,15 @@ def main(argv: list[str] | None = None) -> int:
 
     federation(tmp, root, wt, expect)
     quick(root, wt, expect)
+    cf = root / ".swarm" / "state" / "counters.json"
+    c = json.loads(cf.read_text()) if cf.exists() else {}
+    c["merges_since_full"] = 3                  # merges the gate checked only against its sample
+    cf.write_text(json.dumps(c))
+    out = run(root, wt, "--idle-refresh", "--only", "nothing/*", "--max-workers", "1", "--concurrency", "1")
+    expect("queue drained with unrefreshed merges -> full refresh before idling (2026-10-12: late regressions "
+           "after the last refresh shipped, TinyCC 333 -> 35)",
+           "merges since the last full refresh, refreshing" in out
+           and json.loads(cf.read_text()).get("merges_since_full") == 0, out)
     log = sh(root, "git", "log", "--format=%an|%B")
     expect("merge commits carry the configured author and Swarm-Task trailers",
            "Swarm Selftest|" in log and "Swarm-Task: w00001" in log, "")

@@ -43,6 +43,7 @@ class Ctx:
     full_every: int = 200
     quick_every: int = 25                        # merges between quick refreshes; 0 = off
     quick_suites: list[str] = field(default_factory=list)   # [] = gate.quick_suites, else cheap_suites
+    idle_refresh: bool = True                    # full refresh when the queue drains with unrefreshed merges
     batch: int = 4
     id_prefix: str = ""                          # sibling: task ids are "<name>-wNNNNN"
     stamp_fixed: bool = False                    # sibling: add Fixed: trailers to merged commits

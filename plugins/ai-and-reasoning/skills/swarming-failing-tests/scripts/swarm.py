@@ -65,6 +65,8 @@ def parser(cfg: dict) -> argparse.ArgumentParser:
                     help="merges between quick refreshes of the quick suites (0 = off)")
     ap.add_argument("--quick-suites", default=",".join(g["quick_suites"]),
                     help="comma list (default gate.quick_suites, else gate.cheap_suites)")
+    ap.add_argument("--idle-refresh", action=argparse.BooleanOptionalAction, default=g["idle_refresh"],
+                    help="full refresh when the queue drains with merges since the last one (default on)")
     ap.add_argument("--final-refresh", action="store_true")
     ap.add_argument("--suites", default="", help="comma list: this node's suites (default every suite)")
     ap.add_argument("--only-suites", default="", help="refresh: baseline only these suites")
@@ -104,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
     cfg = cfgmod.load(cfg_path if (k.config or cfg_path.exists()) else None)
     a = parser(cfg).parse_args(argv)
     ctx = Ctx(root=root, cfg=cfg, wt_root=a.wt_root, jobs=a.jobs, batch=a.batch, sample_size=a.sample,
-              full_every=a.full_every, quick_every=a.quick_every,
+              full_every=a.full_every, quick_every=a.quick_every, idle_refresh=a.idle_refresh,
               quick_suites=[s for s in a.quick_suites.split(",") if s], suites=[s for s in a.suites.split(",") if s],
               id_prefix=f"{a.sibling}-" if a.sibling else "", stamp_fixed=bool(a.sibling))
     from swarmkit import federation as fed
