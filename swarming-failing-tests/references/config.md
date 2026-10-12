@@ -61,6 +61,7 @@ Files outside `code`/`allowed` are silently left out of the candidate.
 | `batch`, `sample` | 4, 150 | candidates stacked per gate run; known-passing sample size |
 | `full_every` | 200 | merges between full refreshes (bisect + revert) |
 | `quick_every` | 25 | merges between quick refreshes of `quick_suites`, bisected over those merges only and reverted; 0 = off |
+| `idle_refresh` | true | full refresh when the queue drains with merges since the last one; a drained queue otherwise ships their regressions (2026-10-12: TinyCC 333 to 35 after the last refresh) |
 | `quick_suites` | `[]` | suites a quick refresh runs; `[]` = `cheap_suites`; on a partitioned node, only its own plus the cheap ones |
 | `recheck_max` | 1500 | cluster members re-run after each merge |
 | `max_main_races` | 3 | re-gates when main moves mid-gate, then "main kept moving" |

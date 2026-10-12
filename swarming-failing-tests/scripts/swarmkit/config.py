@@ -75,6 +75,7 @@ DEFAULTS: dict = {
         "full_every": 200,            # merges between full refreshes
         "quick_every": 25,            # merges between quick refreshes of quick_suites; 0 = off
         "quick_suites": [],           # [] = cheap_suites; fast suites run and bisected every quick_every
+        "idle_refresh": True,         # full refresh when the queue drains with merges since the last one
         "recheck_max": 1500,          # cluster members re-run after each merge
         "max_main_races": 3,
         "coauthor": "Claude Haiku 5.5 <noreply@anthropic.com>",

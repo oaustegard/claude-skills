@@ -507,6 +507,14 @@ def _loop(ctx: Ctx, a: argparse.Namespace) -> int:
             items = workqueue.build(ctx.cfg["queue"], queue_input(ctx, a.only), ledger(ctx), source_size(ctx),
                                     epoch=attempt_epoch(ctx))
             if not items and not procs and not finished and not refreshing:
+                n = (read_json(ctx.state / "counters.json", {}) or {}).get("merges_since_full", 0)
+                if n and ctx.idle_refresh:
+                    # Merges since the last full refresh were checked only against the gate's
+                    # sample; a drained queue would otherwise leave their regressions unseen.
+                    log(f"queue empty; {n} merges since the last full refresh, refreshing")
+                    event(ctx, f"idle refresh over {n} unrefreshed merges", "loop")
+                    merge.refresh(ctx)
+                    continue
                 # Idle: wait for a suite builder to commit new tests (the 120 s tree check picks
                 # them up), else exit after idle_max.
                 idle_since = idle_since or time.time()
