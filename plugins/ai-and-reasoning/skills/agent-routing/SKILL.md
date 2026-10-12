@@ -4,7 +4,7 @@ description: Decide which model, effort level, and cascade shape each subagent g
 compatibility: Designed for Claude Code / Claude Code on the Web — assumes an orchestrator with Agent/Workflow subagent tools. Only the Workflow tool sets a subagent's effort; the Agent tool sets its model. Not applicable to claude.ai chat use.
 metadata:
   author: Oskar Austegard and Claude
-  version: "2.6.0"
+  version: "2.7.0"
 ---
 
 # Agent Routing — model, effort, and cascade selection
@@ -180,15 +180,17 @@ Measured in Claude Code on 2026-09-28 (muninn.austegard.com/blog/effort-levels-i
 | channel | reaches | notes |
 |---|---|---|
 | Workflow `agent(prompt, {effort})` | one subagent | 24/24 Sonnet and Opus probes ran at the requested level while the session sat elsewhere. **The only way a parent sets a subagent's effort.** |
-| Agent tool, SendMessage | nothing | No `effort` parameter. The subagent runs at the session's level when it starts or resumes. |
+| Agent tool, SendMessage | nothing directly | No `effort` parameter on the call. A plain subagent runs at the session's level when it starts or resumes. |
+| Agent tool with a named agent type | one subagent | Measured 2026-10-12 (tip from Craig Rungie): an agent definition with `effort:` in its frontmatter (`.claude/agents/<name>.md`, or `--agents` JSON) sets the effort of every Agent-tool call to that `subagent_type`; the subagent's transcript records it. With none set the request ran at `medium`. Sonnet 5.5 thinking on a reasoning puzzle, two runs each: low 481/666, medium 567/624, high 676/703 tokens. Keep one agent file per model-effort pair you use, e.g. `sonnet-low.md`, and pass `subagent_type`. Agent files load at session start. |
 | `claude -p --effort LEVEL` | one headless child | Measured 2026-10-11 on Sonnet 5.5: `low` gave 0 thinking tokens, `high` gave 112–197 on the same prompt (2 runs each). Needs no workflow opt-in; `dispatching-subagents` runs these children in bulk. |
 | Session setting (`/effort`) | main loop, and every subagent at its next turn | A resumed subagent picks up the new level. The model cannot change this itself; it recommends a level and the human sets it. |
 | Managed Agents | agent config | Set on the agent, not per session: an `effort` inside a per-session `model` override is silently ignored. If the create response echoes `effort: None`, the org's beta header (`managed-agents-2026-04-01`) doesn't carry the feature and the field was dropped. |
 
 A Workflow run needs the user's opt-in (ultracode, an explicit request, or a user-invoked
 skill that names it). Without one, a subagent spawned through the Agent tool gets the
-session's level, and the routing table's effort column is advisory, unless the task can
-run as a headless `claude -p` child, which takes `--effort` directly.
+session's level, and the routing table's effort column is advisory, unless the call names
+an agent type defined with `effort:` (row above) or the task can run as a headless
+`claude -p` child, which takes `--effort` directly.
 
 This skill picks the model and effort. Which mechanism launches the child (Agent tool,
 Workflow, or headless children), and what the launching costs the parent, is

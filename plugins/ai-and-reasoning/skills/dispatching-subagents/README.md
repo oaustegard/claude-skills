@@ -40,7 +40,7 @@ what this session knows.
 | parent cost | a turn per launch and per completion | one call per run | one Bash call per run |
 | concurrency | 20; a 21st launch errors | 2 on a 4-vCPU container | RAM-bound, ~210 MB per child; 40 ran clean |
 | child sees | the session's tools, MCP connectors, hooks | as Agent | only what you pass |
-| effort | session's level | per `agent()` | `--effort` |
+| effort | session's level, or an agent type's `effort:` frontmatter | per `agent()` | `--effort` |
 | needs your opt-in | no | yes | no |
 | cost per child | not reported | not reported | in a ledger |
 
