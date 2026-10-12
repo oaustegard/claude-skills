@@ -200,6 +200,14 @@ def alive(pid: int) -> bool:
         return False
 
 
+def drop_claude_tmp(wt: Path) -> None:
+    """Delete Claude Code's per-session temp dir for a worker's cwd (/tmp/claude-<uid>/<cwd with '/'
+    -> '-'>), where background-task output lands. One runaway worker wrote 4.3 GB there on 2026-10-12."""
+    enc = "-" + str(wt).strip("/").replace("/", "-")
+    for d in Path("/tmp").glob(f"claude-*/{enc}"):
+        shutil.rmtree(d, ignore_errors=True)
+
+
 def reap(ctx: Ctx, rec: dict) -> dict:
     """Process finished: fold the runner ledger + out JSON into the record, delete per-worker scratch."""
     tdir = ctx.task_dir(rec["id"])
@@ -220,6 +228,7 @@ def reap(ctx: Ctx, rec: dict) -> dict:
     # Scratch is never needed after the worker exits (diagnosed 2026-10-12: ~680 workers' /tmp/<id>/,
     # up to 170 MB each, filled the disk and the loop died on `git worktree add`).
     shutil.rmtree(ctx.scratch(rec["id"]), ignore_errors=True)
+    drop_claude_tmp(ctx.worktree(rec["id"]))
     if rec["status"] == "failed":
         remove_worktree(ctx, ctx.worktree(rec["id"]))
     return rec
@@ -398,6 +407,7 @@ def _loop(ctx: Ctx, a: argparse.Namespace) -> int:
     for d in stale:
         remove_worktree(ctx, d)
         shutil.rmtree(ctx.scratch(d.name), ignore_errors=True)
+        drop_claude_tmp(d)
     if stale:
         log(f"removed {len(stale)} worktrees of workers that ended in earlier runs")
     tree_checked = 0.0
