@@ -26,6 +26,7 @@ So Claude routes well; this table is for people.
 | fan out over the Anthropic API from claude.ai chat, where there is no Agent tool | `orchestrating-chat-agents` |
 | write the script for a workflow you have already opted into | `workflow-authoring` (built in) |
 | run a fixed sequence of steps with retries, gates and resume, with no model judgment between steps | `flowing` |
+| drive a large failing-test backlog to green with a long-running swarm of workers behind a merge gate | `swarming-failing-tests` |
 | classify or extract per item at volume, with a cheap non-Claude model | `invoking-gemini` |
 | route, triage or rate text with a calibrated probability | `deciding-with-confidence` |
 
