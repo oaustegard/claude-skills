@@ -60,6 +60,8 @@ Files outside `code`/`allowed` are silently left out of the candidate.
 | `compat_command` | `[]` | argv in the gate tree per candidate, `{tree}`; non-zero rejects; preflight checks it exists |
 | `batch`, `sample` | 4, 150 | candidates stacked per gate run; known-passing sample size |
 | `full_every` | 200 | merges between full refreshes (bisect + revert) |
+| `quick_every` | 25 | merges between quick refreshes of `quick_suites`, bisected over those merges only and reverted; 0 = off |
+| `quick_suites` | `[]` | suites a quick refresh runs; `[]` = `cheap_suites`; on a partitioned node, only its own plus the cheap ones |
 | `recheck_max` | 1500 | cluster members re-run after each merge |
 | `max_main_races` | 3 | re-gates when main moves mid-gate, then "main kept moving" |
 | `coauthor` | Haiku 5.5 | `Co-Authored-By:` trailer on swarm commits; `""` for none |

@@ -14,7 +14,10 @@ Accepted commits fast-forward main, then every known-failing member of each
 merged cluster is re-run (recheck_clusters), so known.json never keeps stale FAILs.
 
 refresh() runs every suite at main HEAD. Tests that were PASS and now fail are
-bisected over swarm merge commits and the culprit is reverted.
+bisected over swarm merge commits and the culprit is reverted. quick_refresh() does the
+same for gate.quick_suites every gate.quick_every merges, bisecting only over the merges
+since the previous quick (or full) refresh, so a culprit the gate sample missed is still
+recent enough to revert cleanly.
 """
 
 from __future__ import annotations
@@ -235,6 +238,7 @@ def accept(ctx: Ctx, rec: dict, sha: str, parent: str, fixed: list[str]) -> None
 def bump_merge_counter(ctx: Ctx, n: int) -> int:
     c = read_json(ctx.state / "counters.json", {}) or {}
     c["merges_since_full"] = c.get("merges_since_full", 0) + n
+    c["merges_since_quick"] = c.get("merges_since_quick", 0) + n
     c["merges_total"] = c.get("merges_total", 0) + n
     write_json(ctx.state / "counters.json", c)
     return c["merges_since_full"]
@@ -431,14 +435,84 @@ def _refresh(ctx: Ctx, do_bisect: bool) -> dict:
         write_json(ctx.state / "known.json", k)
     c = read_json(ctx.state / "counters.json", {}) or {}
     c["merges_since_full"] = 0
+    c["merges_since_quick"] = 0           # the full run covered the quick suites too
     write_json(ctx.state / "counters.json", c)
     _write_baseline(ctx, main, tr.suite_counts(res))
     return res
 
 
-def bisect(ctx: Ctx, regs: list[str]) -> str | None:
-    """First swarm merge commit since the last baseline at which any of `regs` fails."""
-    base = (read_json(ctx.state / "baseline.json", {}) or {}).get("time", 0)
+def quick_suites(ctx: Ctx) -> list[str]:
+    """Suites a quick refresh runs: --quick-suites, else gate.quick_suites, else gate.cheap_suites.
+    On a partitioned (federated) node, only its own suites plus the cheap ones, like the gate sample."""
+    names = ctx.quick_suites or ctx.gate["quick_suites"] or ctx.gate["cheap_suites"]
+    if ctx.suites:
+        allowed = set(ctx.suites) | set(ctx.gate["cheap_suites"])
+        names = [s for s in names if s in allowed]
+    return list(dict.fromkeys(names))
+
+
+def quick_refresh(ctx: Ctx, suites: list[str] | None = None) -> dict:
+    """Fast suites at main HEAD every gate.quick_every merges; regressions are bisected only over
+    the merges since the previous quick or full refresh, and the culprit reverted. The gate's
+    random sample misses regressions and a full refresh is too rare to revert them (diagnosed
+    2026-10-12: a refresh after 200 merges found 82 regressions whose culprit sat 256 commits
+    back and no longer reverted cleanly)."""
+    suites = suites or quick_suites(ctx)
+    refreshing(ctx, True, f"quick ({', '.join(suites)})")
+    try:
+        return _quick_refresh(ctx, suites)
+    finally:
+        refreshing(ctx, False)
+
+
+def _quick_refresh(ctx: Ctx, suites: list[str]) -> dict:
+    main = head(ctx)
+    g = prepare_gate(ctx, main)
+    last = (read_json(ctx.state / "quick.json", {}) or {}).get("time", 0)
+    since = max(last, (read_json(ctx.state / "baseline.json", {}) or {}).get("time", 0))
+    log(f"quick refresh at {main[:10]} ({', '.join(suites)})")
+    res = tr.run_full(ctx, g, suites)
+    prev = tr.known(ctx)
+    regs = [t for t in res if tr.is_pass(prev.get(t)) and not tr.is_pass(res[t]) and not quarantined(ctx, t)]
+    if regs:
+        again = tr.run_ids(ctx, g, regs, jobs=max(1, ctx.jobs // 2))
+        res.update(again)
+        regs = [t for t in regs if again.get(t, {}).get("status") not in ("PASS", "MISSING")]
+    found, reverted = len(regs), []
+    for _round in range(3):
+        if not regs:
+            break
+        log(f"quick refresh found {len(regs)} regressions: {', '.join(regs[:6])}")
+        culprit = bisect(ctx, regs, since=since)
+        if not culprit or not revert(ctx, culprit, regs):
+            log("quick refresh: could not locate/revert culprit; recording the failures")
+            break
+        reverted.append(culprit)
+        g = prepare_gate(ctx, head(ctx))
+        lost = [t for m in read_jsonl(ctx.state / "merges.jsonl") if m["commit"] == culprit for t in m["fixed"]]
+        again = tr.run_ids(ctx, g, regs + lost)   # the culprit's fixes are undone too
+        res.update(again)
+        regs = [t for t in regs if not tr.is_pass(again.get(t))]
+    main = head(ctx)
+    tr.record(ctx, main, res)
+    npass = sum(map(tr.is_pass, res.values()))
+    write_json(ctx.state / "quick.json", {"time": time.time(), "commit": main, "suites": suites, "pass": npass,
+                                          "total": len(res), "found": found, "reverted": reverted,
+                                          "unreverted": regs})
+    c = read_json(ctx.state / "counters.json", {}) or {}
+    c["merges_since_quick"] = 0
+    write_json(ctx.state / "counters.json", c)
+    if found:
+        event(ctx, f"quick refresh: {found} regressions, {len(reverted)} reverts, {len(regs)} left", "refresh")
+    log(f"quick refresh done: {npass}/{len(res)} pass; {found} regressions, {len(reverted)} reverted, "
+        f"{len(regs)} left failing")
+    return res
+
+
+def bisect(ctx: Ctx, regs: list[str], since: float | None = None) -> str | None:
+    """First swarm merge commit since `since` (default: the last full baseline) at which any of
+    `regs` fails."""
+    base = since if since is not None else (read_json(ctx.state / "baseline.json", {}) or {}).get("time", 0)
     reverted = {r.get("merged_commit") for r in ledger(ctx).values() if r.get("status") == "reverted"}
     commits = [m["commit"] for m in read_jsonl(ctx.state / "merges.jsonl")
                if m["time"] >= base and m["commit"] not in reverted]
@@ -446,6 +520,7 @@ def bisect(ctx: Ctx, regs: list[str]) -> str | None:
     commits = [c for c in commits if c in ancestors]
     if not commits:
         return None
+    log(f"bisect over {len(commits)} swarm merges since {time.strftime('%H:%M:%S', time.localtime(base))}")
 
     def bad(c: str) -> bool:
         g = prepare_gate(ctx, c)

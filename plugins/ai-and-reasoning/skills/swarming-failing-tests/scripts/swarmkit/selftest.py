@@ -116,7 +116,7 @@ def cli(repo: Path, *args: str, env: dict | None = None) -> subprocess.Completed
 
 def run(repo: Path, wt: Path, *args: str, env: dict | None = None) -> str:
     p = cli(repo, "run", "--fake", "--wt-root", str(wt), "--poll", "0.3", "--sample", "4", "--idle-max", "5",
-            "--full-every", "99", *args, env=env)
+            "--full-every", "99", "--quick-every", "0", *args, env=env)
     return p.stdout + p.stderr
 
 
@@ -202,6 +202,30 @@ def federation(tmp: Path, root: Path, wt: Path, expect) -> None:
     files = sh(bare, "git", "ls-tree", "-r", "--name-only", "swarm/stats/s1") if remote("swarm/stats/s1") else ""
     expect("stand-down: sibling ledger exported to swarm/stats/s1", "federation/ledger.jsonl" in files,
            p.stdout + p.stderr)
+
+
+def quick(root: Path, wt: Path, expect) -> None:
+    """Tiered quick refresh: a regression the gate sample missed is caught by the next quick refresh
+    and bisected over the merges since the previous one only (2026-10-12: a full refresh after 200
+    merges found 82 regressions whose culprit sat 256 commits back and could not be reverted)."""
+    failing = sorted(t for t, v in known(root).items() if v["status"] != "PASS" and not t.startswith("big/"))
+    Q = ("--max-workers", "1", "--concurrency", "1", "--quick-every", "1", "--quick-suites", "smoke,big")
+    before = set(records(root))
+    out = run(root, wt, *Q, "--only", failing[0])
+    new = [r for k, r in records(root).items() if k not in before]
+    expect("quick refresh runs after a merge (--quick-every 1) and completes",
+           new and new[0]["status"] == "merged" and "quick refresh at" in out and "quick refresh done" in out, out)
+    # break deletes the first other fix marker, _all_big: big regresses; --sample 0 lets it past the gate
+    before = set(records(root))
+    out = run(root, wt, *Q, "--only", failing[1], "--fake-mode", "break", "--sample", "0")
+    new = [r for k, r in records(root).items() if k not in before]
+    stale = [t for t, v in known(root).items() if t.startswith("big/") and v["status"] != "PASS"]
+    expect("regression the gate sample missed -> quick refresh bisects over 1 merge (not since the full "
+           "baseline) and reverts it",
+           new and new[0]["status"] == "reverted" and "bisect over 1 swarm merges" in out and not stale, out)
+    p = cli(root, "status", "--quick-suites", "smoke,big")
+    expect("status prints the quick refresh line", "quick refresh: every" in p.stdout
+           and "1 reverted, 0 left" in p.stdout, p.stdout + p.stderr)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -300,6 +324,7 @@ def main(argv: list[str] | None = None) -> int:
            orphan.poll() is not None, p.stdout + p.stderr)
 
     federation(tmp, root, wt, expect)
+    quick(root, wt, expect)
     log = sh(root, "git", "log", "--format=%an|%B")
     expect("merge commits carry the configured author and Swarm-Task trailers",
            "Swarm Selftest|" in log and "Swarm-Task: w00001" in log, "")

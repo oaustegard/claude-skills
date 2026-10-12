@@ -41,6 +41,8 @@ class Ctx:
     suites: list[str] = field(default_factory=list)   # [] = every suite
     sample_size: int = 150
     full_every: int = 200
+    quick_every: int = 25                        # merges between quick refreshes; 0 = off
+    quick_suites: list[str] = field(default_factory=list)   # [] = gate.quick_suites, else cheap_suites
     batch: int = 4
     id_prefix: str = ""                          # sibling: task ids are "<name>-wNNNNN"
     stamp_fixed: bool = False                    # sibling: add Fixed: trailers to merged commits

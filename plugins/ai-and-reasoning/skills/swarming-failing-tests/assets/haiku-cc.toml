@@ -56,6 +56,8 @@ compat_command = ["tests/bin/hcc-pycheck", "{tree}/hcc"]   # byte-compiles hcc/ 
 batch = 6
 sample = 80
 full_every = 200
+quick_every = 25                          # 2026-10-12: a full refresh after 200 merges found 82 regressions, culprit unrevertable
+quick_suites = ["smoke", "c-testsuite", "chibicc", "gcc-torture"]
 recheck_max = 1500
 coauthor = "Claude Haiku 5.5 <noreply@anthropic.com>"
 
