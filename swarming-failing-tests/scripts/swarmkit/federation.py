@@ -198,9 +198,12 @@ def hub_publish(ctx: Ctx, force_state: bool = False) -> None:
     if digest == st.get("state_digest"):
         st["state_pushed_at"] = time.time()     # unchanged: look again after the interval
     else:
-        if "state_parent" not in st:          # chain onto an existing remote state branch
-            fetch(ctx, f"+refs/heads/{state_b}:refs/fed/state")
-            st["state_parent"] = rev(ctx, ctx.root, "refs/fed/state")
+        # Chain onto the remote tip, not the saved parent: a loop killed between a push and saving
+        # its state leaves the saved parent behind and every later push non-ff (diagnosed 2026-10-12).
+        if fetch(ctx, f"+refs/heads/{state_b}:refs/fed/state"):
+            tip = rev(ctx, ctx.root, "refs/fed/state")
+            if tip:
+                st["state_parent"] = tip
         meta = json.dumps({"main": main, "time": time.time()}, indent=1)
         sha = build_state_commit(ctx, {"known.json": known, "ingest.json": ingest,
                                        "baseline.json": baseline, "meta.json": meta},
