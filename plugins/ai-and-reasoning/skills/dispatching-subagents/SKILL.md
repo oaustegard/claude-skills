@@ -2,7 +2,7 @@
 name: dispatching-subagents
 description: Chooses how to launch subagents from Claude Code (the Agent tool, a Workflow script, or headless claude -p children) and runs a headless fan-out from one background command. Use for "fan this out to 50 agents", "run these tasks in parallel", "launch subagents for each file", "should I spawn agents or write a workflow", "batch this through Haiku", "run claude -p in parallel", "dispatch a task list without the launches eating my context", or before any launch of more than a handful of subagents, where the launching itself is the cost. Covers the parent-turn cost of each mechanism, concurrency ceilings, what context and tools each child gets, effort control, output contracts, a cost ledger, and resume after interruption.
 metadata:
-  version: 0.1.2
+  version: 0.1.3
 ---
 
 # Dispatching subagents
@@ -147,6 +147,7 @@ bulk phase on a small container, a Workflow step can shell out to
 | per-item classification at large volume, where a cheap non-Claude model is enough | `invoking-gemini` |
 | a deterministic multi-step pipeline with no model judgment between steps | `flowing` |
 | work that must outlive this session or container | `create_session` (claude-workspace `docs/delegation.md`) |
+| hundreds of workers fixing failing tests for hours, each fix merged behind a no-regression gate | `swarming-failing-tests` (it runs this skill's headless runner per worker) |
 | one subagent for one question | the Agent tool directly, with no ledger |
 
 **Abandon a headless run mid-way** when the first wave's ledger shows the same

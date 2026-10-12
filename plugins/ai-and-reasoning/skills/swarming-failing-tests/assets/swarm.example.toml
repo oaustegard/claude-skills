@@ -1,0 +1,60 @@
+# swarm.toml: per-project config for swarming-failing-tests. Commit it at the project root.
+# Every key is optional except where marked; unknown keys are an error (a typo fails at launch).
+# Paths are relative to the project root. Full reference: references/config.md.
+
+project = "myproject"
+# state_dir = ".swarm/state"       # ledger, known.json, baselines; kept out of git via .git/info/exclude
+# rejected_dir = ".swarm/rejected"
+# wt_root = ""                     # "" = <root>-wt beside the checkout: one worktree per worker + _gate
+
+[tests]
+# REQUIRED. argv of the test command. It must write {test_id: {status, reason, stage}} to {out};
+# test_id = "<suite>/<rest>"; PASS passes, SKIP is ignored, anything else fails; absent = did not run.
+command = ["python3", "tests/run.py", "--suite", "{suites}", "--jobs", "{jobs}", "--json", "{out}", "--quiet"]
+filter_args = ["--filter", "{glob}"]     # appended once per test id the gate wants
+filter_escape = "fnmatch"                # the runner matches filters as globs: * ? [ ] in ids get escaped
+env = { PYTHONPATH = "{tree}" }          # make the code under test resolve to the tree being tested
+suites_dir = "tests/suites"              # every subdirectory is one suite
+tests_tree = "tests"                     # a commit that changes this tree triggers a (suite) refresh
+link_untracked = ["tests/suites"]        # gitignored corpora symlinked into every worktree
+quarantine = []                          # globs of known-flaky tests: never a regression, never queued
+
+[paths]
+code = ["src/"]                          # REQUIRED. a candidate must change something here
+allowed = ["docs/STATUS.md"]             # taken best effort, dropped on conflict
+forbidden = ["tests/"]                   # any edit here rejects the candidate
+
+[queue]
+ladder = [["smoke", 6], ["unit", 5], ["integration", 4]]   # suite-name prefix -> level; higher runs first
+keep_words = []                          # language keywords to keep verbatim in signatures
+
+[gate]
+always_suites = ["smoke"]                # run in full at every gate: keep it under a minute
+cheap_suites = ["smoke", "unit"]         # sampled on EVERY federated node (cross-partition guard)
+compat_command = []                      # e.g. ["python3.11", "-m", "compileall", "-q", "{tree}/src"]
+batch = 4
+sample = 150
+full_every = 200
+
+[git]
+author_name = ""                         # "" = git config of the root checkout
+author_email = ""
+
+[worker]
+system_prompt = "swarm/worker_prompt.md" # REQUIRED for real runs; start from assets/worker_prompt.template.md
+model = "haiku"
+timeout = 1500
+per_task_usd = 2.0
+repro_command = "python3 tests/run.py --suite {suite} --filter '{test}' --jobs 1 -v"
+task_footer = "Follow the procedure in your instructions."
+preflight_files = ["tests/run.py"]
+
+[run]
+concurrency = 24
+max_load = 0.0                           # 0 = 3 x CPUs
+min_free_gb = 3.0
+
+[federation]
+remote = ""                              # transport repo URL; needed only with --federate / --sibling
+prefix = "swarm/"                        # must be a namespace your push-policy guard allows
+setup_command = []                       # project bootstrap a new sibling container runs

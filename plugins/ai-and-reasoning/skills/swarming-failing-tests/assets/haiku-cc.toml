@@ -1,0 +1,106 @@
+# haiku-cc: Haiku 5.5 workers building hcc, a C11 compiler in pure Python, against ~42K tests.
+# This reproduces the 2026-10-12 hub setup on the generic harness. Use it as a worked example.
+#   python3 $SWARM run --config $SKILL/assets/haiku-cc.toml --root /home/user/haiku-cc \
+#       --only 'gcc-dg/*,...' --concurrency 24 --batch 6 --sample 80 --max-minutes 110
+# state_dir points at the run's existing state, so the ledger, known.json and attempt history carry over.
+
+project = "haiku-cc"
+state_dir = "swarm/state"
+rejected_dir = "swarm/rejected"
+wt_root = "/home/user/haiku-cc-wt"
+
+[tests]
+# tests/run.py writes {test_id: {status, reason, stage}}; ids are "<suite>/<relpath>"; skip.txt entries are not run.
+command = ["python3", "tests/run.py", "--suite", "{suites}", "--jobs", "{jobs}", "--json", "{out}", "--quiet"]
+filter_args = ["--filter", "{glob}"]
+filter_escape = "fnmatch"
+env = { PYTHONPATH = "{tree}", PYTHONDONTWRITEBYTECODE = "1" }   # `python3 -m hcc` resolves to the tree under test
+timeout = 3600
+suites_dir = "tests/suites"
+tests_tree = "tests"
+link_untracked = ["tests/suites", "tests/tools"]   # downloaded corpora and csmith are gitignored
+source_root = "tests/suites"
+quarantine = []
+
+[paths]
+code = ["hcc/"]
+allowed = ["docs/CONTRACT.md", "docs/STATUS.md", "docs/notes/"]
+forbidden = ["tests/", "swarm/"]
+junk = ["__pycache__/", ".pyc"]
+
+[queue]
+# Real programs rank with the basics: once the conformance suites saturate, a whole-program build failure
+# (one root cause, hundreds of tests) is the highest-yield work (sqlite's __sync_synchronize fix cost $0.007).
+ladder = [["smoke", 6], ["c-testsuite", 5], ["chibicc", 5], ["sqlite", 5], ["lua", 5], ["quickjs", 5],
+          ["doom", 5], ["zlib", 5], ["bzip2", 5], ["cjson", 5], ["tcc", 5], ["mbedtls", 5], ["redis", 5],
+          ["cpython", 5], ["torture", 4], ["gcc", 4], ["csmith", 4], ["llvm", 4], ["linux", 3]]
+default_level = 2
+keep_words = ["auto", "break", "case", "char", "const", "continue", "default", "do", "double", "else", "enum",
+              "extern", "float", "for", "goto", "if", "inline", "int", "long", "register", "restrict", "return",
+              "short", "signed", "sizeof", "static", "struct", "switch", "typedef", "union", "unsigned", "void",
+              "volatile", "while", "_Alignas", "_Alignof", "_Atomic", "_Bool", "_Complex", "_Generic", "_Imaginary",
+              "_Noreturn", "_Static_assert", "_Thread_local", "__attribute__", "__asm__", "__extension__",
+              "__typeof__", "__int128", "__builtin_va_list", "__builtin_va_arg", "__label__", "typeof", "asm"]
+shard_size = 10
+max_shards = 6
+max_test_attempts = 3
+reps = 3
+gate_targets = 20
+feature_after = 2
+
+[gate]
+always_suites = ["smoke"]
+cheap_suites = ["smoke", "c-testsuite", "chibicc", "gcc-torture", "gcc-compile", "gcc-dg", "gcc-dg-compile",
+                "reject-gcc-dg", "llvm-single", "csmith"]
+compat_command = ["tests/bin/hcc-pycheck", "{tree}/hcc"]   # byte-compiles hcc/ under PyPy 3.11 (hcc is pinned to 3.11)
+batch = 6
+sample = 80
+full_every = 200
+recheck_max = 1500
+coauthor = "Claude Haiku 5.5 <noreply@anthropic.com>"
+
+[git]
+author_name = "Oskar Austegard"
+author_email = "oskar@austegard.com"
+
+[worker]
+system_prompt = "swarm/worker_prompt.md"
+model = "haiku"
+effort = ""
+timeout = 1500
+per_task_usd = 2.0
+feature_timeout = 3600
+feature_usd = 5.0
+tools = "Read,Grep,Glob,Edit,Write,Bash"
+allow = ["Edit(//tmp/**)", "Bash"]
+scratch = "/tmp/{id}"
+repro_command = "python3 tests/run.py --suite {suite} --filter '{test}' --jobs 1 -v"
+task_footer = "Follow the procedure in your instructions. Read docs/CONTRACT.md first."
+preflight_files = ["tests/run.py", "docs/CONTRACT.md"]
+feature_mode = """FEATURE MODE. Earlier workers on this cluster stopped because the fix needs a whole missing
+feature (see their notes), not a local patch. Your mandate overrides the "minimal fix" and budget rules:
+implement that feature end to end, across every module it touches (typesys, parser, sema, codegen, builtins),
+in the contract's style, with new modules where a file would pass 600 lines. Plan first: list the pieces
+in {scratch}/plan.md, then build them in order, running the representative tests and a selftest per
+piece. You have up to ~150 tool calls and about an hour. A coherent subset that makes at least one
+representative test PASS with no smoke regressions is a success (status fixed); say in notes what is left.
+Never make a construct parse-and-silently-miscompile: unsupported parts must still raise a clear error."""
+
+[run]
+concurrency = 24
+max_load = 12.0
+min_free_gb = 3.0
+idle_max = 14400
+poll = 5.0
+
+[federation]
+remote = "https://github.com/oaustegard/experiments"
+prefix = "hcc/"            # hcc/main, hcc/state, hcc/cand/<NAME>; hcc/ is in claude-workspace guards _ALLOWED_PREFIXES
+poll = 180
+rebase_every = 900
+setup_command = ["bash", "-c", "bash federation/setup.sh \"$SWARM_SIBLING\""]   # tcl, cvise, PyPy, hcc-auto, csmith
+
+[compare.arms]
+haiku = { model = "haiku", effort = "" }
+haiku-high = { model = "haiku", effort = "high" }
+sonnet = { model = "sonnet", effort = "medium" }
