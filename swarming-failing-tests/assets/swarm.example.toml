@@ -35,6 +35,8 @@ compat_command = []                      # e.g. ["python3.11", "-m", "compileall
 batch = 4
 sample = 150
 full_every = 200
+quick_every = 25                         # quick refresh: fast suites, bisected over the last 25 merges; 0 = off
+quick_suites = []                        # [] = cheap_suites; name a fast subset if those take minutes
 
 [git]
 author_name = ""                         # "" = git config of the root checkout

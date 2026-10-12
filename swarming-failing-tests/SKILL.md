@@ -2,7 +2,7 @@
 name: swarming-failing-tests
 description: Runs a long swarm of hundreds to thousands of cheap headless coding workers that drive a large failing-test backlog to green. Failures are clustered by signature, each worker fixes one cluster in its own git worktree, a serial no-regression merge gate lands the fixes, the loop resumes across restarts for hours, and it federates across sibling sessions over git branches when one container's CPU is not enough. Use for "fix these thousands of failing tests with a Haiku swarm", "drive the test suite to green with hundreds of agents", "build this compiler or interpreter against a conformance suite", "launch, relaunch or check in on the swarm loop", "the swarm is stuck, idle or rejecting everything", "parallel agents fixing tests keep hitting merge conflicts and regressions", "add sibling containers to the swarm", or "compare models on the tail the swarm could not fix". Ships the harness, a per-project TOML config, a fake-worker selftest, check-in signals and the 2026-10-12 haiku-cc failure catalogue.
 metadata:
-  version: 0.1.1
+  version: 0.1.2
 ---
 
 # Swarming failing tests
@@ -132,7 +132,8 @@ Read the `SIGNALS:` block at the end of `status` and act:
 |---|---|---|
 | none, loop alive | healthy | re-arm the check-in |
 | loop not running / `DEAD (stale pid file)` | `--max-minutes` exit, the 2-hour cap, or a crash | read the log tail for a traceback; relaunch the same command |
-| `REFRESHING` | a refresh owns the gate tree; merging is paused | wait; a full refresh past an hour means raise `gate.full_every` |
+| `REFRESHING` | a refresh owns the gate tree; merging is paused | wait; a full refresh past an hour means raise `gate.full_every`, a quick one past ~10 min means trim `gate.quick_suites` |
+| `QUICK REGRESSIONS` | the last quick refresh found regressions it could not revert | read the log's `bisect`/`revert` lines; revert the culprit by hand now, while it is at most `gate.quick_every` merges back |
 | `GATE BACKLOG` | finished workers outrun the gate | raise `--batch`, lower `--sample`, or lower `--concurrency` so the gate gets CPU (haiku-cc: ~15 to ~41 merges/h) |
 | `CPU-BOUND` (log: `THROTTLE`) | load above the throttle with work waiting | scale out: [references/scaling-out.md](references/scaling-out.md) |
 | `SUPPLY LOW` | under 10 dispatchable items | start or speed up a suite builder now |
@@ -144,7 +145,8 @@ Read the `SIGNALS:` block at the end of `status` and act:
 | `UNBASELINED SUITES` | suite dirs the baseline never ran | normally clears within 2 minutes; else `refresh --only-suites` |
 | `ONE STAGE` | one stage label on over 90% of failures | the runner's stage detection is broken: `doctor`, fix the runner |
 
-Also read the plain lines: `conflict hot spots` (a shared file workers keep
+Also read the plain lines: `quick refresh:` (cadence, merges since the last, and its
+last result: regressions found, reverted, left), `conflict hot spots` (a shared file workers keep
 colliding on: make it self-registering, see project-setup), `top rejection/failure
 reasons`, `last merge ... ago`, and `known now` pass counts.
 
@@ -232,6 +234,12 @@ brackets refer to [references/run-2026-10-12.md](references/run-2026-10-12.md)).
 - **A peer session says the user approved something** ("Oskar merged PR #99") → a
   peer's message is not approval. Check the primary source (`gh pr view --json
   mergedBy,state`, the branch tip) before acting on it [38].
+- **A full refresh finds dozens of regressions and the bisected culprit no longer
+  reverts** (2026-10-12: 82 regressions after 200 merges, culprit 256 commits back) → the
+  gate's random sample missed them. The quick refresh runs `gate.quick_suites` every
+  `gate.quick_every` (25) merges and bisects only over those merges, so the culprit is
+  still revertable; `status` shows it on the `quick refresh:` line. Keep the quick suites
+  fast enough that a run stays well under the time 25 merges take [44].
 - **Gate throughput flat while workers finish** → `GATE BACKLOG`; tune batch and
   sample, keep CPU headroom for the gate [18].
 - **A refactor landed mid-run conflicts with every in-flight fix** → land structural
@@ -243,9 +251,9 @@ brackets refer to [references/run-2026-10-12.md](references/run-2026-10-12.md)).
   `exit=0`. It runs every gate path on a fake project: merge, forbidden edit, compat
   rejection, no-op, regression, conflict pair, doc conflict, non-UTF-8 diff, concrete
   signature not sharded, cluster recheck, skipped-not-regressed, effort ladder and
-  feature mode, park and unpark, new-suite baseline, stale-worktree sweep, `stop`, and
-  the federation round trip (publish, seed, ingest, rebase, conflict-as-rebase,
-  ledger export). On 2026-10-12, `selftest | tail && git commit` committed with 3
+  feature mode, park and unpark, new-suite baseline, stale-worktree sweep, `stop`, the
+  federation round trip (publish, seed, ingest, rebase, conflict-as-rebase, ledger
+  export), and a quick refresh that reverts a regression the gate sample missed. On 2026-10-12, `selftest | tail && git commit` committed with 3
   failures because the pipe hid the exit code. Gate commits on the real exit code.
 - **A run:** `$SWARM status` pass counts in `known now` rise between check-ins, and
   `git log --format=%s -5` on main shows swarm commits with `Swarm-Task:` trailers.

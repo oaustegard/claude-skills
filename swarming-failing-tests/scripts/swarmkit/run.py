@@ -467,8 +467,14 @@ def _loop(ctx: Ctx, a: argparse.Namespace) -> int:
                 merge.merge_batch(ctx, batch)
                 for r in batch:
                     remove_worktree(ctx, ctx.worktree(r["id"]))
-            if (read_json(ctx.state / "counters.json", {}) or {}).get("merges_since_full", 0) >= ctx.full_every:
+            cnt = read_json(ctx.state / "counters.json", {}) or {}
+            if cnt.get("merges_since_full", 0) >= ctx.full_every:
                 refresher = threading.Thread(target=merge.refresh, args=(ctx,), daemon=True)
+                refresher.start()
+                refreshing = True
+            elif ctx.quick_every and cnt.get("merges_since_quick", 0) >= ctx.quick_every:
+                # fast suites, bisected over these few merges only, while a revert still applies
+                refresher = threading.Thread(target=merge.quick_refresh, args=(ctx,), daemon=True)
                 refresher.start()
                 refreshing = True
         if (a.federate or a.sibling) and (time.time() - last_pub >= 60 or head(ctx) != pub_head):
@@ -556,6 +562,12 @@ def signals(ctx: Ctx, led: dict, items: list, max_load: float) -> list[str]:
     if rf:
         out.append(f"REFRESHING: {rf.get('what')} refresh running for {int((time.time() - rf['started']) / 60)} min; "
                    "merging is paused until it ends (a full refresh past ~1 h: raise gate.full_every)")
+    q = read_json(ctx.state / "quick.json") or {}
+    if q.get("unreverted"):
+        out.append(f"QUICK REGRESSIONS: the last quick refresh ({q['commit'][:10]}) left "
+                   f"{len(q['unreverted'])} regressions it could not revert ({', '.join(q['unreverted'][:3])}); "
+                   "no swarm culprit since the previous quick refresh, or the revert conflicted: read the log's "
+                   "`bisect`/`revert` lines and revert by hand while the culprit is recent")
     if finished > 2 * max(ctx.batch, 1) and not rf:
         out.append(f"GATE BACKLOG: {finished} finished workers await the gate; raise --batch, lower --sample, "
                    "or lower --concurrency so the gate gets CPU")
@@ -610,6 +622,20 @@ def conflict_hot_spots(led: dict) -> list[tuple[str, int]]:
     return c.most_common(5)
 
 
+def quick_line(ctx: Ctx, counters: dict) -> str:
+    """One status line for the tiered quick refresh: cadence, merges since, the last outcome."""
+    if not ctx.quick_every:
+        return "quick refresh: off (gate.quick_every = 0)"
+    out = (f"quick refresh: every {ctx.quick_every} merges ({', '.join(merge.quick_suites(ctx))}); "
+           f"{counters.get('merges_since_quick', 0)} merges since the last")
+    q = read_json(ctx.state / "quick.json")
+    if not q:
+        return out + "; none run yet"
+    return out + (f"; last {time.strftime('%H:%M', time.localtime(q['time']))} at {q['commit'][:10]}: "
+                  f"{q.get('pass', 0)}/{q.get('total', 0)} pass, {q.get('found', 0)} regressions, "
+                  f"{len(q.get('reverted') or [])} reverted, {len(q.get('unreverted') or [])} left")
+
+
 def status(ctx: Ctx) -> int:
     led = ledger(ctx)
     by = Counter(r["status"] for r in led.values())
@@ -636,6 +662,7 @@ def status(ctx: Ctx) -> int:
         print(f"last merge {int(time.time() - last)}s ago; {hour} merges in the last hour")
     c = read_json(ctx.state / "counters.json", {}) or {}
     print(f"merges since last full run: {c.get('merges_since_full', 0)}")
+    print(quick_line(ctx, c))
     hist = read_jsonl(ctx.state / "history.jsonl")
     if hist:
         suites = sorted({s for h in hist for s in h["suites"]})
