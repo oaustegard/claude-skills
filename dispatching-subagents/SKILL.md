@@ -2,7 +2,7 @@
 name: dispatching-subagents
 description: Chooses how to launch subagents from Claude Code (the Agent tool, a Workflow script, or headless claude -p children) and runs a headless fan-out from one background command. Use for "fan this out to 50 agents", "run these tasks in parallel", "launch subagents for each file", "should I spawn agents or write a workflow", "batch this through Haiku", "run claude -p in parallel", "dispatch a task list without the launches eating my context", or before any launch of more than a handful of subagents, where the launching itself is the cost. Covers the parent-turn cost of each mechanism, concurrency ceilings, what context and tools each child gets, effort control, output contracts, a cost ledger, and resume after interruption.
 metadata:
-  version: 0.1.1
+  version: 0.1.2
 ---
 
 # Dispatching subagents
@@ -16,7 +16,7 @@ launching costs the parent.
 | concurrency | 20, and a 21st launch errors (it does not queue) | min(16, vCPUs − 2): **2** on a 4-vCPU CCotw container | RAM-bound, about 210 MB per child: 40 ran clean on 4 vCPU / 15 GB |
 | child context | session prefix (~32–55K tokens), plus parent transcript chunks if a context hook is installed | session prefix | what you pass: about 1.2K tokens with `--system-prompt` and no tools, 39K with the default prompt |
 | tools | agent type's tools, the session's MCP connectors, hooks | as Agent | built-in tools named in `--tools`, write paths allowlisted; no MCP, hooks or skills |
-| effort | session's level, not settable | `agent(prompt, {effort})` | `--effort` (measured: low gave 0 thinking tokens, high gave 112–197) |
+| effort | session's level, or the `effort:` in a named agent type's frontmatter | `agent(prompt, {effort})` | `--effort` (measured: low gave 0 thinking tokens, high gave 112–197) |
 | needs user opt-in | no | **yes**: an explicit request, ultracode, or a skill that calls it | no |
 | cost visibility | none per child | none per child | `total_cost_usd` and tokens per child, in a ledger |
 | output check | yours | in-script | file plus JSON Schema, or CLI-validated `--json-schema` |
