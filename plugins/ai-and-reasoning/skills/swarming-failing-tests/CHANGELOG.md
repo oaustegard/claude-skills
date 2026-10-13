@@ -2,6 +2,18 @@
 
 All notable changes to the `swarming-failing-tests` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.4.1] - 2026-10-13
+
+### Other
+
+- swarming-failing-tests 0.4.1: LAUNCH lines name any effort level
+
+## [0.4.1] - 2026-10-13
+
+### Other
+
+- swarming-failing-tests 0.4.1: LAUNCH log lines name any effort (xhigh, max), not only high
+
 ## [0.4.0] - 2026-10-13
 
 ### Other

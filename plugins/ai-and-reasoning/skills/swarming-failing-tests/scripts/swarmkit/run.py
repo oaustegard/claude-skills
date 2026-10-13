@@ -201,7 +201,7 @@ def launch(ctx: Ctx, a: argparse.Namespace, item: workqueue.WorkItem, seq: int) 
            "rebase_of": rebase_of, "effort": effort}
     ledger_put(ctx, rec)
     log(f"LAUNCH {tid} [{item.priority}] {'FEATURE ' if feature else ''}{'REBASE ' if rebase_of else ''}"
-        f"{'HIGH ' if effort == 'high' else ''}{item.key}  tests: {', '.join(item.tests)}")
+        f"{effort.upper() + ' ' if effort else ''}{item.key}  tests: {', '.join(item.tests)}")
     return {"rec": rec, "proc": p}
 
 
