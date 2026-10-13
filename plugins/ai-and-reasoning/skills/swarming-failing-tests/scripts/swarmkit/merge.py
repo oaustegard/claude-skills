@@ -215,6 +215,22 @@ def gains(ctx: Ctx, res: dict, targets: list[str]) -> list[str]:
     return [t for t in targets if tr.is_pass(res.get(t)) and not tr.is_pass(k.get(t))]
 
 
+def credit_gain(ctx: Ctx, res: dict, targets: list[str]) -> float | None:
+    """Rise of gate.partial_credit summed over the targets with a known value, or None when off.
+    Diagnosed 2026-10-13 (swarm-decomp): 125 'partial' workers, 39% of spend, were discarded although
+    103 of them were blocked only on a callee another cluster had not written yet."""
+    field = ctx.gate.get("partial_credit")
+    if not field:
+        return None
+    k = tr.known(ctx)
+    total = 0.0
+    for t in targets:
+        before, after = (k.get(t) or {}).get(field), (res.get(t) or {}).get(field)
+        if isinstance(before, (int, float)) and isinstance(after, (int, float)):
+            total += after - before
+    return total
+
+
 # ---------------------------------------------------------------- outcomes
 
 def reject(ctx: Ctx, rec: dict, reason: str) -> None:
@@ -232,7 +248,8 @@ def accept(ctx: Ctx, rec: dict, sha: str, parent: str, fixed: list[str]) -> None
     ledger_put(ctx, rec)
     append_jsonl(ctx.state / "merges.jsonl", {"commit": sha, "parent": parent, "task": rec["id"],
                                               "fixed": fixed, "time": time.time()})
-    log(f"MERGE  {rec['id']} -> {sha[:10]} fixed {len(fixed)}: {', '.join(fixed[:4])}")
+    log(f"MERGE  {rec['id']} -> {sha[:10]} fixed {len(fixed)}: {', '.join(fixed[:4])}"
+        + (f" (partial credit {rec['partial_gain']:+.3f})" if not fixed and rec.get("partial_gain") else ""))
 
 
 def bump_merge_counter(ctx: Ctx, n: int) -> int:
@@ -302,9 +319,17 @@ def merge_batch(ctx: Ctx, recs: list[dict]) -> int:
             return merged
         no_gain = [(r, p) for r, p, _ in stacked
                    if not r.get("ingest") and not gains(ctx, res, r.get("targets") or r["tests"])]
+        credited = []
+        for r, p in no_gain:      # partial credit: closer on its targets, nothing regressed
+            cg = credit_gain(ctx, res, r.get("targets") or r["tests"])
+            if cg is not None and cg >= ctx.gate.get("partial_min_gain", 0.05):
+                r["partial_gain"] = round(cg, 4)
+                credited.append((r, p))
+        no_gain = [x for x in no_gain if x not in credited]
         if no_gain:
             for r, _ in no_gain:
-                reject(ctx, r, "no target test flipped to PASS")
+                cg = credit_gain(ctx, res, r.get("targets") or r["tests"])
+                reject(ctx, r, "no target test flipped to PASS" + (f" (credit {cg:+.3f})" if cg is not None else ""))
             pending = [(r, p) for r, p, _ in stacked if (r, p) not in no_gain]
             continue
         fixed = {}

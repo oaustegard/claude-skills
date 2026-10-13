@@ -2,7 +2,7 @@
 name: swarming-failing-tests
 description: Runs a long swarm of hundreds to thousands of cheap headless coding workers that drive a large failing-test backlog to green. Failures are clustered by signature, each worker fixes one cluster in its own git worktree, a serial no-regression merge gate lands the fixes, the loop resumes across restarts for hours, and it federates across sibling sessions over git branches when one container's CPU is not enough. Use for "fix these thousands of failing tests with a Haiku swarm", "drive the test suite to green with hundreds of agents", "build this compiler or interpreter against a conformance suite", "launch, relaunch or check in on the swarm loop", "the swarm is stuck, idle or rejecting everything", "parallel agents fixing tests keep hitting merge conflicts and regressions", "add sibling containers to the swarm", or "compare models on the tail the swarm could not fix". Ships the harness, a per-project TOML config, a fake-worker selftest, check-in signals and the 2026-10-12 haiku-cc failure catalogue.
 metadata:
-  version: 0.2.1
+  version: 0.3.0
 ---
 
 # Swarming failing tests
@@ -193,6 +193,17 @@ The ladder the harness runs per signature: attempt 1 at the configured effort; a
 real failure (a lost merge race is not one) at `high`; after `feature_after` failures a
 single feature-mode worker with a bigger budget; a conflicted fix comes back as a rebase
 task. Rates and prices change: check `agent-routing` before reusing these numbers.
+
+## Partial credit
+
+When a test can get measurably closer without passing (a byte-match fraction, a count of
+matching outputs) and failures depend on each other, a strict flip gate throws work away.
+On 2026-10-13 (swarm-decomp, matching decompilation) 125 `partial` workers, 39% of spend,
+were discarded; 103 of their notes named a callee another cluster had not written yet.
+Have the runner emit the measure per test (`frac`), set `gate.partial_credit = "frac"`, and
+refresh. The gate then merges a candidate that raises the summed measure of its targets by
+`gate.partial_min_gain` with zero regressions, and the next worker starts from that code.
+Leave it off for pass/fail-only suites: there it only merges noise.
 
 ## Earned exceptions
 

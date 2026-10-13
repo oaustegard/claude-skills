@@ -133,6 +133,9 @@ def record(ctx: Ctx, commit: str, results: dict, replace_known: bool = False) ->
             continue              # the runner broke: we learned nothing about this test
         k[t] = {"status": r.get("status"), "reason": r.get("reason", ""), "stage": r.get("stage", ""),
                 "commit": commit}
+        credit = ctx.gate.get("partial_credit")
+        if credit and isinstance(r.get(credit), (int, float)):
+            k[t][credit] = r[credit]
     write_json(ctx.state / "known.json", k)
 
 

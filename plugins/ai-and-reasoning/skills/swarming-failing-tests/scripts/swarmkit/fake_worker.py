@@ -100,11 +100,18 @@ def main(argv: list[str] | None = None) -> int:
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text("cheating\n")
         changed.append(str(p.relative_to(a.cwd)))
+    if mode == "partial":     # closer, no test flips: the runner reports frac 0.5 for these tests
+        pdir = a.cwd / code / "_fake_partial"
+        pdir.mkdir(parents=True, exist_ok=True)
+        for t in tests:
+            p = pdir / t.replace("/", "__")
+            p.write_text("closer\n")
+            changed.append(str(p.relative_to(a.cwd)))
     scratch = re.search(r"^Scratch dir: (\S+)", task["prompt"], re.MULTILINE)
     if scratch:    # leave scratch behind like a real worker does; reap must delete it
         Path(scratch.group(1)).mkdir(parents=True, exist_ok=True)
         (Path(scratch.group(1)) / "t.c").write_text("scratch\n")
-    status = {"noop": "failed", "stale": "stale"}.get(mode, "fixed")
+    status = {"noop": "failed", "stale": "stale", "partial": "partial"}.get(mode, "fixed")
     out = {"status": status, "test_ids_fixed": tests if status == "fixed" else [],
            "files_changed": changed, "root_cause": f"fake {mode}: {', '.join(tests)}"[:72],
            "notes": f"fake worker mode={mode}"}

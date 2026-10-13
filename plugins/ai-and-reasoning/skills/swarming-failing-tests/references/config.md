@@ -67,6 +67,8 @@ Files outside `code`/`allowed` are silently left out of the candidate.
 | `recheck_max` | 1500 | cluster members re-run after each merge |
 | `max_main_races` | 3 | re-gates when main moves mid-gate, then "main kept moving" |
 | `coauthor` | Haiku 5.5 | `Co-Authored-By:` trailer on swarm commits; `""` for none |
+| `partial_credit` | `""` | name of a numeric 0..1 field in the runner's per-test record (closer = higher). Set: `partial` workers are gated, and a candidate that flips no target merges when the field summed over its targets rises by at least `partial_min_gain` with zero regressions. Refresh after turning it on, so known.json carries the field |
+| `partial_min_gain` | 0.05 | smallest summed rise that counts |
 
 ## [git], [worker], [run], [federation], [compare]
 | key | default | meaning |
