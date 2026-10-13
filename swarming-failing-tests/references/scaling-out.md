@@ -49,9 +49,12 @@ One git repo carries everything, through branches only:
 
 Prerequisites, checked before launch:
 - **The push-policy guard must allow the namespace.** claude-workspace's
-  `scripts/guards.py` denies pushes outside `_ALLOWED_PREFIXES` (on 2026-10-12 it held
-  `("mirror/", "hcc/")`; `hcc/` was added that day so the transport could run). Use an
-  allowed prefix in `federation.prefix`, or ask Oskar to add yours.
+  `scripts/guards.py` denies pushes outside the namespaces in `.claude/push-namespaces.json`
+  (each entry quotes Oskar's approval; `hcc/` was approved on 2026-10-12, mid-run, while the
+  transport waited). Use an approved prefix in `federation.prefix`, or get Oskar's approval
+  for yours and add the entry before launch. Then `add_repo` the transport with push and run
+  `python3 scripts/push_namespaces.py check --prefix <prefix>` in claude-workspace: it pushes
+  a fixed empty commit to `<prefix>probe` and exits non-zero if the push does not go through.
 - **Branch deletes are refused** from a session. The design never deletes: every
   branch is append-only or fast-forward, and a re-stacked sibling branch gets a
   bookkeeping merge instead of a force-push. Old experiment branches stay.
