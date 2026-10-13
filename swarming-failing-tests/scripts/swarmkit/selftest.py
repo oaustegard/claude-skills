@@ -375,6 +375,12 @@ def main(argv: list[str] | None = None) -> int:
     new = [r for k, r in records(root).items() if k not in before]
     expect("partial credit: no rise in frac -> not merged",
            bool(new) and new[0]["status"] != "merged", out)
+    from swarmkit.run import pick_effort
+    lad = ["", "high", "xhigh", "max"]
+    picks = [pick_effort(lad, n, False, "xhigh", "") for n in range(5)] + [pick_effort(lad, 0, True, "xhigh", ""),
+             pick_effort(lad, 3, True, "xhigh", ""), pick_effort(["", "high"], 0, True, "high", "")]
+    expect("effort ladder climbs past high to xhigh and max; feature work never below feature_effort",
+           picks == ["", "high", "xhigh", "max", "max", "xhigh", "max", "high"], str(picks))
     from swarmkit.run import projected_spend
     led = {"a": {"status": "merged", "cost_usd": 0.10, "t_done": 1}, "b": {"status": "failed", "cost_usd": 0.30, "t_done": 2},
            "c": {"status": "merged", "cost_usd": 2.0, "t_done": 3, "feature": True},

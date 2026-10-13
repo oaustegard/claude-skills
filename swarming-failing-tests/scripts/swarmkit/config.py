@@ -94,6 +94,10 @@ DEFAULTS: dict = {
         "schema": "",                 # "" = the bundled worker_result.schema.json
         "model": "haiku",
         "effort": "",                 # first attempt; later attempts and feature work use "high"
+        # effort by the number of real failures the item's tests have had (all time, so an unpark does not
+        # send a known-hard test back to default effort); "" = `effort`. The CLI takes low/medium/high/xhigh/max.
+        "effort_ladder": ["", "high"],
+        "feature_effort": "high",     # floor for feature-mode workers
         "timeout": 1500,
         "per_task_usd": 2.0,
         "feature_timeout": 3600,
