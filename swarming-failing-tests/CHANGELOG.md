@@ -6,6 +6,12 @@ All notable changes to the `swarming-failing-tests` skill are documented in this
 
 ### Other
 
+- swarming-failing-tests 0.2.0, dispatching-subagents 0.2.0: worker deny rules, one_stage_ok
+
+## [0.2.0] - 2026-10-13
+
+### Other
+
 - swarming-failing-tests 0.2.0: `worker.deny` (claude --disallowedTools) and `tests.one_stage_ok`, from the swarm-decomp run
 
 ## [0.1.6] - 2026-10-13
