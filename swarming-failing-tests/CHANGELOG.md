@@ -6,6 +6,12 @@ All notable changes to the `swarming-failing-tests` skill are documented in this
 
 ### Other
 
+- swarming-failing-tests 0.3.1: --max-usd counts in-flight workers; decomp run catalogue
+
+## [0.3.1] - 2026-10-13
+
+### Other
+
 - swarming-failing-tests 0.3.1: `--max-usd` counts in-flight workers (`run.projected_spend`); references/run-2026-10-13.md (decompilation run catalogue)
 
 ## [0.3.0] - 2026-10-13
