@@ -257,6 +257,20 @@ def spent(ctx: Ctx) -> float:
     return sum(r.get("cost_usd") or 0 for r in ledger(ctx).values())
 
 
+def projected_spend(led: dict) -> float:
+    """Spend so far plus what the workers still running will cost, at the mean cost of the last 50
+    finished ones (feature workers priced as feature workers). `--max-usd` used to stop launches only
+    once spent: in-flight workers then overran a $36 cap by $5 at concurrency 16 (2026-10-13)."""
+    done = sorted((r for r in led.values() if r.get("status") not in ("launched",) and r.get("cost_usd")),
+                  key=lambda r: r.get("t_done") or 0)[-50:]
+    def mean(rs):
+        return sum(r["cost_usd"] for r in rs) / len(rs) if rs else 0.0
+    small, feat = mean([r for r in done if not r.get("feature")]), mean([r for r in done if r.get("feature")])
+    live = [r for r in led.values() if r.get("status") == "launched"]
+    return (sum(r.get("cost_usd") or 0 for r in led.values())
+            + sum(feat or small if r.get("feature") else small for r in live))
+
+
 # ---------------------------------------------------------------- loop
 
 def preflight(ctx: Ctx, a: argparse.Namespace) -> list[str]:
@@ -497,8 +511,8 @@ def _loop(ctx: Ctx, a: argparse.Namespace) -> int:
                 fed.hub_publish(ctx) if a.federate else fed.publish_cand(ctx, a.sibling)
             except Exception as e:
                 log(f"fed    publish error: {e}")
-        if a.max_usd and spent(ctx) >= a.max_usd and not stop_launch:
-            log(f"spend ${spent(ctx):.2f} reached --max-usd; no more launches")
+        if a.max_usd and projected_spend(ledger(ctx)) >= a.max_usd and not stop_launch:
+            log(f"spend ${spent(ctx):.2f} plus in-flight workers reach --max-usd; no more launches")
             stop_launch = True
         if a.max_workers and launched >= a.max_workers:
             stop_launch = True
