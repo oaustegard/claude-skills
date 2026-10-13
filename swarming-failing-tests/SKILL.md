@@ -2,7 +2,7 @@
 name: swarming-failing-tests
 description: Runs a long swarm of hundreds to thousands of cheap headless coding workers that drive a large failing-test backlog to green. Failures are clustered by signature, each worker fixes one cluster in its own git worktree, a serial no-regression merge gate lands the fixes, the loop resumes across restarts for hours, and it federates across sibling sessions over git branches when one container's CPU is not enough. Use for "fix these thousands of failing tests with a Haiku swarm", "drive the test suite to green with hundreds of agents", "build this compiler or interpreter against a conformance suite", "launch, relaunch or check in on the swarm loop", "the swarm is stuck, idle or rejecting everything", "parallel agents fixing tests keep hitting merge conflicts and regressions", "add sibling containers to the swarm", or "compare models on the tail the swarm could not fix". Ships the harness, a per-project TOML config, a fake-worker selftest, check-in signals and the 2026-10-12 haiku-cc failure catalogue.
 metadata:
-  version: 0.1.6
+  version: 0.2.0
 ---
 
 # Swarming failing tests
@@ -79,7 +79,8 @@ Do every item before the first real launch. Each one cost hours when missed.
 1. **Config.** Copy [assets/swarm.example.toml](assets/swarm.example.toml) to
    `<root>/swarm.toml` and fill `tests.command`, `paths.code/allowed/forbidden`,
    `queue.ladder`, `gate.always_suites/cheap_suites`, `gate.compat_command`,
-   `worker.system_prompt`, `worker.repro_command`. Every key:
+   `worker.system_prompt`, `worker.repro_command`, and `worker.deny` for whatever the
+   workers must never run (network fetches when the answer is on the internet). Every key:
    [references/config.md](references/config.md). A complete working config for haiku-cc
    is [assets/haiku-cc.toml](assets/haiku-cc.toml).
 2. **Worker prompt.** Start from [assets/worker_prompt.template.md](assets/worker_prompt.template.md).
@@ -88,7 +89,9 @@ Do every item before the first real launch. Each one cost hours when missed.
 3. **Check the runner's output:** `$SWARM doctor --run-suite <a suite>`. It exits 1 on
    a contract violation and prints WARN lines for a stage label on over 90% of failures,
    truncated located reasons, or signatures that do not cluster. Fix the runner before
-   launch: on 2026-10-12 a broken stage regex labelled every failure `parse`.
+   launch: on 2026-10-12 a broken stage regex labelled every failure `parse`. A stage
+   that holds nearly every failure by design (decompilation: all `missing` at the start,
+   nearly all `match` later) goes in `tests.one_stage_ok`.
 4. **Selftest the harness** (no model calls, about 3 minutes):
    ```bash
    $SWARM selftest; echo "selftest exit=$?"

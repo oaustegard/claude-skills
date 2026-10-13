@@ -158,6 +158,7 @@ def launch(ctx: Ctx, a: argparse.Namespace, item: workqueue.WorkItem, seq: int) 
     sp = resolve(ctx.root, w["system_prompt"]) if w["system_prompt"] else None
     task = {"id": tid, "prompt": prompt, "out": str(out), "model": a.model, "tools": w["tools"],
             "allow": [f"Edit(/{wt}/**)", f"Edit(/{scratch}/**)", *w["allow"]],
+            "deny": list(w["deny"]),
             "system_prompt": sp.read_text() if sp else "", "timeout": timeout,
             "fake": {"code": ctx.paths["code"][0], "forbidden": (ctx.paths["forbidden"] or ["tests/"])[0],
                      "allowed": (ctx.paths["allowed"] or ["docs/NOTES.md"])[0]}}
@@ -625,7 +626,8 @@ def signals(ctx: Ctx, led: dict, items: list, max_load: float) -> list[str]:
                        "else `refresh --only-suites`)")
     stages = Counter(r.get("stage") for r in k.values() if not tr.is_pass(r) and r.get("status") != "SKIP")
     total = sum(stages.values())
-    if total >= 50 and stages.most_common(1)[0][1] > 0.9 * total:
+    if (total >= 50 and stages.most_common(1)[0][1] > 0.9 * total
+            and stages.most_common(1)[0][0] not in (ctx.tests.get("one_stage_ok") or [])):
         out.append(f"ONE STAGE: {stages.most_common(1)[0][1]}/{total} failures carry stage "
                    f"'{stages.most_common(1)[0][0]}'; the runner's stage labelling is probably broken (`doctor`)")
     return out

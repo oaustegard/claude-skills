@@ -42,7 +42,11 @@ def check(ctx: Ctx, results: dict) -> tuple[list[str], list[str]]:
     stages = Counter(r.get("stage") or "" for r in fails.values())
     top_stage, n_top = stages.most_common(1)[0]
     print("failure stages: " + ", ".join(f"{k or '<empty>'} {v}" for k, v in stages.most_common(8)))
-    if len(fails) >= 20 and n_top > 0.9 * len(fails):
+    # A stage may dominate by design: a decompilation run starts with a "missing" stub per function and
+    # ends with nearly every failure at "match", the category living in the reason (2026-10-13).
+    if top_stage in (ctx.tests.get("one_stage_ok") or []):
+        print(f"stage '{top_stage}' may hold most failures (tests.one_stage_ok)")
+    elif len(fails) >= 20 and n_top > 0.9 * len(fails):
         warns.append(f"{n_top}/{len(fails)} failures have stage '{top_stage}': check the runner's stage "
                      "detection on a few by hand (a broken regex labelled everything 'parse' on 2026-10-12)")
     empty = sum(1 for r in fails.values() if not (r.get("reason") or "").strip())

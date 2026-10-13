@@ -48,6 +48,8 @@ DEFAULTS: dict = {
         "link_untracked": ["tests/suites", "tests/tools"],  # gitignored entries symlinked into worktrees
         "source_root": "tests/suites",          # <source_root>/<suite>/<rel>: sizes rank representatives
         "quarantine": [],                       # globs: flaky tests, never gated as regressions nor queued
+        "one_stage_ok": [],                     # stages allowed to hold >90% of failures (decomp: all "missing"
+                                                # stubs at the start, nearly all "match" later): no ONE STAGE warning
     },
     "paths": {
         "code": ["src/"],          # a candidate must change something here; must apply cleanly
@@ -92,6 +94,8 @@ DEFAULTS: dict = {
         "feature_usd": 5.0,
         "tools": "Read,Grep,Glob,Edit,Write,Bash",
         "allow": ["Edit(//tmp/**)", "Bash"],      # plus Edit(/<worktree>/**), always
+        "deny": [],                               # rules refused even when allowed (claude --disallowedTools),
+                                                  # e.g. "Bash(curl:*)" to keep workers off the network
         "scratch": "/tmp/{id}",                   # deleted when the worker is reaped
         "repro_command": "",                      # per representative: {suite} {test}
         "task_footer": "Follow the procedure in your instructions.",

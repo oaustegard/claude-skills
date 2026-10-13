@@ -24,6 +24,7 @@ error. Paths are relative to the project root. `.json` works too.
 | `link_untracked` | `["tests/suites", "tests/tools"]` | gitignored entries symlinked into worktrees |
 | `source_root` | `tests/suites` | `<source_root>/<suite>/<rel>` sizes rank representatives (smallest first) |
 | `quarantine` | `[]` | globs of flaky tests: never a regression, never queued |
+| `one_stage_ok` | `[]` | stages allowed to hold over 90% of failures: no `ONE STAGE` signal or doctor WARN for them (decompilation starts all `missing` and ends nearly all `match`) |
 
 **Output contract.** `{test_id: {status, reason, stage}}`. `test_id` = `<suite>/<rest>`.
 `PASS` passes; `SKIP` is ignored; anything else is failing. A requested id missing from
@@ -77,6 +78,7 @@ Files outside `code`/`allowed` are silently left out of the candidate.
 | `worker.timeout`, `per_task_usd` | 1500, 2.0 | |
 | `worker.feature_timeout`, `feature_usd` | 3600, 5.0 | feature-mode budget |
 | `worker.tools`, `allow` | `Read,Grep,Glob,Edit,Write,Bash`, `["Edit(//tmp/**)", "Bash"]` | plus `Edit(/<worktree>/**)` and the scratch dir, always |
+| `worker.deny` | `[]` | rules refused even when allowed (`claude --disallowedTools`), e.g. `"Bash(curl:*)"` to keep Bash-enabled workers off the network |
 | `worker.scratch` | `/tmp/{id}` | deleted when the worker is reaped |
 | `worker.repro_command` | `""` | per representative, `{suite}` `{test}` |
 | `worker.task_footer`, `feature_mode` | generic | text appended to every task / to feature tasks (`{scratch}`) |
