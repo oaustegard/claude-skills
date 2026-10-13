@@ -6,6 +6,12 @@ All notable changes to the `swarming-failing-tests` skill are documented in this
 
 ### Other
 
+- swarming-failing-tests 0.4.0: configurable effort ladder up to xhigh and max
+
+## [0.4.0] - 2026-10-13
+
+### Other
+
 - swarming-failing-tests 0.4.0: configurable effort ladder (`worker.effort_ladder`, `worker.feature_effort`) reaching xhigh and max; rung counted per test over all time
 
 ## [0.3.1] - 2026-10-13
