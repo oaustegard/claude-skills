@@ -325,6 +325,18 @@ def main(argv: list[str] | None = None) -> int:
 
     federation(tmp, root, wt, expect)
     quick(root, wt, expect)
+    # stale: main already passes a test the record still marks failing; the worker says "stale" and
+    # the loop re-measures the cluster at main (2026-10-12: 104 such tests, 25 workers spent on them)
+    stale_t = sorted(t for t, v in known(root).items() if v["status"] != "PASS" and t.startswith("gcc-torture/"))[-1]
+    (root / "src" / "_fake_fixes" / stale_t.replace("/", "__")).write_text("fixed\n")
+    sh(root, "git", "add", "-A")
+    sh(root, "git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "fix outside the swarm")
+    cli(root, "unpark")
+    before = set(records(root))
+    out = run(root, wt, "--fake-mode", "stale", "--only", stale_t, "--max-workers", "1", "--concurrency", "1")
+    new = [r for k, r in records(root).items() if k not in before]
+    expect("worker reports stale -> its cluster is re-measured at main, test now PASS, no attempt counted",
+           bool(new) and new[0]["status"] == "stale" and known(root).get(stale_t, {}).get("status") == "PASS", out)
     cf = root / ".swarm" / "state" / "counters.json"
     c = json.loads(cf.read_text()) if cf.exists() else {}
     c["merges_since_full"] = 3                  # merges the gate checked only against its sample

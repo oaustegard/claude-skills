@@ -2,7 +2,7 @@
 name: swarming-failing-tests
 description: Runs a long swarm of hundreds to thousands of cheap headless coding workers that drive a large failing-test backlog to green. Failures are clustered by signature, each worker fixes one cluster in its own git worktree, a serial no-regression merge gate lands the fixes, the loop resumes across restarts for hours, and it federates across sibling sessions over git branches when one container's CPU is not enough. Use for "fix these thousands of failing tests with a Haiku swarm", "drive the test suite to green with hundreds of agents", "build this compiler or interpreter against a conformance suite", "launch, relaunch or check in on the swarm loop", "the swarm is stuck, idle or rejecting everything", "parallel agents fixing tests keep hitting merge conflicts and regressions", "add sibling containers to the swarm", or "compare models on the tail the swarm could not fix". Ships the harness, a per-project TOML config, a fake-worker selftest, check-in signals and the 2026-10-12 haiku-cc failure catalogue.
 metadata:
-  version: 0.1.4
+  version: 0.1.5
 ---
 
 # Swarming failing tests
@@ -244,6 +244,12 @@ brackets refer to [references/run-2026-10-12.md](references/run-2026-10-12.md)).
   (2026-10-12: the final measurement found late regressions in several suites; TinyCC fell from 333 to 35
   passing) → leave `gate.idle_refresh` on: the loop refreshes before it idles, and the
   regressions it cannot revert come back as work [46].
+- **Workers report their cluster already passes** → the record is stale; they return
+  `stale` and the loop re-measures the cluster at main [48].
+- **A full measurement takes hours on the hub** → fan it out across sibling containers
+  at one pinned commit, pinned after the last fix; never measure serially and restart [49].
+- **The tail is a handful of clusters and each gate rebuilds whole programs** → stop the
+  loop; one Agent-tool worker per cluster in a worktree, then one combined gate [50].
 - **The project's unit selftests break mid-run** (2026-10-12: 8 of 710) → the gate runs
   only the suites; put the fast unit tests in `gate.compat_command` [47].
 - **Gate throughput flat while workers finish** → `GATE BACKLOG`; tune batch and

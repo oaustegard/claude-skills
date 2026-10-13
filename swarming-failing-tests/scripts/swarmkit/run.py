@@ -219,6 +219,8 @@ def reap(ctx: Ctx, rec: dict) -> dict:
     if not rec["result"]:
         why = rows[-1].get("reason") if rows else "runner produced no ledger"
         rec.update(status="failed", reason=f"no result: {why}")
+    elif rec["result"].get("status") == "stale":
+        rec.update(status="stale", reason="worker found its tests already pass at its base")
     elif rec["result"].get("status") != "fixed":
         rec.update(status="failed", reason=f"worker reported {rec['result'].get('status')}")
     else:
@@ -462,6 +464,15 @@ def _loop(ctx: Ctx, a: argparse.Namespace) -> int:
                 refresher.start()
                 refreshing = True
         if not refreshing:                    # the gate tree and known.json belong to refresh
+            stale = [r for r in ledger(ctx).values() if r["status"] == "stale" and not r.get("rechecked")]
+            if stale:
+                # a worker found its targets already passing: the record is out of date for that
+                # cluster (2026-10-12: 104 tests recorded at old commits); re-measure it at main
+                main = head(ctx)
+                merge.recheck_clusters(ctx, merge.prepare_gate(ctx, main), main, stale)
+                for r in stale:
+                    r["rechecked"] = main
+                    ledger_put(ctx, r)
             for i in range(0, len(finished), ctx.batch):
                 batch = finished[i:i + ctx.batch]
                 merge.merge_batch(ctx, batch)

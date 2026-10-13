@@ -104,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
     if scratch:    # leave scratch behind like a real worker does; reap must delete it
         Path(scratch.group(1)).mkdir(parents=True, exist_ok=True)
         (Path(scratch.group(1)) / "t.c").write_text("scratch\n")
-    status = "failed" if mode == "noop" else "fixed"
+    status = {"noop": "failed", "stale": "stale"}.get(mode, "fixed")
     out = {"status": status, "test_ids_fixed": tests if status == "fixed" else [],
            "files_changed": changed, "root_cause": f"fake {mode}: {', '.join(tests)}"[:72],
            "notes": f"fake worker mode={mode}"}
