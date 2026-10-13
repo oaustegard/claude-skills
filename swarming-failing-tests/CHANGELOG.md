@@ -6,6 +6,12 @@ All notable changes to the `swarming-failing-tests` skill are documented in this
 
 ### Other
 
+- swarming-failing-tests 0.2.1, dispatching-subagents 0.2.1: lenient result JSON
+
+## [0.2.1] - 2026-10-13
+
+### Other
+
 - swarming-failing-tests 0.2.1: read worker result JSON with strict=False (a raw newline in notes discarded finished work)
 
 ## [0.2.0] - 2026-10-13
