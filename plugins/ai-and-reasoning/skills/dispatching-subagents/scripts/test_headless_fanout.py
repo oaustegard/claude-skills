@@ -115,6 +115,21 @@ def test_child_flags_and_env() -> None:
         assert "MY_API_TOKEN" not in c["env"] and "HARMLESS" in c["env"]
 
 
+def test_deny_rules_reach_the_child() -> None:
+    """A task's "deny" rules become --disallowedTools (2026-10-13 swarm-decomp: workers allowed Bash
+    had to be kept off the network, where an allowlist of Bash prefixes was too narrow to work in)."""
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        env = setup(tmp)
+        out = tmp / "o.json"
+        run(tmp, env, [{"id": "a", "prompt": "WRITE OUT={out}", "out": str(out), "tools": "Read,Bash",
+                        "allow": ["Bash"], "deny": ["Bash(curl:*)", "WebFetch"]}])
+        argv = calls(tmp)[0]["argv"]
+        i = argv.index("--disallowedTools")
+        assert argv[i + 1:i + 3] == ["Bash(curl:*)", "WebFetch"], argv
+        assert argv.index("--allowedTools") < i
+
+
 def test_structured_output_and_errors() -> None:
     with tempfile.TemporaryDirectory() as d:
         tmp = Path(d)

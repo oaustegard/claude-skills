@@ -22,10 +22,10 @@ authenticated by the host (no ANTHROPIC_API_KEY), with:
 
 TASKS.jsonl has one task per line: {"id", "prompt"} plus optional "out" (an
 absolute path the child writes JSON to), "model", "tools", "allow" (extra
-permission rules), "system_prompt", "json_schema" (structured output with no
-file) and "timeout". This is the same {"id", "prompt", "out"} shape that
-claude-workspace scripts/fanout.py dispatches over the Agent tool, so one task
-file runs on either engine. `{out}` in a prompt is replaced with the out path.
+permission rules), "deny" (rules refused even when allowed), "system_prompt",
+"json_schema" (structured output with no file) and "timeout". This is the same
+{"id", "prompt", "out"} shape that claude-workspace scripts/fanout.py
+dispatches over the Agent tool, so one task file runs on either engine. `{out}` in a prompt is replaced with the out path.
 
 A task is done only when its evidence checks out. With "out", the file must
 parse as JSON and satisfy --schema. With "json_schema", structured_output must
@@ -140,6 +140,9 @@ def command(t: dict, a: argparse.Namespace) -> list[str]:
            "--tools", tools, "--permission-mode", "dontAsk"]
     if allow:
         cmd += ["--allowedTools", *allow]
+    deny = list(getattr(a, "deny", None) or []) + list(t.get("deny", []))
+    if deny:   # deny wins over allow: e.g. Bash allowed, Bash(curl:*) refused
+        cmd += ["--disallowedTools", *deny]
     if t.get("system_prompt"):
         cmd += ["--system-prompt", t["system_prompt"]]
     if t.get("json_schema"):
@@ -282,6 +285,7 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--tools", default="Read,Grep,Glob,Write",
                    help='built-in tools the child gets; "" for none')
     r.add_argument("--allow", nargs="*", default=[], help='extra permission rules, e.g. "Bash(git log:*)"')
+    r.add_argument("--deny", nargs="*", default=[], help='rules refused even when allowed, e.g. "Bash(curl:*)"')
     r.add_argument("--cwd", help="child working directory (default: --work; keep it outside any repo with hooks)")
     r.add_argument("--keep-env", nargs="*", default=[], help="secret-named variables to pass through")
     r.add_argument("--retries", type=int, default=1)

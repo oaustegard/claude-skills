@@ -60,6 +60,7 @@ CONFIG = '''project = "selftest"
 [tests]
 command = ["{py}", "tests/run.py", "--suite", "{{suites}}", "--jobs", "{{jobs}}", "--json", "{{out}}", "--quiet"]
 link_untracked = []
+one_stage_ok = ["missing"]
 [paths]
 code = ["src/"]
 allowed = ["docs/NOTES.md"]
@@ -78,6 +79,7 @@ author_email = "selftest@example.invalid"
 [worker]
 scratch = "{scratch}/{{id}}"
 repro_command = "python3 tests/run.py --suite {{suite}} --filter '{{test}}' --jobs 1"
+deny = ["Bash(curl:*)", "WebFetch"]
 [run]
 min_free_gb = 0.2
 [federation]
@@ -249,9 +251,19 @@ def main(argv: list[str] | None = None) -> int:
 
     p = cli(root, "doctor", "--run-suite", "gcc-torture")
     expect("doctor accepts the test command's JSON contract", p.returncode == 0 and "doctor: ok" in p.stdout, p.stdout + p.stderr)
+    stubs = tmp / "stubs.json"
+    stubs.write_text(json.dumps({f"tu{i % 4}/f{i}": {"status": "FAIL", "stage": "missing",
+                                                      "reason": f"stub: not yet written in tu{i % 4}"} for i in range(60)}))
+    p = cli(root, "doctor", str(stubs))
+    expect("doctor does not flag a stage that tests.one_stage_ok says may hold every failure "
+           "(2026-10-13 swarm-decomp: one 'missing' stub per function)",
+           p.returncode == 0 and "WARN" not in p.stdout and "one_stage_ok" in p.stdout, p.stdout + p.stderr)
 
     out = run(root, wt, "--max-workers", "2", "--concurrency", "2")
     expect("fix -> merged", st(1) == "merged" and st(2) == "merged", out)
+    task = json.loads((root / ".swarm" / "state" / "tasks" / "w00001" / "task.jsonl").read_text().splitlines()[0])
+    expect("worker.deny reaches the task (2026-10-13 swarm-decomp: workers allowed Bash kept off the network)",
+           task.get("deny") == ["Bash(curl:*)", "WebFetch"], json.dumps(task)[:500])
     scraps = list(scratch.glob("w*")) if scratch.exists() else []
     expect("worker scratch deleted on reap (2026-10-12: 14 GB of /tmp filled the disk)", not scraps, out)
     out = run(root, wt, "--fake-mode", "tests", "--max-workers", "1", "--concurrency", "1")

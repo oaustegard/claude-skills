@@ -2,7 +2,7 @@
 name: dispatching-subagents
 description: Chooses how to launch subagents from Claude Code (the Agent tool, a Workflow script, or headless claude -p children) and runs a headless fan-out from one background command. Use for "fan this out to 50 agents", "run these tasks in parallel", "launch subagents for each file", "should I spawn agents or write a workflow", "batch this through Haiku", "run claude -p in parallel", "dispatch a task list without the launches eating my context", or before any launch of more than a handful of subagents, where the launching itself is the cost. Covers the parent-turn cost of each mechanism, concurrency ceilings, what context and tools each child gets, effort control, output contracts, a cost ledger, and resume after interruption.
 metadata:
-  version: 0.1.3
+  version: 0.2.0
 ---
 
 # Dispatching subagents
@@ -63,7 +63,7 @@ Answer in order. The first yes picks the mechanism.
 1. **Write one task per line** to `tasks.jsonl`:
    `{"id", "prompt"}` plus any of `out` (absolute path of a JSON file the child
    writes), `json_schema` (structured output, no file), `model`, `tools`,
-   `allow`, `system_prompt`, `timeout`. `{out}` in a prompt expands to the out
+   `allow`, `deny`, `system_prompt`, `timeout`. `{out}` in a prompt expands to the out
    path. This is the same `{id, prompt, out}` shape claude-workspace's
    `scripts/fanout.py` dispatches over the Agent tool, so one file runs on
    either engine.
@@ -97,7 +97,9 @@ What the runner enforces per child:
   reports the parent's session id;
 - `--setting-sources ""` and `--strict-mcp-config`, so no hooks and no MCP;
 - `--permission-mode dontAsk` with an allowlist: Read/Grep/Glob when listed,
-  `Edit(//<out>)` for the out file, and any `--allow` rules;
+  `Edit(//<out>)` for the out file, and any `--allow` rules; `deny` rules (task
+  field or `--deny`) go to `--disallowedTools` and win over the allowlist, so a
+  child can hold Bash with `Bash(curl:*)` refused;
 - done means verified: the out file parses and passes the schema, or
   `structured_output` is present. The child's claim of success does not count.
 
