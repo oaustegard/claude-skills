@@ -2,7 +2,7 @@
 name: swarming-failing-tests
 description: Runs a long swarm of hundreds to thousands of cheap headless coding workers that drive a large failing-test backlog to green. Failures are clustered by signature, each worker fixes one cluster in its own git worktree, a serial no-regression merge gate lands the fixes, the loop resumes across restarts for hours, and it federates across sibling sessions over git branches when one container's CPU is not enough. Use for "fix these thousands of failing tests with a Haiku swarm", "drive the test suite to green with hundreds of agents", "build this compiler or interpreter against a conformance suite", "launch, relaunch or check in on the swarm loop", "the swarm is stuck, idle or rejecting everything", "parallel agents fixing tests keep hitting merge conflicts and regressions", "add sibling containers to the swarm", or "compare models on the tail the swarm could not fix". Ships the harness, a per-project TOML config, a fake-worker selftest, check-in signals and the 2026-10-12 haiku-cc failure catalogue.
 metadata:
-  version: 0.2.0
+  version: 0.2.1
 ---
 
 # Swarming failing tests

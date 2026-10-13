@@ -95,7 +95,9 @@ def check_out(out: str, schema: dict | None) -> str | None:
     if not p.exists():
         return "output file missing"
     try:
-        value = json.loads(p.read_text())
+        # strict=False: a raw tab or newline inside a string (a model writing multi-line notes) is
+        # still the answer; rejecting it threw away finished work (2026-10-13 swarm-decomp)
+        value = json.loads(p.read_text(), strict=False)
     except (OSError, json.JSONDecodeError) as e:
         return f"output not JSON: {e}"
     errs = schema_errors(value, schema) if schema else []
@@ -180,7 +182,7 @@ class Run:
         if not r.exists():
             return False
         try:
-            return self.verdict(t, json.loads(r.read_text())) is None
+            return self.verdict(t, json.loads(r.read_text(), strict=False)) is None
         except json.JSONDecodeError:
             return False
 

@@ -189,7 +189,7 @@ def free_gb(path: Path) -> float:
 
 def read_json(path: Path, default=None):
     try:
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(), strict=False)   # a worker's raw newline in a string still counts
     except (OSError, json.JSONDecodeError):
         return default
 

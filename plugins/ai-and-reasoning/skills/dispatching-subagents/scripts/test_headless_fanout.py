@@ -36,6 +36,8 @@ if "ERROR" in prompt:
     res.update(is_error=True, result="API Error: boom")
 if "WRITE" in prompt and m:
     open(m.group(1), "w").write(json.dumps({"answer": 42}))
+if "CTRLJSON" in prompt and m:
+    open(m.group(1), "w").write('{"answer": 42, "notes": "line one' + chr(10) + 'line' + chr(9) + 'two"}')
 if "BADJSON" in prompt and m:
     open(m.group(1), "w").write("not json")
 if "STRUCT" in prompt:
@@ -129,6 +131,19 @@ def test_deny_rules_reach_the_child() -> None:
         assert argv[i + 1:i + 3] == ["Bash(curl:*)", "WebFetch"], argv
         assert argv.index("--allowedTools") < i
 
+
+def test_raw_control_characters_in_strings_are_accepted() -> None:
+    """A model writes notes with a literal newline or tab inside a JSON string; that is still its answer
+    (2026-10-13 swarm-decomp: 'output not JSON: Invalid control character' discarded a finished worker)."""
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        env = setup(tmp)
+        out = tmp / "o.json"
+        run(tmp, env, [{"id": "a", "prompt": "CTRLJSON OUT={out}", "out": str(out)}])
+        raw = out.read_text()
+        assert chr(10) in raw and chr(9) in raw, repr(raw)
+        rows = ledger(tmp)
+        assert rows and rows[-1]["ok"] is True, rows
 
 def test_structured_output_and_errors() -> None:
     with tempfile.TemporaryDirectory() as d:
