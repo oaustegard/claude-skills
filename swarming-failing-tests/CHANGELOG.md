@@ -6,6 +6,12 @@ All notable changes to the `swarming-failing-tests` skill are documented in this
 
 ### Other
 
+- swarming-failing-tests 0.5.1: decompilation effort-rung prices; catalogue final
+
+## [0.5.1] - 2026-10-13
+
+### Other
+
 - swarming-failing-tests 0.5.1: the decompilation run's effort-rung prices in Which model; catalogue items 12-13 and final numbers
 
 ## [0.5.0] - 2026-10-13
