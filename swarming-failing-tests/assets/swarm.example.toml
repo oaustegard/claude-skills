@@ -34,7 +34,8 @@ cheap_suites = ["smoke", "unit"]         # sampled on EVERY federated node (cros
 compat_command = []                      # e.g. ["python3.11", "-m", "compileall", "-q", "{tree}/src"]
 batch = 4
 sample = 150
-full_every = 200
+full_every = 0                           # full refreshes off: the sweep below runs every suite anyway
+sweep_lag = 100                          # every suite runs on main within 100 merges, one suite per step; 0 = off
 quick_every = 25                         # quick refresh: fast suites, bisected over the last 25 merges; 0 = off
 quick_suites = []                        # [] = cheap_suites; name a fast subset if those take minutes
 

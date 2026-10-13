@@ -52,6 +52,7 @@ Files outside `code`/`allowed` are silently left out of the candidate.
 | `reps` | 3 | representatives per item |
 | `gate_targets` | 20 | members the gate checks for a flip |
 | `feature_after` | 2 | counted failures on a signature before feature mode |
+| `base_check` | true | before a worker launches, re-run its representatives at main HEAD in its new worktree when code or tests changed since their record; an item whose tests already pass (or no longer run) gets no worker, and the results are recorded at HEAD. `--no-base-check` turns it off |
 
 ## [gate]
 | key | default | meaning |
@@ -60,7 +61,8 @@ Files outside `code`/`allowed` are silently left out of the candidate.
 | `cheap_suites` | `["smoke"]` | sampled on every federated node |
 | `compat_command` | `[]` | argv in the gate tree per candidate, `{tree}`; non-zero rejects; preflight checks it exists |
 | `batch`, `sample` | 4, 150 | candidates stacked per gate run; known-passing sample size |
-| `full_every` | 200 | merges between full refreshes (bisect + revert) |
+| `full_every` | 0 | merges between full refreshes (bisect + revert); 0 = off, since the sweep runs every suite anyway |
+| `sweep_lag` | 100 | every suite this node owns runs against main within this many merges: one suite per step, a step every `sweep_lag / suites` merges and at once when any suite reaches the bound; regressions are bisected over the merges since that suite last ran and reverted. Pauses merging while it runs, like any refresh. 0 = off |
 | `quick_every` | 25 | merges between quick refreshes of `quick_suites`, bisected over those merges only and reverted; 0 = off |
 | `idle_refresh` | true | full refresh when the queue drains with merges since the last one; a drained queue otherwise ships their regressions (2026-10-12: TinyCC 333 to 35 after the last refresh) |
 | `quick_suites` | `[]` | suites a quick refresh runs; `[]` = `cheap_suites`; on a partitioned node, only its own plus the cheap ones |
@@ -100,7 +102,9 @@ Files outside `code`/`allowed` are silently left out of the candidate.
 | `ledger.jsonl` | append-only snapshots, last line per id wins: id, key, signature, tests, targets, base, status (launched, finished, merged, rejected, failed, reverted), cost_usd, turns, denials, result, merged_commit, reason, feature, rebase_of, effort |
 | `known.json` | `{test_id: {status, reason, stage, commit}}`: what the gate compares against |
 | `baseline.json` | last full run: commit, time, suite counts, suite_names, tests-tree stamps |
-| `results/<commit>.json`, `history.jsonl`, `merges.jsonl`, `reverts.jsonl`, `counters.json` | observations, pass counts over time, merge order for bisect |
+| `results/<commit>.json`, `history.jsonl`, `merges.jsonl`, `reverts.jsonl`, `counters.json` | observations, pass counts over time (a row per full refresh and per sweep step), merge order for bisect |
+| `sweep.json`, `sweeps.jsonl` | per suite: the commit, merge count and time it last ran on main (sweep, quick or full refresh), pass/total, any runner error; one row per sweep step with its lag, duration and outcome |
+| `basecheck.json` | base-check counters: items checked, items not launched, tests found passing |
 | `events.jsonl` | harness events for the stats timeline |
 | `epoch.json` | attempt epoch set by `unpark` |
 | `loop.pid` | the running loop (one per state dir) |

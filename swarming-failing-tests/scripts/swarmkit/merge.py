@@ -17,7 +17,9 @@ refresh() runs every suite at main HEAD. Tests that were PASS and now fail are
 bisected over swarm merge commits and the culprit is reverted. quick_refresh() does the
 same for gate.quick_suites every gate.quick_every merges, bisecting only over the merges
 since the previous quick (or full) refresh, so a culprit the gate sample missed is still
-recent enough to revert cleanly.
+recent enough to revert cleanly. sweep() does it for one suite at a time, the one longest
+without a run on main, so every suite runs within gate.sweep_lag merges: the gate proves
+targets flip, the sweep proves nothing else broke.
 """
 
 from __future__ import annotations
@@ -412,6 +414,7 @@ def _refresh_suites(ctx: Ctx, suites: list[str]) -> dict:
     names = sorted(set(base.get("suite_names") or []) | set(suites))
     write_json(ctx.state / "baseline.json", {**base, "suites": counts, **tr.tree_stamp(ctx, main), "suite_names": names,
                                              "commit": base.get("commit", main), "time": base.get("time", time.time())})
+    mark_checked(ctx, suites, main, res)
     log("suite baseline: " + ", ".join(f"{s} {v['pass']}/{v['total']}" for s, v in sorted(tr.suite_counts(res).items())))
     return res
 
@@ -463,6 +466,7 @@ def _refresh(ctx: Ctx, do_bisect: bool) -> dict:
     c["merges_since_quick"] = 0           # the full run covered the quick suites too
     write_json(ctx.state / "counters.json", c)
     _write_baseline(ctx, main, tr.suite_counts(res))
+    mark_checked(ctx, sorted({tr.suite_of(t) for t in res}), main, res)
     return res
 
 
@@ -492,34 +496,14 @@ def quick_refresh(ctx: Ctx, suites: list[str] | None = None) -> dict:
 
 def _quick_refresh(ctx: Ctx, suites: list[str]) -> dict:
     main = head(ctx)
-    g = prepare_gate(ctx, main)
     last = (read_json(ctx.state / "quick.json", {}) or {}).get("time", 0)
     since = max(last, (read_json(ctx.state / "baseline.json", {}) or {}).get("time", 0))
     log(f"quick refresh at {main[:10]} ({', '.join(suites)})")
-    res = tr.run_full(ctx, g, suites)
-    prev = tr.known(ctx)
-    regs = [t for t in res if tr.is_pass(prev.get(t)) and not tr.is_pass(res[t]) and not quarantined(ctx, t)]
-    if regs:
-        again = tr.run_ids(ctx, g, regs, jobs=max(1, ctx.jobs // 2))
-        res.update(again)
-        regs = [t for t in regs if again.get(t, {}).get("status") not in ("PASS", "MISSING")]
-    found, reverted = len(regs), []
-    for _round in range(3):
-        if not regs:
-            break
-        log(f"quick refresh found {len(regs)} regressions: {', '.join(regs[:6])}")
-        culprit = bisect(ctx, regs, since=since)
-        if not culprit or not revert(ctx, culprit, regs):
-            log("quick refresh: could not locate/revert culprit; recording the failures")
-            break
-        reverted.append(culprit)
-        g = prepare_gate(ctx, head(ctx))
-        lost = [t for m in read_jsonl(ctx.state / "merges.jsonl") if m["commit"] == culprit for t in m["fixed"]]
-        again = tr.run_ids(ctx, g, regs + lost)   # the culprit's fixes are undone too
-        res.update(again)
-        regs = [t for t in regs if not tr.is_pass(again.get(t))]
+    res = tr.run_full(ctx, prepare_gate(ctx, main), suites)
+    res, found, reverted, regs = _revert_regressions(ctx, res, since, "quick refresh")
     main = head(ctx)
     tr.record(ctx, main, res)
+    mark_checked(ctx, suites, main, res)
     npass = sum(map(tr.is_pass, res.values()))
     write_json(ctx.state / "quick.json", {"time": time.time(), "commit": main, "suites": suites, "pass": npass,
                                           "total": len(res), "found": found, "reverted": reverted,
@@ -530,6 +514,146 @@ def _quick_refresh(ctx: Ctx, suites: list[str]) -> dict:
     if found:
         event(ctx, f"quick refresh: {found} regressions, {len(reverted)} reverts, {len(regs)} left", "refresh")
     log(f"quick refresh done: {npass}/{len(res)} pass; {found} regressions, {len(reverted)} reverted, "
+        f"{len(regs)} left failing")
+    return res
+
+
+def _revert_regressions(ctx: Ctx, res: dict, since: float, label: str) -> tuple[dict, int, list[str], list[str]]:
+    """Regressions in `res` (run at main HEAD) against known.json, re-run once, then bisected over the
+    swarm merges since `since` and reverted, up to 3 culprits. Returns (res, found, reverted, left)."""
+    prev = tr.known(ctx)
+    regs = [t for t in res if tr.is_pass(prev.get(t)) and not tr.is_pass(res[t]) and not quarantined(ctx, t)]
+    if regs:
+        again = tr.run_ids(ctx, prepare_gate(ctx, head(ctx)), regs, jobs=max(1, ctx.jobs // 2))
+        res.update(again)
+        regs = [t for t in regs if again.get(t, {}).get("status") not in ("PASS", "MISSING")]
+    found, reverted = len(regs), []
+    for _round in range(3):
+        if not regs:
+            break
+        log(f"{label} found {len(regs)} regressions: {', '.join(regs[:6])}")
+        culprit = bisect(ctx, regs, since=since)
+        if not culprit or not revert(ctx, culprit, regs):
+            log(f"{label}: could not locate/revert culprit; recording the failures")
+            break
+        reverted.append(culprit)
+        g = prepare_gate(ctx, head(ctx))
+        lost = [t for m in read_jsonl(ctx.state / "merges.jsonl") if m["commit"] == culprit for t in m["fixed"]]
+        again = tr.run_ids(ctx, g, regs + lost)   # the culprit's fixes are undone too
+        res.update(again)
+        regs = [t for t in regs if not tr.is_pass(again.get(t))]
+    return res, found, reverted, regs
+
+
+# ---------------------------------------------------------------- rotating sweep
+# Post-merge coverage as an invariant: every suite this node owns runs against main HEAD within
+# gate.sweep_lag merges, one suite per step, so the gate itself only has to check that targets flip
+# plus a smoke sample. Diagnosed 2026-10-13 (haiku-cc final measurement): Mbed TLS sat 3,340/11,970
+# broken for 14 h and TinyCC fell 333 -> 35 because no refresh after the culprit ran those suites; the
+# sampled gate and the quick suites never touched them. A bigger sample does not close that hole;
+# a rotation over every suite does, by construction. state/sweep.json: {suite: {commit, merges_total,
+# time, pass, total[, error]}, "_last_step": merges_total of the last sweep step}.
+
+def merges_total(ctx: Ctx) -> int:
+    return (read_json(ctx.state / "counters.json", {}) or {}).get("merges_total", 0)
+
+
+def mark_checked(ctx: Ctx, suites: list[str], commit: str, res: dict | None = None, error: str = "") -> None:
+    """Record that `suites` ran against `commit` now (a sweep step, a quick or a full refresh)."""
+    sw = read_json(ctx.state / "sweep.json", {}) or {}
+    n = merges_total(ctx)
+    for s in suites:
+        row = {"commit": commit, "merges_total": n, "time": time.time()}
+        if res is not None:
+            mine = [r for t, r in res.items() if tr.suite_of(t) == s]
+            row.update({"pass": sum(map(tr.is_pass, mine)), "total": len(mine)})
+        if error:
+            row["error"] = error
+        sw[s] = row
+    write_json(ctx.state / "sweep.json", sw)
+
+
+def sweep_suites(ctx: Ctx) -> list[str]:
+    """Every suite this node owns (its --suites partition, else all): the hub of a federation sweeps
+    them all, since one partition's merge can break another's (2026-10-12)."""
+    return tr.list_suites(ctx, ctx.root)
+
+
+def sweep_lags(ctx: Ctx) -> dict[str, int]:
+    """Merges since each suite last ran against main. A suite with no sweep record falls back to the
+    last full refresh that ran it (history.jsonl), else counts every merge."""
+    sw = read_json(ctx.state / "sweep.json", {}) or {}
+    n = merges_total(ctx)
+    last_full: dict[str, int] = {}
+    for h in read_jsonl(ctx.state / "history.jsonl"):
+        for s in h.get("suites") or {}:
+            last_full[s] = h.get("merges_total", 0)
+    return {s: n - (sw[s]["merges_total"] if s in sw else last_full.get(s, 0)) for s in sweep_suites(ctx)}
+
+
+def sweep_due(ctx: Ctx) -> str | None:
+    """The suite to sweep now, or None. A step runs every sweep_lag // len(suites) merges (staggered, so
+    the suites do not all come due in one burst) and at once whenever any suite reaches sweep_lag; it
+    takes the suite with the largest lag."""
+    if not ctx.sweep_lag:
+        return None
+    lags = sweep_lags(ctx)
+    if not lags:
+        return None
+    suite, lag = max(sorted(lags.items()), key=lambda kv: kv[1])
+    if lag <= 0:
+        return None
+    step = max(1, ctx.sweep_lag // len(lags))
+    last_step = (read_json(ctx.state / "sweep.json", {}) or {}).get("_last_step", 0)
+    if lag >= ctx.sweep_lag or merges_total(ctx) - last_step >= step:
+        return suite
+    return None
+
+
+def sweep(ctx: Ctx, suite: str) -> dict:
+    refreshing(ctx, True, f"sweep ({suite})")
+    try:
+        return _sweep(ctx, suite)
+    finally:
+        refreshing(ctx, False)
+
+
+def _sweep(ctx: Ctx, suite: str) -> dict:
+    main = head(ctx)
+    sw = read_json(ctx.state / "sweep.json", {}) or {}
+    base_t = (read_json(ctx.state / "baseline.json", {}) or {}).get("time", 0)
+    since = max(base_t, (sw.get(suite) or {}).get("time", 0))
+    lag = sweep_lags(ctx).get(suite, 0)
+    log(f"sweep {suite} at {main[:10]} ({lag} merges since it last ran)")
+    t0 = time.time()
+    res = tr.invoke(ctx, prepare_gate(ctx, main), [suite], ctx.jobs, [])
+    sw = read_json(ctx.state / "sweep.json", {}) or {}
+    sw["_last_step"] = merges_total(ctx)
+    write_json(ctx.state / "sweep.json", sw)
+    if res is None:
+        # The runner broke: nothing was learned, but the suite counts as attempted so the loop does not
+        # spin on it; `status` raises SWEEP ERROR until a later step succeeds.
+        mark_checked(ctx, [suite], main, error="test command produced no JSON")
+        event(ctx, f"sweep {suite}: test command failed", "refresh")
+        return {}
+    res, found, reverted, regs = _revert_regressions(ctx, res, since, f"sweep {suite}")
+    main = head(ctx)
+    # tests of this suite that no longer run are dropped, as a full refresh would
+    k = {t: v for t, v in tr.known(ctx).items() if tr.suite_of(t) != suite or t in res}
+    write_json(ctx.state / "known.json", k)
+    tr.record(ctx, main, res)
+    mark_checked(ctx, [suite], main, res)
+    c = read_json(ctx.state / "counters.json", {}) or {}
+    append_jsonl(ctx.state / "history.jsonl", {"time": time.time(), "commit": main, "sweep": suite,
+                                               "merges_total": c.get("merges_total", 0),
+                                               "suites": tr.suite_counts(tr.known(ctx))})
+    append_jsonl(ctx.state / "sweeps.jsonl", {"time": time.time(), "suite": suite, "commit": main, "lag": lag,
+                                              "secs": round(time.time() - t0), "found": found,
+                                              "reverted": reverted, "unreverted": regs})
+    npass = sum(map(tr.is_pass, res.values()))
+    if found:
+        event(ctx, f"sweep {suite}: {found} regressions, {len(reverted)} reverts, {len(regs)} left", "refresh")
+    log(f"sweep {suite} done: {npass}/{len(res)} pass; {found} regressions, {len(reverted)} reverted, "
         f"{len(regs)} left failing")
     return res
 

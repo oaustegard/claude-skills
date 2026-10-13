@@ -2,7 +2,7 @@
 name: swarming-failing-tests
 description: Runs a long swarm of hundreds to thousands of cheap headless coding workers that drive a large failing-test backlog to green. Failures are clustered by signature, each worker fixes one cluster in its own git worktree, a serial no-regression merge gate lands the fixes, the loop resumes across restarts for hours, and it federates across sibling sessions over git branches when one container's CPU is not enough. Use for "fix these thousands of failing tests with a Haiku swarm", "drive the test suite to green with hundreds of agents", "build this compiler or interpreter against a conformance suite", "launch, relaunch or check in on the swarm loop", "the swarm is stuck, idle or rejecting everything", "parallel agents fixing tests keep hitting merge conflicts and regressions", "add sibling containers to the swarm", or "compare models on the tail the swarm could not fix". Ships the harness, a per-project TOML config, a fake-worker selftest, check-in signals and the 2026-10-12 haiku-cc failure catalogue.
 metadata:
-  version: 0.4.1
+  version: 0.5.0
 ---
 
 # Swarming failing tests
@@ -135,7 +135,10 @@ Read the `SIGNALS:` block at the end of `status` and act:
 |---|---|---|
 | none, loop alive | healthy | re-arm the check-in |
 | loop not running / `DEAD (stale pid file)` | `--max-minutes` exit, the 2-hour cap, or a crash | read the log tail for a traceback; relaunch the same command |
-| `REFRESHING` | a refresh owns the gate tree; merging is paused | wait; a full refresh past an hour means raise `gate.full_every`, a quick one past ~10 min means trim `gate.quick_suites` |
+| `REFRESHING` | a refresh owns the gate tree; merging is paused | wait; a full refresh past an hour means raise `gate.full_every` (or set it to 0 and rely on the sweep), a quick one past ~10 min means trim `gate.quick_suites`, a sweep step past ~20 min means that suite is too slow to rotate: split it |
+| `SWEEP BEHIND` | a suite has gone over twice `gate.sweep_lag` merges without running on main | refreshes are starving the rotation or merges outpace it: lower `quick_every` or raise `sweep_lag`, never turn the sweep off mid-run |
+| `SWEEP REGRESSIONS` | a sweep step found regressions it could not revert | read the log's `bisect`/`revert` lines; revert the culprit by hand while it is at most `sweep_lag` merges back |
+| `SWEEP ERROR` | the test command produced nothing for a suite on its sweep | `doctor --run-suite <suite>`; until fixed, that suite's pass count is unchecked |
 | `QUICK REGRESSIONS` | the last quick refresh found regressions it could not revert | read the log's `bisect`/`revert` lines; revert the culprit by hand now, while it is at most `gate.quick_every` merges back |
 | `GATE BACKLOG` | finished workers outrun the gate | raise `--batch`, lower `--sample`, or lower `--concurrency` so the gate gets CPU (haiku-cc: ~15 to ~41 merges/h) |
 | `CPU-BOUND` (log: `THROTTLE`) | load above the throttle with work waiting | scale out: [references/scaling-out.md](references/scaling-out.md) |
@@ -149,7 +152,9 @@ Read the `SIGNALS:` block at the end of `status` and act:
 | `ONE STAGE` | one stage label on over 90% of failures | the runner's stage detection is broken: `doctor`, fix the runner |
 
 Also read the plain lines: `quick refresh:` (cadence, merges since the last, and its
-last result: regressions found, reverted, left), `conflict hot spots` (a shared file workers keep
+last result: regressions found, reverted, left), `sweep:` (the bound, the worst lag and the
+last step's outcome), `base check:` (items not launched because their tests already passed
+at HEAD), `conflict hot spots` (a shared file workers keep
 colliding on: make it self-registering, see project-setup), `top rejection/failure
 reasons`, `last merge ... ago`, and `known now` pass counts.
 
@@ -213,7 +218,7 @@ Leave it off for pass/fail-only suites: there it only merges noise.
 |---|---|---|
 | the gate needs a target to flip | — | ingested sibling candidates: the sibling's gate already verified the flip |
 | one worker per cluster | the signature is concrete (one root cause): shards write the same fix and conflict | a masked signature with 10+ tests: up to 6 shards |
-| full refresh every `full_every` merges | a suite was just added: baseline only it | a change to the runner outside the suite dirs |
+| full refresh (`full_every`, default off) | the sweep is on: it runs every suite within `sweep_lag` merges anyway; a suite was just added: baseline only it | a change to the runner outside the suite dirs |
 | `unpark` after a fix | the fix does not touch why tests were parked | a harness bug made attempts fail (stale state, skip-as-regression, conflicts counted) |
 | `--force` past preflight | dirty code/tests, missing runner, low disk | a known-harmless warning you can name |
 
@@ -265,13 +270,18 @@ brackets refer to [references/run-2026-10-12.md](references/run-2026-10-12.md)).
   passing) → leave `gate.idle_refresh` on: the loop refreshes before it idles, and the
   regressions it cannot revert come back as work [46].
 - **Workers report their cluster already passes** → the record is stale; they return
-  `stale` and the loop re-measures the cluster at main [48].
+  `stale` and the loop re-measures the cluster at main [48]. The base check now catches
+  most of these before a worker is spent: every known.json record carries the commit it
+  was measured at, and the dispatcher re-runs an item's representatives at HEAD when code
+  or tests changed since then (log: `BASE-CHECK`; status: `base check:`).
 - **A full measurement takes hours on the hub** → fan it out across sibling containers
   at one pinned commit, pinned after the last fix; never measure serially and restart [49].
 - **The tail is a handful of clusters and each gate rebuilds whole programs** → stop the
   loop; one Agent-tool worker per cluster in a worktree, then one combined gate [50].
 - **A suite no node dispatches is never re-measured** (2026-10-12: Mbed TLS broken for 14 h,
-  3,340 tests) → one full refresh must span every suite, whatever the partitions [51].
+  3,340 tests) → the rotating sweep runs every suite the node owns within `gate.sweep_lag`
+  merges, so the gate only has to prove that targets flip; on a federation the hub owns every
+  suite, so its sweep spans the partitions [51].
 - **The project's unit selftests break mid-run** (2026-10-12: 8 of 710) → the gate runs
   only the suites; put the fast unit tests in `gate.compat_command` [47].
 - **Gate throughput flat while workers finish** → `GATE BACKLOG`; tune batch and
@@ -287,7 +297,8 @@ brackets refer to [references/run-2026-10-12.md](references/run-2026-10-12.md)).
   signature not sharded, cluster recheck, skipped-not-regressed, effort ladder and
   feature mode, park and unpark, new-suite baseline, stale-worktree sweep, `stop`, the
   federation round trip (publish, seed, ingest, rebase, conflict-as-rebase, ledger
-  export), and a quick refresh that reverts a regression the gate sample missed. On 2026-10-12, `selftest | tail && git commit` committed with 3
+  export), a quick refresh and a sweep step that each revert a regression the gate sample
+  missed, and a base check that launches no worker on a test main already passes. On 2026-10-12, `selftest | tail && git commit` committed with 3
   failures because the pipe hid the exit code. Gate commits on the real exit code.
 - **A run:** `$SWARM status` pass counts in `known now` rise between check-ins, and
   `git log --format=%s -5` on main shows swarm commits with `Swarm-Task:` trailers.

@@ -121,7 +121,7 @@ def cli(repo: Path, *args: str, env: dict | None = None) -> subprocess.Completed
 
 def run(repo: Path, wt: Path, *args: str, env: dict | None = None) -> str:
     p = cli(repo, "run", "--fake", "--wt-root", str(wt), "--poll", "0.3", "--sample", "4", "--idle-max", "5",
-            "--full-every", "99", "--quick-every", "0", "--no-idle-refresh", *args, env=env)
+            "--full-every", "99", "--quick-every", "0", "--sweep-lag", "0", "--no-idle-refresh", *args, env=env)
     return p.stdout + p.stderr
 
 
@@ -233,6 +233,49 @@ def quick(root: Path, wt: Path, expect) -> None:
            and "1 reverted, 0 left" in p.stdout, p.stdout + p.stderr)
 
 
+def sweep(root: Path, wt: Path, expect) -> None:
+    """Rotating sweep: with quick refresh off and the gate sample at 0, a regression in a suite the gate
+    never runs is caught by the sweep step for that suite, bisected over the merges since that suite last
+    ran on main, and reverted (2026-10-13 haiku-cc: Mbed TLS broken for 14 h, TinyCC 333 -> 35, because no
+    refresh after the culprit ran those suites)."""
+    failing = sorted(t for t, v in known(root).items() if v["status"] != "PASS" and not t.startswith("big/"))
+    before = set(records(root))
+    # break deletes _all_big: every big/ test regresses; nothing in the gate runs big/
+    out = run(root, wt, "--max-workers", "1", "--concurrency", "1", "--only", failing[0], "--fake-mode", "break",
+              "--sample", "0", "--sweep-lag", "1")
+    new = [r for k, r in records(root).items() if k not in before]
+    broken = [t for t, v in known(root).items() if t.startswith("big/") and v["status"] != "PASS"]
+    sw = json.loads((root / ".swarm" / "state" / "sweep.json").read_text())
+    expect("sweep: a regression in a suite the gate never ran is caught by that suite's sweep step and reverted",
+           bool(new) and new[0]["status"] == "reverted" and "sweep big at" in out and not broken, out)
+    expect("sweep: every owned suite ran on main since the last merge (sweep.json, lag 0)",
+           all(sw.get(x, {}).get("merges_total") == json.loads((root / ".swarm/state/counters.json").read_text())
+               ["merges_total"] for x in ("smoke", "c-testsuite", "gcc-torture", "big", "extra")), json.dumps(sw)[:800])
+    p = cli(root, "status", "--sweep-lag", "1")
+    expect("status prints the sweep line", "sweep: every suite on main within 1 merges" in p.stdout
+           and "worst lag 0" in p.stdout, p.stdout + p.stderr)
+
+
+def base_check(root: Path, wt: Path, expect) -> None:
+    """Base check: a test fixed on main outside the swarm (or by another cluster's merge) still reads FAIL
+    in known.json at an older commit. The dispatcher re-runs the item's tests at HEAD before launching and
+    spends no worker (2026-10-12: ~100 ghost workers on QuickJS; sibling s2: 40 workers, 0 merges)."""
+    t = sorted(x for x, v in known(root).items() if v["status"] != "PASS" and not x.startswith("big/"))[-1]
+    (root / "src" / "_fake_fixes" / t.replace("/", "__")).write_text("fixed\n")
+    sh(root, "git", "add", "-A")
+    sh(root, "git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "another fix outside the swarm")
+    before = set(records(root))
+    out = run(root, wt, "--only", t, "--max-workers", "1", "--concurrency", "1")
+    new = [r for k, r in records(root).items() if k not in before]
+    head = sh(root, "git", "rev-parse", "main").strip()
+    k = known(root).get(t, {})
+    expect("base check: an item whose test already passes at HEAD launches no worker; known.json updated at HEAD",
+           not new and "BASE-CHECK" in out and k.get("status") == "PASS" and k.get("commit") == head, out)
+    p = cli(root, "status")
+    expect("status prints the base check line", "base check:" in p.stdout and "not launched" in p.stdout,
+           p.stdout + p.stderr)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--keep", action="store_true", help="keep the temp repo for inspection")
@@ -340,6 +383,7 @@ def main(argv: list[str] | None = None) -> int:
 
     federation(tmp, root, wt, expect)
     quick(root, wt, expect)
+    sweep(root, wt, expect)
     # stale: main already passes a test the record still marks failing; the worker says "stale" and
     # the loop re-measures the cluster at main (2026-10-12: 104 such tests, 25 workers spent on them)
     stale_t = sorted(t for t, v in known(root).items() if v["status"] != "PASS" and t.startswith("gcc-torture/"))[-1]
@@ -348,10 +392,12 @@ def main(argv: list[str] | None = None) -> int:
     sh(root, "git", "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "fix outside the swarm")
     cli(root, "unpark")
     before = set(records(root))
-    out = run(root, wt, "--fake-mode", "stale", "--only", stale_t, "--max-workers", "1", "--concurrency", "1")
+    out = run(root, wt, "--fake-mode", "stale", "--only", stale_t, "--max-workers", "1", "--concurrency", "1",
+              "--no-base-check")       # the worker-side path; the dispatcher-side check is base_check()
     new = [r for k, r in records(root).items() if k not in before]
     expect("worker reports stale -> its cluster is re-measured at main, test now PASS, no attempt counted",
            bool(new) and new[0]["status"] == "stale" and known(root).get(stale_t, {}).get("status") == "PASS", out)
+    base_check(root, wt, expect)
     cf = root / ".swarm" / "state" / "counters.json"
     c = json.loads(cf.read_text()) if cf.exists() else {}
     c["merges_since_full"] = 3                  # merges the gate checked only against its sample
