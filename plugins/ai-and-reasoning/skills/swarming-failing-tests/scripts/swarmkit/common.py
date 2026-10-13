@@ -40,7 +40,8 @@ class Ctx:
     jobs: int = 4                                # test parallelism for gate / baseline
     suites: list[str] = field(default_factory=list)   # [] = every suite
     sample_size: int = 150
-    full_every: int = 200
+    full_every: int = 0                          # merges between full refreshes; 0 = off
+    sweep_lag: int = 100                         # every owned suite runs on main within this many merges; 0 = off
     quick_every: int = 25                        # merges between quick refreshes; 0 = off
     quick_suites: list[str] = field(default_factory=list)   # [] = gate.quick_suites, else cheap_suites
     idle_refresh: bool = True                    # full refresh when the queue drains with unrefreshed merges

@@ -135,12 +135,97 @@ def task_prompt(ctx: Ctx, tid: str, item: workqueue.WorkItem, out: Path, prev_no
     return "\n".join(lines)
 
 
-def launch(ctx: Ctx, a: argparse.Namespace, item: workqueue.WorkItem, seq: int) -> dict:
+class BaseCheck:
+    """Dispatcher-side staleness check. Every known.json record carries the commit it was measured at;
+    a work item built from records older than main HEAD may target tests main already passes (2026-10-12:
+    ~100 workers launched on QuickJS tests one merge had fixed; sibling s2 spent 40 workers and merged
+    nothing because its baseline predated the hub's fix). Before a worker is spent, its representatives
+    are re-run at HEAD in the worker's fresh worktree whenever the code or tests changed since their
+    record. Results wait in `pending` until no refresh owns known.json, then are recorded."""
+
+    def __init__(self, ctx: Ctx) -> None:
+        self.ctx = ctx
+        self.pending: dict[str, dict] = {}           # test id -> result, with "commit" it was run at
+        self._diff: dict[tuple[str, str], bool] = {}
+        self.stats = read_json(ctx.state / "basecheck.json", {}) or {"checks": 0, "skipped": 0, "now_pass": 0}
+
+    def changed(self, commit: str | None, main: str) -> bool:
+        """True when code or tests differ between `commit` and `main` (or `commit` is unknown here)."""
+        if not commit:
+            return True
+        if commit == main:
+            return False
+        key = (commit, main)
+        if key not in self._diff:
+            if len(self._diff) > 4096:
+                self._diff.clear()
+            paths = [*self.ctx.paths["code"], self.ctx.tests["tests_tree"]]
+            p = subprocess.run(["git", "diff", "--quiet", commit, main, "--", *paths], cwd=self.ctx.root,
+                               capture_output=True, check=False)
+            self._diff[key] = p.returncode != 0     # 1 = differs; 128 = commit not here: check
+        return self._diff[key]
+
+    def needed(self, item: workqueue.WorkItem, main: str) -> bool:
+        k = tr.known(self.ctx)
+        for t in item.tests:
+            rec = self.pending.get(t) or k.get(t) or {}
+            if self.changed(rec.get("commit"), main):
+                return True
+        return False
+
+    def check(self, item: workqueue.WorkItem, wt: Path, main: str) -> list[str]:
+        """Run the item's tests at `main` in `wt`; when any already pass, the rest of its gate targets too.
+        Returns the tests that pass (empty: launch the worker)."""
+        res = tr.run_ids(self.ctx, wt, item.tests, jobs=max(1, min(self.ctx.jobs, len(item.tests))))
+        # MISSING: the test no longer runs at HEAD (skip list, removed): no worker should chase it either
+        passing = [t for t in item.tests if res.get(t, {}).get("status") in ("PASS", "MISSING")]
+        rest = [t for t in item.targets if t not in res]
+        if passing and rest:
+            res.update(tr.run_ids(self.ctx, wt, rest))
+        for t, r in res.items():
+            if r.get("status") != "ERROR":
+                self.pending[t] = {**r, "commit": main}
+        self.stats["checks"] += 1
+        if passing:
+            self.stats["skipped"] += 1
+            self.stats["now_pass"] += sum(1 for r in res.values() if tr.is_pass(r))
+        write_json(self.ctx.state / "basecheck.json", self.stats)
+        return passing
+
+    def overlay(self, results: dict) -> dict:
+        """Queue input with the not-yet-recorded checks applied, so a passing test forms no work item."""
+        if not self.pending:
+            return results
+        out = {**results, **self.pending}
+        return {t: r for t, r in out.items() if r.get("status") != "MISSING"}
+
+    def flush(self) -> None:
+        """Fold pending checks into known.json; only while no refresh owns it."""
+        by: dict[str, dict] = {}
+        for t, r in self.pending.items():
+            by.setdefault(r["commit"], {})[t] = {k: v for k, v in r.items() if k != "commit"}
+        for commit, res in by.items():
+            tr.record(self.ctx, commit, res)
+        if by:
+            log(f"base check: recorded {len(self.pending)} results")
+        self.pending.clear()
+
+
+def launch(ctx: Ctx, a: argparse.Namespace, item: workqueue.WorkItem, seq: int,
+           bc: BaseCheck | None = None) -> dict | None:
+    """Start one worker on `item`, or return None when the base check finds its tests already pass."""
     w = ctx.worker
     tid = f"{ctx.id_prefix}w{seq:05d}"
     base = head(ctx)
     wt = ctx.worktree(tid)
     add_worktree(ctx, wt, base)
+    if bc is not None and bc.needed(item, base):
+        passing = bc.check(item, wt, base)
+        if passing:
+            remove_worktree(ctx, wt)
+            log(f"BASE-CHECK {item.key[:80]}: {len(passing)}/{len(item.tests)} representatives pass (or no longer run) at "
+                f"{base[:10]}; no worker launched")
+            return None
     out = ctx.results_dir / f"{tid}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.unlink(missing_ok=True)
@@ -255,9 +340,11 @@ def reap(ctx: Ctx, rec: dict) -> dict:
     return rec
 
 
-def queue_input(ctx: Ctx, globs: str) -> dict:
-    """known.json minus quarantined tests, restricted to this node's --only partition."""
-    return only({t: r for t, r in tr.known(ctx).items() if not quarantined(ctx, t)}, globs)
+def queue_input(ctx: Ctx, globs: str, bc: BaseCheck | None = None) -> dict:
+    """known.json (plus base-check results not yet recorded) minus quarantined tests, restricted to
+    this node's --only partition."""
+    k = bc.overlay(tr.known(ctx)) if bc is not None else tr.known(ctx)
+    return only({t: r for t, r in k.items() if not quarantined(ctx, t)}, globs)
 
 
 def only(results: dict, globs: str) -> dict:
@@ -447,6 +534,7 @@ def _loop(ctx: Ctx, a: argparse.Namespace) -> int:
         log(f"removed {len(stale)} worktrees of workers that ended in earlier runs")
     tree_checked = 0.0
     disk_warned = throttle_warned = 0.0
+    bc = BaseCheck(ctx) if a.base_check else None
     while True:
         busy = refresher is not None and refresher.is_alive()
         if a.federate and not busy and time.time() - last_poll >= a.fed_poll:
@@ -497,6 +585,8 @@ def _loop(ctx: Ctx, a: argparse.Namespace) -> int:
                 refresher.start()
                 refreshing = True
         if not refreshing:                    # the gate tree and known.json belong to refresh
+            if bc is not None:
+                bc.flush()
             stale = [r for r in ledger(ctx).values() if r["status"] == "stale" and not r.get("rechecked")]
             if stale:
                 # a worker found its targets already passing: the record is out of date for that
@@ -512,13 +602,19 @@ def _loop(ctx: Ctx, a: argparse.Namespace) -> int:
                 for r in batch:
                     remove_worktree(ctx, ctx.worktree(r["id"]))
             cnt = read_json(ctx.state / "counters.json", {}) or {}
-            if cnt.get("merges_since_full", 0) >= ctx.full_every:
+            due = None
+            if ctx.full_every and cnt.get("merges_since_full", 0) >= ctx.full_every:
                 refresher = threading.Thread(target=merge.refresh, args=(ctx,), daemon=True)
                 refresher.start()
                 refreshing = True
             elif ctx.quick_every and cnt.get("merges_since_quick", 0) >= ctx.quick_every:
                 # fast suites, bisected over these few merges only, while a revert still applies
                 refresher = threading.Thread(target=merge.quick_refresh, args=(ctx,), daemon=True)
+                refresher.start()
+                refreshing = True
+            elif (due := merge.sweep_due(ctx)) is not None:
+                # post-merge coverage: the suite that has gone longest without running on main
+                refresher = threading.Thread(target=merge.sweep, args=(ctx, due), daemon=True)
                 refresher.start()
                 refreshing = True
         if (a.federate or a.sibling) and (time.time() - last_pub >= 60 or head(ctx) != pub_head):
@@ -548,7 +644,7 @@ def _loop(ctx: Ctx, a: argparse.Namespace) -> int:
             log(f"THROTTLE load {os.getloadavg()[0]:.1f} > {max_load:.0f} with {a.concurrency - len(procs)} free "
                 "slots: CPU-bound; if this persists, scale out to sibling containers (references/scaling-out.md)")
         if not stop_launch and not overloaded and not low_disk and len(procs) < a.concurrency:
-            items = workqueue.build(ctx.cfg["queue"], queue_input(ctx, a.only), ledger(ctx), source_size(ctx),
+            items = workqueue.build(ctx.cfg["queue"], queue_input(ctx, a.only, bc), ledger(ctx), source_size(ctx),
                                     epoch=attempt_epoch(ctx))
             if not items and not procs and not finished and not refreshing:
                 n = (read_json(ctx.state / "counters.json", {}) or {}).get("merges_since_full", 0)
@@ -582,11 +678,13 @@ def _loop(ctx: Ctx, a: argparse.Namespace) -> int:
             for item in items:
                 if len(procs) >= a.concurrency or (a.max_workers and launched >= a.max_workers):
                     break
+                if fails[item.signature] >= fa and item.signature in flying:
+                    continue              # one feature worker per signature: shards would collide
+                w = launch(ctx, a, item, seq, bc)
+                if w is None:             # base check: its tests already pass at HEAD
+                    continue
                 if fails[item.signature] >= fa:
-                    if item.signature in flying:
-                        continue          # one feature worker per signature: shards would collide
                     flying.add(item.signature)
-                w = launch(ctx, a, item, seq)
                 procs[w["rec"]["id"]] = w["proc"]
                 seq += 1
                 launched += 1
@@ -613,7 +711,7 @@ def signals(ctx: Ctx, led: dict, items: list, max_load: float) -> list[str]:
     rf = read_json(ctx.state / "refreshing.json")
     if rf:
         out.append(f"REFRESHING: {rf.get('what')} refresh running for {int((time.time() - rf['started']) / 60)} min; "
-                   "merging is paused until it ends (a full refresh past ~1 h: raise gate.full_every)")
+                   "merging is paused until it ends (a full refresh past ~1 h: raise gate.full_every, or 0 and rely on the sweep)")
     q = read_json(ctx.state / "quick.json") or {}
     if q.get("unreverted"):
         out.append(f"QUICK REGRESSIONS: the last quick refresh ({q['commit'][:10]}) left "
@@ -689,6 +787,49 @@ def quick_line(ctx: Ctx, counters: dict) -> str:
                   f"{len(q.get('reverted') or [])} reverted, {len(q.get('unreverted') or [])} left")
 
 
+def sweep_line(ctx: Ctx) -> str:
+    """One status line for the rotating sweep: the bound, the worst lag, the last step's outcome."""
+    if not ctx.sweep_lag:
+        return "sweep: off (gate.sweep_lag = 0)"
+    lags = merge.sweep_lags(ctx)
+    if not lags:
+        return "sweep: no suites"
+    suite, lag = max(sorted(lags.items()), key=lambda kv: kv[1])
+    out = (f"sweep: every suite on main within {ctx.sweep_lag} merges ({len(lags)} suites, a step every "
+           f"{max(1, ctx.sweep_lag // len(lags))}); worst lag {lag} ({suite})")
+    last = read_jsonl(ctx.state / "sweeps.jsonl")[-1:]
+    if last:
+        x = last[0]
+        out += (f"; last {x['suite']} {time.strftime('%H:%M', time.localtime(x['time']))} at {x['commit'][:10]} "
+                f"({x['secs']}s): {x['found']} regressions, {len(x['reverted'])} reverted, {len(x['unreverted'])} left")
+    return out
+
+
+def sweep_signals(ctx: Ctx) -> list[str]:
+    if not ctx.sweep_lag:
+        return []
+    out = []
+    sw = read_json(ctx.state / "sweep.json", {}) or {}
+    bad = sorted(s for s, v in sw.items() if isinstance(v, dict) and v.get("error"))
+    if bad:
+        out.append(f"SWEEP ERROR: the test command produced nothing for {', '.join(bad[:4])} on its last sweep; "
+                   "run `doctor --run-suite` on it before trusting that suite's pass count")
+    lags = merge.sweep_lags(ctx)
+    behind = sorted((s for s, n in lags.items() if n > 2 * ctx.sweep_lag), key=lambda s: -lags[s])
+    if behind:
+        out.append(f"SWEEP BEHIND: {', '.join(f'{s} ({lags[s]})' for s in behind[:4])} merges since last run on main, "
+                   f"over twice gate.sweep_lag; refreshes are starving the rotation or a suite takes too long")
+    left: dict[str, list] = {}
+    for x in read_jsonl(ctx.state / "sweeps.jsonl"):
+        left[x["suite"]] = x.get("unreverted") or []
+    stuck = {s: v for s, v in left.items() if v}
+    if stuck:
+        s, v = next(iter(sorted(stuck.items())))
+        out.append(f"SWEEP REGRESSIONS: the last sweep of {', '.join(sorted(stuck)[:4])} left regressions it could not "
+                   f"revert (e.g. {', '.join(v[:3])}); read the log's `bisect`/`revert` lines and revert by hand")
+    return out
+
+
 def status(ctx: Ctx) -> int:
     led = ledger(ctx)
     by = Counter(r["status"] for r in led.values())
@@ -716,6 +857,11 @@ def status(ctx: Ctx) -> int:
     c = read_json(ctx.state / "counters.json", {}) or {}
     print(f"merges since last full run: {c.get('merges_since_full', 0)}")
     print(quick_line(ctx, c))
+    print(sweep_line(ctx))
+    b = read_json(ctx.state / "basecheck.json") or {}
+    if b.get("checks"):
+        print(f"base check: {b['checks']} work items re-run at HEAD before launch; {b['skipped']} not launched "
+              f"(their tests already passed); {b['now_pass']} tests found passing")
     hist = read_jsonl(ctx.state / "history.jsonl")
     if hist:
         suites = sorted({s for h in hist for s in h["suites"]})
@@ -745,7 +891,7 @@ def status(ctx: Ctx) -> int:
     live = [r for r in led.values() if r["status"] == "launched"]
     for r in live[:10]:
         print(f"  in flight {r['id']} {int(time.time() - r['t_launch'])}s {r['key'][:80]}")
-    sig = signals(ctx, led, items, max_load)
+    sig = signals(ctx, led, items, max_load) + sweep_signals(ctx)
     print("SIGNALS: " + ("none" if not sig else ""))
     for x in sig:
         print(f"  ! {x}")

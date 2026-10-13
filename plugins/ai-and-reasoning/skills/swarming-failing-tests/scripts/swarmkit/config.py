@@ -67,6 +67,9 @@ DEFAULTS: dict = {
         "reps": 3,                 # representative tests per work item
         "gate_targets": 20,        # cluster members the gate checks for a flip
         "feature_after": 2,        # failed attempts on a signature before feature mode
+        # Base check: before launching a worker, re-run its representatives at main HEAD when the code
+        # changed since their known result was recorded; an item whose tests already pass is not launched.
+        "base_check": True,
     },
     "gate": {
         "always_suites": ["smoke"],   # every known test in these runs at every gate
@@ -74,7 +77,10 @@ DEFAULTS: dict = {
         "compat_command": [],         # argv run in the gate tree per candidate; {tree}; non-zero rejects
         "batch": 4,
         "sample": 150,
-        "full_every": 200,            # merges between full refreshes
+        "full_every": 0,              # merges between full refreshes; 0 = off (the sweep covers every suite)
+        # Rotating sweep: every suite this node owns runs against main within this many merges, one suite
+        # per step, regressions bisected over the merges since that suite last ran and reverted. 0 = off.
+        "sweep_lag": 100,
         "quick_every": 25,            # merges between quick refreshes of quick_suites; 0 = off
         "quick_suites": [],           # [] = cheap_suites; fast suites run and bisected every quick_every
         "idle_refresh": True,         # full refresh when the queue drains with merges since the last one
