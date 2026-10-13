@@ -222,6 +222,8 @@ def reap(ctx: Ctx, rec: dict) -> dict:
         rec.update(status="failed", reason=f"no result: {why}")
     elif rec["result"].get("status") == "stale":
         rec.update(status="stale", reason="worker found its tests already pass at its base")
+    elif rec["result"].get("status") == "partial" and ctx.gate.get("partial_credit"):
+        rec.update(status="finished", partial=True)     # the gate decides whether it got closer
     elif rec["result"].get("status") != "fixed":
         rec.update(status="failed", reason=f"worker reported {rec['result'].get('status')}")
     else:

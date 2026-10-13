@@ -52,7 +52,9 @@ for suite in (a.suite or "smoke").split(","):
             reason = ["unexpected token 'foo%d' at /abs/dir/%s:3:%d" % (n, f.name, n),
                       "unsupported node BinOp line %d" % n, "exit code %d expected 0" % n][n % 3]
             stage = ["parse", "codegen", "run"][n % 3]
-        res[tid] = {"status": "PASS", "reason": "", "stage": ""} if ok else {"status": "FAIL", "reason": reason, "stage": stage}
+        closer = (root / "src/_fake_partial" / f"{suite}__{f.name}").exists()
+        res[tid] = ({"status": "PASS", "reason": "", "stage": "", "frac": 1.0} if ok else
+                    {"status": "FAIL", "reason": reason, "stage": stage, "frac": 0.5 if closer else 0.0})
 if a.json: Path(a.json).write_text(json.dumps(res))
 '''
 
@@ -73,6 +75,7 @@ always_suites = ["smoke"]
 cheap_suites = ["smoke", "c-testsuite"]
 compat_command = ["{py}", "-m", "compileall", "-q", "{{tree}}/src"]
 coauthor = ""
+partial_credit = "frac"
 [git]
 author_name = "Swarm Selftest"
 author_email = "selftest@example.invalid"
@@ -358,6 +361,20 @@ def main(argv: list[str] | None = None) -> int:
            "after the last refresh shipped, TinyCC 333 -> 35)",
            "merges since the last full refresh, refreshing" in out
            and json.loads(cf.read_text()).get("merges_since_full") == 0, out)
+    cli(root, "unpark")
+    pt = sorted(t for t, v in known(root).items() if v["status"] != "PASS" and not t.startswith("big/"))[0]
+    before = set(records(root))
+    out = run(root, wt, "--fake-mode", "partial", "--only", pt, "--max-workers", "1", "--concurrency", "1")
+    new = [r for k, r in records(root).items() if k not in before]
+    expect("partial credit: a 'partial' worker that raises the targets' frac with no regression is merged "
+           "without a flip (2026-10-13 swarm-decomp: 125 partials, 39% of spend, discarded)",
+           bool(new) and new[0]["status"] == "merged" and not new[0].get("gate_fixed")
+           and new[0].get("partial_gain", 0) >= 0.05 and known(root).get(pt, {}).get("frac") == 0.5, out)
+    before = set(records(root))
+    out = run(root, wt, "--fake-mode", "partial", "--only", pt, "--max-workers", "1", "--concurrency", "1")
+    new = [r for k, r in records(root).items() if k not in before]
+    expect("partial credit: no rise in frac -> not merged",
+           bool(new) and new[0]["status"] != "merged", out)
     log = sh(root, "git", "log", "--format=%an|%B")
     expect("merge commits carry the configured author and Swarm-Task trailers",
            "Swarm Selftest|" in log and "Swarm-Task: w00001" in log, "")

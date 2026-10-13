@@ -81,6 +81,12 @@ DEFAULTS: dict = {
         "recheck_max": 1500,          # cluster members re-run after each merge
         "max_main_races": 3,
         "coauthor": "Claude Haiku 5.5 <noreply@anthropic.com>",
+        # Partial credit: the name of a numeric field in the runner's per-test record (0..1, higher is
+        # closer, e.g. a byte-match fraction). Set, a worker reporting "partial" is gated too, and a
+        # candidate that flips no target merges when that field summed over its targets rises by at
+        # least partial_min_gain with zero regressions. "" = off. Refresh after turning it on.
+        "partial_credit": "",
+        "partial_min_gain": 0.05,
     },
     "git": {"author_name": "", "author_email": ""},   # "" = git config of the root checkout
     "worker": {
