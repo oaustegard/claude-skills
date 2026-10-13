@@ -2,7 +2,7 @@
 name: swarming-failing-tests
 description: Runs a long swarm of hundreds to thousands of cheap headless coding workers that drive a large failing-test backlog to green. Failures are clustered by signature, each worker fixes one cluster in its own git worktree, a serial no-regression merge gate lands the fixes, the loop resumes across restarts for hours, and it federates across sibling sessions over git branches when one container's CPU is not enough. Use for "fix these thousands of failing tests with a Haiku swarm", "drive the test suite to green with hundreds of agents", "build this compiler or interpreter against a conformance suite", "launch, relaunch or check in on the swarm loop", "the swarm is stuck, idle or rejecting everything", "parallel agents fixing tests keep hitting merge conflicts and regressions", "add sibling containers to the swarm", or "compare models on the tail the swarm could not fix". Ships the harness, a per-project TOML config, a fake-worker selftest, check-in signals and the 2026-10-12 haiku-cc failure catalogue.
 metadata:
-  version: 0.5.0
+  version: 0.5.1
 ---
 
 # Swarming failing tests
@@ -193,6 +193,13 @@ capability limit. Scope: one compiler workload, small n. Re-measure on a new wor
 with `$SWARM compare select|run|report`, in its own container
 (`compare` selects from the abandoned tail at HEAD and base-checks the selection,
 because random failing clusters saturate and known state goes stale).
+
+A second workload had a real Haiku ceiling. On matching decompilation (2026-10-13, gcc
+`-O2`, 1,768 functions) the tail Haiku left was large, loop-heavy functions, and each
+effort step past `high` bought fewer of them at a steeper price per function flipped:
+default $0.039, `high` $0.20, `high` feature $0.58, `xhigh` $1.30, `max` $3.90. Climb
+past `high` to learn where the ceiling is, not to clear a tail cheaply. Details:
+[references/run-2026-10-13.md](references/run-2026-10-13.md).
 
 The ladder the harness runs per signature: attempt 1 at the configured effort; after a
 real failure (a lost merge race is not one) at the next rung of `worker.effort_ladder`
