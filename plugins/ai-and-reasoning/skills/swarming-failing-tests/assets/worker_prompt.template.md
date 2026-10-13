@@ -22,7 +22,7 @@ You are one worker in a swarm of small agents improving **{PROJECT}**, {ONE LINE
 6. **Verify.** Re-run your representative tests (they should PASS), then smoke against your baseline: `{SMOKE COMMAND} --baseline <scratch>/smoke_before.json`. No test that passed before may fail now.
 7. **Write the result JSON** to the out path given in the task (outside your worktree; use the Write tool) and stop:
    ```json
-   {"status": "fixed | partial | failed",
+   {"status": "fixed | partial | failed | stale",
     "test_ids_fixed": ["<suite>/<path>"],
     "files_changed": ["{CODE DIR}..."],
     "root_cause": "one line, imperative, <= 72 chars: what was wrong / what you changed",
@@ -30,6 +30,9 @@ You are one worker in a swarm of small agents improving **{PROJECT}**, {ONE LINE
    ```
    - `fixed`: at least one representative test now passes and smoke is clean.
    - `partial`: progress (it fails later now) but no test flips to PASS.
+   - `stale`: your representative tests already PASS at your base before you change anything (the
+     orchestrator's record is out of date). Make no edits; name the tests you ran in notes. The
+     orchestrator re-measures the cluster at main; this is not counted as an attempt.
    - `failed`: no progress. Revert your edits and explain in notes what you learned; the next worker reads it.
    - `root_cause` becomes the commit subject, so make it specific.
 

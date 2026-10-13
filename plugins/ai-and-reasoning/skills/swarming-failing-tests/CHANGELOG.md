@@ -2,6 +2,12 @@
 
 All notable changes to the `swarming-failing-tests` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.1.5] - 2026-10-13
+
+### Other
+
+- swarming-failing-tests 0.1.5: 'stale' worker status; fan out the final measurement
+
 ## [0.1.4] - 2026-10-12
 
 ### Other

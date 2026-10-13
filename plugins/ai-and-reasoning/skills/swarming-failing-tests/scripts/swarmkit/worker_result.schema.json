@@ -1,7 +1,7 @@
 {"type": "object",
  "required": ["status", "test_ids_fixed", "files_changed", "root_cause", "notes"],
  "properties": {
-  "status": {"enum": ["fixed", "partial", "failed"]},
+  "status": {"enum": ["fixed", "partial", "failed", "stale"]},
   "test_ids_fixed": {"type": "array", "items": {"type": "string"}},
   "files_changed": {"type": "array", "items": {"type": "string"}},
   "root_cause": {"type": "string"},

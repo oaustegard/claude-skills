@@ -123,3 +123,22 @@ branch with approval, the patches injected into the hub later as ingest candidat
 Give it `model` too, and the background launch rules: `timeout: 7200000` on the
 Bash call (an unspecified timeout gave one experiment session only 30 minutes), and
 a resumable command relaunched at check-ins.
+
+## 9. Measurement nodes for the final count
+
+The end-of-run measurement is several core-hours (haiku-cc: about 2 h on one 4-vCPU container,
+with one suite's driver running its programs serially at load 1). Do not run it on the hub.
+
+1. Start the measurement nodes early, before the commit is pinned: `create_session` with
+   `source_url`/`source_revision` at `<prefix>main`, a brief that runs the project setup and
+   pre-fetches the whole-program sources, then waits for a message carrying the sha.
+2. Partition the suites by their last measured duration, the long poles on separate nodes; a
+   serial-driver suite can run as several filtered processes on one node.
+3. Pin the sha only after the last fix lands. Send it with `send_message`; each node checks it out
+   detached, runs `tests/run.py --suite S --json runs/final/S.json` per suite (resumable: skip
+   existing JSON), commits the JSON with `git add -f`, and pushes `<prefix>final/<node>`.
+4. The hub fetches the branches, merges the JSON, records it into the known state at the pinned
+   sha, and archives the nodes once the branches are in.
+
+A measurement started before the last fix is thrown away when the fix lands (2026-10-12: twice,
+about 4 h); pinning late costs nothing because the nodes are already set up.
