@@ -76,7 +76,9 @@ Files outside `code`/`allowed` are silently left out of the candidate.
 | `git.author_name/email` | git config of root | author of swarm commits |
 | `worker.system_prompt` | — | path; required for real runs |
 | `worker.schema` | bundled | result JSON schema |
-| `worker.model`, `effort` | `haiku`, `""` | first attempt; later attempts and feature work run at `high` |
+| `worker.model`, `effort` | `haiku`, `""` | first attempt's model and effort |
+| `worker.effort_ladder` | `["", "high"]` | effort by the most real failures any of the item's tests has had (all time, so `unpark` does not reset it); `""` = `effort`; the last rung repeats. The CLI accepts `low`, `medium`, `high`, `xhigh`, `max` |
+| `worker.feature_effort` | `high` | floor for feature-mode workers |
 | `worker.timeout`, `per_task_usd` | 1500, 2.0 | |
 | `worker.feature_timeout`, `feature_usd` | 3600, 5.0 | feature-mode budget |
 | `worker.tools`, `allow` | `Read,Grep,Glob,Edit,Write,Bash`, `["Edit(//tmp/**)", "Bash"]` | plus `Edit(/<worktree>/**)` and the scratch dir, always |

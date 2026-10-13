@@ -69,6 +69,18 @@ def source_size(ctx: Ctx):
     return size
 
 
+EFFORT_RANK = ["", "low", "medium", "high", "xhigh", "max"]
+
+
+def pick_effort(ladder: list[str], failures: int, feature: bool, feature_effort: str, base: str) -> str:
+    """The effort for an attempt after `failures` real failures: the ladder's rung (clamped to its last),
+    "" meaning the configured base effort; feature work never below feature_effort."""
+    rung = (ladder or [""])[min(failures, len(ladder or [""]) - 1)] or base
+    if feature and EFFORT_RANK.index(feature_effort or "") > EFFORT_RANK.index(rung or ""):
+        rung = feature_effort
+    return rung
+
+
 def premerge_rebase(wt: Path, patch: str, code_dirs: list[str]) -> list[str] | None:
     """Re-apply a conflicted worker's diff into a fresh worktree with `git apply --3way`, leaving
     conflict markers in place for the rebase worker to resolve. Returns the conflicted files ([] when
@@ -146,10 +158,14 @@ def launch(ctx: Ctx, a: argparse.Namespace, item: workqueue.WorkItem, seq: int) 
     # A rebase of a feature worker's diff is feature-sized too: the small budget cannot re-apply it
     # (diagnosed 2026-10-12: 28 of the first 29 feature rejections were conflicts that then died as small rebases).
     feature = len(prev) >= ctx.cfg["queue"]["feature_after"] or bool(rebase_of and (led.get(rebase_of) or {}).get("feature"))
-    # Effort ladder (agent-routing: one effort step up on the same model before any tier jump): the first
-    # attempt runs at the configured effort; any attempt after a real failure (a lost merge race is not
-    # one) and all feature work runs at high.
-    effort = "high" if (feature or fails) else (a.effort or w["effort"] or None)
+    # Effort ladder (agent-routing: effort steps up on the same model before any tier jump). The rung is the
+    # most real failures any of the item's tests has had, all time: on 2026-10-13 the decomp tail stalled at
+    # "high" ($0.57 per flip in feature mode) while the CLI offers xhigh and max.
+    hist = workqueue.counted_failures(led, 0.0)
+    per_test = {t: sum(1 for r in hist if t in (r.get("tests") or [])) for t in item.tests}
+    nfail = max([len(fails), *per_test.values()])
+    effort = pick_effort(w.get("effort_ladder") or ["", "high"], nfail, feature, w.get("feature_effort") or "high",
+                         a.effort or w["effort"] or "") or None
     timeout = max(a.timeout, w["feature_timeout"]) if feature else a.timeout
     scratch = ctx.scratch(tid)
     prompt = task_prompt(ctx, tid, item, out, prev, feature, rebase_patch, conflicted_files)
