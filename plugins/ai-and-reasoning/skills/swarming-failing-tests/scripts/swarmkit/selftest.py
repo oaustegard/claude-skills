@@ -375,6 +375,13 @@ def main(argv: list[str] | None = None) -> int:
     new = [r for k, r in records(root).items() if k not in before]
     expect("partial credit: no rise in frac -> not merged",
            bool(new) and new[0]["status"] != "merged", out)
+    from swarmkit.run import projected_spend
+    led = {"a": {"status": "merged", "cost_usd": 0.10, "t_done": 1}, "b": {"status": "failed", "cost_usd": 0.30, "t_done": 2},
+           "c": {"status": "merged", "cost_usd": 2.0, "t_done": 3, "feature": True},
+           "d": {"status": "launched"}, "e": {"status": "launched", "feature": True}}
+    ps = projected_spend(led)
+    expect("--max-usd counts in-flight workers at the recent mean cost (2026-10-13: a $36 cap overran by $5)",
+           abs(ps - (2.4 + 0.2 + 2.0)) < 1e-9, f"projected {ps}")
     log = sh(root, "git", "log", "--format=%an|%B")
     expect("merge commits carry the configured author and Swarm-Task trailers",
            "Swarm Selftest|" in log and "Swarm-Task: w00001" in log, "")
