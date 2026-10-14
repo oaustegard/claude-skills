@@ -9,7 +9,7 @@ The document template is product-neutral: its sections are phases and families, 
 
 Write the answers into the README's "Document template" section (items 3, 4, 5, 6), define the interrupt words in the glossary's "events that end or interrupt" section, and do not change them after the pilot without revisiting every document.
 
-Below are worked answers for four product kinds. A real product is usually mostly one of these with pieces of another; take the nearest column and adjust.
+Below are worked answers for five product kinds. A real product is usually mostly one of these with pieces of another; take the nearest column and adjust.
 
 ## Pointer-driven editor
 
@@ -62,6 +62,19 @@ LLM assistants, chat apps, support inboxes, anything where the unit is a message
 - **Foundations:** the conversation model (what a conversation, message, turn, and draft are; what "sent" and "delivered" mean), the account and plan model, the navigation model (conversation list, routes, what is restored), the streaming and interruption model (what Stop does at each stage, what is kept).
 - **Pilot:** the simplest complete turn (send a short message, receive a short response) or one local command. **Hardest area:** the composer and the streaming response together: every modifier, every interrupt, every attachment type, and what the user can do while a response is in flight.
 - **Verification:** "device" means client (web, desktop, mobile), network condition, a second device on the same account, a second participant. Responses from a model are not deterministic; items about content say "a response" and check structure, timing, and state, not wording. The running product is staging with a throwaway account.
+
+## Library or SDK
+
+Packages, client SDKs, embeddable engines, anything whose "user" is a calling program and whose surface is a public API. The person reading the description is a programmer deciding what they can rely on.
+
+- **Surface:** one package at one version, its public API as exported (`__all__`, the index module, the published headers), default installation and configuration, no environment variables set. Name the language runtime and the optional dependencies that are present.
+- **Unit of interaction:** a call, or a closely related pair (`save` and `load`, `open` and `close`). Phases: *the call is made* (arguments checked, what is captured or copied) → *refused at once* (raises or returns an error before any effect; is anything left behind?) → *the first effect* (the first observable change: a file opened or truncated, a cache built, an object mutated, a request sent) → *while it runs* (what is partially done, what another thread or process can see meanwhile) → *it returns* (what exists afterwards, what was recorded, the failure path). Rename the five subsections to these.
+- **Variant axis:** the state of the objects the call acts on (their mode, what they recorded when created, what they cached) and of the configuration (constructor options that persist, environment variables, optional dependencies present or absent). Two columns: "set when the call begins" and "changed between or during calls"; most cells in the second say whether mutating the object between calls is detected.
+- **Interrupt list:** an exception or KeyboardInterrupt inside the call; another thread uses the same object during the call; a later call reuses what this one cached; resources fail (out of memory, disk full, a native build or optional dependency missing); the process dies (SIGKILL, power loss); the target changes underneath (file replaced or deleted, object fields reassigned, remote state changed); input in an unexpected form (dtype, layout, NaN, wrong shape, a path object or a file handle). Same list, every document.
+- **Cross-cutting concerns:** the compatibility contract between objects (what must match for one object to read another's output), versions and file-format compatibility, determinism across machines, memory and caches, thread safety, other serialization formats, warnings and logging, optional native or GPU paths.
+- **Foundations:** the compatibility contract (which parameters determine output, which are recorded, which are checked and how a mismatch fails), the core object model, the error model (what is refused, what fails partway, what is silently wrong).
+- **Pilot:** a persistence pair (`save`/`load`) or another call with a side effect outside the process; it gives every interrupt row a real answer. **Hardest area:** the family of calls that must agree with each other (several search or query paths, sync and async variants), which the documents must hold to one behavior.
+- **Verification:** "device" means a plain process, a child process the item can kill, an environment variable set for one process, a second thread, a platform. Almost every item is a short script, so a pass is a script with one function per checklist ID; the Result column still holds what a person read back. The pass is cheap enough to run before drafting: probe each claim, then write it.
 
 ## Reading the columns together
 

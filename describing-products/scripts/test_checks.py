@@ -72,7 +72,7 @@ def test_links_slugs_match_github(tmp_path: Path) -> None:
     write(tmp_path, {"a.md": (
         "# T\n\n## The snake_case flag\n\n## Café rules\n\n## Step 1. Setup\n\n## *Bold* _it_\n\n"
         "[a](#the-snake_case-flag) [b](#café-rules) [c](#step-1-setup) [d](#bold-it)\n")})
-    problems, _, checked = check_links.check(str(tmp_path))
+    problems, _, _, checked = check_links.check(str(tmp_path))
     assert checked == 4
     assert problems == []
 
@@ -82,7 +82,7 @@ def test_links_ignore_code_and_check_reference_defs(tmp_path: Path) -> None:
         "Write `[text](missing.md)` like this.\n\n```\n[x](gone.md)\n```\n\n"
         "See [r][ref] and [ok](b.md#top).\n\n[ref]: nowhere.md\n"),
         "b.md": "# Top\n"})
-    problems, _, _ = check_links.check(str(tmp_path))
+    problems, _, _, _ = check_links.check(str(tmp_path))
     assert problems == ["a.md:9: missing file: nowhere.md"]
 
 
@@ -121,3 +121,21 @@ def test_structure_missing_footer_and_sections(tmp_path: Path) -> None:
     assert "tools/a.md: no 'Verified against ... commit `sha`' footer" in text
     assert "has an interaction but no '## Cancel and interrupt' table" in text
     assert "glossary.md" in text  # listed as drafted, missing on disk
+
+
+def test_links_to_planned_documents_are_not_broken(tmp_path: Path) -> None:
+    write(tmp_path, {"README.md": README, "tools/a.md": "See [c](c.md) and [gone](gone.md).\n"})
+    problems, planned, _, _ = check_links.check(str(tmp_path))
+    assert problems == ["tools/a.md:1: missing file: gone.md"]
+    assert planned == ["tools/a.md:1: planned: c.md"]
+    strict, planned, _, _ = check_links.check(str(tmp_path), strict=True)
+    assert len(strict) == 2 and planned == []
+
+
+def test_structure_exclude(tmp_path: Path) -> None:
+    write(tmp_path, {"README.md": README, "glossary.md": "# G\n", "tools/a.md": doc("a"),
+                     "tools/b.md": doc("b"), "RESULTS.md": "# Results\n"})
+    errors, _ = check_structure.check(tmp_path, None)
+    assert any("RESULTS.md" in e for e in errors)
+    errors, _ = check_structure.check(tmp_path, None, frozenset({"RESULTS.md"}))
+    assert errors == []

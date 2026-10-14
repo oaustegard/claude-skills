@@ -1,13 +1,19 @@
 #!/usr/bin/env python3
 """Check relative links and heading anchors across a product description repo.
 
-Usage: python3 check_links.py [repo-root]   (default: current directory)
+Usage: python3 check_links.py [repo-root] [--strict]   (default root: current directory)
 
 Walks every .md file and checks every inline link `[text](target)` and every
 reference definition `[label]: target`. Reports targets whose file does not
 exist, or whose `#anchor` matches no heading (or `<a id/name>`) in the target
 file. Skips URLs with a scheme (http:, mailto:), fenced code blocks, and inline
 code spans. Exits 1 if anything is broken.
+
+A link to a missing file that README.md's "## Coverage" table lists as
+`not started` is a link to a planned document, not a broken one: a repo built
+in phases links to foundations and siblings before they exist. Those are
+listed separately and do not fail the run unless --strict is given, which is
+what the final consistency pass uses.
 
 Slugs follow GitHub's rule (github-slugger): lowercase; drop punctuation but
 keep letters in any script, digits, `_`, `-` and spaces; each space becomes a
@@ -16,6 +22,7 @@ folded to ASCII, because GitHub keeps them.
 """
 from __future__ import annotations
 
+import argparse
 import os
 import re
 import sys
@@ -94,11 +101,36 @@ def targets_in(line: str) -> list[str]:
     return found
 
 
-def check(root: str) -> tuple[list[str], int, int]:
-    """Return (problems, files checked, links checked)."""
+def planned_docs(root: str) -> set[str]:
+    """Absolute paths the README coverage table lists as `not started`."""
+    readme = os.path.join(root, "README.md")
+    if not os.path.exists(readme):
+        return set()
+    with open(readme, encoding="utf-8") as f:
+        lines = f.read().splitlines()
+    planned: set[str] = set()
+    in_coverage = False
+    for line in lines:
+        if line.startswith("## "):
+            in_coverage = line[3:].strip().lower() == "coverage"
+            continue
+        if not in_coverage or not line.lstrip().startswith("|"):
+            continue
+        cells = [c.strip().strip("`") for c in line.strip().strip("|").split("|")]
+        if len(cells) >= 2 and cells[1].lower() == "not started":
+            m = re.search(r"[\w./-]+\.md", cells[0])
+            if m:
+                planned.add(os.path.normpath(os.path.join(root, m.group(0))))
+    return planned
+
+
+def check(root: str, strict: bool = False) -> tuple[list[str], list[str], int, int]:
+    """Return (problems, links to planned documents, files checked, links checked)."""
     files = sorted(md_files(root))
     anchors: dict[str, set[str]] = {}
     problems: list[str] = []
+    planned_links: list[str] = []
+    planned = set() if strict else planned_docs(root)
     checked = 0
     for path in files:
         with open(path, encoding="utf-8") as f:
@@ -113,22 +145,31 @@ def check(root: str) -> tuple[list[str], int, int]:
                 dest = (os.path.normpath(os.path.join(os.path.dirname(path), file_part))
                         if file_part else path)
                 if not os.path.exists(dest):
-                    problems.append(f"{rel}:{lineno}: missing file: {target}")
+                    if dest in planned:
+                        planned_links.append(f"{rel}:{lineno}: planned: {target}")
+                    else:
+                        problems.append(f"{rel}:{lineno}: missing file: {target}")
                     continue
                 if anchor and dest.endswith(".md"):
                     if dest not in anchors:
                         anchors[dest] = anchors_of(dest)
                     if anchor.lower() not in anchors[dest]:
                         problems.append(f"{rel}:{lineno}: missing anchor: {target}")
-    return problems, len(files), checked
+    return problems, planned_links, len(files), checked
 
 
 def main() -> None:
-    root = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else ".")
-    problems, n_files, n_links = check(root)
-    for p in problems:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("root", nargs="?", default=".")
+    ap.add_argument("--strict", action="store_true",
+                    help="treat links to `not started` documents as broken")
+    args = ap.parse_args()
+    root = os.path.abspath(args.root)
+    problems, planned_links, n_files, n_links = check(root, args.strict)
+    for p in problems + planned_links:
         print(p)
-    print(f"{n_files} files, {n_links} relative links, {len(problems)} broken")
+    print(f"{n_files} files, {n_links} relative links, {len(problems)} broken, "
+          f"{len(planned_links)} to planned documents")
     sys.exit(1 if problems else 0)
 
 

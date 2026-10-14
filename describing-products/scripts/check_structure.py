@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Check the mechanical half of the consistency pass on a product description repo.
 
-Usage: python3 check_structure.py [repo-root] [--reference area/pilot.md]
+Usage: python3 check_structure.py [repo-root] [--reference area/pilot.md] [--exclude PATH ...]
 
 Feature documents are every .md file except the root's README.md, goal.md,
 glossary.md, AGENTS.md, CLAUDE.md, bug-triage.md, and anything under
-verification/. For them it checks:
+verification/, and any path given to --exclude (a RESULTS.md or CHANGELOG.md the
+host repo's conventions require). For them it checks:
 
   coverage   every feature document is a row in README.md's "## Coverage"
              table, every row past `not started` exists on disk, and every
@@ -51,10 +52,12 @@ BOLD_LEAD = re.compile(r"^\*\*(.+?)\*\*")
 MD_PATH = re.compile(r"([\w./-]+\.md)")
 
 
-def feature_docs(root: Path) -> list[Path]:
+def feature_docs(root: Path, exclude: frozenset[str] = frozenset()) -> list[Path]:
     out = []
     for p in sorted(root.rglob("*.md")):
         rel = p.relative_to(root)
+        if rel.as_posix() in exclude:
+            continue
         if any(part.startswith(".") or part == "node_modules" for part in rel.parts):
             continue
         if rel.parts[0] == "verification":
@@ -121,11 +124,12 @@ def coverage_rows(readme: Path) -> list[tuple[str, str]] | None:
     return rows
 
 
-def check(root: Path, reference: Path | None) -> tuple[list[str], list[str]]:
+def check(root: Path, reference: Path | None,
+          exclude: frozenset[str] = frozenset()) -> tuple[list[str], list[str]]:
     """Return (errors, warnings)."""
     errors: list[str] = []
     warnings: list[str] = []
-    docs = feature_docs(root)
+    docs = feature_docs(root, exclude)
 
     cov = coverage_rows(root / "README.md")
     if cov is None:
@@ -211,17 +215,20 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("root", nargs="?", default=".")
     ap.add_argument("--reference", help="the pilot document, relative to root")
+    ap.add_argument("--exclude", action="append", default=[],
+                    help="a non-feature .md file, relative to root (repeatable)")
     args = ap.parse_args()
     root = Path(os.path.abspath(args.root))
     ref = (root / args.reference) if args.reference else None
     if ref is not None and not ref.exists():
         sys.exit(f"--reference {args.reference}: no such file under {root}")
-    errors, warnings = check(root, ref)
+    exclude = frozenset(Path(e).as_posix() for e in args.exclude)
+    errors, warnings = check(root, ref, exclude)
     for e in errors:
         print(f"error: {e}")
     for w in warnings:
         print(f"warning: {w}")
-    print(f"{len(feature_docs(root))} feature documents, {len(errors)} errors, {len(warnings)} warnings")
+    print(f"{len(feature_docs(root, exclude))} feature documents, {len(errors)} errors, {len(warnings)} warnings")
     sys.exit(1 if errors else 0)
 
 

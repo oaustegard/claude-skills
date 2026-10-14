@@ -6,13 +6,13 @@ description: >-
   can do, and exactly what happens when they do it, including when they stop
   halfway. Drafted from the code and tests, verified against the running product
   with hand checklists, and triaged into a bug list. Works for canvas editors, web
-  apps, CLIs, chat products and mobile apps. Use when asked to "write a product
+  apps, CLIs, chat products, mobile apps, and libraries or SDKs. Use when asked to "write a product
   description for X", "describe the user experience of X", "document how X
   behaves for the user", "make a behavior-spec repo", or for an event-by-event
   account of an app's behavior rather than API docs. Also resumes or extends an
   existing product description repo.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Describing products
@@ -25,12 +25,12 @@ Adjacent skills: `featuring` inventories what a codebase does, by capability; th
 
 | File | Use |
 | --- | --- |
-| `references/product-kinds.md` | Map the template onto a canvas editor, web app, CLI or chat product. Read in Phase 0. |
+| `references/product-kinds.md` | Map the template onto a canvas editor, web app, CLI, chat product, or library/SDK. Read in Phase 0. |
 | `references/README-template.md`, `goal-template.md`, `glossary-guide.md` | Skeletons for the three files that steer the build. `goal-template.md` carries the writing rules. |
 | `references/document-template.md` | The eight-section skeleton every feature document follows. |
 | `references/verification-template.md`, `bug-triage-template.md` | Skeletons for the checking half. |
-| `scripts/check_links.py` | Every relative link and heading anchor resolves (GitHub slug rules). |
-| `scripts/check_structure.py` | Coverage table matches disk; sections in order; footer present; modifier, interrupt and concern rows identical across documents; no empty cells. |
+| `scripts/check_links.py` | Every relative link and heading anchor resolves (GitHub slug rules). Links to documents the coverage table lists as `not started` are reported as planned; `--strict` counts them as broken. |
+| `scripts/check_structure.py` | Coverage table matches disk; sections in order; footer present; modifier, interrupt and concern rows identical across documents; no empty cells. `--exclude` names extra non-feature files. |
 
 Both scripts are stdlib Python 3, take the repo root, and exit 1 on failure.
 
@@ -55,7 +55,7 @@ Settle these before writing a file. Ask only for what the conversation and the s
 2. **Source of truth.** Path to the source repo (read-only) and its commit. Every document footer cites `git rev-parse --short HEAD` of that repo.
 3. **Where to run it.** The command and URL, binary, or account that brings the surface up for verification.
 4. **Out of scope.** Name each exclusion and why, so readers do not take it for an omission.
-5. **Where the repo goes.** A new directory, `git init`, first commit `Initial commit`.
+5. **Where the repo goes.** A new directory with `git init` and a first commit `Initial commit`, or a directory inside an existing repo when the user keeps such work there (then follow that repo's conventions too, and pass its extra files, such as a `RESULTS.md`, to `check_structure.py --exclude`).
 6. **The product's shape.** From `product-kinds.md`, decide once: the unit of interaction and its five phase names; the variant axis; the fixed interrupt list; the cross-cutting concerns and their order. These go into the README's "Document template" and the glossary before the pilot, and do not change afterwards without revisiting every document.
 
 Then reconnoitre the source repo for: where interaction state lives (state machines, reducers, controllers, route handlers, command definitions), the behavior tests that read as executable specs of edge cases, the UI, and where defaults and thresholds are defined. Use `tree-sitting` or `exploring-codebases` for this when available rather than reading files whole. The findings fill the README's "Reference" section and goal.md's reading order.
@@ -98,9 +98,11 @@ Update the coverage table to `drafted` as each lands. Commit in groups: `docs: a
 Mechanical, both must exit 0:
 
 ```sh
-python3 {skill}/scripts/check_links.py {repo}
+python3 {skill}/scripts/check_links.py {repo} --strict
 python3 {skill}/scripts/check_structure.py {repo} --reference {pilot}
 ```
+
+Without `--strict`, links to documents still `not started` are listed but do not fail; use that during Phases 2 and 3.
 
 By reading, over the whole set:
 
@@ -116,6 +118,8 @@ Drafting reads the code; verification watches the product. From `verification-te
 
 - `verification/README.md`: how to bring up the surface, confirm the commit, run a pass, record results, file failures, and when a document moves from `drafted` to `verified`.
 - One checklist file per cluster of documents, one table per document, one row per observable claim: stable ID (`AREA-NN`), priority (P1 established fact or suspected bug, P2 ordinary claim, P3 a number, color or timing), what it needs (device, role, network condition), the claim linked to its section, setup, numbered steps, expected result, Result (`—` until run). Claims not checkable by hand go under "Not checkable by hand".
+
+For a library or a CLI, every item is a short script: write `verification/run_pass.py` with one function per checklist ID, and probe claims with those scripts while drafting rather than after. Each automated item must assert the exact expected outcome (exception type and message, file names, values); a check that accepts any exception will pass a wrong claim.
 
 If you can drive the product (Playwright or other browser automation, a console handle on the app, a shell for a CLI, a test harness), run a first pass on what that can observe, record results in the Result columns, and state in `verification/README.md` exactly what the pass did and did not cover (a scripted pass checks output, exit codes and stored state, not what was on screen or how long it took to appear). Never mark a document `verified` on an automated pass alone. A failed item is not automatically a product bug; sometimes the document is wrong, and the Status line says which.
 
