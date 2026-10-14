@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.2.0 (2026-10-14)
+
+From a trial on oaustegard/remex (experiments `remex-product-description/`):
+pilot, one foundation, a 30-item automated pass and six triaged defects.
+
+- `product-kinds.md`: a fifth kind, library or SDK. Unit of interaction is a
+  call; the seven interrupt families map onto exceptions, concurrent threads,
+  reused caches, resource failures, process death, targets changed underneath
+  and odd input.
+- `check_links.py`: links to documents the coverage table lists as
+  `not started` are reported as planned and do not fail; `--strict` restores
+  the old behavior for the final pass. A phased build had 8 such links.
+- `check_structure.py`: `--exclude` for non-feature files a host repo requires
+  (the trial's `RESULTS.md` would have been checked as a feature document).
+- Phase 0 allows the description to live in a directory of an existing repo.
+- Verification: automated items must assert the exact expected outcome. The
+  trial's first pass accepted any exception for one item and so passed a claim
+  that named the wrong error.
+
 ## 0.1.0 (2026-10-14)
 
 Imported from Steve Ruiz's `product-description` gist
@@ -23,6 +42,12 @@ Imported from Steve Ruiz's `product-description` gist
   the most-broken five.
 - Phase 0 reconnaissance points at `tree-sitting` / `exploring-codebases`;
   related-skill note on `featuring`.
+
+## [0.2.0] - 2026-10-14
+
+### Other
+
+- describing-products 0.2.0: library kind, planned links, --exclude
 
 ## [0.1.0] - 2026-10-14
 

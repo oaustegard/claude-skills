@@ -73,6 +73,7 @@ Not checkable by hand:
 - Every suspected bug in the document gets a P1 row, even if the tester can only record the result.
 - Every cancel/interrupt table cell that is not "no effect" gets a row. Every modifier cell that is not "no effect" gets a row.
 - Numbers, colors, and timings are P3 unless many documents depend on them (the threshold that separates the short path from the extended one is P1).
+- An automated item asserts the specific expected outcome: the exception type *and* message, the exact file names, the value. A check that accepts any exception, or any non-empty output, passes a claim the product contradicts; a wrong error name in a draft survived one such pass.
 - The Result column is `—` until a pass fills it. Results are recorded in place, with a short note after anything other than `pass`.
 
 Expect on the order of a few dozen items per document; the count is driven by the document, not a target.
