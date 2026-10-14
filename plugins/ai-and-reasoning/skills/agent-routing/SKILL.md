@@ -4,7 +4,7 @@ description: Decide which model, effort level, and cascade shape each subagent g
 compatibility: Designed for Claude Code / Claude Code on the Web — assumes an orchestrator with Agent/Workflow subagent tools. Only the Workflow tool sets a subagent's effort; the Agent tool sets its model. Not applicable to claude.ai chat use.
 metadata:
   author: Oskar Austegard and Claude
-  version: "2.7.1"
+  version: "2.7.2"
 ---
 
 # Agent Routing — model, effort, and cascade selection
@@ -443,7 +443,7 @@ tests parked after failed attempts look like a capability gap. On 2026-10-12 (ha
 at about 7x the cost per solve, and Haiku's own retry ladder (notes, feature budget,
 effort step) fixed both later; the tail the swarm abandoned was harness-made and Haiku
 solved it cold once un-parked. Fix the harness and retry before escalating the tier.
-Procedure and measurements: `swarming-failing-tests` ("Which model").
+Procedure and measurements: `swarming-to-green` ("Which model").
 
 ## Observing the fan-out — you can't govern what you can't watch
 

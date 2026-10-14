@@ -23,12 +23,12 @@ warn() { echo "setup: WARN: $*" >&2; }
 HERE=$(cd "$(dirname "$0")" && pwd)
 if [ -f "$HERE/swarm.py" ]; then
   SKILL_SCRIPTS=$HERE
-elif [ -f /mnt/skills/user/swarming-failing-tests/scripts/swarm.py ]; then
-  SKILL_SCRIPTS=/mnt/skills/user/swarming-failing-tests/scripts
+elif [ -f /mnt/skills/user/swarming-to-green/scripts/swarm.py ]; then
+  SKILL_SCRIPTS=/mnt/skills/user/swarming-to-green/scripts
 else
   [ -d "$HOME/claude-skills/.git" ] || git clone -q --depth 1 https://github.com/oaustegard/claude-skills "$HOME/claude-skills" \
     || { echo "setup: cannot fetch the skill scripts" >&2; exit 2; }
-  SKILL_SCRIPTS=$HOME/claude-skills/swarming-failing-tests/scripts
+  SKILL_SCRIPTS=$HOME/claude-skills/swarming-to-green/scripts
 fi
 FANOUT=$(cd "$SKILL_SCRIPTS/../.." && pwd)/dispatching-subagents/scripts/headless_fanout.py
 [ -f "$FANOUT" ] || warn "headless_fanout.py not found at $FANOUT; set SWARM_FANOUT"

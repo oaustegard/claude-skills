@@ -2,6 +2,12 @@
 
 All notable changes to the `agent-routing` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.7.2] - 2026-10-14
+
+### Other
+
+- swarming-to-green 0.7.0: rename from swarming-failing-tests
+
 ## [2.7.1] - 2026-10-12
 
 ### Other

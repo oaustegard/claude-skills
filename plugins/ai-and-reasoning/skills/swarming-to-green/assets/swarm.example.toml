@@ -1,4 +1,4 @@
-# swarm.toml: per-project config for swarming-failing-tests. Commit it at the project root.
+# swarm.toml: per-project config for swarming-to-green. Commit it at the project root.
 # Every key is optional except where marked; unknown keys are an error (a typo fails at launch).
 # Paths are relative to the project root. Full reference: references/config.md.
 
