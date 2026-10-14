@@ -43,6 +43,12 @@ Imported from Steve Ruiz's `product-description` gist
 - Phase 0 reconnaissance points at `tree-sitting` / `exploring-codebases`;
   related-skill note on `featuring`.
 
+## [0.2.0] - 2026-10-14
+
+### Other
+
+- describing-products 0.2.0: library kind, planned links, --exclude
+
 ## [0.1.0] - 2026-10-14
 
 ### Other
