@@ -23,3 +23,9 @@ Imported from Steve Ruiz's `product-description` gist
   the most-broken five.
 - Phase 0 reconnaissance points at `tree-sitting` / `exploring-codebases`;
   related-skill note on `featuring`.
+
+## [0.1.0] - 2026-10-14
+
+### Other
+
+- describing-products: import Steve Ruiz's product-description skill, revised
