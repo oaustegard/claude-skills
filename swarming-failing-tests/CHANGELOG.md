@@ -2,6 +2,13 @@
 
 All notable changes to the `swarming-failing-tests` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.6.0] - 2026-10-14
+
+### Other
+
+- swarming-failing-tests 0.6.0: near-hold for rebase tasks
+- swarming-failing-tests: scaling-out points at the push-namespace manifest and its probe
+
 ## [0.5.1] - 2026-10-13
 
 ### Other
