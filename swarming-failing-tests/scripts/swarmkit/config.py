@@ -70,6 +70,9 @@ DEFAULTS: dict = {
         # Base check: before launching a worker, re-run its representatives at main HEAD when the code
         # changed since their known result was recorded; an item whose tests already pass is not launched.
         "base_check": True,
+        # Near-hold (nearness.py): a rebase whose patch modifies a file a live worker is changing waits,
+        # at most this many seconds after its conflict, while other work dispatches. 0 = off.
+        "near_hold_s": 1200,
     },
     "gate": {
         "always_suites": ["smoke"],   # every known test in these runs at every gate

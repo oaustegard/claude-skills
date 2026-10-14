@@ -276,6 +276,35 @@ def base_check(root: Path, wt: Path, expect) -> None:
            p.stdout + p.stderr)
 
 
+def near_hold(tmp: Path, expect) -> None:
+    """Near-hold: a rebase whose patch modifies a file a live peer is changing waits; a peer that only
+    adds files, or a conflict older than queue.near_hold_s, does not hold it (haiku-cc ledgers: 31 of
+    43 rebases launched next to such a peer conflicted again, 1 of 11 without one)."""
+    from swarmkit import config as cfgmod
+    from swarmkit import nearness
+    from swarmkit.common import Ctx
+    cfg = cfgmod.load(None)
+    cfg["state_dir"] = str(tmp / "nh-state")
+    ctx = Ctx(tmp, cfg, wt_root=tmp / "nh-wt")
+    mod = "diff --git a/src/a.py b/src/a.py\n--- a/src/a.py\n+++ b/src/a.py\n@@ -1 +1 @@\n-x\n+y\n"
+    add = "diff --git a/src/new.py b/src/new.py\nnew file mode 100644\n--- /dev/null\n+++ b/src/new.py\n@@ -0,0 +1 @@\n+z\n"
+    now = time.time()
+    led = {"c1": {"id": "c1", "signature": "S", "status": "rejected", "reason": "conflict applying onto main",
+                  "t_gate": now - 60},
+           "p1": {"id": "p1", "signature": "T", "status": "finished"},
+           "p2": {"id": "p2", "signature": "U", "status": "finished"}}
+    (ctx.task_dir("c1") / "patch.diff").write_text(mod)
+    (ctx.task_dir("p1") / "patch.diff").write_text(mod.replace("+y", "+w"))
+    (ctx.task_dir("p2") / "patch.diff").write_text(add)
+    live = nearness.live_files(ctx, led)
+    held = nearness.hold(ctx, led, "S", live, now)
+    expect("near-hold: rebase waits for the peer modifying its file, not for one adding a new file",
+           held == ["p1"] and nearness.patch_files(add) == set(), f"{held} {live}")
+    late = nearness.hold(ctx, led, "S", live, now + cfg["queue"]["near_hold_s"] + 1)
+    expect("near-hold: dispatches anyway once near_hold_s has passed since the conflict; first attempts never wait",
+           late == [] and nearness.hold(ctx, led, "T", live, now) == [], f"{late}")
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--keep", action="store_true", help="keep the temp repo for inspection")
@@ -398,6 +427,7 @@ def main(argv: list[str] | None = None) -> int:
     expect("worker reports stale -> its cluster is re-measured at main, test now PASS, no attempt counted",
            bool(new) and new[0]["status"] == "stale" and known(root).get(stale_t, {}).get("status") == "PASS", out)
     base_check(root, wt, expect)
+    near_hold(tmp, expect)
     cf = root / ".swarm" / "state" / "counters.json"
     c = json.loads(cf.read_text()) if cf.exists() else {}
     c["merges_since_full"] = 3                  # merges the gate checked only against its sample

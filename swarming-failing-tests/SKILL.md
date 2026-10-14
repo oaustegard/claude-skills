@@ -2,7 +2,7 @@
 name: swarming-failing-tests
 description: Runs a long swarm of hundreds to thousands of cheap headless coding workers that drive a large failing-test backlog to green. Failures are clustered by signature, each worker fixes one cluster in its own git worktree, a serial no-regression merge gate lands the fixes, the loop resumes across restarts for hours, and it federates across sibling sessions over git branches when one container's CPU is not enough. Use for "fix these thousands of failing tests with a Haiku swarm", "drive the test suite to green with hundreds of agents", "build this compiler or interpreter against a conformance suite", "launch, relaunch or check in on the swarm loop", "the swarm is stuck, idle or rejecting everything", "parallel agents fixing tests keep hitting merge conflicts and regressions", "add sibling containers to the swarm", or "compare models on the tail the swarm could not fix". Ships the harness, a per-project TOML config, a fake-worker selftest, check-in signals and the 2026-10-12 haiku-cc failure catalogue.
 metadata:
-  version: 0.5.1
+  version: 0.6.0
 ---
 
 # Swarming failing tests
@@ -205,7 +205,7 @@ The ladder the harness runs per signature: attempt 1 at the configured effort; a
 real failure (a lost merge race is not one) at the next rung of `worker.effort_ladder`
 (default `["", "high"]`; Haiku 5.5 also takes `xhigh` and `max`); after `feature_after`
 failures a single feature-mode worker with a bigger budget at `worker.feature_effort` or
-above; a conflicted fix comes back as a rebase task. The rung counts a test's failures
+above; a conflicted fix comes back as a rebase task. A rebase waits while a live worker modifies a file its patch modifies (`queue.near_hold_s`, default 1200 s after the conflict; `HOLD` in the log), and other work takes the slot: on the haiku-cc ledgers 31 of 43 rebases launched beside such a worker conflicted again, against 1 of 11 without one. First attempts never wait, because nothing known at dispatch predicted their files. The rung counts a test's failures
 over all time, so an `unpark` retries the tail at the effort it had reached. Rates and prices change: check `agent-routing` before reusing these numbers.
 
 ## Partial credit
@@ -248,7 +248,8 @@ brackets refer to [references/run-2026-10-12.md](references/run-2026-10-12.md)).
 - **Tail of parked tests that never get workers** → attempts the harness caused count
   toward parking. Fix the harness, then `$SWARM unpark` [13].
 - **Conflicts dominate rejections** → workers collide on a shared file. `status`
-  names it under `conflict hot spots`; make it self-registering [16, 17].
+  names it under `conflict hot spots`; make it self-registering [16, 17]. Rebases that
+  conflict again are what the near-hold is for; check it is not set to 0.
 - **Killing the loop leaves test processes eating CPU** (ppid 1) → use `$SWARM stop`,
   which kills by pid file and sweeps processes in the gate tree; never `pkill -f` a
   pattern that matches your own shell [25].
@@ -305,7 +306,7 @@ brackets refer to [references/run-2026-10-12.md](references/run-2026-10-12.md)).
   feature mode, park and unpark, new-suite baseline, stale-worktree sweep, `stop`, the
   federation round trip (publish, seed, ingest, rebase, conflict-as-rebase, ledger
   export), a quick refresh and a sweep step that each revert a regression the gate sample
-  missed, and a base check that launches no worker on a test main already passes. On 2026-10-12, `selftest | tail && git commit` committed with 3
+  missed, a base check that launches no worker on a test main already passes, and the near-hold. On 2026-10-12, `selftest | tail && git commit` committed with 3
   failures because the pipe hid the exit code. Gate commits on the real exit code.
 - **A run:** `$SWARM status` pass counts in `known now` rise between check-ins, and
   `git log --format=%s -5` on main shows swarm commits with `Swarm-Task:` trailers.
