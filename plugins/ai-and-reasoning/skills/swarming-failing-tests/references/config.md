@@ -53,6 +53,7 @@ Files outside `code`/`allowed` are silently left out of the candidate.
 | `gate_targets` | 20 | members the gate checks for a flip |
 | `feature_after` | 2 | counted failures on a signature before feature mode |
 | `base_check` | true | before a worker launches, re-run its representatives at main HEAD in its new worktree when code or tests changed since their record; an item whose tests already pass (or no longer run) gets no worker, and the results are recorded at HEAD. `--no-base-check` turns it off |
+| `near_hold_s` | 1200 | a rebase task waits while a worker in flight, or a candidate waiting for the gate, modifies a file the conflicted patch modifies (new files do not count); other items dispatch meanwhile. The hold lapses this many seconds after the conflict so a hot file cannot starve it. 0 turns it off (`scripts/swarmkit/nearness.py`) |
 
 ## [gate]
 | key | default | meaning |

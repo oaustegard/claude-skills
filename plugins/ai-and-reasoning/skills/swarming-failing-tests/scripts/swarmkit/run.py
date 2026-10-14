@@ -26,7 +26,7 @@ from collections import Counter
 from pathlib import Path
 
 from swarmkit import federation as fed
-from swarmkit import merge, workqueue
+from swarmkit import merge, nearness, workqueue
 from swarmkit import testrun as tr
 from swarmkit.common import (
     SCHEMA,
@@ -234,10 +234,8 @@ def launch(ctx: Ctx, a: argparse.Namespace, item: workqueue.WorkItem, seq: int,
     epoch = attempt_epoch(ctx)
     fails = [r for r in workqueue.counted_failures(led, epoch) if r.get("signature") == item.signature]
     prev = [r["result"]["notes"] for r in fails if (r.get("result") or {}).get("notes")]
-    used = {r.get("rebase_of") for r in led.values()}
-    conflicted = [r for r in led.values() if r.get("signature") == item.signature and is_conflict(r)
-                  and r["id"] not in used and (ctx.task_dir(r["id"]) / "patch.diff").exists()]
-    rebase_of = conflicted[-1]["id"] if conflicted else None
+    src = nearness.pending_rebase(ctx, led, item.signature)
+    rebase_of = src["id"] if src else None
     rebase_patch = str(ctx.task_dir(rebase_of) / "patch.diff") if rebase_of else None
     conflicted_files = premerge_rebase(wt, rebase_patch, ctx.paths["code"]) if rebase_patch else None
     # A rebase of a feature worker's diff is feature-sized too: the small budget cannot re-apply it
@@ -533,6 +531,7 @@ def _loop(ctx: Ctx, a: argparse.Namespace) -> int:
     if stale:
         log(f"removed {len(stale)} worktrees of workers that ended in earlier runs")
     tree_checked = 0.0
+    held: dict[str, list[str]] = {}       # item key -> near peers last logged, so a hold logs once
     disk_warned = throttle_warned = 0.0
     bc = BaseCheck(ctx) if a.base_check else None
     while True:
@@ -675,11 +674,19 @@ def _loop(ctx: Ctx, a: argparse.Namespace) -> int:
                             if (r.get("result") or {}).get("notes"))
             flying = {r.get("signature") for r in led.values() if r.get("status") == "launched"}
             fa = ctx.cfg["queue"]["feature_after"]
+            live = nearness.live_files(ctx, led) if ctx.cfg["queue"].get("near_hold_s") else {}
             for item in items:
                 if len(procs) >= a.concurrency or (a.max_workers and launched >= a.max_workers):
                     break
                 if fails[item.signature] >= fa and item.signature in flying:
                     continue              # one feature worker per signature: shards would collide
+                near = nearness.hold(ctx, led, item.signature, live)
+                if near:                  # its rebase would meet these peers' edits at the gate
+                    if held.get(item.key) != near:
+                        log(f"HOLD   {item.key[:80]}: rebase waits for {', '.join(near[:4])} (same files)")
+                        held[item.key] = near
+                    continue
+                held.pop(item.key, None)
                 w = launch(ctx, a, item, seq, bc)
                 if w is None:             # base check: its tests already pass at HEAD
                     continue
