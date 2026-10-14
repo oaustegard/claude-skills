@@ -1,0 +1,71 @@
+# Mapping the template onto a product
+
+The document template is product-neutral: its sections are phases and families, not pointer events. What makes it concrete for one product is four decisions that every product has an answer to, and that must be made once, before the pilot, and then held constant across every document:
+
+1. **The unit of interaction and its phases.** What is the smallest thing the user does that has a beginning, a possibly long middle, and an end? The "interaction, event by event" section narrates one of these. Its five subsections are phases, not pointer events: *starting*, *ending at once*, *becoming extended*, *while extended*, *finishing*.
+2. **The variant axis.** What can the user hold, pass, or have set that changes the outcome of the same interaction? For a pointer product that is modifier keys; elsewhere it is flags, options, roles, settings, or the state of the thing being acted on. The "Modifiers" table is built on this axis.
+3. **The interrupt list.** The fixed set of things that can happen *in the middle* of an interaction. This list is the same in every document, in the same order, and every cell is filled even when the answer is "no effect". It is the most valuable part of the method, because it asks the same questions of every feature, and gaps show up by comparison.
+4. **The cross-cutting concerns, in order.** The things that touch every feature: permissions, history, containers, collaboration, offline. "Interactions with other systems" walks the same list in the same order in every document.
+
+Write the answers into the README's "Document template" section (items 3, 4, 5, 6), define the interrupt words in the glossary's "events that end or interrupt" section, and do not change them after the pilot without revisiting every document.
+
+Below are worked answers for four product kinds. A real product is usually mostly one of these with pieces of another; take the nearest column and adjust.
+
+## Pointer-driven editor
+
+Canvases, drawing and design tools, diagramming, maps, timelines, node editors, spreadsheets-as-grids. Also the right column for most native and mobile apps, with the OS lifecycle added to the interrupt list.
+
+- **Surface:** one route or window, default configuration, nothing customized.
+- **Unit of interaction:** a gesture. Phases: *pointer down* → *pointer up without dragging* → *becoming a drag* (crossing the distance threshold or a long press) → *during the drag* → *pointer up after dragging*. Rename the five subsections to these.
+- **Variant axis:** Shift, Alt/Option, Ctrl/Cmd, Space, and anything the product adds (a tool-lock toggle, a pen-mode toggle). Two columns: held at the start, pressed during.
+- **Interrupt list:** Escape; switching tools or modes; the events the product treats as "complete" (a menu opening, navigation, undo or redo); the events it treats as "interrupt" (a pinch beginning, another input device taking over); window loses focus; pointer leaves the window; the target is deleted, locked, or moved by something else; touch cancel; any product-specific mode that changes what happens after the gesture. For a mobile app add: app backgrounded, rotation, incoming call or notification, low memory.
+- **Cross-cutting concerns:** containers, groups, locked or hidden objects, clipping, readonly, history, zoom, coarse pointer (touch), stylus, collaboration.
+- **Foundations:** the input model (thresholds, click detection, modifiers, what cancels, completes, and interrupts), the object model, the tool or mode model, the camera or viewport.
+- **Pilot:** a small tool with a real drag in it (a pan tool, a lasso, a ruler). **Hardest area:** the selection or main editing tool, which is many documents that must agree on where each state hands off.
+- **Verification:** "device" means mouse, keyboard, touch, pen, a second user. The running product is the dev server or the installed app. A console handle on the app, if one exists, is for setting up scenes and reading state back, not for gesturing.
+
+## Form-and-page web app
+
+CRUD apps, dashboards, settings, checkout flows, admin panels, content management, anything where the user reads a page, edits fields, and submits.
+
+- **Surface:** one role's view of the production app (or the staging app) with a fresh account and default settings. Say which role; a second role is usually a second repo or a cross-cutting document.
+- **Unit of interaction:** a page or form lifecycle. Phases: *arrive* (route, what loads, what is focused, what is prefilled) → *leave without changing anything* (back, close, a link out; is anything recorded?) → *begin editing* (the first change: what becomes dirty, what validation runs, what buttons enable) → *while editing* (live validation, autosave, dependent fields, what the URL does) → *submit* (what is sent, what is optimistic, what is disabled meanwhile, the success and failure paths, where the user lands). Rename the five subsections to these.
+- **Variant axis:** the user's role or plan, the record's state (draft, published, archived, locked by someone else), feature flags on by default, and the keyboard shortcuts the form honors (Enter, Cmd+Enter, Escape, Tab order). Two columns: "at arrival" and "during editing".
+- **Interrupt list:** Escape; browser back or forward; reload; tab or window closed; navigation away by a link inside the app; network lost mid-request; request times out or fails with an error; session expires; the same record changed by another tab; the same record changed by another user; browser autofill or a password manager writes into the form; the window loses focus. Same list, every document.
+- **Cross-cutting concerns:** permissions and roles, validation and error display, unsaved-changes handling, undo (if any), optimistic updates and their rollback, offline, notifications and toasts, search and filtering state in the URL, localization, accessibility, analytics side effects that the user can notice (emails sent, webhooks fired).
+- **Foundations:** the data model in user terms (what a "record" is, what "saved" means, what is shared between users), the auth and role model, the navigation model (routes, what is in the URL, what is restored on return), the notion of dirty and saved, the notification model.
+- **Pilot:** one small form with a submit and at least one validation rule (a rename dialog, a profile page, an invite form). **Hardest area:** the main editor or the main list-detail flow: the screens where most of the user's time goes and where records are created, edited, and moved between states.
+- **Verification:** "device" means browser and viewport (desktop, mobile web), account role, network condition (offline toggle, throttled), and a second account in a second browser. The running product is staging or production with a throwaway account. Browser devtools stand in for the console: read the network tab to see what a submit sent, the application tab to see what was stored.
+
+## Command-line tool
+
+CLIs, build tools, package managers, database and deploy tools, anything invoked from a shell with arguments and producing output and an exit code.
+
+- **Surface:** one binary at one version, default configuration, no rc file, a named shell (POSIX sh semantics unless the product is Windows-first), a terminal that is a TTY unless the document says otherwise.
+- **Unit of interaction:** an invocation. Phases: *invoke* (argument parsing, what is validated before anything runs, what is printed first, what prompts appear) → *exits immediately* (help, version, a validation error: exit code, stderr vs stdout) → *begins running* (the first side effect, the first progress output, when Ctrl+C becomes unsafe) → *while running* (progress, streaming output, what is written when, what is idempotent) → *finishes* (final output, exit code, what was written to disk, what is printed on failure vs success). Rename the five subsections to these.
+- **Variant axis:** flags and options, environment variables, config-file keys, whether stdout is a TTY or a pipe, whether stdin is a TTY, `--json` and other machine-readable modes, `--dry-run`, verbosity. Two columns: "changes what happens" and "changes what is printed".
+- **Interrupt list:** Ctrl+C (SIGINT) once and twice; SIGTERM; the terminal closed (SIGHUP); stdin closed or stdout pipe closed (SIGPIPE); the network lost mid-run; the disk full or a file locked; a required file changed by something else during the run; running two instances at once; the process killed outright (what state is left on disk). Same list, every document.
+- **Cross-cutting concerns:** configuration precedence (flag over env over file over default), output modes (TTY, piped, `--json`, `--quiet`), colors and unicode, exit codes, logging and verbosity, locking and concurrency, caching, network and proxies, permissions and sudo, shell completion, the update or version-check behavior.
+- **Foundations:** the invocation model (how arguments are parsed, subcommand structure, how help is shown), the configuration model (precedence, where files live), the output model (streams, TTY detection, colors, exit codes), the state on disk (what the tool owns, lockfiles, caches), the notion of "done" and "safe to interrupt".
+- **Pilot:** one leaf subcommand with a side effect and at least one flag (`init`, `add`, `rename`). **Hardest area:** the subcommand that does the most work with the most states (`build`, `deploy`, `sync`, `install`), which is usually several documents: one per phase of its run.
+- **Verification:** "device" means operating system, shell, TTY vs pipe, and network condition. The running product is the binary at the commit. Most items are scriptable: the checklist's steps are commands, and the expected result is output and exit code, so a verification pass can be a script; say so in `verification/README.md` and still watch the TTY-only items (progress bars, prompts, colors) by hand.
+
+## Chat, agent, and messaging products
+
+LLM assistants, chat apps, support inboxes, anything where the unit is a message sent and a response received, and where the response may be long, streamed, and interruptible.
+
+- **Surface:** one client (web, desktop, or mobile), one plan or role, default model or settings, a fresh account with no history.
+- **Unit of interaction:** a turn. Phases: *compose* (what the input accepts, attachments, slash commands, mentions, draft persistence, what Enter and Shift+Enter do) → *sent and answered immediately* (empty input, a command that resolves locally, a validation error) → *sent and the response begins* (what is shown while waiting, when the message is committed to history, what can still be edited) → *while the response streams* (what updates live, tool calls and their display, what the user can do meanwhile: scroll, type the next message, switch conversations) → *the response completes* (final rendering, actions that appear, what is persisted, what happens to the draft). Rename the five subsections to these.
+- **Variant axis:** the model or mode selected, attachments present, the conversation's state (new, continued, shared, archived), the user's role or plan, settings that change rendering (markdown, code blocks, reduced motion). Two columns: "set before sending" and "changed during the response".
+- **Interrupt list:** Stop or Escape during streaming; sending another message while one is in flight; editing or deleting the message being answered; switching conversations; reload; tab or app closed; network lost; the response errors or is rate-limited mid-stream; session expires; the same conversation open in a second tab or device; a message arrives from another participant. Same list, every document.
+- **Cross-cutting concerns:** history and persistence (what is saved when), sharing and permissions, search, notifications and unread state, attachments and their limits, rendering (markdown, code, images), keyboard shortcuts, offline and reconnection, multi-device sync, rate limits and quotas, accessibility.
+- **Foundations:** the conversation model (what a conversation, message, turn, and draft are; what "sent" and "delivered" mean), the account and plan model, the navigation model (conversation list, routes, what is restored), the streaming and interruption model (what Stop does at each stage, what is kept).
+- **Pilot:** the simplest complete turn (send a short message, receive a short response) or one local command. **Hardest area:** the composer and the streaming response together: every modifier, every interrupt, every attachment type, and what the user can do while a response is in flight.
+- **Verification:** "device" means client (web, desktop, mobile), network condition, a second device on the same account, a second participant. Responses from a model are not deterministic; items about content say "a response" and check structure, timing, and state, not wording. The running product is staging with a throwaway account.
+
+## Reading the columns together
+
+- The **interrupt list** is always drawn from seven families, in this order: the user's explicit abort; the user doing something else mid-way; the events the product treats as a clean complete (a menu opening, undo, a submit from elsewhere); the environment failing (focus, network, session, timeout); the page or process going away (reload, tab or terminal closed, app backgrounded, process killed); something else changing the target; the input device or channel changing. These are the rows of `document-template.md`'s cancel table. Derive the product's list from those seven and it will be complete.
+- The **"ends quickly" phase** exists in every product (a click without drag, a form left untouched, `--help`, an empty message) and is where the most "nothing happens" claims live. Document it anyway; "nothing is recorded" is a claim the tester can check.
+- **"Commit"** means whatever the product's durable step is: an undo entry, a saved record, a file on disk, a persisted message. The "ends after extending" phase says what is committed, in how many steps, and whether it can be undone.
+- **Foundations** are whatever owns the numbers and the words: thresholds and timings, what "saved" or "selected" or "done" means, what each interrupt word means. Other documents link to them instead of restating.
