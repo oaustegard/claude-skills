@@ -3,13 +3,16 @@
 
     tlo.py link APP [FILE|-] [--title T] [--by B] [--view V] [--plain] [--host H]
     tlo.py read URL                # packed or plain link -> its TLO text
+    tlo.py repair URL              # a chat-mangled packed link -> a clean one
     tlo.py lint APP [FILE|-]       # offline subset of the official lint
     tlo.py apps                    # the ten app ids
 
 `link` prints the packed form the site itself shares (`#/v1/<app>/<flag><payload>`):
 the TLO deflated against TLO's frozen dictionary (`y`), deflated (`z`) or raw
-(`r`), whichever is shortest, in base64url with `~` for 62 and a `+` every 300
-characters. `--plain` prints `/<app>/#title=..&doc=..` instead. Lint findings go
+(`r`), whichever is shortest, in base64url with `-` for 62 and a `+` every 300
+characters. The site writes `~` for 62 and reads `-` too; `~` gets percent-encoded
+(even twice, `%257E`) by some chat clients (Webex), and the site does not
+percent-decode, so `-` is the default here; `--tilde` matches the site's own. `--plain` prints `/<app>/#title=..&doc=..` instead. Lint findings go
 to stderr; `lint` exits 1 when any. The dictionary (scripts/tlo_dictionary.txt)
 is copied from aboard-io/tinylittleoffice src/kit/core/codec.ts (MIT).
 """
@@ -18,7 +21,7 @@ import re
 import sys
 import zlib
 from pathlib import Path
-from urllib.parse import parse_qsl, quote_plus, urlsplit
+from urllib.parse import parse_qsl, quote_plus, unquote, urlsplit
 
 APPS = {
     "write": "Word Processor", "outline": "Outliner", "deck": "Presentation Builder",
@@ -29,19 +32,20 @@ HOST = "https://tinylittleoffice.com"
 CHAT_LIMIT = 2000   # some chat apps cut a link past this
 SHORT_LIMIT = 12272  # the most a short link holds
 FENCE = re.compile(r"^(`{3,})(\w+)?")
-B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789~_"
-B64_REV = {c: i for i, c in enumerate(B64)} | {"-": 62}
+B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+B64_REV = {c: i for i, c in enumerate(B64)} | {"~": 62}
 BREAK_EVERY = 300
 DICTIONARY = (Path(__file__).with_name("tlo_dictionary.txt")).read_bytes()
 
 
-def b64e(data: bytes) -> str:
+def b64e(data: bytes, tilde: bool = False) -> str:
     out = []
     for i in range(0, len(data), 3):
         chunk = data[i:i + 3]
         n = int.from_bytes(chunk.ljust(3, b"\0"), "big")
         out.append("".join(B64[(n >> s) & 63] for s in (18, 12, 6, 0))[:len(chunk) + 1])
-    return "".join(out)
+    text = "".join(out)
+    return text.replace("-", "~") if tilde else text
 
 
 def b64d(s: str) -> bytes:
@@ -61,16 +65,31 @@ def deflate(raw: bytes, zdict: bytes | None = None) -> bytes:
     return c.compress(raw) + c.flush()
 
 
-def pack(doc: str) -> str:
-    """TLO text -> flag + base64url payload, the shortest of y / z / r, with breaks."""
-    raw = doc.encode("utf-8")
-    flag, data = min((("r", raw), ("z", deflate(raw)), ("y", deflate(raw, DICTIONARY))), key=lambda x: len(x[1]))
-    bare = flag + b64e(data)
+def breaks(bare: str) -> str:
     return "+".join(bare[i:i + BREAK_EVERY] for i in range(0, len(bare), BREAK_EVERY))
 
 
+def pack(doc: str, tilde: bool = False) -> str:
+    """TLO text -> flag + base64url payload, the shortest of y / z / r, with breaks."""
+    raw = doc.encode("utf-8")
+    flag, data = min((("r", raw), ("z", deflate(raw)), ("y", deflate(raw, DICTIONARY))), key=lambda x: len(x[1]))
+    return breaks(flag + b64e(data, tilde))
+
+
+def clean(payload: str) -> str:
+    """Undo what chat clients do to a payload: percent-encoding (once or twice), a
+    trailing quote or bracket swallowed into the link, the `+` breaks."""
+    p = payload
+    for _ in range(3):
+        if "%" not in p:
+            break
+        p = unquote(p)
+    p = p.split("?")[0].replace("+", "")
+    return re.sub(r"[^A-Za-z0-9_~-].*$", "", p, flags=re.S)
+
+
 def unpack(payload: str) -> str:
-    p = re.sub(r"\+|%2B", "", payload, flags=re.I)
+    p = clean(payload)
     flag, data = p[0], b64d(p[1:])
     if flag == "r":
         return data.decode("utf-8")
@@ -113,12 +132,24 @@ def build(app, doc, title=None, by=None, view=None, host=HOST):
     return f"{host.rstrip('/')}/{app}/#" + "&".join(parts)
 
 
-def build_packed(app, doc, title=None, by=None, view=None, host=HOST):
+def build_packed(app, doc, title=None, by=None, view=None, host=HOST, tilde=False):
     if app not in APPS:
         raise SystemExit(f"unknown app {app!r}; one of: {', '.join(APPS)}")
     path = f"{app}.{view}" if view and view not in ("show",) else app
     tail = "?show" if view == "show" else ""
-    return f"{host.rstrip('/')}/{app}/#/v1/{path}/" + pack(with_head(doc, title=title, by=by)) + tail
+    return f"{host.rstrip('/')}/{app}/#/v1/{path}/" + pack(with_head(doc, title=title, by=by), tilde) + tail
+
+
+def repair(url: str, tilde: bool = False) -> str:
+    """A packed link mangled in transit -> the same document's clean link (same bytes)."""
+    u = urlsplit(url.strip().strip("<>\"'‘’“”"))
+    frag = unquote(u.fragment) if u.fragment.startswith("%2F") else u.fragment
+    _, _, where, payload = frag.split("/", 3)
+    query = re.search(r"\?(show|d)\b", unquote(unquote(payload)))
+    p = clean(payload)
+    unpack(p)  # raises if the bytes do not decode
+    bare = p.replace("~", "-") if not tilde else p.replace("-", "~")
+    return f"{u.scheme}://{u.netloc}{u.path}#/v1/{where}/" + breaks(bare) + (f"?{query.group(1)}" if query else "")
 
 
 def read(url):
@@ -247,9 +278,13 @@ def main():
     lk.add_argument("--view")
     lk.add_argument("--host", default=HOST)
     lk.add_argument("--plain", action="store_true", help="the readable #doc= form instead of the packed one")
+    lk.add_argument("--tilde", action="store_true", help="write ~ for 62, as the site does (breaks in Webex)")
     lk.add_argument("--no-lint", action="store_true")
     rd = sub.add_parser("read")
     rd.add_argument("url")
+    rp = sub.add_parser("repair")
+    rp.add_argument("url")
+    rp.add_argument("--tilde", action="store_true")
     li = sub.add_parser("lint")
     li.add_argument("app")
     li.add_argument("file", nargs="?")
@@ -259,6 +294,13 @@ def main():
     if a.cmd == "apps":
         for k, v in APPS.items():
             print(f"{k:8} {v}")
+        return 0
+    if a.cmd == "repair":
+        try:
+            print(repair(a.url, a.tilde))
+        except (ValueError, KeyError, zlib.error) as e:
+            print(f"cannot repair this link: {e}", file=sys.stderr)
+            return 2
         return 0
     if a.cmd == "read":
         try:
@@ -278,8 +320,10 @@ def main():
         for f in found:
             print(f, file=sys.stderr)
         return 1 if found else 0
-    make = build if a.plain else build_packed
-    url = make(a.app, doc, a.title, a.by, a.view, a.host)
+    if a.plain:
+        url = build(a.app, doc, a.title, a.by, a.view, a.host)
+    else:
+        url = build_packed(a.app, doc, a.title, a.by, a.view, a.host, a.tilde)
     print(url)
     if not a.no_lint:
         for f in found:
