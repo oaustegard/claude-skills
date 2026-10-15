@@ -2,7 +2,7 @@
 name: making-tinyoffice-links
 description: Makes small documents as shareable Tiny Little Office links, where the URL itself is the document. Covers slide decks, posters, zines, spreadsheets, charts and small-business models, letters, résumés, invoices, outlines, diagrams (mind map, org chart, family tree, swimlanes, timeline, Venn, seating, network), drawings, pixel art, animations, calendars, Gantt schedules, trip maps and a calculator that shows its working. Use when someone wants such a document as a link they can open, edit and pass on rather than a file, or names tinylittleoffice / TLO.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
   upstream: https://github.com/aboard-io/tinylittleoffice/tree/main/skill/tinyoffice
 ---
 
@@ -14,15 +14,15 @@ Tiny Little Office (tinylittleoffice.com) keeps a whole document in its URL frag
 
 1. **Pick the app** from the table below. Read only that app's reference file. It holds the shapes the app reads and one or two worked examples.
 2. **Write the TLO** to a file in your scratchpad. Copy an example from the reference and change it rather than starting from nothing.
-3. **Build the link** with the script, which percent-encodes the text and runs the offline lint:
+3. **Build the link** with the script, which packs the text the way the site does and runs the offline lint:
    ```bash
    python3 scripts/tlo.py link deck talk.tlo --title "My talk" --by "Muninn"
    ```
    It prints the URL on stdout, and findings and length warnings on stderr.
-4. **Fix every finding** and rebuild. `python3 scripts/tlo.py read <url>` gives back the text a link holds, so you can round-trip a plain link you were sent.
+4. **Fix every finding** and rebuild. `python3 scripts/tlo.py read <url>` gives back the text any link holds, packed or plain, so you can edit a link you were sent.
 5. **Deliver.** If the link is under 2,000 characters, give it as a Markdown link with a plain description. If it is longer, put the bare URL alone in a fenced code block. Chat renderers and some apps break or truncate long links, and the code block keeps it whole for copying. Say that the link is the document: an edit produces a new link, and anyone holding the link can read it.
 
-The script makes the **plain form** (`/<app>/#title=…&doc=…`). The site rewrites it into the shorter packed form (`#/v1/<app>/<payload>`) when it is opened. Both forms work. You never need to produce the packed form yourself.
+The script makes the **packed form** the site itself shares: `#/v1/<app>/<flag><payload>`, the TLO deflated against TLO's frozen word dictionary, base64url with `~` for 62 and a `+` every 300 characters so messaging apps don't break it. It runs 35–50% shorter than the readable form. `--title` and `--by` go into the document's head. `--plain` gives the readable `/<app>/#title=…&doc=…` form instead, which the site also opens and packs on arrival.
 
 ## Apps
 
@@ -80,6 +80,6 @@ A `---` between blocks starts the next slide, page or card. Any table is a live 
 
 ## Verifying
 
-`scripts/tlo.py lint` is an offline subset of the official checks: `fence-bullets`, `title-long`, `title-list`, `body-over`, `edge-end`, `edge-unused`, `net-colon`, `comma-number`, `label-long`, `doc-link` and `length`. It is fast and needs no network. It does not measure rendered text, evaluate formulas or decode packed links. When Node is available and running third-party npm code is acceptable, `npx tinylittleoffice lint <link>` and `measure` run the real layout code and also catch `formula-error`, `label-over` and exact overflow (see api.md).
+`scripts/tlo.py lint` is an offline subset of the official checks: `fence-bullets`, `title-long`, `title-list`, `body-over`, `edge-end`, `edge-unused`, `net-colon`, `comma-number`, `label-long`, `doc-link` and `length`. It is fast and needs no network. It does not measure rendered text or evaluate formulas. When Node is available and running third-party npm code is acceptable, `npx tinylittleoffice lint <link>` and `measure` run the real layout code and also catch `formula-error`, `label-over` and exact overflow (see api.md).
 
 If a finding persists, the fix is in the TLO, not the URL. Re-read the app's reference rule for that shape.
