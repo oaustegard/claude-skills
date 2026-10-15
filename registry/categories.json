@@ -27,7 +27,8 @@
         "exploring-data",
         "extracting-keywords",
         "forecasting-reverso",
-        "json-render-ui"
+        "json-render-ui",
+        "making-tinyoffice-links"
       ]
     },
     "development-tools": {
