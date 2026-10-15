@@ -2,7 +2,7 @@
 name: making-tinyoffice-links
 description: Makes small documents as shareable Tiny Little Office links, where the URL itself is the document. Covers slide decks, posters, zines, spreadsheets, charts and small-business models, letters, résumés, invoices, outlines, diagrams (mind map, org chart, family tree, swimlanes, timeline, Venn, seating, network), drawings, pixel art, animations, calendars, Gantt schedules, trip maps and a calculator that shows its working. Use when someone wants such a document as a link they can open, edit and pass on rather than a file, or names tinylittleoffice / TLO.
 metadata:
-  version: 0.2.0
+  version: 0.3.0
   upstream: https://github.com/aboard-io/tinylittleoffice/tree/main/skill/tinyoffice
 ---
 
@@ -19,10 +19,10 @@ Tiny Little Office (tinylittleoffice.com) keeps a whole document in its URL frag
    python3 scripts/tlo.py link deck talk.tlo --title "My talk" --by "Muninn"
    ```
    It prints the URL on stdout, and findings and length warnings on stderr.
-4. **Fix every finding** and rebuild. `python3 scripts/tlo.py read <url>` gives back the text any link holds, packed or plain, so you can edit a link you were sent.
-5. **Deliver.** If the link is under 2,000 characters, give it as a Markdown link with a plain description. If it is longer, put the bare URL alone in a fenced code block. Chat renderers and some apps break or truncate long links, and the code block keeps it whole for copying. Say that the link is the document: an edit produces a new link, and anyone holding the link can read it.
+4. **Fix every finding** and rebuild. `python3 scripts/tlo.py read <url>` gives back the text any link holds, packed or plain, so you can edit a link you were sent. It also reads links a chat client mangled (percent-encoded, a quote glued to the end); `tlo.py repair <url>` prints the clean link.
+5. **Deliver.** If the link is under 2,000 characters, give it as a Markdown link with a plain description. If it is longer, put the bare URL alone in a fenced code block. Chat renderers and some apps break or truncate long links, and the code block keeps it whole for copying. Put the link on its own line: Webex, for one, pulls a following quote or bracket into the link. Say that the link is the document: an edit produces a new link, and anyone holding the link can read it.
 
-The script makes the **packed form** the site itself shares: `#/v1/<app>/<flag><payload>`, the TLO deflated against TLO's frozen word dictionary, base64url with `~` for 62 and a `+` every 300 characters so messaging apps don't break it. It runs 35–50% shorter than the readable form. `--title` and `--by` go into the document's head. `--plain` gives the readable `/<app>/#title=…&doc=…` form instead, which the site also opens and packs on arrival.
+The script makes the **packed form** the site itself shares: `#/v1/<app>/<flag><payload>`, the TLO deflated against TLO's frozen word dictionary, base64url with `-` for 62 and a `+` every 300 characters so messaging apps don't break it. The site itself writes `~` for 62 and reads `-` as well. This script writes `-` because chat clients such as Webex percent-encode `~` (sometimes twice, `%257E`) and the site does not decode that, so the link opens empty. `--tilde` reproduces the site's own output. It runs 35–50% shorter than the readable form. `--title` and `--by` go into the document's head. `--plain` gives the readable `/<app>/#title=…&doc=…` form instead, which the site also opens and packs on arrival.
 
 ## Apps
 
