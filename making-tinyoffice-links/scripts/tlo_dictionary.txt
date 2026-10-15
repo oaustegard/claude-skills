@@ -1,0 +1,53 @@
+ experience development information different important available
+ question together business company project customer product service research meeting
+ schedule calendar document review design launch update report budget summary agenda
+ through between because without before after should could would their there these those
+ about which where while other first last next week month year today tomorrow
+ people team plan work time need make take want know good new more most some
+ Monday Tuesday Wednesday Thursday Friday Saturday Sunday
+ January February March April May June July August September October November December
+ what when will with have from they this that were been your our are was not but all can has had its
+ The and for you the ing tion ed to of in is it on at as be or an by we us if so do no up
+ rocket lightbulb target trending-up chart-column users heart star flag globe mail calendar clock
+ map-pin dollar-sign zap shield check megaphone message-circle trophy compass puzzle laptop coffee
+:number :money :percent :date :check :url | --- | --- | --- |
+| =SUM(B1:B =AVERAGE( =MIN( =MAX( =ROUND(
+What | Qty:number | Units | Price:money
+Name | Price:money | About
+Task | Start:date | Days:number | Done:percent
+Place | Lat:number | Lon:number | Note
+Kind | X:number | Y:number | W:number | H:number | Style | Label
+Question | Answer
+Front | Back
+Clue | Answer
+
+~ 
+- [ ] 
+- [x] 
+  - 
+    - 
+1. 
+> 
+
+---
+
+## 
+### 
+# 
+```sheet
+```draw
+```
+{.title}
+{.two}
+**
+---
+title: 
+by: 
+created: 2026-
+chart: bar
+currency: $
+tax: 
+zone: America/New_York
+units: km
+mode: 
+---
