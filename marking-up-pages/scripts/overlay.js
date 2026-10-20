@@ -3,7 +3,7 @@
    Re-running it is safe: it shows the existing overlay and returns its status.
    Only block comments in this file, so it survives being turned into a bookmarklet. */
 (function pageScrawl() {
-  const VERSION = '0.1.0';
+  const VERSION = '0.2.0';
   if (window.__scrawl && window.__scrawl.version) { window.__scrawl.show(); return window.__scrawl.status(); }
 
   const RED = '#e5484d';
@@ -45,8 +45,11 @@
   const count = document.createElement('span'); count.className = 'count'; bar.appendChild(count);
   mk('Undo', 'Remove the last mark', () => undo());
   mk('Clear', 'Remove all marks', () => clear());
+  const copyBtn = mk('Copy', 'Copy the marks as text, to paste into any chat', () => copyMarks());
+  const saveBtn = mk('Save', 'Download the marks as a .scrawl.json file', () => saveMarks());
   const doneBtn = mk('Done', 'Finish and hand the marks to Claude', () => finish());
-  const ready = document.createElement('span'); ready.className = 'ready hidden'; ready.textContent = 'Ready — tell Claude'; bar.appendChild(ready);
+  const ready = document.createElement('span'); ready.className = 'ready hidden'; ready.textContent = 'Ready';
+  ready.title = 'Tell Claude to look at your marks, or Copy / Save them'; bar.appendChild(ready);
   mk('✕', 'Close the overlay (marks are kept until reload)', () => hide());
 
   const note = document.createElement('div');
@@ -460,6 +463,51 @@
     if (v.failedRequests.length) { out.push('Failed requests since page load:'); v.failedRequests.slice(-8).forEach(r => out.push(`  · ${r.status} ${r.type} ${r.url}`)); }
     return out.join('\n');
   }
+  /* Standalone export, for when no agent is attached to the tab (bookmarklet use). */
+  function flash(btn, text) {
+    const was = btn.dataset.label || (btn.dataset.label = btn.textContent);
+    btn.textContent = text;
+    clearTimeout(btn._t); btn._t = setTimeout(() => { btn.textContent = was; }, 1600);
+  }
+  function fileData() {
+    if (editing) saveNote();
+    return Object.assign(exportData({ points: true }), { saved: new Date().toISOString(), summary: summary() });
+  }
+  function fileName() {
+    const d = new Date(), z = n => String(n).padStart(2, '0');
+    const site = (location.hostname || 'page').replace(/[^a-z0-9.-]+/gi, '_');
+    return `${site}-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}.scrawl.json`;
+  }
+  function saveMarks() {
+    if (!state.marks.length) return flash(saveBtn, 'No marks'), null;
+    const name = fileName();
+    const url = URL.createObjectURL(new Blob([JSON.stringify(fileData(), null, 2)], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = name; a.style.display = 'none';
+    root.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+    flash(saveBtn, 'Saved ✓');
+    return name;
+  }
+  function copyFallback(text) {
+    const t = document.createElement('textarea');
+    t.value = text; t.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+    root.appendChild(t); t.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) { /* unsupported */ }
+    t.remove();
+    return ok;
+  }
+  async function copyMarks() {
+    if (!state.marks.length) return flash(copyBtn, 'No marks'), false;
+    if (editing) saveNote();
+    const text = summary();
+    let ok = false;
+    try { await navigator.clipboard.writeText(text); ok = true; } catch (e) { ok = copyFallback(text); }
+    flash(copyBtn, ok ? 'Copied ✓' : 'Copy failed');
+    return ok;
+  }
+
   /* Scroll a mark into the middle of the viewport; returns its viewport box for a zoomed screenshot. */
   function focus(n) {
     const m = state.marks.find(x => x.n === n);
@@ -494,6 +542,8 @@
     status: () => ({ version: VERSION, marks: state.marks.length, done: state.done, drawing: state.drawing, editingNote: !!editing }),
     export: exportData,
     summary,
+    save: saveMarks,
+    copy: copyMarks,
     focus,
     restore,
     show,

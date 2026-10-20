@@ -28,7 +28,8 @@ out.write_text(f"""<!doctype html>
 <p>Drag this to your bookmarks bar:</p>
 <p><a class="bm" href="{html.escape(href, quote=True)}">✎ Scrawl</a></p>
 <p>Click it on any page to draw on it. After each mark, type (or dictate) what's wrong. Press <b>Done</b>, then tell Claude
-"look at my marks". <code>⌥⇧S</code> turns drawing on and off so you can use the page in between.</p>
+"look at my marks". No Claude in Chrome on that tab? <b>Copy</b> puts the marks on the clipboard and <b>Save</b> downloads
+them as a <code>.scrawl.json</code> file, to paste or attach in any chat. <code>⌥⇧S</code> turns drawing on and off so you can use the page in between.</p>
 <p>Sites with a strict Content-Security-Policy may block bookmarklets. Ask Claude to open the overlay there instead.</p>
 """)
 print(f"wrote {out} ({len(href):,} byte bookmarklet)")

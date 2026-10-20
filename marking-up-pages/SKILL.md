@@ -2,7 +2,7 @@
 name: marking-up-pages
 description: Let the user draw on a live web page in Chrome (circle, underline, arrow) and type a note per mark, then read back what each mark points at - element, selector, computed styles, React/Vue/Svelte component and source file - plus console errors and failed requests, and fix it. Uses Claude in Chrome. Use when the user wants to mark up, annotate, scrawl on or point at something on a page, says "let me show you", "look at my marks", "I circled it", or asks for visual feedback on a site or local dev server.
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Marking up pages
@@ -16,14 +16,14 @@ Needs the Claude in Chrome tools (`javascript_tool`, `computer`, `tabs_context_m
 Use the user's tab (find it with `tabs_context_mcp`). Run the loader first; it is one line and costs nothing:
 
 ```js
-window.__scrawl ? (__scrawl.show(), __scrawl.status()) : (c => c && JSON.parse(c).version === '0.1.0' ? (0, eval)(JSON.parse(c).src) : 'NO_CACHE')(localStorage.getItem('page-scrawl:src'))
+window.__scrawl ? (__scrawl.show(), __scrawl.status()) : (c => c && JSON.parse(c).version === '0.2.0' ? (0, eval)(JSON.parse(c).src) : 'NO_CACHE')(localStorage.getItem('page-scrawl:src'))
 ```
 
 If it returns `NO_CACHE`, read `scripts/overlay.js` and pass the whole file as the `text` of `javascript_tool`. The overlay caches itself in that origin's `localStorage`, so after a reload the loader is enough. (Keep the version in the loader equal to `VERSION` in `overlay.js`.)
 
 Then tell the user, briefly: draw on the page; after each mark a note box opens — type or dictate what's wrong, Enter saves; ⌥⇧S toggles drawing so they can click around in between; press **Done** and tell you when finished. Then stop and wait. Don't poll.
 
-If the user opened it themselves with the bookmarklet, skip to step 2.
+If the user opened it themselves with the bookmarklet, skip to step 2. If they instead paste copied marks or attach a `*.scrawl.json` file (the toolbar's **Copy** and **Save** buttons, for use without Claude in Chrome), read that: the file's `summary` field is the same text as `summary()`, and the rest is `export({ points: true })`. You can't screenshot or `focus` marks from a file, so lean on the selectors, text and source locations.
 
 ## 2. Read the marks
 
@@ -71,7 +71,7 @@ When it's someone else's site, report what each mark points at and what you'd ch
 
 ## API
 
-`window.__scrawl`: `status()`, `summary()`, `export(opts)`, `focus(n)`, `chrome(bool)`, `ink(bool)`, `draw(bool)`, `show()`, `hide()`, `undo()`, `clear()`, `restore()`, `destroy(forget)`. `destroy(true)` also removes the cached script and saved marks; do that when the user is done with marking up on that site.
+`window.__scrawl`: `status()`, `summary()`, `export(opts)`, `copy()`, `save()`, `focus(n)`, `chrome(bool)`, `ink(bool)`, `draw(bool)`, `show()`, `hide()`, `undo()`, `clear()`, `restore()`, `destroy(forget)`. `destroy(true)` also removes the cached script and saved marks; do that when the user is done with marking up on that site.
 
 ## Gotchas
 
@@ -83,4 +83,4 @@ When it's someone else's site, report what each mark points at and what you'd ch
 
 ## Bookmarklet
 
-`python3 scripts/make_bookmarklet.py out.html` writes a page with a drag-to-bookmarks-bar link, so the user can start marking without asking you first. Strict-CSP sites may block it; the JavaScript tool still works there.
+`python3 scripts/make_bookmarklet.py out.html` writes a page with a drag-to-bookmarks-bar link, so the user can start marking without asking you first. Without Claude in Chrome on that tab, the toolbar's **Copy** puts the summary on the clipboard and **Save** downloads `<host>-<date>-<time>.scrawl.json`; either can be handed to Claude in any chat. Strict-CSP sites may block it; the JavaScript tool still works there.
