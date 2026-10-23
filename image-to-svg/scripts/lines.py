@@ -108,7 +108,8 @@ def _detect_hough_lines(skeleton, min_line_length=20, max_line_gap=8):
                             maxLineGap=max_line_gap)
     if lines is None:
         return []
-    return [tuple(line[0]) for line in lines]
+    # OpenCV 4.x returns (N, 1, 4), 5.x returns (N, 4).
+    return [tuple(int(v) for v in line) for line in np.asarray(lines).reshape(-1, 4)]
 
 
 def _line_angle(x1, y1, x2, y2):

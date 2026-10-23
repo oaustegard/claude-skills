@@ -2,7 +2,7 @@
 name: image-to-svg
 description: Convert raster images (photos, paintings, illustrations, line art) into SVG vector reproductions. Use when the user uploads an image and asks to reproduce, vectorize, trace, or convert it to SVG. Also use when asked to decompose an image into shapes, create an SVG version of a picture, or faithfully reproduce artwork as vector graphics. Handles graphic/line-art inputs (Kandinsky, architectural drawings, ink work) via a compositional pipeline that extracts lines as SVG strokes. Do NOT use for creating original SVG illustrations from text descriptions — only for converting existing raster images.
 metadata:
-  version: 1.8.0
+  version: 1.9.0
 ---
  
 # Image to SVG Reproduction
@@ -46,7 +46,7 @@ flow.summary()  # timing + status per step
 
 Default is `"painting"`. When uncertain, start there.
 
-**Tradeoffs**: K=64 produces ~2300 shapes (~1.2MB SVG) vs K=28's ~1000 shapes (~550KB). Processing time roughly doubles with K. The quality gain in tonal gradation is substantial for photos but wasted on graphic art.
+**Tradeoffs**: K=64 produces ~2300 shapes (~1.2MB SVG) vs K=28's ~1000 shapes (~550KB), measured before v1.9.0's compact output, which is about 2.6x smaller (see Output Format). Processing time roughly doubles with K. The quality gain in tonal gradation is substantial for photos but wasted on graphic art.
 
 All mode defaults (K, dark_lum, compactness_min, etc.) can be overridden via `**kwargs`:
 ```python
@@ -87,8 +87,8 @@ svg, flow = image_to_svg("photo.jpg", mode="painting", pipeline="fill")
 ```xml
 <svg ...>
   <rect ... />        <!-- background -->
-  <g id="fills">      <!-- filled regions (painter's algorithm) -->
-    <path ... />
+  <g id="fills" stroke-width="1" stroke-linejoin="round">  <!-- filled regions (painter's algorithm) -->
+    <path class="c3" d="m12 40l5-2..z"/>
   </g>
   <g id="strokes">    <!-- line strokes (on top) -->
     <line x1="..." y1="..." x2="..." y2="..." stroke="#000" stroke-width="2.5" stroke-linecap="round"/>
@@ -313,13 +313,33 @@ When adding shapes not captured by quantization, **derive coordinates from the S
 svg_render = cv2.imread('rendered_svg.png')
 ```
 
+## Output Format
+
+Since v1.9.0 fills are written compactly. On Starry Night the painting output went from 3.64 MB to 1.35 MB (825 KB → 293 KB gzipped), rendering identically in Chromium and librsvg:
+
+```xml
+<svg xmlns="http://www.w3.org/2000/svg" id="s1a2b3c" viewBox="0 0 1000 625">
+  <style>#s1a2b3c .c0{fill:#3e85bb;stroke:#3e85bb}#s1a2b3c .c1{...}</style>
+  <rect width="1000" height="625" fill="#16151e"/>
+  <g stroke-width="1" stroke-linejoin="round">
+    <path class="c0" d="m793 0l-10.8 2.9-1 14.7..z"/>
+  </g>
+</svg>
+```
+
+- One CSS class per palette color, scoped under a per-document id so several SVGs can be inlined in one page without their classes colliding.
+- Consecutive same-color shapes merge into one `<path>` (draw order kept; evenodd shapes stay separate), so the element count is below the shape count.
+- Path data uses relative `m`/`l` commands on a grid of `10^-precision` units. `precision=1` (default) matches the contour grid and is lossless; `precision=0` rounds to whole viewBox units for about 20% less, at a mean pixel difference of ~1%.
+- Shapes keep their absolute `"M x,y L x,y Z"` path strings internally (`flow.value(extract_contours)["shapes"]`); only the emitted SVG is compact.
+- To animate a color, target its class: `@keyframes k{50%{fill:#f0f;stroke:#f0f}} #s1a2b3c .c0{animation:k 4s infinite}`.
+
 ## Gap Coverage: stroke=fill
 
-Every `<path>` element gets `stroke="{fill}" stroke-width="{gap_stroke}" stroke-linejoin="round"`. This bleeds each shape outward with its own fill color, covering inter-cluster gaps with the locally correct color.
+Every fill `<path>` is stroked with its own fill color, at `stroke-width="{gap_stroke}"` with round joins (set once on the fills group). This bleeds each shape outward with its own fill color, covering inter-cluster gaps with the locally correct color.
 
 **Auto-scaling**: `gap_stroke` is computed as `max(1.0, round(svg_width / source_width))`. A 500px source at `svg_width=1000` gets `gap_stroke=2`; a 1000px source gets `gap_stroke=1`. This prevents the "snow" artifact where high-shape-count SVGs show visible light halos at zoom-out from excessive stroke bleed. Override explicitly: `image_to_svg("img.jpg", gap_stroke=3)`.
 
-**Why stroke beats dilation for gaps**: Dilation operates on binary masks *before* contour simplification — it blurs detail. Stroke operates on final polygons *after* `approxPolyDP` — it catches all gaps including those introduced by simplification. Pure vector, no file size penalty beyond attribute bytes (~12%).
+**Why stroke beats dilation for gaps**: Dilation operates on binary masks *before* contour simplification — it blurs detail. Stroke operates on final polygons *after* `approxPolyDP` — it catches all gaps including those introduced by simplification. Pure vector; since v1.9.0 the stroke costs only the `stroke` declaration in each color's class.
 
 **Background fallback**: When `detect_background` finds no clusters, the bg rect uses `#000000` (black) instead of white. Black reads as shadow; white reads as absence.
 
