@@ -15,6 +15,7 @@ Usage:
                              stroke_width_cap=6, stroke_opacity=0.8,
                              stroke_merge=True, stroke_blur=0.5)
 """
+import hashlib
 import sys
 from collections import Counter
 from pathlib import Path
@@ -116,6 +117,10 @@ def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_col
                 stroke=fill to cover inter-cluster seams. Default: auto-computed
                 as max(1.0, round(svg_width / source_width)), scaling with
                 the viewBox-to-source ratio. Set explicitly to override.
+
+    Overrides also accept precision: decimal places kept in fill path
+    coordinates (default 1, which matches the contour grid and is visually
+    lossless; 0 rounds to whole viewBox units for ~20% smaller output).
     """
     if mode not in MODES:
         raise ValueError(f"Unknown mode '{mode}'. Choose from: {list(MODES.keys())}")
@@ -142,6 +147,81 @@ def configure(source_path, mode="painting", svg_width=1000, palette=None, bg_col
         **MODES[mode], **overrides,
     })
 
+
+
+# --- Compact fill emission ---
+# Each palette color becomes one CSS class scoped under a per-document id, so
+# fill/stroke/width/linejoin are written once instead of on every path. Runs of
+# same-color paths merge into one element (draw order kept), and path data is
+# rewritten with relative commands on a 10^-precision grid.
+
+def _short_hex(c):
+    c = c.lower()
+    return f"#{c[1]}{c[3]}{c[5]}" if len(c) == 7 and c[1] == c[2] and c[3] == c[4] and c[5] == c[6] else c
+
+
+def _num(v, precision):
+    t = f"{v:.{precision}f}".rstrip("0").rstrip(".") if precision > 0 else str(int(v))
+    if t.startswith("0."):
+        t = t[1:]
+    elif t.startswith("-0."):
+        t = "-" + t[2:]
+    return "0" if t in ("-0", "", "-") else t
+
+
+def _join(nums, precision):
+    out, last = "", ""
+    for v in nums:
+        t = _num(v, precision)
+        # A separator is needed unless the sign or a second decimal point ends the previous number.
+        if out and not (t[0] == "-" or (t[0] == "." and "." in last)):
+            out += " "
+        out += t
+        last = t
+    return out
+
+
+def _relative_path(d, precision):
+    """'M x,y L x,y ... Z' subpaths → relative 'm…l…z' on a 10^-precision grid."""
+    q = 10 ** precision
+    out, cx, cy = [], 0, 0
+    for sub in d.split("M")[1:]:
+        coords = sub.replace("L", " ").replace("Z", " ").replace(",", " ").split()
+        pts = [(round(float(coords[i]) * q), round(float(coords[i + 1]) * q)) for i in range(0, len(coords), 2)]
+        pts = [p for i, p in enumerate(pts) if i == 0 or p != pts[i - 1]]
+        x0, y0 = pts[0]
+        seg = "m" + _join([(x0 - cx) / q, (y0 - cy) / q], precision)
+        if len(pts) > 1:
+            deltas = [c for (x, y), (px, py) in zip(pts[1:], pts) for c in ((x - px) / q, (y - py) / q)]
+            seg += "l" + _join(deltas, precision)
+        out.append(seg + "z")
+        cx, cy = x0, y0  # z returns the current point to the subpath start
+    return "".join(out)
+
+
+def _fills(shapes, color_of, gap_stroke, precision=1, indent="  ", group_attrs=""):
+    """Emit fill shapes compactly. Returns (style_block, fills_group) strings."""
+    classes = {}
+    runs = []
+    for s in shapes:
+        c = _short_hex(color_of(s))
+        classes.setdefault(c, f"c{len(classes)}")
+        evenodd = bool(s.get("fill_rule"))
+        if runs and runs[-1][0] == c and not evenodd and not runs[-1][1]:
+            runs[-1][2].append(s["path"])
+        else:
+            runs.append((c, evenodd, [s["path"]]))
+    # Hash geometry and colors: batch variants share paths but differ in palette.
+    digest = hashlib.sha1("".join(s["path"] for s in shapes).encode())
+    digest.update("".join(classes).encode())
+    scope = "s" + digest.hexdigest()[:6]
+    css = "".join(f"#{scope} .{k}{{fill:{c};stroke:{c}}}" for c, k in classes.items())
+    body = [f'{indent}<g{group_attrs} stroke-width="{gap_stroke}" stroke-linejoin="round">']
+    for c, evenodd, paths in runs:
+        fr = ' fill-rule="evenodd"' if evenodd else ""
+        body.append(f'{indent}<path class="{classes[c]}"{fr} d="{_relative_path("".join(paths), precision)}"/>')
+    body.append(f"{indent}</g>")
+    return scope, f"{indent}<style>{css}</style>", "\n".join(body)
 
 
 # --- Compiled nearest-neighbor acceleration ---
@@ -548,15 +628,14 @@ def assemble_svg(extract_contours, detect_background):
     elif bg_override:
         bg_hex = bg_override
 
+    scope, style, fills = _fills(shapes, lambda s: s["color"], _cfg["gap_stroke"], _cfg.get("precision", 1))
     lines = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {SVG_W} {SVG_H}">',
+        f'<svg xmlns="http://www.w3.org/2000/svg" id="{scope}" viewBox="0 0 {SVG_W} {SVG_H}">',
+        style,
         f'  <rect width="{SVG_W}" height="{SVG_H}" fill="{bg_hex}"/>',
+        fills,
+        "</svg>",
     ]
-    gap_sw = _cfg["gap_stroke"]
-    for s in shapes:
-        fr = ' fill-rule="evenodd"' if s.get("fill_rule") else ""
-        lines.append(f'  <path d="{s["path"]}" fill="{s["color"]}" stroke="{s["color"]}" stroke-width="{gap_sw}" stroke-linejoin="round"{fr}/>')
-    lines.append("</svg>")
 
     svg_content = "\n".join(lines)
     print(f"  assemble_svg: {len(svg_content)} bytes, {len(shapes)} paths")
@@ -565,7 +644,7 @@ def assemble_svg(extract_contours, detect_background):
 
 # --- Assembly (pure function, no global state) ---
 
-def _assemble_pure(shapes, svg_w, svg_h, bg_hex, palette=None, bg_color=None, gap_stroke=1.0):
+def _assemble_pure(shapes, svg_w, svg_h, bg_hex, palette=None, bg_color=None, gap_stroke=1.0, precision=1):
     """Assemble SVG from shapes. Does NOT mutate input shapes.
 
     Args:
@@ -575,6 +654,7 @@ def _assemble_pure(shapes, svg_w, svg_h, bg_hex, palette=None, bg_color=None, ga
         palette: Optional list of hex colors (darkest→lightest) or preset name
         bg_color: Optional background color override
         gap_stroke: Gap-coverage stroke-width for fill paths (default 1.0)
+        precision: Decimal places kept in path coordinates (default 1)
 
     Returns:
         SVG string
@@ -597,16 +677,15 @@ def _assemble_pure(shapes, svg_w, svg_h, bg_hex, palette=None, bg_color=None, ga
     elif bg_color:
         bg_hex = bg_color
 
-    lines = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {svg_w} {svg_h}">',
+    color_of = (lambda s: color_map.get(s["color"], s["color"])) if palette else (lambda s: s["color"])
+    scope, style, fills = _fills(shapes, color_of, gap_stroke, precision)
+    return "\n".join([
+        f'<svg xmlns="http://www.w3.org/2000/svg" id="{scope}" viewBox="0 0 {svg_w} {svg_h}">',
+        style,
         f'  <rect width="{svg_w}" height="{svg_h}" fill="{bg_hex}"/>',
-    ]
-    for s in shapes:
-        c = color_map[s["color"]] if palette and s["color"] in color_map else s["color"]
-        fr = ' fill-rule="evenodd"' if s.get("fill_rule") else ""
-        lines.append(f'  <path d="{s["path"]}" fill="{c}" stroke="{c}" stroke-width="{gap_stroke}" stroke-linejoin="round"{fr}/>')
-    lines.append("</svg>")
-    return "\n".join(lines)
+        fills,
+        "</svg>",
+    ])
 
 
 # --- Compositional assembly (fills + strokes) ---
@@ -614,7 +693,7 @@ def _assemble_pure(shapes, svg_w, svg_h, bg_hex, palette=None, bg_color=None, ga
 def _assemble_compositional(shapes, stroke_lines, svg_w, svg_h, bg_hex,
                             palette=None, bg_color=None,
                             stroke_opacity=1.0, stroke_blur=0,
-                            stroke_dasharray=None, gap_stroke=1.0):
+                            stroke_dasharray=None, gap_stroke=1.0, precision=1):
     """Assemble layered SVG with fill shapes behind line strokes.
 
     Args:
@@ -628,6 +707,7 @@ def _assemble_compositional(shapes, stroke_lines, svg_w, svg_h, bg_hex,
         stroke_blur: Gaussian blur stdDeviation for strokes group (default 0)
         stroke_dasharray: SVG stroke-dasharray value for sketchy effect (default None)
         gap_stroke: Gap-coverage stroke-width for fill paths (default 1.0)
+        precision: Decimal places kept in fill path coordinates (default 1)
 
     Returns:
         SVG string with <g id="fills"> and <g id="strokes"> layers
@@ -651,8 +731,11 @@ def _assemble_compositional(shapes, stroke_lines, svg_w, svg_h, bg_hex,
     elif bg_color:
         bg_hex = bg_color
 
+    color_of = (lambda s: color_map.get(s["color"], s["color"])) if palette else (lambda s: s["color"])
+    scope, style, fills = _fills(shapes, color_of, gap_stroke, precision, indent="  ", group_attrs=' id="fills"')
     out = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {svg_w} {svg_h}">',
+        f'<svg xmlns="http://www.w3.org/2000/svg" id="{scope}" viewBox="0 0 {svg_w} {svg_h}">',
+        style,
     ]
 
     # Defs for stroke filter (if blur requested)
@@ -660,12 +743,7 @@ def _assemble_compositional(shapes, stroke_lines, svg_w, svg_h, bg_hex,
         out.append(f'  <defs><filter id="sf"><feGaussianBlur stdDeviation="{stroke_blur}"/></filter></defs>')
 
     out.append(f'  <rect width="{svg_w}" height="{svg_h}" fill="{bg_hex}"/>')
-    out.append('  <g id="fills">')
-    for s in shapes:
-        c = color_map.get(s["color"], s["color"]) if palette else s["color"]
-        fr = ' fill-rule="evenodd"' if s.get("fill_rule") else ""
-        out.append(f'    <path d="{s["path"]}" fill="{c}" stroke="{c}" stroke-width="{gap_stroke}" stroke-linejoin="round"{fr}/>')
-    out.append('  </g>')
+    out.append(fills)
 
     if stroke_lines:
         # Build group attributes
@@ -770,6 +848,7 @@ def _run_compositional(source_path, mode, svg_width, palette, bg_color,
         stroke_blur=stroke_blur,
         stroke_dasharray=stroke_dasharray,
         gap_stroke=_cfg.get("gap_stroke", 1.0),
+        precision=_cfg.get("precision", 1),
     )
 
     n_fills = len(contour_result["shapes"])
@@ -815,7 +894,8 @@ def image_to_svg(source_path, mode="painting", svg_width=1000, palette=None,
         stroke_blur: Gaussian blur stdDeviation for stroke group (default 0).
         stroke_dasharray: SVG stroke-dasharray for sketchy effect (default None).
         **overrides: Override any mode preset (K, dark_lum, compactness_min,
-                     edge_density_min, isolation_filter, min_area)
+                     edge_density_min, isolation_filter, min_area), or set
+                     precision (decimal places in path coordinates, default 1)
 
     Returns:
         (svg_string, flow) — the SVG content and the Flow object for inspection
@@ -952,7 +1032,8 @@ def image_to_svg_batch(source_path, variants, svg_width=1000):
                 palette = PALETTES.get(palette, palette)
             svg = _assemble_pure(shapes, svg_w, svg_h, bg_hex,
                                  palette=palette, bg_color=cfg["bg_color"],
-                                 gap_stroke=_cfg.get("gap_stroke", 1.0))
+                                 gap_stroke=_cfg.get("gap_stroke", 1.0),
+                                 precision=cfg.get("precision", 1))
             results[cfg["name"]] = svg
             print(f"    {cfg['name']}: {len(svg)//1024}KB")
 
