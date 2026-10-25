@@ -81,6 +81,7 @@
     "media-processing": {
       "description": "Image manipulation, video/audio processing, file format conversion, SVG conversion, and computer vision augmentation.",
       "skills": [
+        "animating-with-code",
         "converting-files",
         "creating-video",
         "detecting-tips-zones",
