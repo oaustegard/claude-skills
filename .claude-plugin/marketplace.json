@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.1023.0305"
+    "version": "2026.1025.1219"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -169,6 +169,7 @@
       "license": "MIT",
       "category": "Media Processing",
       "keywords": [
+        "animating-with-code",
         "converting-files",
         "creating-video",
         "detecting-tips-zones",
