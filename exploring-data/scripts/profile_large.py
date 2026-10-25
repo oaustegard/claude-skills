@@ -51,7 +51,7 @@ def main():
               "size_bytes": path.stat().st_size, "columns": []}
 
     for name, dtype, *_ in cols:
-        q = f'"{name}"'
+        q = '"' + name.replace('"', '""') + '"'
         base = con.execute(
             f"SELECT count({q}), approx_count_distinct({q}) FROM {src}"
         ).fetchone()
