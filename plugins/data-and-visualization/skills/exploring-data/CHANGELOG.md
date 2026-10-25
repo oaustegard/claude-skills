@@ -4,6 +4,16 @@ All notable changes to the `exploring-data` skill are documented in this file. T
 
 ## [0.2.1] - 2026-10-25
 
+### Fixed
+
+- escape column-name identifiers in profile_large (GHSA-h4qx-q5jx-76m5)
+
+### Other
+
+- exploring-data 0.2.1: version bump + security changelog (GHSA-h4qx-q5jx-76m5)
+
+## [0.2.1] - 2026-10-25
+
 ### Security
 
 - `scripts/profile_large.py`: fix SQL injection via dataset column names (GHSA-h4qx-q5jx-76m5). Column identifiers from the profiled file were wrapped in double quotes but embedded double quotes were not doubled, so a crafted column name (e.g. a CSV header containing `"`) closed the DuckDB identifier and injected arbitrary SQL — reachable file read/write via `read_text`/`COPY` on any untrusted input file. Column names are now quoted with embedded `"` doubled. The file-path literal was already escaped and is unaffected.
