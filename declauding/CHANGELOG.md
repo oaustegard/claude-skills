@@ -4,6 +4,12 @@ All notable changes to the `declauding` skill are documented in this file. The f
 
 ## [0.11.0] - 2026-10-27
 
+### Other
+
+- declauding 0.11.0: compressed-syntax family from arXiv 2610.29162
+
+## [0.11.0] - 2026-10-27
+
 ### Added
 
 - Compressed-syntax family, entries 53 to 56 (noun stack, verbed noun, dropped
