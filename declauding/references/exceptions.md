@@ -58,3 +58,13 @@ Confiding-essayist shapes, entries 48 to 52:
 | Retroactive significance (50) | It grades a passage the reader has already read | A "which is why" introducing a consequence the reader has not seen |
 | Totalizing designation (51) | A part is claimed as the whole, or a superlative ranks an unnamed set | A real count of one over a named set — "the only one of the six runs that finished" |
 | Obituary headline (52) | A verdict borrowed from a form built to overstate | The phrase belongs to something quoted or named |
+
+Compressed-syntax shapes, entries 53 to 56:
+
+| Shape | Banned when | Earned when |
+|---|---|---|
+| Animate verb, inanimate subject (4) | The verb needs a mind or body and stands in for a plain phrase — "this asymmetry bites" | The pairing is conventional in the field: "the function expects an int" |
+| Noun stack (53) | Three or more nouns name something the reader has not met | An established term ("foreign key constraint"), or a name the document defines once |
+| Verbed noun (54) | An ad-hoc conversion saves *put it in a* — "footnote it" | The conversion is standard in the field: *scope*, *gate*, *shard* |
+| Dropped *that* (55) | The clause is long or its subject is a new noun phrase | A short clause after a common verb: "the book I read", "I think it's broken" |
+| Distant verb (56) | A list or aside sits between subject and verb | Two or three short items, or a quoted name as subject |

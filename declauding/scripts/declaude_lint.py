@@ -46,6 +46,7 @@ RULES: list[tuple[str, str, str]] = [
     ("agency", r"(?<!\bI )(?<!\byou )(?<!\bwe )(?<!\bthey )\b(?:earns?|demands?|buys?|deserves?)\s+(?:its|their|the)\s+\w+", "abstraction earning something"),
     ("agency", r"\b(?:truncation|quantization|rescoring|compression|optimization|abstraction|complexity|scalability)\s+(?:cuts?|adds?|breaks?|solves?|reranks?|is a concern)\b", "nominalization as agent"),
     ("agency", r"\b(?:about to|going to)\s+discover\b", "tool personified"),
+    ("agency", r"\b(?:it|this|that|which|the\s+[a-z_]+)(?:\s+[a-z_]+)?\s+(?:bites|promises|forgets|misunderstands|pretends|hopes|swallows)\b", "animate verb on an inanimate subject — say what happens (entry 4)"),
 
     # --- deferred noun -------------------------------------------------------
     ("deferred-noun", r"\bOne\s+thing\s+(?:is|isn't|is not|that)\b", "One thing ..."),

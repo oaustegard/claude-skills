@@ -2,6 +2,18 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.11.0] - 2026-10-27
+
+### Added
+
+- Compressed-syntax family, entries 53 to 56 (noun stack, verbed noun, dropped
+  *that*, distant verb), from Clark, Martin and Mahowald, arXiv 2610.29162.
+- Entry 4 covers animate verbs on inanimate subjects (*bites*, *promises*,
+  *swallows*); the linter flags the commonest ones.
+- Overcorrection guard: a shorter rewrite that takes longer to parse is worse.
+- Self-check item 16; exceptions rows for the new family; Opus 5 profile notes
+  the paper's Opus 5 / 5.5 comparison.
+
 ## [0.10.0] - 2026-10-07
 
 ### Other

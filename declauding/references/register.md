@@ -90,6 +90,22 @@ concrete thing — and let the verb be a verb.
 > was: *Truncation cuts compute natively.*
 > now: *A shorter vector is a shorter dot product.*
 
+The commonest form in model chat and code reports is an inanimate subject on a
+verb that needs a mind or a body: *bites*, *swallows*, *promises*, *forgets*,
+*expects*, *asks*, *misunderstands*. Clark et al. (arXiv 2610.29162) found every
+frontier model they tested using it more than people do in the same genre.
+Readers use animacy to parse, so the mismatch costs a second look, and the verb
+usually stands in for a longer plain phrase (*bites* for *causes a problem*).
+
+> was: *The docstring promises they're skipped when they "appear anywhere in
+> the source_dir path".* (Fable 5)
+> now: *According to the docstring, they're skipped when they "appear anywhere
+> in the source_dir path".*
+
+Conventional uses are earned: *the function expects an int*, *the table shows*
+in a caption. The test is whether a reader in the field has seen the pairing
+before.
+
 ---
 
 ## 5. Deferred noun
@@ -1106,6 +1122,150 @@ citing, a product whose vendor announced end of life.
 
 ---
 
+## Compressed syntax: entries 53 to 56
+
+Clark, Martin and Mahowald ([arXiv 2610.29162](https://arxiv.org/abs/2610.29162),
+October 2026) parsed chat, coding-session and essay output from nine frontier
+models. They compared each reply with a paraphrase of the same sentences made by
+translating it to Japanese and back, and with human text from the same genre.
+The models used more of six constructions that psycholinguistics links to slower
+reading: rare word pairs, long distances between a word and the word it depends
+on, object relative clauses with the optional *that* left out, stacks of three or
+more nouns, nouns used as verbs, and inanimate subjects on verbs that normally
+take a person. All nine overused the rare word pairs and the inanimate subjects
+compared with human text. The authors' explanation is training that rewards a
+correct answer in fewer tokens. A length penalty alone pushed a small model to
+pick the shorter form of every syntactic alternation it was trained on, and of
+one it never saw.
+
+These entries are a different mechanism from staging. Nothing here performs a
+finding. Each shape packs a claim into fewer words than a person would use, and
+the reader pays for the saving in parse effort. The fix usually makes the
+sentence longer, which is why a pass that aims only at brevity produces these
+shapes instead of removing them. Rare word pairs are not an entry of their own:
+they are what noun stacks, verbed nouns and dressed metaphor (entry 37) add up
+to when someone counts them.
+
+The effect is largest in multi-turn chat and coding sessions and smaller in
+single-prompt essays. It also moves with training: Opus 5.5 scored lower than
+Opus 5 on 19 of the paper's 21 comparisons.
+
+The linter reaches none of entries 53 to 56; they need a parse. Read for them in
+the sentence pass. Inanimate subjects on animate verbs are entry 4, where the
+linter flags the commonest of those verbs.
+
+---
+
+## 53. Noun stack
+
+**Tell:** three or more nouns in a row, each modifying the next, often with a
+hyphen fusing two of them: "reader-patience budget", "Policy 1's class-time
+shutdown requirement", "dry-run write prevention", "the existing xfailed
+lazy-intermediate Lookup behavior".
+
+**Why:** English lets any noun modify another and never marks how they group.
+The reader has to work out the bracketing (*dog bite victim*) and supply the
+relation the writer left out: a budget *of* patience, or *for* it? A stack is
+the shortest way to name something the writer has in mind and the reader has
+never seen.
+
+**Fix:** unstack into a phrase with prepositions, or a clause that names the
+relation.
+
+> was: *New tests for paths with spaces, dry-run write prevention, and
+> idempotent config reinstalls.* (GPT-5.6 Terra, paper Table 2)
+> now: *New tests cover paths with spaces, check that a dry run writes nothing,
+> and check that reinstalling the config is idempotent.*
+
+> was: *I acknowledge concerns about distraction, but Policy 1's class-time
+> shutdown requirement directly addresses this.* (Kimi K2.5)
+> now: *Policy 1 requires phones to be off during class, which addresses the
+> concern about distraction.*
+
+**Earned:** an established term in the reader's field (*foreign key
+constraint*, *money market fund*), or a stack the document defines once and
+then reuses as a name.
+
+---
+
+## 54. Verbed noun
+
+**Tell:** a noun used as a verb where the field has no such verb: "footnote it",
+"calendar it", "ticket that", "bucket them", "this papercuts every new user".
+
+**Why:** readers parse a word as the part of speech they expect, and a noun in
+verb position forces a second look. Conventional conversions (*bottle*, *email*,
+*stage a change*) cost nothing because the reader has seen them. An ad-hoc one
+saves two words, *put it in a*, and spends them back as reanalysis.
+
+**Fix:** use a plain verb with the noun as its object.
+
+> was: *…the convoluted sentence you are currently reading is quietly eating
+> its own reader-patience budget — footnote it.* (the paper's opening specimen)
+> now: *…this sentence is hard to read. Move it to a footnote.*
+
+**Earned:** the conversion is standard in the reader's field (*to scope*, *to
+gate a release*, *to shard*), or the text is quoting someone.
+
+---
+
+## 55. Dropped *that*
+
+**Tell:** an object relative clause or a complement clause with the optional
+*that* left out, where the clause is long or its subject is a new noun phrase:
+"the others check behaviour the old code never reached", "the unclosed-tag
+errors are the papercut people feel day-to-day", "we found the cache key
+omitted the locale".
+
+**Why:** people drop *that* when what follows is predictable and keep it when it
+is not (Levy and Jaeger 2007; Jaeger 2010). Without it, two noun phrases sit
+side by side and nothing tells the reader that a clause has begun. In the
+paper's length-penalty runs the trained model left *that* out more than 98% of
+the time, where people choose by context.
+
+Rewriting a passive into an object relative to save a word ("the house that the
+contractors built" for "the house that was built by the contractors") belongs
+here too.
+
+**Fix:** put *that* back when the clause runs past a few words or its subject is
+a noun phrase the reader has not met.
+
+> was: *Three fail on the old code; the others check behaviour the old code never
+> reached.* (Opus 5.5)
+> now: *Three fail on the old code; the others check behaviour that the old code
+> never reached.*
+
+**Earned:** a short clause after a common verb, where the reader already expects
+it: "the book I read", "I think the build is broken".
+
+---
+
+## 56. Distant verb
+
+**Tell:** a subject held apart from its verb by a list, a dash aside or an
+appositive: "All five expression shapes — attribute access, subscript, calls,
+nested calls, string literals — leave current on NAME('b')", "Class time, where
+a total blackout policy would apply under Policy 1, remains protected".
+
+**Why:** the reader keeps the subject in working memory until the verb arrives,
+and the cost grows with the distance (Gibson 1998). People writing for readers
+put the long part after the verb.
+
+**Fix:** give the verb early. Move the list or the aside after the main clause,
+or into a sentence of its own.
+
+> was: *All five expression shapes — attribute access, subscript, calls, nested
+> calls, string literals — leave current on NAME('b'), and the full template
+> renders correctly.* (Fable 5)
+> now: *All five expression shapes leave current on NAME('b'): attribute access,
+> subscript, calls, nested calls and string literals. The full template renders
+> correctly.*
+
+**Earned:** a list of two or three short items, or a subject that is long because
+it is a quoted name.
+
+---
+
 ## Quick self-check before shipping an edit
 
 1. Does any sentence exist to make a finding feel bigger than it is?
@@ -1133,3 +1293,6 @@ citing, a product whose vendor announced end of life.
 15. Does any sentence announce its own honesty, grade an earlier passage, claim
     a whole where a part was shown, or land a reversal on a bare auxiliary?
     Entries 48 to 52.
+16. Is the rewrite shorter and harder to parse? Look for three nouns in a row,
+    a noun used as a verb, a long clause with its *that* dropped, and a subject
+    waiting behind a list for its verb. Entries 53 to 56.

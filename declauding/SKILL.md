@@ -1,8 +1,8 @@
 ---
 name: declauding
-description: Load at the start of any task whose deliverable is prose another person will read — a PR description, commit message, README, doc, postmortem, blog post, issue or review comment, report, release note or essay — before drafting it, whether the result is pushed, posted, published or saved to a file, without being asked. Draft, then run this pass on the draft before handing it over. Also use when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make it sound human", or asks for a voice, tone or register edit. Rewrites the constructions that mark prose as model-written (staged reveals, verdict headers, aphoristic closers, "it's not X, it's Y", em-dash drama, forced triads, flat-certainty adverbs) into plain technical prose and checks the rewrite kept every claim. Not for fiction, poetry, code, or quoted text; for a full adversarial review of a deliverable use challenging.
+description: Load at the start of any task whose deliverable is prose another person will read — a PR description, commit message, README, doc, postmortem, blog post, issue or review comment, report, release note or essay — before drafting it, whether the result is pushed, posted, published or saved to a file, without being asked. Draft, then run this pass on the draft before handing it over. Also use when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make it sound human", or asks for a voice, tone or register edit. Rewrites the constructions that mark prose as model-written (staged reveals, verdict headers, aphoristic closers, "it's not X, it's Y", em-dash drama, forced triads, flat-certainty adverbs, noun stacks, dropped 'that') into plain technical prose and checks the rewrite kept every claim. Not for fiction, poetry, code, or quoted text; for a full adversarial review of a deliverable use challenging.
 metadata:
-  version: 0.10.0
+  version: 0.11.0
 ---
 
 # Declauding
@@ -59,6 +59,7 @@ The register has four families. Read the one the draft needs first.
 | 24–36 | Encyclopedic and chatbot | Nothing is staged; the writing runs on defaults: copula avoidance, participle tails, forced triads, chatbot residue |
 | 43–47 | Flat certainty | This skill's own output. An adverb, compound or absolute negative stands in for evidence: `plainly`, `quietly`, `refusal`, `re-derived`, `byte-identical`, `nothing` |
 | 48–52 | Confiding essayist | Staging aimed at the reader's trust: announced honesty, stranded auxiliaries, obituary headlines. From Simon Willison's [llm-cliche-highlighter](https://github.com/simonw/tools/blob/main/llm-cliche-highlighter.html), updated 2026-08-27 |
+| 53–56 | Compressed syntax | Nothing is staged; a claim is packed into fewer words than a reader can parse: noun stacks, verbed nouns, dropped *that*, a subject waiting behind a list for its verb. The fix makes the sentence longer. From [arXiv 2610.29162](https://arxiv.org/abs/2610.29162) |
 
 The flat-certainty register is where a clean pass lands, and it is now the
 fastest-growing cluster of GitHub pull request descriptions: 0.70% of early
@@ -205,7 +206,8 @@ thorough one.
 each shape carries a claim. Start with the family the draft needs: the author
 model's profile names it; on a draft this skill or another model already
 cleaned, read 43 to 47 first; on a personal essay, a launch post, or anything
-addressed to the reader as a confidant, read 48 to 52 first.
+addressed to the reader as a confidant, read 48 to 52 first; on a chat reply or a
+coding-session report, read 53 to 56 first.
 
 **4. Structure pass.** Headers (are they labels or verdicts?), paragraph breaks
 (is an isolated line a real pivot or a drum roll?), fragment runs, rhetorical
@@ -259,6 +261,10 @@ The failure mode of this skill is prose stripped of confidence, rhythm and
 personality until every sentence is the same length and the writer has no
 opinions. That is worse than the tics.
 
+- Shorter is not plainer. A rewrite that cuts staging tends to compress what is
+  left: three nouns stacked where a phrase stood, *that* dropped from a long
+  clause, a noun pressed into service as a verb. If the rewrite is shorter and
+  takes longer to parse, it is worse. Entries 53 to 56.
 - Flat is not hedged. "Class imbalance breaks the metric before overfitting
   does" is flat *and* certain. Target plain-and-sure, never plain-and-timid.
 - Do not delete first-person judgment. "I did not expect the overlap to survive

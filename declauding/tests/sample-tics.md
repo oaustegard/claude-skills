@@ -237,3 +237,15 @@ The real fix was an N+1 on one endpoint. That's the actual heuristic.
 Negatives that must stay silent — a literal work and cost:
 
 The actual work happens in the worker thread. The actual cost was $41.
+
+## Entries 4 and 53-56 specimens (Clark et al., arXiv 2610.29162, Table 2)
+
+Puzzle patterns where this asymmetry bites are rare in the test set.
+
+The docstring promises they're skipped when they appear anywhere in the source_dir path.
+
+I acknowledge concerns about distraction, but Policy 1's class-time shutdown requirement directly addresses this.
+
+Three fail on the old code; the others check behaviour the old code never reached.
+
+All five expression shapes — attribute access, subscript, calls, nested calls, string literals — leave current on NAME('b'), and the full template renders correctly.

@@ -12,8 +12,11 @@ nothing is being staged and the prose is running on defaults. Entries 39 to 42
 are the register of reference prose — schema formality, and maxims welded onto
 facts. Entries 43 to 47 are this skill's own output: the flat, verdict-shaped
 register a clean pass lands in, which is now the fastest-growing cluster of
-GitHub pull request descriptions there is. Numbering is chronological within the
-file, so a group is not a contiguous range.
+GitHub pull request descriptions there is. Entries 48 to 52 are the confiding
+essayist. Entries 53 to 56 are compressed syntax: noun stacks, verbed nouns,
+dropped *that* and distant verbs, which pack a claim into fewer words than a
+reader can parse ([arXiv 2610.29162](https://arxiv.org/abs/2610.29162)).
+Numbering is chronological within the file, so a group is not a contiguous range.
 
 See [`SKILL.md`](SKILL.md) for the workflow, the overcorrection guard and the
 earned-exception table. See [`references/register.md`](references/register.md)

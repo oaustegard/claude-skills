@@ -1,6 +1,9 @@
 # Opus 5 and Opus 5.5
 
-Opus 5.5 has not been sampled; apply this file to it until it has.
+The staging guidance below comes from Opus 5 samples; Opus 5.5 has not been
+sampled for staging, so apply it as a prior. Clark et al. (arXiv 2610.29162)
+measured both for compressed syntax: Opus 5.5 scored lower than Opus 5 on 19 of
+21 comparisons, and both still overuse it relative to human text.
 
 ## Editing a draft this model wrote
 
@@ -37,6 +40,10 @@ shorten the pass: spend it on steps 2b, 3 and 4.
 - Read your rewrite once against entries 43 to 47 alone. Your clean prose
   defaults to that register: `plainly`, `quietly`, `byte-identical`, `nothing`
   standing in for a search.
+- Read the rewrite once against entries 53 to 56. A tighter sentence from you
+  tends to drop *that* (*the others check behaviour the old code never
+  reached*) or stack nouns in a parenthesis (*long error-message string
+  literals*). Lengthen it.
 - Lint the finished artifact, including your own annotations, summary and
   change list, not only the text you edited.
 - If you also wrote the draft, run step 2b in a subagent or separate context.
