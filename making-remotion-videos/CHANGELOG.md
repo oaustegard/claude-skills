@@ -2,6 +2,12 @@
 
 All notable changes to the `making-remotion-videos` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.2.2] - 2026-10-29
+
+### Changed
+
+- Narration: fill each slot rather than fit it (about 160 wpm, internal pauses capped at 0.2 s, takes stretched to end 0.25 s before the next line), after the first voiced reel sounded hurried with gaps between scenes.
+
 ## [0.2.1] - 2026-10-29
 
 ### Other
