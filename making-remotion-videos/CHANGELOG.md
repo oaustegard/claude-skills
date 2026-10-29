@@ -2,6 +2,12 @@
 
 All notable changes to the `making-remotion-videos` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.2.1] - 2026-10-29
+
+### Added
+
+- Narration: record a coined name once and splice it into every line; choose its spelling by consistency of 3 transcribed takes; OmniVoice CMU phoneme override; paced OmniVoice results.
+
 ## [0.2.0] - 2026-10-29
 
 ### Other
