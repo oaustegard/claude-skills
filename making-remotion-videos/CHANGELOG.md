@@ -4,6 +4,12 @@ All notable changes to the `making-remotion-videos` skill are documented in this
 
 ## [0.2.3] - 2026-10-29
 
+### Other
+
+- making-remotion-videos 0.2.3: spell a name voices can't say; sync letters to speech
+
+## [0.2.3] - 2026-10-29
+
 ### Added
 
 - Narration: spell a name no voice can say, and sync per-letter visuals from whisper word timestamps plus onset detection; audition voices by ear.
