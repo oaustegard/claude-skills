@@ -76,4 +76,23 @@ score and get the pronunciation from a person.
 
 Speech onsets from `silencedetect` were 0.31, 2.61, 6.12 … 31.31 s against
 planned starts of 0.3, 2.6, 6.1 … 31.3 s, and integrated loudness was −15.8 LUFS.
-The paced OmniVoice track (`duration` set per line) was still rendering when this was written.
+The paced OmniVoice track, with `duration` set per line, measured 182 wpm with
+speech onsets on every slot start and −16.0 LUFS.
+
+## Pronouncing a coined name
+
+Record the name once and splice that one clip into every line that says it:
+the closing line is "Try the demo at" plus the clip, with an 80 ms gap. When it
+was generated inside each line, Gemini said "aeyu" two different ways in one
+reel (Oskar heard "I owe" and "AU").
+
+To choose the spelling, generate each candidate 3 times and keep the one whose
+takes all transcribe alike. For Gemini, "AY-you dot I-O." gave "AU.io" in 3 of
+3 takes. "AY-yoo dot eye-oh." drifted between "AO", "AU" and "AEO", and
+"Ay, you." gave "Hey you". OmniVoice read every spelling as "IU.io"
+("eye-you"). Its inline CMU override `[EY1 Y UW0] dot I-O.` gave "AU.io" in 4
+of 4 takes.
+
+The same override did not rescue "Year bests": `[Y IH1 R] bests` still
+transcribed as "your best" in 3 of 3 takes. Both voices said "Best of the year"
+correctly, so the script uses that wording.

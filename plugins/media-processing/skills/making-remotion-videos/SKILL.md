@@ -2,7 +2,7 @@
 name: making-remotion-videos
 description: "Make an MP4 from React components with Remotion, rendered headlessly in this container. Covers project scaffolding with pinned versions, the frame-pure composition contract, the still-frame review loop, rendering with the preinstalled Chromium, and the product demo reel - an app shown inside a phone frame, built from Playwright captures of the real UI. Use for 'Remotion', 'make a video in React', 'demo reel', 'promo video for my app', 'app preview video', 'product video', 'phone mockup video', 'vertical video for social', 'Instagram reel', 'TikTok-format video', 'animated explainer with text and screenshots', or any motion graphics job built from layout, type and UI captures."
 metadata:
-  version: 0.2.0
+  version: 0.2.1
 ---
 
 # Making videos with Remotion
@@ -126,6 +126,10 @@ should be 140–180 wpm.
   WER against the script, then pick the longest one that fits its slot.
   Gemini rendered "Year bests" as "your best" in 6 of 6 takes, with or without
   CAPITALS stress; "Best of the YEAR" survived 3 of 3.
+- **Record a coined name once and splice the clip** into every line that says
+  it. Pick its spelling by generating 3 takes per candidate and keeping the one
+  whose takes all transcribe alike. OmniVoice takes CMU phonemes inline:
+  `[EY1 Y UW0]`.
 - **Check pace, not just fit.** Unpaced OmniVoice averaged 211 wpm with lines
   at 283. A take that fits its slot can still be rushed.
 - **Verify the mix:** `ffmpeg -i out/reel.mp4 -af silencedetect=noise=-40dB:d=0.25 -f null -`
