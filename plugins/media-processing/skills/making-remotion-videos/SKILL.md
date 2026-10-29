@@ -2,7 +2,7 @@
 name: making-remotion-videos
 description: "Make an MP4 from React components with Remotion, rendered headlessly in this container. Covers project scaffolding with pinned versions, the frame-pure composition contract, the still-frame review loop, rendering with the preinstalled Chromium, and the product demo reel - an app shown inside a phone frame, built from Playwright captures of the real UI. Use for 'Remotion', 'make a video in React', 'demo reel', 'promo video for my app', 'app preview video', 'product video', 'phone mockup video', 'vertical video for social', 'Instagram reel', 'TikTok-format video', 'animated explainer with text and screenshots', or any motion graphics job built from layout, type and UI captures."
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Making videos with Remotion
@@ -102,6 +102,35 @@ For a reel of a real web app inside a phone, follow
 the live UI at phone size with Playwright, stepping live animations frame by
 frame with Playwright's fake clock, the phone frame, sticky headers, tap
 indicators and the timeline the aeyu.io reel used.
+
+## Narration
+
+Mix the voiceover outside Remotion into one WAV the length of the
+composition. Put each line at its slot start, loudnorm the track to -16 LUFS,
+and play it with `<Html5Audio src={staticFile(vo)} />` at the root. Pass the
+track as a prop (`--props='{"vo":"vo/x.wav"}'`) so voice A/B tests reuse one
+composition. Write the script as lines with `start`/`end` slots taken from the
+scene timeline, then size each line to its slot: words ÷ slot seconds × 60
+should be 140–180 wpm.
+
+- **TTS routes, measured 2026-10-29 on the aeyu reel** (details in
+  [references/narration.md](references/narration.md)): Gemini 3.8 Flash TTS
+  (`invoking-gemini` `generate_speech`, prebuilt or designed voice, style
+  string) took 2.5 min for 27 takes and had the most varied pitch. OmniVoice
+  (k2-fsa, the engine behind VoiceStudio) runs locally in the jail at about 29×
+  slower than real time on 4 CPU cores. Its tag-based voice design (gender,
+  age, pitch, accent) cannot ask for energy and came out flat. Cloning a
+  lively 6 s reference worked better, and its per-line `duration` argument
+  sets pace exactly.
+- **Take three per line and pick by ASR.** Score each take with faster-whisper
+  WER against the script, then pick the longest one that fits its slot.
+  Gemini rendered "Year bests" as "your best" in 6 of 6 takes, with or without
+  CAPITALS stress; "Best of the YEAR" survived 3 of 3.
+- **Check pace, not just fit.** Unpaced OmniVoice averaged 211 wpm with lines
+  at 283. A take that fits its slot can still be rushed.
+- **Verify the mix:** `ffmpeg -i out/reel.mp4 -af silencedetect=noise=-40dB:d=0.25 -f null -`
+  lists the speech onsets, which should match the slot starts. `-af ebur128`
+  gives integrated loudness (target −16 LUFS).
 
 ## Verification
 
