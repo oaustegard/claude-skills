@@ -4,6 +4,12 @@ All notable changes to the `making-remotion-videos` skill are documented in this
 
 ## [0.2.0] - 2026-10-29
 
+### Other
+
+- making-remotion-videos 0.2.0: narration
+
+## [0.2.0] - 2026-10-29
+
 ### Added
 
 - Narration: a voiceover section and references/narration.md. Covers slot-sized scripts, best-of-three takes picked by ASR WER, loudnorm to -16 LUFS, the track passed as a prop to `<Html5Audio>`, and onset/loudness checks. Compares Gemini 3.8 Flash TTS with OmniVoice 0.2.1 (the VoiceStudio engine) as measured on the aeyu.io reel, including the jailed OmniVoice install recipe.
