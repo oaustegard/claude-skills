@@ -4,6 +4,12 @@ All notable changes to the `making-remotion-videos` skill are documented in this
 
 ## [0.2.2] - 2026-10-29
 
+### Other
+
+- making-remotion-videos 0.2.2: narration fills each slot
+
+## [0.2.2] - 2026-10-29
+
 ### Changed
 
 - Narration: fill each slot rather than fit it (about 160 wpm, internal pauses capped at 0.2 s, takes stretched to end 0.25 s before the next line), after the first voiced reel sounded hurried with gaps between scenes.
