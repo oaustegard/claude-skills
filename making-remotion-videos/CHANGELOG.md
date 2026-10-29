@@ -4,6 +4,12 @@ All notable changes to the `making-remotion-videos` skill are documented in this
 
 ## [0.2.1] - 2026-10-29
 
+### Other
+
+- making-remotion-videos 0.2.1: one recorded name clip per reel, phoneme overrides
+
+## [0.2.1] - 2026-10-29
+
 ### Added
 
 - Narration: record a coined name once and splice it into every line; choose its spelling by consistency of 3 transcribed takes; OmniVoice CMU phoneme override; paced OmniVoice results.
