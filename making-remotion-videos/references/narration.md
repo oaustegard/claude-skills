@@ -96,3 +96,24 @@ of 4 takes.
 The same override did not rescue "Year bests": `[Y IH1 R] bests` still
 transcribed as "your best" in 3 of 3 takes. Both voices said "Best of the year"
 correctly, so the script uses that wording.
+
+## When no voice can say the name, spell it
+
+The aeyu reel's final audition had eight Gemini voices read "AY-you dot I-O".
+Oskar listened: every voice dropped or swapped a letter ("drops the e", "drops
+y", "a, u, i-t-o?"). A transcript cannot catch this, because ASR maps all of
+those to the same "AU.io". The fix was editorial:
+
+- Spell the name: "A, E, Y, U, dot I, O." Write the letters with periods in
+  the TTS text ("A. E. Y. U. Dot I. O."). All 4 takes spelled every letter in
+  order.
+- Move the spoken name out of the opening, which spoke the tagline instead.
+- Give the spelling a visual. Measure each letter's time on the mixed track:
+  whisper `word_timestamps=True` returns the span ("A", "-E", "-Y" ...), and
+  `librosa.onset.onset_detect` inside that span finds each syllable. Convert
+  those times to frames relative to the scene's start and light each letter's
+  key on its frame. Recompute them whenever the take changes.
+
+Choose a voice by ear. Auditioning eight voices on one closing line (a 1:40
+file, each clip introduced by number in a neutral voice) took 2 minutes to
+make.
