@@ -64,7 +64,9 @@ OmniVoice its energy. Unpaced, the clone then averaged 211 wpm, with lines up to
 silence at 40 dB, keeping 60 ms before the detected start, and caps pauses
 inside the take at 0.22 s. It transcribes with faster-whisper `small.en`, picks
 the take with the lowest WER and then the one closest to the line's target
-(slot minus 0.25 s), and stretches it by 0.92–1.12× toward that target. It
+(slot minus 0.25 s) among takes that end 0.1 s before the next line. It stretches
+only within ±4%, with ffmpeg Rubber Band (librosa's phase vocoder at 6–12% sounded
+like an echoey room, per Oskar). It
 places each take at its slot start in a 48 kHz track, applies linear gain so
 peaks hit −2 dBFS, and writes `NAME.wav` plus `NAME_picks.json`. An earlier
 version ran `loudnorm=I=-16:TP=-1.5`, which squashed the voice by about 5 dB;

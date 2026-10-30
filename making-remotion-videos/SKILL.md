@@ -2,7 +2,7 @@
 name: making-remotion-videos
 description: "Make an MP4 from React components with Remotion, rendered headlessly in this container. Covers project scaffolding with pinned versions, the frame-pure composition contract, the still-frame review loop, rendering with the preinstalled Chromium, and the product demo reel - an app shown inside a phone frame, built from Playwright captures of the real UI. Use for 'Remotion', 'make a video in React', 'demo reel', 'promo video for my app', 'app preview video', 'product video', 'phone mockup video', 'vertical video for social', 'Instagram reel', 'TikTok-format video', 'animated explainer with text and screenshots', or any motion graphics job built from layout, type and UI captures."
 metadata:
-  version: 0.2.4
+  version: 0.2.5
 ---
 
 # Making videos with Remotion
@@ -137,8 +137,13 @@ should be 140–180 wpm.
   hurried, then with a gap between slides". Lines that merely fit ran at
   180–280 wpm and left up to 1.7 s of silence before each cut. Size each line to
   about 160 wpm over its slot, cap pauses inside a take at about 0.2 s, and
-  pick or stretch (0.92–1.12×) each take to end about 0.25 s before the next
-  line.
+  fit length by picking among takes (generate 5–7 for a tight line), not by
+  stretching. A take may run until 0.1 s before the next line starts.
+- **Never stretch speech with librosa's phase vocoder.** At 6–12% it made the
+  aeyu voiceover sound "recorded from a laptop microphone in a slightly echoey
+  room" on exactly the stretched lines. If a take needs a nudge, use ffmpeg
+  `rubberband=tempo=R:formant=preserved:pitchq=quality:window=short`, and only
+  within ±4%.
 - **Check pace, not just fit.** Unpaced OmniVoice averaged 211 wpm with lines
   at 283. A take that fits its slot can still be rushed.
 - **Verify the mix:** `ffmpeg -i out/reel.mp4 -af silencedetect=noise=-40dB:d=0.25 -f null -`
