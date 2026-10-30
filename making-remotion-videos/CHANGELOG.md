@@ -2,6 +2,12 @@
 
 All notable changes to the `making-remotion-videos` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.2.4] - 2026-10-30
+
+### Changed
+
+- Narration: linear gain to a −2 dBFS peak instead of loudnorm to −16 LUFS, which limited TTS by about 5 dB and sounded over-amplified. The narration reference now describes the current assemble.py: pre-roll, pause cap, target-length picks.
+
 ## [0.2.3] - 2026-10-29
 
 ### Other

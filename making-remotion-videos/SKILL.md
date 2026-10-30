@@ -2,7 +2,7 @@
 name: making-remotion-videos
 description: "Make an MP4 from React components with Remotion, rendered headlessly in this container. Covers project scaffolding with pinned versions, the frame-pure composition contract, the still-frame review loop, rendering with the preinstalled Chromium, and the product demo reel - an app shown inside a phone frame, built from Playwright captures of the real UI. Use for 'Remotion', 'make a video in React', 'demo reel', 'promo video for my app', 'app preview video', 'product video', 'phone mockup video', 'vertical video for social', 'Instagram reel', 'TikTok-format video', 'animated explainer with text and screenshots', or any motion graphics job built from layout, type and UI captures."
 metadata:
-  version: 0.2.3
+  version: 0.2.4
 ---
 
 # Making videos with Remotion
@@ -106,8 +106,8 @@ indicators and the timeline the aeyu.io reel used.
 ## Narration
 
 Mix the voiceover outside Remotion into one WAV the length of the
-composition. Put each line at its slot start, loudnorm the track to -16 LUFS,
-and play it with `<Html5Audio src={staticFile(vo)} />` at the root. Pass the
+composition. Put each line at its slot start, apply linear gain only (peaks at
+about −2 dBFS; never `loudnorm`, see below), and play it with `<Html5Audio src={staticFile(vo)} />` at the root. Pass the
 track as a prop (`--props='{"vo":"vo/x.wav"}'`) so voice A/B tests reuse one
 composition. Write the script as lines with `start`/`end` slots taken from the
 scene timeline, then size each line to its slot: words ÷ slot seconds × 60
@@ -142,8 +142,13 @@ should be 140–180 wpm.
 - **Check pace, not just fit.** Unpaced OmniVoice averaged 211 wpm with lines
   at 283. A take that fits its slot can still be rushed.
 - **Verify the mix:** `ffmpeg -i out/reel.mp4 -af silencedetect=noise=-40dB:d=0.25 -f null -`
-  lists the speech onsets, which should match the slot starts. `-af ebur128`
-  gives integrated loudness (target −16 LUFS).
+  lists the speech onsets, which should match the slot starts. `-af ebur128=peak=true`
+  gives integrated loudness and peak.
+- **Don't loudness-normalize TTS up to −16 LUFS.** TTS already peaks near
+  0 dBFS (the aeyu mix measured −21.1 LUFS with peaks at −1.1 dBFS), so a
+  single-pass `loudnorm` to −16 adds about 5 dB of limiting. Oskar heard it
+  as "amplified too much". Linear gain to a −2 dBFS peak landed at about
+  −22 LUFS and kept the speech's dynamics.
 
 ## Verification
 
