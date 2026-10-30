@@ -60,11 +60,15 @@ OmniVoice its energy. Unpaced, the clone then averaged 211 wpm, with lines up to
 
 ## Picking and mixing
 
-`vo/assemble.py TAKES NAME [SCRIPT]`: for each line, trim silence (40 dB),
-transcribe with faster-whisper `small.en`, and pick the take with the lowest WER,
-then the longest that fits its slot. If none fits, time-stretch by up to 1.12×.
-It places each take at its slot start in a 48 kHz track, applies
-`loudnorm=I=-16:TP=-1.5:LRA=11`, and writes `NAME.wav` plus `NAME_picks.json`.
+`vo/assemble.py TAKES NAME [SCRIPT [TOTAL]]` handles each line in turn. It trims
+silence at 40 dB, keeping 60 ms before the detected start, and caps pauses
+inside the take at 0.22 s. It transcribes with faster-whisper `small.en`, picks
+the take with the lowest WER and then the one closest to the line's target
+(slot minus 0.25 s), and stretches it by 0.92–1.12× toward that target. It
+places each take at its slot start in a 48 kHz track, applies linear gain so
+peaks hit −2 dBFS, and writes `NAME.wav` plus `NAME_picks.json`. An earlier
+version ran `loudnorm=I=-16:TP=-1.5`, which squashed the voice by about 5 dB;
+Oskar heard it as over-amplified.
 
 Two quirks of this container's faster-whisper 1.2.1: passing a file path fails
 in PyAV (`open() got an unexpected keyword argument 'metadata_errors'`), so pass
