@@ -2,6 +2,18 @@
 
 All notable changes to the `making-remotion-videos` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.2.5] - 2026-10-30
+
+### Other
+
+- making-remotion-videos 0.2.5: no phase-vocoder stretching on narration
+
+## [0.2.5] - 2026-10-30
+
+### Changed
+
+- Narration: no phase-vocoder time-stretching. At 6–12% librosa's stretch sounded like a laptop mic in an echoey room. Fit length by picking among takes; Rubber Band only within ±4%.
+
 ## [0.2.4] - 2026-10-30
 
 ### Other
