@@ -41,7 +41,8 @@
         "creating-mcp-servers",
         "developing-preact",
         "generating-patches",
-        "querying-markdown"
+        "querying-markdown",
+        "testing-with-agent-qa"
       ]
     },
     "github-and-git": {

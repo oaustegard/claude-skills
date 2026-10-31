@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.1030.1228"
+    "version": "2026.1031.1027"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -100,7 +100,8 @@
         "creating-mcp-servers",
         "developing-preact",
         "generating-patches",
-        "querying-markdown"
+        "querying-markdown",
+        "testing-with-agent-qa"
       ]
     },
     {
