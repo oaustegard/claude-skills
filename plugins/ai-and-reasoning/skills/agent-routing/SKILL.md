@@ -4,7 +4,7 @@ description: Decide which model, effort level, and cascade shape each subagent g
 compatibility: Designed for Claude Code / Claude Code on the Web — assumes an orchestrator with Agent/Workflow subagent tools. Only the Workflow tool sets a subagent's effort; the Agent tool sets its model. Not applicable to claude.ai chat use.
 metadata:
   author: Oskar Austegard and Claude
-  version: "2.7.2"
+  version: "2.8.0"
 ---
 
 # Agent Routing — model, effort, and cascade selection
@@ -87,6 +87,14 @@ longer decides it, so the checkable column now starts on Haiku at any output len
 long-output cell is projected from price and from the repair battery, and has not been
 measured on generation.
 
+The one measurement that has separated Haiku 5.5 from Sonnet 5.5 is judgment without a
+stated rule: triage of real private email, 84.7% against 91.7% (McNemar p = 0.0005), in
+the same external study whose two synthetic benchmarks with stated rules did not
+separate them. That the missing rule is the cause is the study's hypothesis, not a
+measurement. Until someone tests it, treat "the prompt states the rule and the answer
+is checkable" as the condition for the checkable row, and route rule-less sorting,
+triage and prioritisation to the judgment row.
+
 The judgment row splits on whether the prompt **names its deliverable** or leaves the
 work to be found. Sonnet 5.5 finishes a named deliverable well. Given an
 audit-and-update goal, it listed findings, raised doubts and stopped to ask, and Oskar
@@ -115,6 +123,15 @@ arithmetic, 30-hop chains, 25-operation state tracking, trap-laden word math, an
 below); until it is measured, leave it at its default. **Do not up-tier short checkable work "to be
 safe"**; there is no measured benefit and it costs 3–5×. The burden of proof is on
 routing up.
+
+An independent run on 5.5 agrees (`drknowhow/experiments` →
+`haiku-delegation-bench-hard`, 2026-10-18, pre-registered, 60 items, three reps). Across
+log joins, multi-hop repo navigation, subtle review bugs, multi-file edits, threads where
+later messages supersede earlier values, and unanswerable questions with near-miss
+distractors, Haiku 5.5 scored 0.968 against Sonnet 5.5's 0.994 and Opus 5.5's 1.000, for
+about 1/16 of Sonnet's cost. The gap is 0.026 (95% CI 0.006–0.055); five of six categories
+routed to plain Haiku and the sixth to Haiku with a check. Every item stated its rule and
+had one checkable answer, which is the condition the top rows assume.
 
 Haiku 4.5 lost the generation rows on cost alone, not capability: it scored 14/14 on
 the same suite Opus swept. At 5.5 prices that cost argument is gone (see the top of this
@@ -362,6 +379,16 @@ in a markdown fence the prompt forbade — a verifier keying on `raw.startswith(
 would have escalated both for zero content error. Spurious escalation is a cascade
 failure mode, not a safety margin.
 
+**Check sentinel answers for premise rejection.** When the contract says to return a
+sentinel such as `NOT_FOUND` for an unanswerable question, Haiku 5.5 sometimes answers
+in prose that rejects the question's premise instead ("A canary never pages at any p99
+latency"). In the external benchmark above, that one item produced all three of Haiku's
+inventions and Sonnet's single one; no reply stated a fact the source lacked. A verifier
+that tests `answer == "NOT_FOUND"` scores these as confident answers, and code that
+branches on the sentinel takes the wrong branch. Say in the prompt that a false premise
+also gets the sentinel, and have the verifier send any non-sentinel answer to an
+unanswerable-looking question to a check rather than straight to escalation.
+
 **Judgment tasks fail in a shape checkers miss.** Asked to rebut a stakeholder's
 "spend is down 66%" off a partial-month extract, Haiku killed the bad conclusion but
 normalized per calendar day across a 40%-weekend window and missed a model-mix
@@ -489,8 +516,12 @@ graded Docker-free (2026-10-09, ~530 subagent runs, `oaustegard/experiments` →
 
 - **A model or price revision lands.** Both the verbosity multipliers and the
   cost table above invert on either. Sonnet 5.5 (2026-09-29) and Haiku 5.5 (2026-10, 10×
-  cheaper than Haiku 4.5) are such revisions. Haiku 5.5 is measured on the seeded-bug battery only;
-  its verbosity on the generation suite, and what `effort` does to it, are not. Sonnet
+  cheaper than Haiku 4.5) are such revisions. Haiku 5.5 is measured here on the seeded-bug battery and
+  SWE-bench Verified, and externally on six stated-rule delegation categories
+  (`haiku-delegation-bench-hard`); its verbosity on the generation suite, and what
+  `effort` does to it, are not. That study found Haiku 5.5 thinking about twice as many
+  tokens per call as Sonnet 5.5 (540 against 261) on short structured answers while
+  still finishing faster. Sonnet
   5.5's effort levels are measured above on the seeded-bug battery only; the other Sonnet
   figures in this skill are Sonnet 5 data, and the verbosity multipliers and the
   generation-suite costs have not been re-run on the 5.5 generation.

@@ -2,6 +2,20 @@
 
 All notable changes to the `agent-routing` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.8.0] - 2026-11-01
+
+### Other
+
+- agent-routing 2.8.0: Haiku 5.5 delegation evidence from drknowhow/experiments
+
+## [2.8.0] - 2026-11-01
+
+### Added
+
+- External 5.5 evidence for the top routing rows: drknowhow/experiments `haiku-delegation-bench-hard` (2026-10-18, pre-registered, 60 items x 3 reps), Haiku 5.5 0.968 vs Sonnet 5.5 0.994 at about 1/16 the cost, across six stated-rule delegation categories.
+- The judgment row now names rule-less triage as the one measured Haiku/Sonnet separator (private email, 84.7% vs 91.7%, McNemar p = 0.0005); the study's explanation is marked untested.
+- Sentinel answers: Haiku 5.5 can reject a false premise in prose instead of returning `NOT_FOUND`. Prompt for it and route non-sentinel answers on unanswerable-looking items to a check.
+
 ## [2.7.2] - 2026-10-14
 
 ### Other
