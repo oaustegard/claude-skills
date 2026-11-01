@@ -4,6 +4,12 @@ All notable changes to the `agent-routing` skill are documented in this file. Th
 
 ## [2.8.0] - 2026-11-01
 
+### Other
+
+- agent-routing 2.8.0: Haiku 5.5 delegation evidence from drknowhow/experiments
+
+## [2.8.0] - 2026-11-01
+
 ### Added
 
 - External 5.5 evidence for the top routing rows: drknowhow/experiments `haiku-delegation-bench-hard` (2026-10-18, pre-registered, 60 items x 3 reps), Haiku 5.5 0.968 vs Sonnet 5.5 0.994 at about 1/16 the cost, across six stated-rule delegation categories.
