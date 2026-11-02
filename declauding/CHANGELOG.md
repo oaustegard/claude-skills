@@ -2,6 +2,19 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.12.0] - 2026-11-02
+
+### Added
+
+- Step 4a, the newcomer read: `scripts/fresh_eyes.py packet FILE...` builds a
+  packet of the current text and the prompt for a subagent that never saw the
+  earlier version. It catches text whose focus follows a change instead of the
+  reader, which the sentence-level passes cannot see.
+- `hooks/hooks.json`: a Stop hook that runs step 4a when a turn has changed
+  visible prose in a `.md` or `.html` file, found through git or by write time.
+  Ships as the `declauding` plugin; logs each run to
+  `~/.claude/fresh-eyes-log.jsonl`.
+
 ## [0.11.0] - 2026-10-27
 
 ### Other
