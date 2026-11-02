@@ -245,3 +245,13 @@ def test_shallow_boundary_commit_is_not_the_turns(tmp_path):
     git(clone, "commit", "-qam", "turn")
     items = g.changed_in_repos(t0, [clone])
     assert [it["path"] for it in items] == ["README.md"] and "upright" in g.packet(items)
+
+
+def test_bot_commit_pulled_in_is_not_the_turns(tmp_path, monkeypatch):
+    r, git = repo(tmp_path, monkeypatch, {"README.md": README})
+    t0 = time.time() - 1
+    (r / "GEN.md").write_text("# Generated\n\nA listing a build bot writes on every push to the main branch.\n")
+    git("add", "GEN.md")
+    subprocess.run(["git", "-C", str(r), "-c", "user.email=41898282+github-actions[bot]@users.noreply.github.com",
+                    "-c", "user.name=github-actions[bot]", "commit", "-qm", "regen"], check=True, capture_output=True)
+    assert g.changed_in_repos(t0, [r]) == []

@@ -197,16 +197,17 @@ def _whole(root: Path, rel: str) -> dict | None:
 
 
 def _commits_since(repo: Path, t0: float) -> tuple[list[str], set[str]]:
-    """(the turn's own commits, newest first; the files they touched). A shallow clone's boundary commit is not the
-    turn's: git shows it as adding every file in the repository."""
+    """(the turn's own commits, newest first; the files they touched). Not the turn's: a shallow clone's boundary
+    commit, which git shows as adding every file, and a bot's commit pulled in by a fetch or rebase."""
     try:
         shallow = set((repo / ".git" / "shallow").read_text().split())
     except OSError:
         shallow = set()
     own, files, sha = [], set(), None
-    for line in _git(repo, "log", f"--since=@{int(t0)}", "--format=@%H", "--name-only", *GLOBS).splitlines():
+    for line in _git(repo, "log", f"--since=@{int(t0)}", "--format=@%H %ae", "--name-only", *GLOBS).splitlines():
         if line.startswith("@"):
-            sha = line[1:] if line[1:] not in shallow else None
+            h, _, author = line[1:].partition(" ")
+            sha = h if h not in shallow and "[bot]" not in author else None    # a bot's commit, pulled in, is not the turn's
             if sha:
                 own.append(sha)
         elif line.strip() and sha:

@@ -4,9 +4,10 @@ Background for declauding's step 4a, the newcomer read. The failure it targets: 
 after a change takes its content from the change. The case that named it is the start screen of Tilt Rally, a phone
 racing game, whose first step read *Lock rotation in portrait and pick your options here, upright.* after the
 options moved off a sideways screen. *Here* and *upright* carry information only for someone who saw that screen; a
-newcomer needed *Lock rotation in portrait, then choose your options below.* It contains no word that marks a change, such as *now* or *no longer*. In the
-same game's README, the setup paragraph was updated for that start screen while the Controls section still said the
-steering is zeroed when you tap Start engine, so the README contradicted itself.
+newcomer needed *Lock rotation in portrait, then choose your options below.* The bad sentence contains no word that marks a change, such as *now* or *no longer*. In the
+same game's README, the setup paragraph said the steering is zeroed when the start lights go out, after the phone is
+turned, while the Controls section still said it is zeroed when you tap the Start engine button, so the README
+contradicted itself.
 
 Three ways of catching it automatically were measured on Claude-written commits to READMEs, docs, write-ups and
 pages. A fire is a passage the check flagged; whether a fire was real was judged by a separate model that had not
