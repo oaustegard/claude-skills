@@ -33,7 +33,7 @@ seconds to print and needs no model weights:
 ```python
 from kokoro import KPipeline
 g2p = KPipeline(lang_code="a", model=False)   # "b" for British voices
-for line in ["Meet Kinescript.", "Meet [Kinescript](/kˈɪnəskɹˌɪpt/)."]:
+for line in ["Ask Muninn.", "Ask [Muninn](/mˈunɪn/)."]:
     print(line, "->", " | ".join(r.phonemes for r in g2p(line)))
 ```
 
@@ -73,15 +73,20 @@ The easiest way to write phonemes is to copy them. Print the G2P of a
 respelling or a similar word that comes out right, then paste its phonemes
 into the link.
 
+Check a name's intended sound with the person who owns it before "fixing"
+it. The `kinescript-kokoro` README uses `[Kinescript](/kˈɪnəskɹˌɪpt/)`
+(KIN-uh-script) as its example of a correction, but Dimitri, who named it,
+says KYNE-script, which is what Kokoro says with no link.
+
 Keep each link to one word. misaki joins `[New York](...)` into one timed word.
-Put a space or punctuation on both sides of a link. `Meet[Kinescript](/…/)now`
+Put a space or punctuation on both sides of a link. `Ask[Muninn](/…/)now`
 ran the words together and spoke the link twice.
 
 ### Stress links and capitals
 
 | Syntax | Effect |
 |---|---|
-| `[word](+1)`, `[word](+2)` | raise stress one or two steps; any integer is accepted (*source*) |
+| `[word](+1)`, `[word](+2)` | raise stress one or two steps. `+2` is the ceiling: `+3`, `+4` and up are accepted but give the same phonemes, because misaki only adds or promotes one primary-stress mark (`apply_stress`, *source*; `[she](+4)` measured the same as `+2`) |
 | `[word](-1)`, `[word](-2)` | lower it; `-2` removes it (`[really](-2)` → `ɹiᵊli`) |
 | `[word](0.5)`, `[word](-0.5)` | half steps (*source*) |
 | `WORD` in capitals | the same as `+2` (*source*) |
@@ -94,6 +99,23 @@ unstressed. In "I never said she stole it", `she` measured 0.15 s at
 `ʃˈi`, 0.21 s and +0.0 st against the median, so the word was 40% longer and 3.6 semitones
 higher. Raising stress on a word that already has primary stress (`NEVER`)
 changed nothing.
+
+That lift is small, and listeners can miss it. For a stronger emphasis,
+the measured levers are, against the plain line's `she`:
+
+| Line | Emphasised word, mean pitch | Peak |
+|---|---|---|
+| `I never said she stole it.` | −3.7 st | −2.9 st |
+| `I never said [she](+2) stole it.` | +0.0 | +0.4 |
+| `+2`, plus `-1`/`-2` on the neighbours, a long vowel `ʃˈiː`, dashes, commas or `!` | −2.1 to +0.0 | −1.0 to +1.1 |
+| **`Her? I never said she stole it.`** (the word as its own fragment) | **+3.9** | **+5.5** |
+| `[she](+2)` in `am_michael` instead of `af_heart` | +0.0 | +3.7 |
+
+Pitch is in semitones against each line's median. Rewriting gives the most:
+put the word in a fragment of its own, or at the end of the sentence (final
+`[her](+2)` lasted 0.55 s, against 0.21 s mid-sentence). After that comes a
+voice with more range (see the pace table's pitch SD column). Combining
+text controls added nothing over `+2`.
 
 `[she](+1)` gives secondary stress (`ʃˌi`), a lighter lift.
 
