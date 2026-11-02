@@ -39,6 +39,12 @@
   chunks the task needs. `scripts/preview.py` shows the selection before the
   prompt is written. Measured in `oaustegard/experiments/subagent-context-filter`.
 
+## [0.3.0] - 2026-11-02
+
+### Other
+
+- delegating-with-context 0.3.0: hierarchical selection by default
+
 ## [0.2.3] - 2026-11-02
 
 ### Other
