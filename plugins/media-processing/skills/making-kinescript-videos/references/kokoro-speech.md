@@ -75,6 +75,8 @@ respelling or a similar word that comes out right, then paste its phonemes
 into the link.
 
 Keep each link to one word. misaki joins `[New York](...)` into one timed word.
+Put a space or punctuation on both sides of a link. `Meet[Kinescript](/…/)now`
+ran the words together and spoke the link twice.
 
 ### Stress links and capitals
 
@@ -85,7 +87,7 @@ Keep each link to one word. misaki joins `[New York](...)` into one timed word.
 | `[word](0.5)`, `[word](-0.5)` | half steps (*source*) |
 | `WORD` in capitals | the same as `+2` (`cap_stresses = (0.5, 2)`, *source*) |
 | `Word` capitalised | `+0.5` |
-| `*word*`, `_word_` | nothing; the asterisks are dropped |
+| `*word*` | unpredictable: `*she*` lost its asterisks, but `*really*` was read "asterisk really asterisk". Don't use it |
 
 Stress is the only emphasis Kokoro has, and it works on a word that was
 unstressed. In "I never said she stole it", `she` measured 0.15 s at
@@ -138,6 +140,8 @@ wrong by rewriting the text or using a phoneme link.
 | `vs.` | versus | |
 | `1990`, `2026` | nineteen ninety, twenty twenty-six | |
 | `2007` | two thousand seven | `twenty oh seven` if wanted |
+| `1500` | fifteen hundred: every 4-digit number reads as a year | `1,500` |
+| `2,025` | two thousand twenty-five | |
 | `007` | **seven** (leading zeros dropped) | `[007](/dˈʌbᵊl ˈO sˈɛvən/)` or words |
 | `404` | four hundred four | `four oh four` |
 | `3.14`, `0.5` | three point one four, zero point five | |
@@ -253,7 +257,13 @@ at rate 1:
 At rate 1 most voices run 200–240 wpm, faster than the 165–180 wpm target
 for narration. Set `rate ≈ target ÷ measured`: `af_heart` at 0.8 measured
 167 wpm. At rate 1.5 (351 wpm) the first consonant went: "Kinescript" was
-heard as "Einscript".
+heard as "Einscript". At rate 0.6 a phantom syllable came before the first
+word ("Check it now" was heard as "To check it now"), as kokoro issue #344
+reports for slow speeds. Keep rate between about 0.7 and 1.3.
+
+Kokoro picks the voice's style from the line's phoneme count (*source*), so
+a one- or two-word line can sound unlike the same voice in a sentence.
+hexgrad's VOICES.md advises bundling short utterances.
 
 ## Voices and blends
 
