@@ -118,6 +118,8 @@ def main(argv=None):
         p.add_argument("-o", "--out")
         p.add_argument("--minify", action="store_true")
         p.add_argument("--tolerance", type=float, default=None)
+        p.add_argument("--grid", type=int, default=None,
+                       help="path coordinate steps per nominal pixel (default 64; 16 is ~10%% smaller, ~4 dB worse)")
     g = sub.add_parser("glsl")
     g.add_argument("file")
     g.add_argument("-o", "--out")
@@ -172,6 +174,8 @@ def main(argv=None):
                 scene = _load_scene(path)
                 if getattr(a, "tolerance", None):
                     scene.tolerance = a.tolerance
+            if getattr(a, "grid", None):
+                scene.grid = a.grid
             for w in scene.warnings:
                 print(f"warning: {w}", file=sys.stderr)
             src = scene.compile()
