@@ -33,10 +33,18 @@ const dev = await ad.requestDevice();
 const ctx = cv.getContext("webgpu"), fmt = navigator.gpu.getPreferredCanvasFormat();
 ctx.configure({ device: dev, format: fmt, alphaMode: "premultiplied" });
 const mod = dev.createShaderModule({ code });
+const data = __DATA__;   // base64 path data for a storage buffer at binding 1, or null
 const pipe = dev.createRenderPipeline({ layout: "auto", vertex: { module: mod, entryPoint: "vs" },
   fragment: { module: mod, entryPoint: "fs", targets: [{ format: fmt }] } });
 const ub = dev.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
-const bg = dev.createBindGroup({ layout: pipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: ub } }] });
+const entries = [{ binding: 0, resource: { buffer: ub } }];
+if (data) {
+  const bytes = Uint8Array.from(atob(data), (ch) => ch.charCodeAt(0));
+  const sb = dev.createBuffer({ size: Math.ceil(bytes.length / 4) * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+  dev.queue.writeBuffer(sb, 0, bytes);
+  entries.push({ binding: 1, resource: { buffer: sb } });
+}
+const bg = dev.createBindGroup({ layout: pipe.getBindGroupLayout(0), entries });
 const t0 = performance.now();
 function frame() {
   const w = cv.width = cv.clientWidth * devicePixelRatio, h = cv.height = cv.clientHeight * devicePixelRatio;
@@ -146,6 +154,7 @@ def main(argv=None):
         _emit(src, a.out)
     elif a.cmd in ("svg", "py", "html"):
         path = Path(a.file)
+        data = None
         if path.suffix == ".wgsl":
             src = path.read_text()
         elif path.suffix in (".glsl", ".frag", ".fs"):
@@ -166,13 +175,27 @@ def main(argv=None):
             for w in scene.warnings:
                 print(f"warning: {w}", file=sys.stderr)
             src = scene.compile()
+            data = scene.data_buffer
         if getattr(a, "minify", False):
             src = minify(src)
         print(f"{len(src)} bytes of WGSL", file=sys.stderr)
+        if data is not None:
+            print(f"path data is {len(data)} bytes, read from a storage buffer at @group(0) "
+                  f"@binding(1)", file=sys.stderr)
         if a.cmd == "html":
-            Path(a.out).write_text(PREVIEW.replace("__CODE__", json.dumps(src)))
+            import base64
+            b64 = json.dumps(base64.b64encode(data).decode()) if data is not None else "null"
+            Path(a.out).write_text(PREVIEW.replace("__CODE__", json.dumps(src)).replace("__DATA__", b64))
         else:
             _emit(src, a.out)
+            if data is not None:
+                if not a.out:
+                    print("error: this scene needs its path data file; pass -o so it can be written "
+                          "next to the shader", file=sys.stderr)
+                    sys.exit(2)
+                Path(a.out).with_suffix(".bin").write_bytes(data)
+                print(f"wrote {Path(a.out).with_suffix('.bin')} (upload it to the storage buffer at "
+                      f"binding 1)", file=sys.stderr)
 
 
 if __name__ == "__main__":

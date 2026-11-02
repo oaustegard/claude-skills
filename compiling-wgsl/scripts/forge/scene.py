@@ -336,6 +336,8 @@ class Scene:
         self._style: dict = {}
         self._opacity = 1.0
         self.warnings: list[str] = []
+        self.data_mode = "auto"         # 'auto' | 'const' | 'buffer': where path data goes
+        self.data_buffer: bytes | None = None   # set by compile() when data_mode lands on 'buffer'
 
     @contextlib.contextmanager
     def group(self, opacity=1.0, **kw):
@@ -397,6 +399,8 @@ class Scene:
         return self.add(Path([([("L", (x1, y1), (x2, y2))], False)]), **kw)
 
     def compile(self, minify=False) -> str:
+        """WGSL text. Check ``data_buffer`` afterwards: when it is not None the shader
+        reads its path data from a storage buffer at binding 1 and the host uploads it."""
         from .codegen import generate
         src = generate(self)
         if minify:

@@ -2,7 +2,7 @@
 name: compiling-wgsl
 description: "Produces and shrinks WGSL shaders. Converts GLSL (WebGL 1 and 2, Shadertoy mainImage code, Vulkan GLSL 450, compute shaders) to WGSL and checks the port pixel by pixel against WebGL; minifies a WebGPU shader (renaming, dead code, literal and type shortening) and proves the result unchanged with naga, Chrome's Tint and bit-identical compute runs; compiles an SVG file or a Python-built scene of circles, rects, paths, gradients and animated transforms into one resolution-independent WGSL fragment shader. Use for convert GLSL to WGSL, port this Shadertoy to WebGPU, WebGL shader to WebGPU, minify this WGSL, shrink my shader, make the shader smaller, WGSL optimizer, turn this SVG into a shader, draw this icon in WebGPU, SDF shapes in WGSL, smooth union shapes, animated vector graphics on the GPU, pretty-print WGSL."
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # Compiling WGSL
@@ -124,8 +124,11 @@ PYTHONPATH=$SKILL/scripts python3 -m forge html icon.svg --minify -o preview.htm
 
 Read every `warning:` line. Skipped elements (`text`, `image`, `clipPath`, `mask`,
 `filter`, `pattern`, `marker`) are missing from the shader. `verify.py svg` reports
-mean error, PSNR and an ink ratio against Chromium's own SVG rendering. Then `Read` the
-PNG: reference | shader | difference ×4.
+mean error, PSNR and an ink ratio against Chromium's own SVG rendering. When anything
+was dropped, it also scores against Chromium rendering the SVG with those parts removed
+(text, masks, clips, filters, animations), and the pass/fail uses that second score. The
+first score tells you how much the dropped parts mattered; the second tells you whether
+what was compiled is right. Then `Read` the PNG: reference | shader | difference ×4.
 
 The shader's interface is fixed:
 - `@group(0) @binding(0) var<uniform> u: U` with `struct U { r: vec2f, t: f32 }`, which
@@ -135,6 +138,17 @@ The shader's interface is fixed:
 - Fragment entry `fs`, which returns premultiplied RGBA (`alphaMode: "premultiplied"`).
 
 `forge html` writes a working host page to copy from.
+
+**Large scenes (matplotlib output, traced images, icon sets).**
+- **Shape table:** four or more consecutive plain shapes become rows in a table that
+  one loop draws. A plain shape is a static path or primitive with a solid fill or
+  stroke.
+- **Storage buffer:** path data over 8,192 ints moves out of the shader into a storage
+  buffer at `@group(0) @binding(1)` (`var<storage, read> D: array<i32>`).
+  `forge svg -o x.wgsl` then also writes `x.bin`, which the host uploads.
+  `scene.data_buffer` holds the same bytes in Python, and `forge html` embeds them.
+- **Segment warning:** a scene with more than 20,000 path segments is flagged, because a
+  pixel walks every segment of every shape whose bounding box covers it.
 
 ## Build a scene in Python
 
@@ -203,6 +217,18 @@ them. Check those by rendering and reading the image.
   unavailable. Check `node -e "require('playwright')"`, set `CHROME_PATH`, and keep the
   `--enable-unsafe-webgpu --use-webgpu-adapter=swiftshader` flags that
   `scripts/harness/gpu.mjs` passes.
+- **Small text or hairlines look bolder than in the browser (ink ratio 1.03 to 1.07 on
+  text-heavy charts)** → antialiasing works from one distance per shape, so a feature
+  thinner than a pixel gets about half a pixel of coverage too much. The geometry is right.
+  Render larger, or accept it. Measured on a matplotlib chart whose labels are glyph
+  outlines: ink ratio 1.067 at 512 px.
+- **`warning: N path segments`, and a frame takes seconds** → per-pixel cost is the
+  number of segments under the pixel. Simplify the paths (fewer points) or bake the image
+  to a texture; this compiler has no tile binning.
+- **`colour 'var(...)' unsupported`** → a custom property the reader could not resolve.
+  Plain `var(--x)` from CSS rules, inline styles and `@property` initial values is
+  supported. A malformed name stays unresolved and paints black, which is what the
+  browser does with the invalid declaration too.
 - **The ink ratio is below 0.97 or above 1.03 at large sizes** → a geometry error, not
   antialiasing: antialiasing error shrinks as size grows, and geometry error does not.
   Compare `verify.py svg --size 128` with `--size 768`.
@@ -227,6 +253,16 @@ them. Check those by rendering and reading the image.
 
 ## Diagnosed failures (fixed, kept as signals)
 
+- 2026-11-02, **real Python-made SVGs from the experiments repo**:
+  - **matplotlib Pareto chart:** 235 KB of unrolled WGSL killed SwiftShader's pipeline
+    compiler ("A valid external Instance reference no longer exists"). The shape table
+    fixed it: 6.7 KB of WGSL, 29.0 dB.
+  - **Palette-cycling cat:** 880 shapes broke Tint's array-constructor limit ("excessive
+    number of elements (>32767)"). The storage buffer fixed it: 34.2 dB, ink ratio 1.000.
+  - **Traced dog:** same limit. With the buffer and masks excluded it scored 41.0 dB, but
+    took 215 s per frame on SwiftShader, which led to the segment warning.
+  - **Also found:** a missing `f` prefix in `svg-palette-cycle/build.py` writes the
+    literal `var(--b{len(BANDS) - 1})` into its SVG.
 - 2026-11-02, **a switch case that returns**: naga's GLSL reader rejected
   `switch (i) { case 0: return a; ... }` ("fall-through switch case block"), even with a
   `break;` after the `return`. The auto backend now falls back to glslang.

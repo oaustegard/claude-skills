@@ -202,6 +202,74 @@ STROKE_BLOCK = """            if j < n || cl {
 
 CAPS = {"butt": 0, "round": 1, "square": 2}
 
+# A run of at least TABLE_MIN_RUN consecutive plain shapes (static path or primitive,
+# solid fill and/or stroke) is drawn by one loop over a table instead of one block of
+# code per shape: matplotlib output, traced images and icon sets have hundreds of them,
+# and unrolled code that size crashed SwiftShader's pipeline compiler.
+TABLE_MIN_RUN = 4
+TABLE_ROW = 10        # s, e, fill rgba8, stroke rgba8, half width (f32 bits), flags, bbox cx cy hx hy (Q units)
+# Path data and tables above this many i32 go to a storage buffer at binding 1 instead of a
+# const array: Tint refuses array constructors over 32767 elements, and a big const array
+# indexed at run time is copied per invocation by some backends.
+CONST_LIMIT = 8192
+SEGMENT_WARN = 20000
+
+TABLE_FN = """// draw table rows D[a..b) back to front over c
+fn tbl(p: vec2f, px: f32, a: i32, b: i32, c0: vec4f) -> vec4f {
+    var c = c0;
+    for (var i = a; i < b; i += 10) {
+        let hw = bitcast<f32>(D[i + 4]);
+        let ctr = vec2f(f32(D[i + 6]), f32(D[i + 7])) * Q;
+        let ext = vec2f(f32(D[i + 8]), f32(D[i + 9])) * Q + hw + 2. * px;
+        if any(abs(p - ctr) > ext) { continue; }
+        let fl = D[i + 5];
+        let r = pth(p, D[i], D[i + 1], hw, (fl >> 3) & 3);
+        if (fl & 1) != 0 {
+            var inside = r.z != 0.;
+            if (fl & 4) != 0 { inside = (i32(r.z) & 1) != 0; }
+            let k = unpack4x8unorm(bitcast<u32>(D[i + 2]));
+            c = over(c, vec4f(k.rgb * k.a, k.a) * cov(select(r.x, -r.x, inside) / px));
+        }
+        if (fl & 2) != 0 {
+            let k = unpack4x8unorm(bitcast<u32>(D[i + 3]));
+            c = over(c, vec4f(k.rgb * k.a, k.a) * scov(r.y / px, hw / px));
+        }
+    }
+    return c;
+}
+"""
+
+
+def _rgba8(rgba, alpha_mul) -> int:
+    """Straight RGBA packed for unpack4x8unorm (red in the low byte), as a signed i32."""
+    r, g, b, a = rgba
+    a = a * alpha_mul
+    v = 0
+    for k, x in enumerate((r, g, b, a)):
+        v |= int(round(min(max(x, 0.0), 1.0) * 255)) << (8 * k)
+    return v - (1 << 32) if v >= 1 << 31 else v
+
+
+def _f32_bits(x: float) -> int:
+    import struct
+    return struct.unpack("<i", struct.pack("<f", float(x)))[0]
+
+
+def table_eligible(sh) -> bool:
+    g = sh.geom
+    if not isinstance(g, (Path, Circle, Ellipse, Rect)) or g.ops or sh.soft:
+        return False
+    if not ops_static(sh.ops) or not is_static(sh.opacity, sh.stroke_width):
+        return False
+    if isinstance(g, Circle) and not is_static(g.cx, g.cy, g.r):
+        return False
+    if isinstance(g, Ellipse) and not is_static(g.cx, g.cy, g.rx, g.ry):
+        return False
+    if isinstance(g, Rect) and not is_static(g.x, g.y, g.w, g.h, g.rx, g.ry):
+        return False
+    paints = [x for x in (sh.fill, sh.stroke) if x is not None]
+    return bool(paints) and all(isinstance(x, tuple) for x in paints)
+
 
 def _v2(x, y) -> str:
     return f"vec2f({wg(x)}, {wg(y)})"
@@ -251,6 +319,9 @@ class Gen:
         self.body: list[str] = []
         self.nvars = 0
         self.path_strokes = False
+        self.data_buffer: bytes | None = None
+        self.table_rows = 0
+        self.segments = 0
 
     # ---------------------------------------------------------------- points
     def local(self, ops, q="p"):
@@ -413,6 +484,7 @@ class Gen:
             if n == 0:
                 continue
             self.data += [2 * n + (1 if closed else 0), first[0], first[1]] + body
+            self.segments += n
         return start, len(self.data)
 
     # ---------------------------------------------------------------- paint
@@ -458,6 +530,41 @@ class Gen:
         return f"g{idx}({shape_local_q}){mul}"
 
     # ---------------------------------------------------------------- shapes
+    def table_run(self, shapes):
+        """Encode a run of plain shapes as table rows; one call of tbl() draws them all."""
+        rows = []
+        for sh in shapes:
+            g = sh.geom
+            m = ops_affine(sh.ops)
+            subs = g.subpaths if isinstance(g, Path) else _as_subpaths(g)
+            if not m.is_identity():
+                subs = transform_subpaths(subs, m)
+            s0, e0 = self.encode(to_quads(subs, self.tol))
+            if s0 == e0:
+                continue
+            pts = [pt for ss, _ in subs for sg in ss for pt in sg[1:]]
+            x0, y0, x1, y1 = bbox(pts)
+            Q = self.quantum
+            hw = float(sh.stroke_width) * 0.5 * m.scale_factor if sh.stroke is not None else 0.0
+            cap = CAPS.get(sh.linecap, 0)
+            flags = (1 if sh.fill is not None else 0) | (2 if sh.stroke is not None else 0) \
+                | (4 if sh.fill_rule == "evenodd" else 0) | (cap << 3)
+            if sh.stroke is not None:
+                self.path_strokes = True
+            rows += [s0, e0,
+                     _rgba8(sh.fill, sh.opacity * sh.fill_opacity) if sh.fill is not None else 0,
+                     _rgba8(sh.stroke, sh.opacity * sh.stroke_opacity) if sh.stroke is not None else 0,
+                     _f32_bits(hw), flags,
+                     round((x0 + x1) / 2 / Q), round((y0 + y1) / 2 / Q),
+                     int(math.ceil((x1 - x0) / 2 / Q)) + 1, int(math.ceil((y1 - y0) / 2 / Q)) + 1]
+        if not rows:
+            return
+        a = len(self.data)
+        self.data += rows
+        self.table_rows += len(rows) // TABLE_ROW
+        self.helpers.update({"pth", "tbl"})
+        self.body.append(f"    c = tbl(p, px, {a}, {len(self.data)}, c); // shapes drawn from a table: {len(rows) // TABLE_ROW}")
+
     def shape(self, k, sh: Shape):
         g = sh.geom
         b = self.body
@@ -515,18 +622,36 @@ class Gen:
     def generate(self) -> str:
         s = self.scene
         vx, vy, vw, vh = s.viewbox
-        for k, sh in enumerate(s.shapes):
-            self.shape(k, sh)
+        k = 0
+        shapes = s.shapes
+        while k < len(shapes):
+            j = k
+            while j < len(shapes) and table_eligible(shapes[j]):
+                j += 1
+            if j - k >= TABLE_MIN_RUN:
+                self.table_run(shapes[k:j])
+                k = j
+            else:
+                self.shape(k, shapes[k])
+                k += 1
         out = [PRELUDE]
         if self.data:
             out.append(f"const Q = {_fmt(self.quantum)};")
-            rows = []
-            for i in range(0, len(self.data), 24):
-                rows.append("    " + ", ".join(str(v) for v in self.data[i:i + 24]))
-            out.append(f"const D = array<i32, {len(self.data)}>(\n" + ",\n".join(rows) + "\n);\n")
-        for h in ("rot", "ell", "box", "smin", "pth"):
+            mode = getattr(s, "data_mode", "auto")
+            if mode == "buffer" or (mode == "auto" and len(self.data) > CONST_LIMIT):
+                import struct
+                self.data_buffer = struct.pack(f"<{len(self.data)}i", *self.data)
+                out.append(f"// path data: {len(self.data)} i32 ({len(self.data_buffer)} bytes), "
+                           "supplied by the host as a storage buffer")
+                out.append("@group(0) @binding(1) var<storage, read> D: array<i32>;\n")
+            else:
+                rows = []
+                for i in range(0, len(self.data), 24):
+                    rows.append("    " + ", ".join(str(v) for v in self.data[i:i + 24]))
+                out.append(f"const D = array<i32, {len(self.data)}>(\n" + ",\n".join(rows) + "\n);\n")
+        for h in ("rot", "ell", "box", "smin", "pth", "tbl"):
             if h in self.helpers:
-                text = HELPERS[h]
+                text = TABLE_FN if h == "tbl" else HELPERS[h]
                 if h == "pth":
                     # fill-only scenes get the path loop without stroke and cap code
                     text = text.replace("{STROKE}", STROKE_BLOCK if self.path_strokes else "")
@@ -579,4 +704,17 @@ def _geom_bbox(g):
 
 
 def generate(scene: Scene) -> str:
-    return Gen(scene).generate()
+    """WGSL for the scene. When the path data is too big for a const array, the shader
+    reads it from a storage buffer at @group(0) @binding(1), and the bytes to upload are
+    left in ``scene.data_buffer`` (None otherwise)."""
+    g = Gen(scene)
+    src = g.generate()
+    scene.data_buffer = g.data_buffer
+    scene.segments = g.segments
+    if g.segments > SEGMENT_WARN:
+        scene.warnings.append(
+            f"{g.segments} path segments: a pixel walks every segment of every shape whose bounding box "
+            f"covers it, so large overlapping shapes are slow (53,601 segments in full-canvas layers took "
+            f"215 s per 512 px frame on SwiftShader; 44,888 in 880 small shapes took 8 s). If it is too "
+            f"slow, simplify the paths or bake the image to a texture")
+    return src
