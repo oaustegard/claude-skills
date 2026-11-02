@@ -252,9 +252,12 @@ at rate 1:
 | bm_fable | 237 | 111 | 4.2 |
 | bm_lewis | 207 | 85 | 3.6 |
 
-At rate 1 most voices run 200–240 wpm, faster than the 165–180 wpm target
-for narration. Set `rate ≈ target ÷ measured`: `af_heart` at 0.8 measured
-167 wpm. At rate 1.5 (351 wpm) the first consonant went: "Kinescript" was
+Those figures come from one sentence with a single comma. Real narration
+runs much slower, because every full stop and comma adds a pause: eleven
+narration lines of one to three sentences each, in the
+`bm_fable,bm_fable,bm_lewis` blend, measured 139 wpm at rate 0.78 and 179
+wpm at 0.95. Measure on the actual script, then set `rate ≈ current rate ×
+target ÷ measured`. At rate 1.5 (351 wpm) the first consonant went: "Kinescript" was
 heard as "Einscript". At rate 0.6 a phantom syllable came before the first
 word ("Check it now" was heard as "To check it now"), as hexgrad/kokoro issue #344
 reports for slow speeds. Keep rate between about 0.7 and 1.3.

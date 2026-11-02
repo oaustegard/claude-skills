@@ -2,6 +2,12 @@
 
 All notable changes to the `making-kinescript-videos` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.1.2] - 2026-11-02
+
+### Changed
+
+- Pace: rate 0.8 was too slow for real narration (139 wpm at 0.78 on the demo video's script); start near 0.95 and measure on the script.
+
 ## [0.1.1] - 2026-11-02
 
 ### Other

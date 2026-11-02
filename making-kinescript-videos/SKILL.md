@@ -2,7 +2,7 @@
 name: making-kinescript-videos
 description: "Make an MP4 from a JSON scene file with Kinescript (drknowhow/kinescript, the `kine` CLI): text, shapes, charts, SVG, images, video clips, particles and 3D models on cue-based timing, with a checker that lints layout, contrast, reading time and the sound mix, and narration spoken by Kokoro TTS with word-level cues and captions. Covers setup in a Linux container (CPU backend, Python 3.12 venv for Kokoro), the write → voice → check → look → render loop, and controlling Kokoro's pronunciation, stress, pauses, pace and voice blends. Use for 'kine', 'Kinescript', 'kinescript scene', 'kine voice', 'narrated promo', 'explainer video', 'motion graphics video', 'video with voice-over and captions', 'Kokoro pronunciation', 'TTS says a name wrong', 'make the narrator emphasise', or any video built from type, shapes and captured footage."
 metadata:
-  version: 0.1.1
+  version: 0.1.2
 ---
 
 # Making videos with Kinescript
@@ -96,8 +96,11 @@ The CPU torch index avoids a multi-GB CUDA download. The first `kine voice` run 
 ## Narration
 
 - **Pace.** Oskar wants narration at 165–180 wpm, energetic, with varied
-  intonation. Kokoro voices run 200–240 wpm at rate 1, so
-  start near `"rate": 0.8` and measure from the words file.
+  intonation. Punctuation pauses slow real narration well below the
+  200–240 wpm a bare sentence gives at rate 1: lines of two or three
+  sentences in the 2:1 fable/lewis blend measured 139 wpm at rate 0.78 and
+  179 at 0.95. Start near `"rate": 0.95`, measure words ÷ speaking time from
+  the words files after `kine voice`, and scale the rate.
 - **Mix.** Give sounds a `role` and Kinescript levels them: voice at −18
   LUFS, music at −16 and ducked 14 dB under a voice, with no manual mixing.
 - **Cue from words, not from the file start.** A Kokoro clip opens with
