@@ -4,6 +4,12 @@ All notable changes to the `declauding` skill are documented in this file. The f
 
 ## [0.12.1] - 2026-11-02
 
+### Other
+
+- declauding 0.12.1: fresh_eyes in shallow clones; clearer step 4a
+
+## [0.12.1] - 2026-11-02
+
 ### Fixed
 
 - `fresh_eyes.py` in a shallow clone: the boundary commit, which git shows as
