@@ -13,11 +13,11 @@ from a measurement.
 (`kinescript/voice.py`, `split_marks` and `untag`):
 
 - It removes `[[mark]]` word ids. The words file keeps them.
-- It removes single-bracket tags (`[laughs]`) and reports them under `ignored`.
+- It removes single-bracket tags (`[laughs]`) and lists them under `ignored` in its JSON output.
   Kokoro has no tags.
 - It collapses all whitespace to single spaces. A newline in `text` therefore
-  does **not** start a new Kokoro segment. In the plain pipeline, `split_pattern`
-  `\n+` would have split it.
+  does **not** start a new Kokoro segment. For a separate segment, use a
+  separate sound.
 - It passes misaki links (`[word](...)`) through untouched, so every control
   below works inside a scene.
 
@@ -37,7 +37,7 @@ for line in ["Meet Kinescript.", "Meet [Kinescript](/kˈɪnəskɹˌɪpt/)."]:
     print(line, "->", " | ".join(r.phonemes for r in g2p(line)))
 ```
 
-Run it in the same Python as the plugin (3.10–3.12). The first call downloads
+Run it with the plugin's Python (`~/kokoro-env/bin/python` in the skill's setup). The first call downloads
 spaCy's `en_core_web_sm`. Under `uv`, set `VIRTUAL_ENV` first, or the download
 fails with "No virtual environment found".
 
@@ -45,8 +45,7 @@ fails with "No virtual environment found".
 
 ### Inline phonemes: `[word](/phonemes/)`
 
-The phonemes between the slashes replace misaki's guess for that word (rating
-5, the highest, so no later lookup replaces them). The words file still shows the word as written.
+The phonemes between the slashes replace misaki's guess for that word. The words file still shows the word as written.
 
 Write them in **Kokoro's alphabet**, not textbook IPA. The model looks each
 character up in its vocabulary and drops any it lacks
@@ -61,7 +60,7 @@ without a warning
 | `ʤ` `ʧ` | `dʒ` `tʃ` | *judge*, *church*, one symbol each |
 | `ɹ` | `r` | English r |
 | `ᵊ` `ᵻ` | | the small vowels in *pupil* (`pˈipᵊl`) and *wanted* |
-| `T` | `ɾ` | the American flap in *thirty* (`θˈɜɹTi`); misaki writes `T` |
+| `T` | | the American flap in *thirty* (`θˈɜɹTi`); misaki writes `T`, and `ɾ` is also accepted |
 | `ˈ` `ˌ` | `'` `,` | primary and secondary stress, placed before the stressed vowel |
 | `ː` | | British long vowels only (`ʃˈiː`) |
 
@@ -85,14 +84,14 @@ ran the words together and spoke the link twice.
 | `[word](+1)`, `[word](+2)` | raise stress one or two steps; any integer is accepted (*source*) |
 | `[word](-1)`, `[word](-2)` | lower it; `-2` removes it (`[really](-2)` → `ɹiᵊli`) |
 | `[word](0.5)`, `[word](-0.5)` | half steps (*source*) |
-| `WORD` in capitals | the same as `+2` (`cap_stresses = (0.5, 2)`, *source*) |
-| `Word` capitalised | `+0.5` |
+| `WORD` in capitals | the same as `+2` (*source*) |
+| `Word` capitalised | `+0.5`, too small to matter on a sentence's first word |
 | `*word*` | unpredictable: `*she*` lost its asterisks, but `*really*` was read "asterisk really asterisk". Don't use it |
 
 Stress is the only emphasis Kokoro has, and it works on a word that was
 unstressed. In "I never said she stole it", `she` measured 0.15 s at
 −3.6 semitones under the line's median. `[she](+2)` and `SHE` both gave
-`ʃˈi`, 0.21 s and +0.0 st, so the word was 40% longer and 3.6 semitones
+`ʃˈi`, 0.21 s and +0.0 st against the median, so the word was 40% longer and 3.6 semitones
 higher. Raising stress on a word that already has primary stress (`NEVER`)
 changed nothing.
 
@@ -110,7 +109,7 @@ ordinary words, and a `+2` link on anything else.
 | `150` | one hundred fifty, in both American and British pipelines |
 | `[150](#a#)` | a hundred fifty |
 | `[150](#&#)` | one hundred **and** fifty (the British reading) |
-| `[101](#n#)` | one hundred'n one |
+| `[101](#n#)` | one hundred'n one ("and" run into "hundred") |
 
 Flags combine: `[150](#a&#)` is "a hundred and fifty".
 
@@ -130,7 +129,6 @@ wrong by rewriting the text or using a phoneme link.
 
 | Text | Said | Fix if wrong |
 |---|---|---|
-| `Kinescript` | KYNE-script | `[Kinescript](/kˈɪnəskɹˌɪpt/)` |
 | `NASA` | NASS-uh (word) | |
 | `GPU`, `N.A.S.A.`, `U.S.` | letters spelled | |
 | `SQL` | sequel | `S Q L` for letters |
@@ -139,9 +137,8 @@ wrong by rewriting the text or using a phoneme link.
 | `Main St.` | Main **saint** | write `Street` |
 | `vs.` | versus | |
 | `1990`, `2026` | nineteen ninety, twenty twenty-six | |
-| `2007` | two thousand seven | `twenty oh seven` if wanted |
-| `1500` | fifteen hundred: every 4-digit number reads as a year | `1,500` |
-| `2,025` | two thousand twenty-five | |
+| `2007` | two thousand seven (the year reading for 2000–2009) | `twenty oh seven` if wanted |
+| `1500` | fifteen hundred: every bare 4-digit number reads as a year | `1,500` reads as a count |
 | `007` | **seven** (leading zeros dropped) | `[007](/dˈʌbᵊl ˈO sˈɛvən/)` or words |
 | `404` | four hundred four | `four oh four` |
 | `3.14`, `0.5` | three point one four, zero point five | |
@@ -152,7 +149,7 @@ wrong by rewriting the text or using a phoneme link.
 | `4:30` | four, pause, thirty | `four thirty` |
 | `11/02/2026` | eleven zero two twenty twenty-six | write the date in words |
 | `555-1234` | five hundred fifty-five, twelve thirty-four | `5 5 5, 1 2 3 4` |
-| `austegard.com` | austegard, stop, com: the dot is a full stop | `austegard dot com` |
+| `austegard.com` | austegard, pause, com: the dot is read as a full stop | `austegard dot com` |
 | `well-known` | one word, `wˌɛlnˈOn` | |
 
 A word that is in no dictionary goes to espeak-ng (`Zyxqwv` → `zˈɪkskʊv`). If
@@ -179,7 +176,8 @@ Pin the one you mean: `[read](/ɹˈid/)`, `[lead](/lˈɛd/)`.
 
 ## Pauses
 
-Silence between two words, "Write the scene_Check it now." (`af_heart`, rate 1):
+Silence between "scene" and "Check" in "Write the scene_Check it now.", with each
+mark below put in place of `_` (`af_heart`, rate 1):
 
 | Between them | Silence |
 |---|---|
@@ -233,7 +231,7 @@ can control is:
   falling contour that long lines settle into.
 - **Another backend** for a line that must rise or emote:
   `"backend": "elevenlabs"` acts on tags, and `chatterbox` copies the
-  delivery of a reference clip.
+  delivery of a reference clip given as its `speaker` (`kine docs`, SOUND).
 
 ## Pace
 
@@ -258,24 +256,28 @@ At rate 1 most voices run 200–240 wpm, faster than the 165–180 wpm target
 for narration. Set `rate ≈ target ÷ measured`: `af_heart` at 0.8 measured
 167 wpm. At rate 1.5 (351 wpm) the first consonant went: "Kinescript" was
 heard as "Einscript". At rate 0.6 a phantom syllable came before the first
-word ("Check it now" was heard as "To check it now"), as kokoro issue #344
+word ("Check it now" was heard as "To check it now"), as hexgrad/kokoro issue #344
 reports for slow speeds. Keep rate between about 0.7 and 1.3.
 
-Kokoro picks the voice's style from the line's phoneme count (*source*), so
-a one- or two-word line can sound unlike the same voice in a sentence.
-hexgrad's VOICES.md advises bundling short utterances.
+A one- or two-word line can sound unlike the same voice in a sentence
+(Kokoro picks the voice's style by line length, *source*). Bundle short
+utterances into one sound, as the model's `VOICES.md` on Hugging Face advises.
 
 ## Voices and blends
 
 - `"speaker": "af_heart,af_bella"` averages the two voices' style tensors.
 - **Weighted blends need no file: repeat a voice.** `"bm_fable,bm_fable,bm_lewis"` is ⅔ fable,
   ⅓ lewis (`load_voice` averages the list as given, *source*). Median F0:
-  fable 111 Hz, lewis 85, equal blend 100, 2:1 blend 102, and a saved
-  0.65/0.35 tensor 103.
+  fable 111 Hz, lewis 85, equal blend 100, 2:1 blend 102, and a
+  0.65/0.35 `.pt` blend (next item) 103.
 - **A `.pt` file works as a speaker** (`load_single_voice` loads any name
-  ending in `.pt`, *source*). Make one with
-  `torch.save(0.65 * fable + 0.35 * lewis, "bm_muninn.pt")`, where each
-  voice is `torch.load(hf_hub_download("hexgrad/Kokoro-82M", "voices/bm_fable.pt"))`.
+  ending in `.pt`, *source*). Make one:
+  ```python
+  import torch
+  from huggingface_hub import hf_hub_download
+  v = lambda n: torch.load(hf_hub_download("hexgrad/Kokoro-82M", f"voices/{n}.pt"), weights_only=True)
+  torch.save(0.65 * v("bm_fable") + 0.35 * v("bm_lewis"), "bm_muninn.pt")
+  ```
   Name it so the first letter is the language, and give a path relative to
   the folder `kine voice` runs in. An absolute path starts with `/`, which is
   no language letter. `kine voice` decides whether to re-speak from the
@@ -296,7 +298,8 @@ cued one after another.
 
 1. Print the phonemes. Every name, number and abbreviation is visible there.
 2. Speak it with `kine voice`, which re-speaks only changed sounds.
-3. Transcribe with faster-whisper for a word error rate, but do not trust
+3. Transcribe with faster-whisper (`pip install faster-whisper`, model
+   `small.en`) for a word error rate, but do not trust
    it on coined names. It heard the correct `[Huginn](/hˈuɡɪn/)` as "Who
    can". A person has to judge a name.
 4. Measure pace from the words file: words ÷ (last end − first start) × 60.
