@@ -51,6 +51,7 @@ _SKIP = re.compile(r"(?:^|/)(?:CHANGELOG|CHANGES|HISTORY|NEWS)[^/]*$|(?:^|/)(?:E
 _HISTORY_HEAD = re.compile(r"^#{1,3}\s+(?:Log|Changelog|Change log|History|Release notes)\b", re.I)
 _HEAD = re.compile(r"^#{1,6}\s")
 GLOBS = ["--", "*.md", "*.markdown", "*.html", "*.htm"]
+_MADE_HERE = re.compile(r"^(?:commit|cherry-pick|revert|merge\b|(?:pull|rebase)\b.*\((?:pick|continue|reword|edit|squash|fixup)\))")
 _PRUNE = {".git", "node_modules", ".venv", "venv", "__pycache__", "_site", ".cache"}
 
 
@@ -198,16 +199,20 @@ def _whole(root: Path, rel: str) -> dict | None:
 
 def _commits_since(repo: Path, t0: float) -> tuple[list[str], set[str]]:
     """(the turn's own commits, newest first; the files they touched). Not the turn's: a shallow clone's boundary
-    commit, which git shows as adding every file, and a bot's commit pulled in by a fetch or rebase."""
+    commit, which git shows as adding every file, and commits pulled in by a fetch, pull or rebase. Where the clone
+    has a reflog, a commit counts only if it was made here (commit, rebase pick, cherry-pick, merge, revert); a
+    bot's commit never counts."""
     try:
         shallow = set((repo / ".git" / "shallow").read_text().split())
     except OSError:
         shallow = set()
+    made_here = {h for h, _, what in (l.partition("\t") for l in _git(repo, "reflog", "--format=%H\t%gs").splitlines())
+                 if _MADE_HERE.match(what)}
     own, files, sha = [], set(), None
     for line in _git(repo, "log", f"--since=@{int(t0)}", "--format=@%H %ae", "--name-only", *GLOBS).splitlines():
         if line.startswith("@"):
             h, _, author = line[1:].partition(" ")
-            sha = h if h not in shallow and "[bot]" not in author else None    # a bot's commit, pulled in, is not the turn's
+            sha = h if h not in shallow and "[bot]" not in author and (not made_here or h in made_here) else None
             if sha:
                 own.append(sha)
         elif line.strip() and sha:
