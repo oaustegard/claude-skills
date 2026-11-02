@@ -24,6 +24,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 DEFAULT_BUDGET = int(os.environ.get("CONTEXT_FILTER_BUDGET", "20000"))
 MIN_CHUNKS = int(os.environ.get("CONTEXT_FILTER_MIN_CHUNKS", "6"))
+# "hier" (default): score transcript segments, then chunks inside the kept ones at 8x view.
+# "flat": score every chunk at 4x view (the 0.1-0.2 filter).
+MODE = os.environ.get("CONTEXT_FILTER_MODE", "hier")
 LONG_PROMPT_CHARS = 4_000    # a prompt this long probably restates background
 LOG = os.environ.get("CONTEXT_FILTER_LOG", os.path.expanduser("~/.claude/context-filter-log.jsonl"))
 
@@ -62,16 +65,20 @@ def main():
     m = re.search(r"\[context-budget:\s*(\d+)\]", prompt)
     budget = int(m.group(1)) if m else DEFAULT_BUDGET
     rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "tool": d.get("tool_name"),
-           "session": d.get("session_id"), "budget": budget}
+           "session": d.get("session_id"), "budget": budget, "mode": MODE}
     try:
         from chunking import chunk_transcript
         import jevfilter as jf
+        import hierfilter as hf
         chunks, _ = chunk_transcript(d["transcript_path"])
         # preview.py calls quote the task verbatim and would outrank the real evidence.
         chunks = [c for c in chunks if "preview.py" not in (c.get("input") or "")]
         if len(chunks) < MIN_CHUNKS:
             return
-        ctx, st = jf.build_context(prompt, chunks, budget)
+        if MODE == "flat":
+            ctx, st = jf.build_context(prompt, chunks, budget)
+        else:
+            ctx, st = hf.build_context(prompt, chunks, budget, scale=8.0)
         rec.update({k: st.get(k) for k in ("windows", "calls", "blocked_chunks", "jev_input_tokens",
                                            "context_tokens", "kept_ids")},
                    chunks=len(chunks), seconds=round(time.time() - t0, 2))

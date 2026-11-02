@@ -19,6 +19,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from chunking import chunk_transcript  # noqa: E402
 import jevfilter as jf  # noqa: E402
+import hierfilter as hf  # noqa: E402
 
 
 def current_transcript(cwd: str) -> str | None:
@@ -38,6 +39,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--task", action="append", required=True)
     ap.add_argument("--budget", type=int, default=20_000)
+    ap.add_argument("--mode", choices=("hier", "flat"), default=os.environ.get("CONTEXT_FILTER_MODE", "hier"))
     ap.add_argument("--transcript")
     a = ap.parse_args()
     path = a.transcript or current_transcript(os.getcwd())
@@ -50,7 +52,10 @@ def main() -> int:
     rc = 0
     for task in a.task:
         try:
-            ctx, st = jf.build_context(task, chunks, a.budget)
+            if a.mode == "flat":
+                ctx, st = jf.build_context(task, chunks, a.budget)
+            else:
+                ctx, st = hf.build_context(task, chunks, a.budget, scale=8.0)
         except jf.FilterError as e:
             print(f"FILTER FAILED for {task[:60]!r}: {e}", file=sys.stderr)
             rc = 1
