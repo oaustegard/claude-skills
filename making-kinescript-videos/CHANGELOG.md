@@ -4,6 +4,12 @@ All notable changes to the `making-kinescript-videos` skill are documented in th
 
 ## [0.1.3] - 2026-11-02
 
+### Other
+
+- making-kinescript-videos 0.1.3: stress ceiling and stronger emphasis; Kinescript is KYNE-script
+
+## [0.1.3] - 2026-11-02
+
 ### Changed
 
 - Stress: `+2` is the ceiling (`+3`/`+4` give identical phonemes). Added measured stronger levers: the word as its own fragment (+7.6 st over plain, against +3.7 for `+2`), and voice choice.
