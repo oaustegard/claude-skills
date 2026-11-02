@@ -196,18 +196,44 @@ def _whole(root: Path, rel: str) -> dict | None:
     return {"root": root, "path": rel, "lines": lines, "chars": chars} if lines and chars else None
 
 
+def _commits_since(repo: Path, t0: float) -> tuple[list[str], set[str]]:
+    """(the turn's own commits, newest first; the files they touched). A shallow clone's boundary commit is not the
+    turn's: git shows it as adding every file in the repository."""
+    try:
+        shallow = set((repo / ".git" / "shallow").read_text().split())
+    except OSError:
+        shallow = set()
+    own, files, sha = [], set(), None
+    for line in _git(repo, "log", f"--since=@{int(t0)}", "--format=@%H", "--name-only", *GLOBS).splitlines():
+        if line.startswith("@"):
+            sha = line[1:] if line[1:] not in shallow else None
+            if sha:
+                own.append(sha)
+        elif line.strip() and sha:
+            files.add(line.strip())
+    return own, files
+
+
 def changed_in_repos(t0: float, roots: list[Path]) -> list[dict]:
     items = []
     for repo in roots:
-        committed = set(_git(repo, "log", f"--since=@{int(t0)}", "--format=", "--name-only", *GLOBS).split())
+        own, committed = _commits_since(repo, t0)
         dirty = {p for p in _git(repo, "diff", "HEAD", "--name-only", *GLOBS).split()
                  if (repo / p).exists() and (repo / p).stat().st_mtime >= t0}
         files = sorted(p for p in committed | dirty if (repo / p).exists())
         if files:
-            base = _git(repo, "rev-list", "-1", f"--before=@{int(t0)}", "HEAD").strip() or "HEAD"
-            got = changed_lines(_git(repo, "diff", base, "-U0", "--no-color", "--", *files),
-                                lambda p, r=repo: _read(r / p))
-            items += [{"root": repo, "path": p, "lines": l, "chars": c} for p, (l, c) in got.items()]
+            base = _git(repo, "rev-list", "-1", f"--before=@{int(t0)}", "HEAD").strip()
+            if not base and own:        # the commit before the turn's first, when it exists in this clone
+                base = _git(repo, "rev-parse", "--verify", "-q", own[-1] + "^").strip()
+            if not base and not own:
+                base = "HEAD"
+            if base:
+                got = changed_lines(_git(repo, "diff", base, "-U0", "--no-color", "--", *files),
+                                    lambda p, r=repo: _read(r / p))
+                items += [{"root": repo, "path": p, "lines": l, "chars": c} for p, (l, c) in got.items()]
+            else:                       # no commit from before the turn in this clone: read the files whole
+                items += [it for p in files if _DOC.search(p) and not _SKIP.search(p)
+                          for it in [_whole(repo, p)] if it]
         for p in _git(repo, "ls-files", "--others", "--exclude-standard", *GLOBS).split():
             if _DOC.search(p) and not _SKIP.search(p) and (repo / p).stat().st_mtime >= t0:
                 it = _whole(repo, p)

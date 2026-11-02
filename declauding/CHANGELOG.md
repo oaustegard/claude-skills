@@ -2,6 +2,14 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.12.1] - 2026-11-02
+
+### Fixed
+
+- `fresh_eyes.py` in a shallow clone: the boundary commit, which git shows as
+  adding every file, no longer counts as the turn's, and the turn's own commits
+  are diffed against their parent.
+
 ## [0.12.0] - 2026-11-02
 
 ### Other

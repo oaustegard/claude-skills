@@ -216,3 +216,32 @@ def test_hook_fails_open_on_bad_input(tmp_path):
     r = subprocess.run([sys.executable, str(SKILL / "scripts" / "fresh_eyes.py"), "hook"], input="not json",
                        capture_output=True, text=True, env=env)
     assert r.returncode == 0 and r.stdout == "" and "error" in (tmp_path / "log.jsonl").read_text()
+
+
+def test_commit_with_no_earlier_history_is_read_whole(tmp_path, monkeypatch):
+    r = tmp_path / "shallow"
+    r.mkdir()
+    t0 = time.time() - 2
+    (r / "README.md").write_text("# Tool\n\nLock rotation in portrait and pick your options here, upright.\n")
+    subprocess.run(["git", "-C", str(r), "init", "-q"], check=True)
+    subprocess.run(["git", "-C", str(r), "-c", "user.email=t@t", "-c", "user.name=t", "add", "."], check=True)
+    subprocess.run(["git", "-C", str(r), "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "only"], check=True)
+    items = g.changed_in_repos(t0, [r])
+    assert [it["path"] for it in items] == ["README.md"] and "upright" in g.packet(items)
+
+
+def test_shallow_boundary_commit_is_not_the_turns(tmp_path):
+    src = tmp_path / "src"
+    src.mkdir()
+    def git(repo, *a):
+        subprocess.run(["git", "-C", str(repo), "-c", "user.email=t@t", "-c", "user.name=t", *a], check=True, capture_output=True)
+    (src / "OTHER.md").write_text("# Other\n\nA document nobody touched in this turn, long enough to count.\n")
+    (src / "README.md").write_text("# Tool\n\nHold the phone like a wheel.\n")
+    git(src, "init", "-q"); git(src, "add", "."); git(src, "commit", "-qm", "base")
+    clone = tmp_path / "clone"
+    subprocess.run(["git", "clone", "-q", "--depth", "1", f"file://{src}", str(clone)], check=True, capture_output=True)
+    t0 = time.time() - 30                      # the boundary commit falls inside the turn's window
+    (clone / "README.md").write_text("# Tool\n\nHold the phone like a wheel. Lock rotation and pick your options here, upright.\n")
+    git(clone, "commit", "-qam", "turn")
+    items = g.changed_in_repos(t0, [clone])
+    assert [it["path"] for it in items] == ["README.md"] and "upright" in g.packet(items)

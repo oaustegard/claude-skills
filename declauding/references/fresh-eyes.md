@@ -4,7 +4,7 @@ Background for declauding's step 4a, the newcomer read. The failure it targets: 
 after a change takes its content from the change. The case that named it is the start screen of Tilt Rally, a phone
 racing game, whose first step read *Lock rotation in portrait and pick your options here, upright.* after the
 options moved off a sideways screen. *Here* and *upright* carry information only for someone who saw that screen; a
-newcomer needed *Lock rotation in portrait, then choose your options below.* There is no change word in it. In the
+newcomer needed *Lock rotation in portrait, then choose your options below.* It contains no word that marks a change, such as *now* or *no longer*. In the
 same game's README, the setup paragraph was updated for that start screen while the Controls section still said the
 steering is zeroed when you tap Start engine, so the README contradicted itself.
 
@@ -18,7 +18,7 @@ written the check (oaustegard/claude-workspace `docs/failure-modes.md` has the d
 | Haiku judging each change as Before and After, 180 commits | fired on 38, 5 judged real; no threshold separated them |
 | Haiku as a cold reader of the After alone, scoring the probability that it leans on an earlier version | ranked the real cases higher, but unstable: the start-screen case scored 0.82, then 0.44 |
 
-A scoring judge sees fragments and guesses. A capable reader given the whole current section, and no access to the
+The writer cannot be that reader: knowing the old version, the writer reads *upright* as obvious. A scoring judge sees fragments and guesses. A capable reader given the whole current section, and no access to the
 old one, reads it the way the audience will. A Sonnet subagent given the Tilt Rally README that way found the
 Controls contradiction above, which no fragment judge had been shown.
 
