@@ -2,7 +2,7 @@
 name: delegating-with-context
 description: Delegates work to a subagent or spawned session by writing only the task, while a PreToolUse hook pages the parent transcript through Jev and appends the chunks that task needs. Use before writing any Agent tool prompt or create_session prompt, and when asked to delegate this, hand this off, use a subagent, spawn an agent, run agents in parallel, or brief a subagent on what we have done so far.
 metadata:
-  version: 0.2.3
+  version: 0.3.0
 ---
 
 # Delegating with context
@@ -140,6 +140,15 @@ chunk it came from before relaying it.
   ranked the key chunk 6th because the fact sat mid-result, outside the clip.
   Paging at 4x view (five ~27k windows, 1.6 s) ranked it 1st. The filter
   defaults to the paged view.
+- 2026-11-02, hierarchical selection (after DecisionRAG, arXiv 2610.35868):
+  score transcript segments first, then only the chunks inside the top 40% of
+  segments, at 8x view. Over 52 delegations from 16 archived sessions (19 to
+  581 chunks) it was never worse than the flat 4x filter and better on 3
+  (+2.7% fact recall, CI +0.0% to +6.4%), at ~40% fewer Jev tokens. It is the
+  default; `CONTEXT_FILTER_MODE=flat` restores the flat filter.
+- 2026-11-02: on sessions of ~500+ chunks the global-state loop never
+  terminated and the hook timed out at 120 s, passing no context (fixed in
+  0.2.3).
 - 2026-09-23, eval over 32 delegations from 8 archived sessions: written
   briefs lost every fact on 5 tasks by telling the subagent to look the fact up
   ("check the pr-workflow config entry") instead of stating it; neither the
@@ -160,7 +169,12 @@ chunk it came from before relaying it.
 - `scripts/jevfilter.py`: windows under Jev's limits (32k state plus longest
   question, 64k state plus all questions), one Noul per chunk, rank into the
   budget.
+- `scripts/hierfilter.py`: the default selector. Level 1 scores segments (a
+  new one at each user message and every 8 chunks) from short digests; level 2
+  scores the chunks of the kept segments with `jevfilter`'s windows and packs
+  them with its `select`.
 - `scripts/context_hook.py`: the PreToolUse hook. Fails open and says so.
+  `CONTEXT_FILTER_MODE=flat` switches it to `jevfilter.build_context`.
 - `scripts/preview.py`: step 2.
 
 Install as a plugin (the hook wires itself; `hooks/hooks.json`):

@@ -1,5 +1,13 @@
 # delegating-with-context - Changelog
 
+## 0.3.0 — 2026-11-02
+- Hierarchical selection is the default (`scripts/hierfilter.py`): Jev scores
+  segments of the session from digests, keeps the top 40% (at least 3), then
+  scores only their chunks at 8x view. Never worse than the flat filter on 52
+  delegations from 16 sessions, better on 3, ~40% fewer Jev tokens.
+  `CONTEXT_FILTER_MODE=flat` (hook) or `--mode flat` (`preview.py`) keeps the
+  old path. Evidence: `oaustegard/experiments` `subagent-context-filter`.
+
 ## 0.2.3 — 2026-11-02
 - Fix: `jevfilter._global_state` looped forever on sessions of ~500+ chunks.
   `clip(x, 20)` returns 25 characters, so the exit test (every index entry
