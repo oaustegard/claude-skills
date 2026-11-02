@@ -1,14 +1,15 @@
 ---
 name: compiling-wgsl
-description: "Shrinks WGSL shaders and compiles shapes into them. Minifies a WebGPU shader (renaming, dead code, literal and type shortening) and proves the result unchanged with naga, Chrome's Tint and bit-identical compute runs; compiles an SVG file or a Python-built scene of circles, rects, paths, gradients and animated transforms into one resolution-independent WGSL fragment shader. Use for minify this WGSL, shrink my shader, make the shader smaller, compress shader source, WGSL optimizer, turn this SVG into a shader, draw this icon in WebGPU, SDF shapes in WGSL, smooth union shapes, animated vector graphics on the GPU, pretty-print WGSL."
+description: "Produces and shrinks WGSL shaders. Converts GLSL (WebGL 1 and 2, Shadertoy mainImage code, Vulkan GLSL 450, compute shaders) to WGSL and checks the port pixel by pixel against WebGL; minifies a WebGPU shader (renaming, dead code, literal and type shortening) and proves the result unchanged with naga, Chrome's Tint and bit-identical compute runs; compiles an SVG file or a Python-built scene of circles, rects, paths, gradients and animated transforms into one resolution-independent WGSL fragment shader. Use for convert GLSL to WGSL, port this Shadertoy to WebGPU, WebGL shader to WebGPU, minify this WGSL, shrink my shader, make the shader smaller, WGSL optimizer, turn this SVG into a shader, draw this icon in WebGPU, SDF shapes in WGSL, smooth union shapes, animated vector graphics on the GPU, pretty-print WGSL."
 metadata:
-  version: 0.1.0
+  version: 0.2.0
 ---
 
 # Compiling WGSL
 
 `scripts/forge` is a pure-Python WGSL toolchain (numpy is the only dependency): a parser
-that follows the spec's template-list rules, a minifier, and a shape compiler. It came
+that follows the spec's template-list rules, a minifier, a shape compiler, and a GLSL
+front end that rewrites WebGL and Shadertoy GLSL for naga (and glslang) to translate. It came
 from `oaustegard/experiments/wgsl-forge`, whose RESULTS.md holds the measurements quoted
 here. Set `SKILL=/mnt/skills/user/compiling-wgsl` (or this directory) and run every
 command with `PYTHONPATH=$SKILL/scripts`.
@@ -20,7 +21,8 @@ command with `PYTHONPATH=$SKILL/scripts`.
 | A raster image (photo, PNG) should become vector shapes | `image-to-svg`, then this skill on its SVG |
 | The output is a PNG, PDF or SVG file rather than a shader | `drawing-with-pycairo` |
 | Charts or dashboards | `charting`, `charting-vega-lite` |
-| GLSL, HLSL or SPIR-V | this skill parses WGSL only |
+| HLSL or Metal | not covered; naga reads SPIR-V (`naga in.spv out.wgsl`), so HLSL can go through DXC to SPIR-V first |
+| GLSL for desktop OpenGL with `#version 330` or older, or code using `iChannel` buffers (multi-pass Shadertoy) | converts, but the multi-pass plumbing (render targets, feedback) is host code you write |
 | A shader whose host reads names back by reflection (a binding library that matches struct member or function names) | run with `--keep name1,name2`, or do not rename |
 
 ## Setup
@@ -28,9 +30,14 @@ command with `PYTHONPATH=$SKILL/scripts`.
 ```bash
 export SKILL=/mnt/skills/user/compiling-wgsl
 pip install --break-system-packages numpy pillow          # pillow only for --png
-command -v naga || cargo install naga-cli                  # optional validator, ~3 min
+command -v naga || cargo install naga-cli                  # validator; required for GLSL, ~3 min
+command -v glslangValidator || apt-get install -y glslang-tools   # GLSL fallback route
 node -e "require('playwright')" && echo playwright-ok      # GPU checks need it
+python3 $SKILL/scripts/selftest.py                         # ~20 s: every route on bundled fixtures
 ```
+
+`selftest.py` prints `missing tools:` first if naga, glslang or node is absent. Every
+other line must read `ok`.
 
 The GPU checks run headless Chromium on SwiftShader. On claude.ai and Claude Code on
 the web, Playwright's Chromium is already installed. Elsewhere, point `CHROME_PATH` at a
@@ -69,6 +76,43 @@ for LucentFlux wgsl-minifier on the files both handle). Shaders that are already
 land nearer 50%: Tilt Rally's nine came out at 51%.
 
 `python3 -m forge fmt out.wgsl` pretty-prints minified code for reading.
+
+## Convert GLSL to WGSL
+
+```bash
+PYTHONPATH=$SKILL/scripts python3 -m forge glsl shader.frag -o shader.wgsl [--minify]
+python3 $SKILL/scripts/verify.py glsl shader.frag --png /tmp/port.png               # always run this
+PYTHONPATH=$SKILL/scripts python3 -m forge html toy.glsl -o preview.html            # Shadertoy only
+```
+
+The input kind is detected automatically:
+
+| input | detected by | output |
+|---|---|---|
+| Shadertoy | `mainImage` and no `main` | the same interface as compiled scenes: uniform `{r, t}` at binding 0, `vs` and `fs` entries; y flipped to Shadertoy's bottom-left origin, alpha forced to 1 |
+| WebGL 2 (`#version 300 es`) or WebGL 1 (no version) | version line | one WGSL entry point `main`; loose uniforms gathered into one std140 block at binding 0, each `sampler2D` split into a texture and a sampler from binding 1 |
+| Vulkan GLSL 450 | `#version 450` | passed through as written |
+
+The stage comes from the extension (`.vert`, `.frag`, `.comp`) or from the content
+(`gl_Position`, `local_size_x`). `--stage` overrides it.
+
+`forge glsl` prints the `binding` lines the host must now supply, with byte offsets. A
+WebGL program set uniforms by name; WebGPU writes one buffer at those offsets, and
+std140 puts a `vec3` or `mat3` column on a 16-byte boundary. `note:` lines report every
+rewrite the converter made.
+
+Translation goes through naga's GLSL reader. When naga refuses the source, it is
+compiled to SPIR-V with glslang and naga translates that instead (`--backend` forces
+either). The glslang route accepts more GLSL but mangles function names; minifying
+renames them anyway.
+
+`verify.py glsl` validates and compiles both the WGSL and its minified form.
+- **Shadertoy code** is also rendered by Chrome's WebGL2 as the reference and by the
+  WGSL on WebGPU, at t=0 and t=1.7. It must reach 30 dB PSNR, and the minified version
+  must draw identically.
+- **Other GLSL** has no reference renderer, so it is compiled only. To check a compute
+  port, run the WGSL with `scripts/forge/gpu.py` `run_jobs` (kind `compute`) and compare
+  the result with a numpy version of the algorithm.
 
 ## Compile an SVG to a shader
 
@@ -128,6 +172,22 @@ them. Check those by rendering and reading the image.
 
 ## Failure modes
 
+- **`naga could not translate the GLSL` and glslang also fails** → read glslang's message.
+  It is usually real GLSL that Vulkan forbids, such as a sampler passed as a function
+  argument (a `note:` names it). Rewrite that part by hand: pass the texture and sampler
+  separately.
+- **`Tint compiles WGSL` FAILs with `unresolved call target 'subgroupBarrier'`** → the
+  WGSL came from an older copy of this converter. Since 0.2.0 it strips the subgroup and
+  texture barriers that naga adds for GLSL `barrier()`, keeping `workgroupBarrier()`.
+- **A WebGL port renders but the colours or positions are wrong** → check the uniform
+  buffer against the `binding` offsets that `forge glsl` printed. The usual mistake is a
+  `vec3` written tightly packed instead of on its 16-byte boundary.
+- **A Shadertoy port renders upside down in your own host** → you dropped the
+  `fragCoord` flip. The shader expects the uniform `r` to hold the canvas size in pixels.
+- **Integer `%` or division differs from WebGL for negative operands** → GLSL leaves
+  these undefined, and the WGSL takes one definite answer. Rewrite the GLSL to stay
+  non-negative.
+
 - **`naga` says `expected array<i32, 2>, but got array<i32, 2>`** → this is naga 30's
   quirk with an alias inside a template argument. The alias pass already avoids it; if
   it appears, rerun with `--no-aliases` and report the input.
@@ -157,11 +217,29 @@ them. Check those by rendering and reading the image.
   something else: a renamed name the host looks up, or a shader with textures that was
   only compiled. For the second case, render it in its host before and after and compare
   pixels.
+- **GLSL:** `verify.py glsl` must print no FAIL, and for Shadertoy code the PNG rows
+  (WebGL | WGSL | difference ×8) must show the same picture. A *bad success* is two blank
+  images that match: check that the picture has content. Another is a non-Shadertoy port
+  that compiles but was never run against anything.
 - **SVG:** `verify.py svg` must print no FAIL, and the PNG must look right. A *bad
   success* is a high PSNR on an SVG whose `warning:` lines show that elements were
   dropped. A missing element still scores well when it is small.
 
 ## Diagnosed failures (fixed, kept as signals)
+
+- 2026-11-02, **a switch case that returns**: naga's GLSL reader rejected
+  `switch (i) { case 0: return a; ... }` ("fall-through switch case block"), even with a
+  `break;` after the `return`. The auto backend now falls back to glslang.
+- 2026-11-02, **subgroupBarrier**: GLSL `barrier()` came out of naga as four barriers,
+  `subgroupBarrier()` among them, and Tint rejects that call. naga validated the output,
+  so only the Tint compile in `verify.py` caught it.
+- 2026-11-02, **html preview**: `forge html` had never worked in 0.1.0. A `%` in its CSS
+  broke the `%`-formatting of the page template, and nothing ran the command until the
+  GLSL work. `selftest.py` now covers every route.
+- 2026-11-02, **zero error that looked suspicious**: every Shadertoy fixture matched WebGL
+  at 0 error. The images were checked and are real: WebGL and WebGPU both run on
+  SwiftShader in the container. Expect small floating-point differences on real GPUs,
+  hence the 30 dB bar rather than exact equality.
 
 - 2026-11-01, **line segments**: flattening curves to line segments at the SVG's size left
   icons 1.8% too light at 512 px (ink ratio 0.982), and the error never shrank with size.

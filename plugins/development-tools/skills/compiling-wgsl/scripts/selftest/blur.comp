@@ -1,0 +1,14 @@
+#version 450
+layout(local_size_x = 64) in;
+layout(std430, set = 0, binding = 0) readonly buffer Src { float src[]; };
+layout(std430, set = 0, binding = 1) buffer Dst { float dst[]; };
+layout(set = 0, binding = 2) uniform Params { uint n; float k; };
+shared float tile[66];
+void main() {
+    uint i = gl_GlobalInvocationID.x, l = gl_LocalInvocationID.x;
+    tile[l + 1u] = i < n ? src[i] : 0.0;
+    if (l == 0u) tile[0] = i > 0u ? src[i - 1u] : 0.0;
+    if (l == 63u) tile[65] = i + 1u < n ? src[i + 1u] : 0.0;
+    barrier();
+    if (i < n) dst[i] = k * tile[l] + (1.0 - 2.0 * k) * tile[l + 1u] + k * tile[l + 2u];
+}

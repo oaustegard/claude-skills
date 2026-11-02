@@ -1,0 +1,5 @@
+#version 450
+layout(local_size_x=64) in;
+layout(std430,binding=0) buffer B { float v[]; };
+shared float s[64];
+void main(){ s[gl_LocalInvocationID.x]=v[gl_GlobalInvocationID.x]; memoryBarrierShared(); barrier(); v[gl_GlobalInvocationID.x]=s[63u-gl_LocalInvocationID.x]; }

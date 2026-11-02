@@ -5,6 +5,11 @@
         naga-validates the minified output, compiles original and output in Chromium
         (Tint), and runs every compute entry point that needs only buffers on random
         inputs, original twice and minified once, comparing buffers byte for byte.
+    verify.py glsl SHADER.glsl [--size 256] [--times 0,1.7] [--backend auto|naga|glslang]
+        converts GLSL to WGSL; Shadertoy code is rendered by Chromium's WebGL2 as the
+        reference and by the converted WGSL on WebGPU, at each time, and the minified
+        WGSL must draw the same pixels as the unminified; other GLSL is validated
+        (naga) and compiled (Tint), original WGSL and minified.
     verify.py svg DRAWING.svg [--size 256]
         renders the compiled shader and Chromium's own SVG rendering at the same size
         and reports mean error, PSNR and ink ratio; also checks minified == unminified.
@@ -148,6 +153,63 @@ def cmd_svg(a: argparse.Namespace) -> None:
         print(f"side-by-side (reference | shader | difference x4): {a.png}")
 
 
+def cmd_glsl(a: argparse.Namespace) -> None:
+    from forge.glsl import GLSLError, glsl_to_wgsl, webgl_reference_source
+    src = Path(a.file).read_text()
+    try:
+        c = glsl_to_wgsl(src, stage=a.stage, filename=a.file, backend=a.backend)
+    except GLSLError as e:
+        report("convert", False, str(e))
+        return
+    for n in c.notes:
+        print(f"note: {n}")
+    mini = minify(c.wgsl)
+    print(f"{c.stage}{' (Shadertoy)' if c.shadertoy else ''} via {c.backend}: glsl {len(src)} B -> "
+          f"wgsl {len(c.wgsl)} B -> minified {len(mini)} B")
+    report("naga validates WGSL", naga_check(c.wgsl))
+    report("naga validates minified", naga_check(mini))
+    jobs = [{"id": "c", "kind": "compile", "wgsl": c.wgsl}, {"id": "cm", "kind": "compile", "wgsl": mini}]
+    times = [float(t) for t in a.times.split(",")]
+    w = a.size
+    h = round(w * 9 / 16)
+    channels = "iChannel" in src
+    if c.shadertoy and not channels:
+        ref = webgl_reference_source(src)
+        for t in times:
+            jobs += [{"id": f"r{t}", "kind": "webgl", "glsl": ref, "width": w, "height": h, "time": t},
+                     {"id": f"w{t}", "kind": "render", "wgsl": c.wgsl, "width": w, "height": h, "time": t},
+                     {"id": f"m{t}", "kind": "render", "wgsl": mini, "width": w, "height": h, "time": t}]
+    res = run_jobs(jobs)
+    report("Tint compiles WGSL", res["c"]["ok"], res["c"].get("error", "")[:300])
+    report("Tint compiles minified", res["cm"]["ok"], res["cm"].get("error", "")[:300])
+    if not c.shadertoy:
+        report("pixel comparison", None, "(not Shadertoy code: no reference renderer; compiled only)")
+        return
+    if channels:
+        report("pixel comparison", None, "(uses iChannel textures: compiled only)")
+        return
+    sides = []
+    for t in times:
+        r, g, mm = res[f"r{t}"], res[f"w{t}"], res[f"m{t}"]
+        if not (r["ok"] and g["ok"] and mm["ok"]):
+            report(f"render t={t}", False, "; ".join(x.get("error", "") for x in (r, g, mm) if not x["ok"])[:400])
+            continue
+        ri = image(r, w, h)[..., :3].astype(float)
+        gi = image(g, w, h)[..., :3].astype(float)
+        d = np.abs(ri - gi)
+        mse = float((d ** 2).mean())
+        psnr = 10 * np.log10(255 ** 2 / mse) if mse else 99.0
+        print(f"t={t}: vs WebGL mean error {d.mean():.3f}/255, max {d.max():.0f}, "
+              f"{(d.max(axis=2) > 8).mean():.2%} of pixels off by more than 8, PSNR {psnr:.1f} dB")
+        report(f"t={t} matches WebGL (PSNR at least 30 dB)", psnr >= 30)
+        report(f"t={t} minified draws identically", g["rgba"] == mm["rgba"])
+        sides.append(np.concatenate([ri, gi, np.clip(d * 8, 0, 255)], axis=1))
+    if a.png and sides:
+        from forge.gpu import save_png
+        save_png(a.png, np.concatenate(sides, axis=0))
+        print(f"rows per time: WebGL | WGSL | difference x8: {a.png}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -160,8 +222,15 @@ def main() -> None:
     s.add_argument("file")
     s.add_argument("--size", type=int, default=256)
     s.add_argument("--png")
+    g = sub.add_parser("glsl")
+    g.add_argument("file")
+    g.add_argument("--size", type=int, default=256)
+    g.add_argument("--times", default="0,1.7")
+    g.add_argument("--stage", choices=["frag", "vert", "compute"])
+    g.add_argument("--backend", default="auto", choices=["auto", "naga", "glslang"])
+    g.add_argument("--png")
     a = ap.parse_args()
-    (cmd_minify if a.cmd == "minify" else cmd_svg)(a)
+    {"minify": cmd_minify, "svg": cmd_svg, "glsl": cmd_glsl}[a.cmd](a)
     sys.exit(1 if failures else 0)
 
 

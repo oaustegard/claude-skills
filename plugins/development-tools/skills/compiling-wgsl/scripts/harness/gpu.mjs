@@ -7,6 +7,7 @@
 //   {id, kind:"render",  wgsl, width, height, time}  -> {rgba}  (vs/fs entry points, uniform
 //        @group(0) @binding(0) holding vec4f(width, height, time, 0), rgba8unorm target)
 //   {id, kind:"svg",     svg, width, height}         -> {rgba}  (Chromium's own SVG raster)
+//   {id, kind:"webgl",   glsl, width, height, time}  -> {rgba}  (WebGL2 fragment shader, Shadertoy uniforms)
 //   {id, kind:"compute", wgsl, entry, dispatch:[x,y,z],
 //        bindings:[{group, binding, type:"uniform"|"storage"|"read-only-storage", data}],
 //        constants:{name or @id: number}}   (pipeline-overridable constants)
@@ -67,6 +68,32 @@ window.runJob = async (job) => {
       const c = document.createElement("canvas"); c.width = job.width; c.height = job.height;
       const ctx = c.getContext("2d"); ctx.drawImage(img, 0, 0, job.width, job.height);
       return { ok: true, rgba: b64(new Uint8Array(ctx.getImageData(0, 0, job.width, job.height).data.buffer)) };
+    }
+    if (job.kind === "webgl") {
+      // reference renderer for GLSL: a full-screen triangle in WebGL2, Shadertoy uniforms set by name
+      const w = job.width, h = job.height;
+      const c = document.createElement("canvas"); c.width = w; c.height = h;
+      const gl = c.getContext("webgl2", { preserveDrawingBuffer: true, antialias: false });
+      if (!gl) return { ok: false, error: "no webgl2" };
+      const sh = (type, src) => { const x = gl.createShader(type); gl.shaderSource(x, src); gl.compileShader(x);
+        if (!gl.getShaderParameter(x, gl.COMPILE_STATUS)) throw new Error("glsl: " + gl.getShaderInfoLog(x)); return x; };
+      const prog = gl.createProgram();
+      gl.attachShader(prog, sh(gl.VERTEX_SHADER, ["#version 300 es", "void main(){vec2 p=vec2(float(gl_VertexID%2),float(gl_VertexID/2))*4.0-1.0;gl_Position=vec4(p,0.0,1.0);}"].join(String.fromCharCode(10))));
+      gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, job.glsl));
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return { ok: false, error: "link: " + gl.getProgramInfoLog(prog) };
+      gl.useProgram(prog);
+      const t = job.time || 0, U = (n) => gl.getUniformLocation(prog, n);
+      if (U("iResolution")) gl.uniform3f(U("iResolution"), w, h, 1);
+      if (U("iTime")) gl.uniform1f(U("iTime"), t);
+      if (U("iTimeDelta")) gl.uniform1f(U("iTimeDelta"), 1 / 60);
+      if (U("iFrame")) gl.uniform1i(U("iFrame"), Math.floor(t * 60));
+      if (U("iFrameRate")) gl.uniform1f(U("iFrameRate"), 60);
+      gl.viewport(0, 0, w, h); gl.drawArrays(gl.TRIANGLES, 0, 3);
+      const px = new Uint8Array(w * h * 4); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      const out = new Uint8Array(w * h * 4);   // WebGL rows run bottom-up; flip to match WebGPU
+      for (let y = 0; y < h; y++) out.set(px.subarray((h - 1 - y) * w * 4, (h - y) * w * 4), y * w * 4);
+      return { ok: true, rgba: b64(out) };
     }
     const d = await dev();
     const t0 = performance.now();
