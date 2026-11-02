@@ -2,6 +2,12 @@
 
 All notable changes to the `making-kinescript-videos` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.1.1] - 2026-11-02
+
+### Changed
+
+- Kokoro reference: asterisks are sometimes spoken, links need a space on each side, 4-digit numbers read as years, rate 0.6 adds a phantom syllable, short lines take a different style row.
+
 ## [0.1.0] - 2026-11-02
 
 ### Other
