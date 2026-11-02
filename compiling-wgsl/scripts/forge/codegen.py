@@ -311,8 +311,8 @@ class Gen:
         self.nominal_px = max(vw / scene.width, vh / scene.height)
         # cubic -> quadratic error; quadratics converge as n^-3, so a tight bound is cheap
         self.tol = scene.tolerance * self.nominal_px * 0.1
-        # coordinate grid: a power of two near 1/64 of a nominal pixel (exact in f32)
-        self.quantum = 2.0 ** math.floor(math.log2(self.nominal_px / 64))
+        # coordinate grid: a power of two near 1/grid of a nominal pixel (exact in f32)
+        self.quantum = 2.0 ** math.floor(math.log2(self.nominal_px / getattr(scene, "grid", 64)))
         self.data: list[int] = []
         self.helpers: set[str] = set()
         self.fns: list[str] = []
