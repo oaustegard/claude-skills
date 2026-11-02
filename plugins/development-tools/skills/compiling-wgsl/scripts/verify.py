@@ -190,6 +190,45 @@ def cmd_svg(a: argparse.Namespace) -> None:
         from forge.gpu import save_png
         save_png(a.png, np.concatenate([ref, got, np.clip(d * 4, 0, 255)], axis=1))
         print(f"side-by-side (reference | shader | difference x4): {a.png}")
+    if a.paint_in:
+        check_paint_in(text, a.paint_in, res["s"]["rgba"], w, h, storage, a.png)
+
+
+def check_paint_in(text, dur, static_rgba, w, h, storage, png):
+    """The self-painting shader: background only at t=0, no pixel's coverage decreasing,
+    and at t >= dur the same bytes as the static shader (minified too)."""
+    from forge.svg import read_svg
+    sc = read_svg(text)
+    sc.paint_in = dur
+    src = sc.compile()
+    mini = minify(src)
+    st = base64.b64encode(sc.data_buffer).decode() if sc.data_buffer is not None else storage
+    times = [0.0] + [dur * f for f in (0.125, 0.25, 0.5, 0.75)] + [dur + 0.01]
+    jobs = [{"id": f"p{t}", "kind": "render", "wgsl": src, "width": w, "height": h, "time": t, "storage": st}
+            for t in times]
+    jobs.append({"id": "pm", "kind": "render", "wgsl": mini, "width": w, "height": h, "time": dur + 0.01, "storage": st})
+    bg = read_svg(text)
+    bg.shapes = []
+    jobs.append({"id": "bg", "kind": "render", "wgsl": bg.compile(), "width": w, "height": h})
+    res = run_jobs(jobs)
+    bad = [k for k, v in res.items() if not v["ok"]]
+    if bad:
+        report("paint-in renders", False, res[bad[0]].get("error", ""))
+        return
+    report("paint-in: t=0 shows only the background", res[f"p{times[0]}"]["rgba"] == res["bg"]["rgba"])
+    frames = [over_white(image(res[f"p{t}"], w, h), True) for t in times]
+    # coverage (alpha) only grows as shapes are added; ink can fall when light paints over dark
+    alpha = [image(res[f"p{t}"], w, h)[..., 3].astype(np.int64) for t in times]
+    cov = [float(x.sum()) for x in alpha]
+    print("paint-in coverage by time: " + ", ".join(f"t={t:.2f}: {c / max(cov[-1], 1):.0%}" for t, c in zip(times, cov)))
+    report("paint-in: no pixel's coverage ever decreases", all(bool((b >= a).all()) for a, b in zip(alpha, alpha[1:])))
+    report("paint-in: finished frame identical to the static shader", res[f"p{times[-1]}"]["rgba"] == static_rgba)
+    report("paint-in: minified finished frame identical", res["pm"]["rgba"] == static_rgba)
+    if png:
+        from forge.gpu import save_png
+        out = png.replace(".png", "_paint.png")
+        save_png(out, np.concatenate(frames, axis=1))
+        print(f"paint-in frames at {', '.join(f'{t:.2f}' for t in times)} s: {out}")
 
 
 def cmd_glsl(a: argparse.Namespace) -> None:
@@ -261,6 +300,8 @@ def main() -> None:
     s.add_argument("file")
     s.add_argument("--size", type=int, default=256)
     s.add_argument("--png")
+    s.add_argument("--paint-in", type=float, default=None,
+                   help="also check the self-painting shader over this many seconds")
     g = sub.add_parser("glsl")
     g.add_argument("file")
     g.add_argument("--size", type=int, default=256)

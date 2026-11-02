@@ -118,6 +118,9 @@ def main(argv=None):
         p.add_argument("-o", "--out")
         p.add_argument("--minify", action="store_true")
         p.add_argument("--tolerance", type=float, default=None)
+        p.add_argument("--paint-in", type=float, default=None,
+                       help="seconds over which the shapes appear one by one (self-painting)")
+        p.add_argument("--loop", action="store_true", help="with --paint-in: repeat after a pause")
         p.add_argument("--grid", type=int, default=None,
                        help="path coordinate steps per nominal pixel (default 64; 16 is ~10%% smaller, ~4 dB worse)")
     g = sub.add_parser("glsl")
@@ -130,6 +133,9 @@ def main(argv=None):
     h.add_argument("file")
     h.add_argument("-o", "--out", required=True)
     h.add_argument("--minify", action="store_true")
+    h.add_argument("--paint-in", type=float, default=None)
+    h.add_argument("--loop", action="store_true")
+    h.add_argument("--grid", type=int, default=None)
     a = ap.parse_args(argv)
 
     if a.cmd == "minify":
@@ -176,6 +182,9 @@ def main(argv=None):
                     scene.tolerance = a.tolerance
             if getattr(a, "grid", None):
                 scene.grid = a.grid
+            if getattr(a, "paint_in", None):
+                scene.paint_in = a.paint_in
+                scene.paint_loop = a.loop
             for w in scene.warnings:
                 print(f"warning: {w}", file=sys.stderr)
             src = scene.compile()

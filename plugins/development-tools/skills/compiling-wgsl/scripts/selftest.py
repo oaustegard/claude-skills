@@ -6,7 +6,7 @@
 Fixtures in selftest/: four Shadertoy-style shaders (plasma, raymarcher, fbm noise,
 switch/out-params/matrices), WebGL 1 and 2 fragment shaders, a WebGL 2 vertex shader,
 two GLSL compute shaders (one needs the glslang route), an SVG exercising every path
-command, and naga's collatz compute test. All fixtures except collatz.wgsl
+command (also checked as a self-painting shader), and naga's collatz compute test. All fixtures except collatz.wgsl
 (gfx-rs/wgpu, MIT OR Apache-2.0) were written for this skill.
 Exits 1 if any check fails; prints which tools were missing (those checks are skipped).
 """
@@ -22,13 +22,15 @@ FIX = HERE / "selftest"
 RUNS = ([("glsl", f) for f in sorted(FIX.glob("*.glsl"))]
         + [("glsl", f) for f in sorted(FIX.glob("*.frag")) + sorted(FIX.glob("*.vert")) + sorted(FIX.glob("*.comp"))]
         + [("svg", FIX / "paths.svg"), ("minify", FIX / "collatz.wgsl")])
+EXTRA = {("svg", "paths.svg"): ["--paint-in", "3"]}   # also the self-painting checks
 
 missing = [t for t in ("naga", "glslangValidator", "node") if not shutil.which(t)]
 if missing:
     print(f"missing tools: {', '.join(missing)} (their checks are skipped or the run fails)")
 bad = 0
 for cmd, f in RUNS:
-    r = subprocess.run([sys.executable, str(HERE / "verify.py"), cmd, str(f)], capture_output=True, text=True)
+    r = subprocess.run([sys.executable, str(HERE / "verify.py"), cmd, str(f)] + EXTRA.get((cmd, f.name), []),
+                       capture_output=True, text=True)
     lines = [ln for ln in r.stdout.splitlines() if ln.startswith(("ok", "FAIL", "skip"))]
     fails = [ln for ln in lines if ln.startswith("FAIL")]
     ok = r.returncode == 0
