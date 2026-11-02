@@ -1,5 +1,15 @@
 # delegating-with-context - Changelog
 
+## 0.2.3 — 2026-11-02
+- Fix: `jevfilter._global_state` looped forever on sessions of ~500+ chunks.
+  `clip(x, 20)` returns 25 characters, so the exit test (every index entry
+  <= 24 chars) never passed once the one-line session index outgrew its 5k-token
+  share. The hook then hit its 120 s timeout and the subagent got no context.
+  The loop now stops when a pass changes nothing, then thins the index and
+  drops the oldest user messages until the global state fits. Found running the
+  filter on 498-581-chunk sessions (`oaustegard/experiments`
+  `subagent-context-filter`).
+
 ## 0.2.1 — 2026-10-02
 - "When NOT to use": a relay of fresh subagents that must carry a running
   result needs a model-maintained state file with invariant checks, not
@@ -20,6 +30,12 @@
   (PreToolUse on Agent) pages the parent transcript through Jev and appends the
   chunks the task needs. `scripts/preview.py` shows the selection before the
   prompt is written. Measured in `oaustegard/experiments/subagent-context-filter`.
+
+## [0.2.3] - 2026-11-02
+
+### Other
+
+- delegating-with-context 0.2.3: fix infinite loop on 500+ chunk sessions
 
 ## [0.2.2] - 2026-10-11
 
