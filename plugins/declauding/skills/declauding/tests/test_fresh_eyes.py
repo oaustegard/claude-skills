@@ -255,3 +255,20 @@ def test_bot_commit_pulled_in_is_not_the_turns(tmp_path, monkeypatch):
     subprocess.run(["git", "-C", str(r), "-c", "user.email=41898282+github-actions[bot]@users.noreply.github.com",
                     "-c", "user.name=github-actions[bot]", "commit", "-qm", "regen"], check=True, capture_output=True)
     assert g.changed_in_repos(t0, [r]) == []
+
+
+def test_commit_pulled_from_elsewhere_is_not_the_turns(tmp_path, monkeypatch):
+    src = tmp_path / "upstream"
+    src.mkdir()
+    def git(repo, *a):
+        subprocess.run(["git", "-C", str(repo), "-c", "user.email=t@t", "-c", "user.name=t", *a], check=True, capture_output=True)
+    (src / "README.md").write_text("# Tool\n\nHold the phone like a wheel.\n")
+    git(src, "init", "-q", "-b", "main"); git(src, "add", "."); git(src, "commit", "-qm", "base")
+    clone = tmp_path / "clone"
+    subprocess.run(["git", "clone", "-q", f"file://{src}", str(clone)], check=True, capture_output=True)
+    t0 = time.time() - 1
+    (src / "OTHER.md").write_text("# Other\n\nWritten by another session and pushed while this turn ran.\n")
+    git(src, "add", "."); git(src, "commit", "-qm", "elsewhere")
+    (clone / "README.md").write_text("# Tool\n\nHold the phone like a wheel and pick your options here, upright.\n")
+    git(clone, "commit", "-qam", "mine"); git(clone, "pull", "-q", "--rebase", "origin", "main")
+    assert [it["path"] for it in g.changed_in_repos(t0, [clone])] == ["README.md"]

@@ -2,6 +2,21 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.12.3] - 2026-11-02
+
+### Other
+
+- declauding 0.12.3: fresh_eyes counts only commits made in this clone
+
+## [0.12.3] - 2026-11-02
+
+### Fixed
+
+- `fresh_eyes.py` counts a commit as the turn's only if the clone's reflog shows
+  it was made there (commit, rebase or pull pick, cherry-pick, merge, revert),
+  so commits another session pushed and a pull or rebase brought in are left
+  out.
+
 ## [0.12.2] - 2026-11-02
 
 ### Other
