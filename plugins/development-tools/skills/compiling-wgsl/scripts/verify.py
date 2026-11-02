@@ -119,32 +119,71 @@ def cmd_minify(a: argparse.Namespace) -> None:
         Path(a.out).write_text(out)
 
 
+def strip_unsupported(svg_text: str) -> str:
+    """The SVG without what the compiler drops (text, images, masks, clips, filters,
+    animations), so a score measures what was compiled, not what was skipped."""
+    import xml.etree.ElementTree as ET
+    from forge.svg import _UNSUPPORTED, _tag
+    ET.register_namespace("", "http://www.w3.org/2000/svg")
+    ET.register_namespace("xlink", "http://www.w3.org/1999/xlink")
+    root = ET.fromstring(svg_text)
+    drop = _UNSUPPORTED | {"animate", "animateTransform", "animateMotion", "set"}
+    for parent in list(root.iter()):
+        for c in list(parent):
+            if _tag(c) in drop:
+                parent.remove(c)
+        for attr in ("mask", "clip-path", "filter"):
+            parent.attrib.pop(attr, None)
+        if _tag(parent) == "style" and parent.text:
+            parent.text = parent.text.replace("animation", "-x-animation")
+    return ET.tostring(root, encoding="unicode")
+
+
 def cmd_svg(a: argparse.Namespace) -> None:
+    import time
     from forge.svg import read_svg
     text = Path(a.file).read_text()
+    t0 = time.time()
     scene = read_svg(text)
     for w in scene.warnings:
         print(f"warning: {w}")
     src = scene.compile()
+    data = scene.data_buffer
+    compile_s = time.time() - t0
     mini = minify(src)
-    print(f"svg {len(text)} B -> wgsl {len(src)} B -> minified {len(mini)} B")
+    extra = f" + {len(data)} B path data in a storage buffer" if data is not None else ""
+    print(f"svg {len(text)} B -> wgsl {len(src)} B -> minified {len(mini)} B{extra} "
+          f"({len(scene.shapes)} shapes, compiled in {compile_s:.1f} s)")
     report("naga validates minified", naga_check(mini))
     w = a.size
     h = max(1, round(w * scene.viewbox[3] / scene.viewbox[2]))
-    res = run_jobs([{"id": "r", "kind": "svg", "svg": text, "width": w, "height": h},
-                    {"id": "s", "kind": "render", "wgsl": src, "width": w, "height": h},
-                    {"id": "m", "kind": "render", "wgsl": mini, "width": w, "height": h}])
-    for k in "rsm":
+    storage = base64.b64encode(data).decode() if data is not None else None
+    jobs = [{"id": "r", "kind": "svg", "svg": text, "width": w, "height": h},
+            {"id": "s", "kind": "render", "wgsl": src, "width": w, "height": h, "storage": storage},
+            {"id": "m", "kind": "render", "wgsl": mini, "width": w, "height": h, "storage": storage}]
+    if scene.warnings:
+        jobs.append({"id": "rs", "kind": "svg", "svg": strip_unsupported(text), "width": w, "height": h})
+    res = run_jobs(jobs)
+    for k in [j["id"] for j in jobs]:
         if not res[k]["ok"]:
             report(f"render {k}", False, res[k].get("error", ""))
             return
-    ref = over_white(image(res["r"], w, h), False)
+    print(f"GPU: shader compile {res['s'].get('compile_ms', 0):.0f} ms, draw {res['s'].get('draw_ms', 0):.0f} ms "
+          f"(SwiftShader, CPU: not real-GPU timings)")
     got = over_white(image(res["s"], w, h), True)
-    d = np.abs(ref - got)
-    mse = float((d ** 2).mean())
-    psnr = 10 * np.log10(255 ** 2 / mse) if mse else 99.0
-    ink = float((255 - got).sum() / max((255 - ref).sum(), 1e-9))
-    print(f"vs Chromium at {w}x{h}: mean error {d.mean():.2f}/255, PSNR {psnr:.1f} dB, ink ratio {ink:.4f}")
+
+    def score(ref, label):
+        d = np.abs(ref - got)
+        mse = float((d ** 2).mean())
+        psnr = 10 * np.log10(255 ** 2 / mse) if mse else 99.0
+        ink = float((255 - got).sum() / max((255 - ref).sum(), 1e-9))
+        print(f"vs {label} at {w}x{h}: mean error {d.mean():.2f}/255, PSNR {psnr:.1f} dB, ink ratio {ink:.4f}")
+        return d, ink
+    d, ink = score(over_white(image(res["r"], w, h), False), "Chromium")
+    ref = over_white(image(res["r"], w, h), False)
+    if "rs" in res:
+        ref = over_white(image(res["rs"], w, h), False)
+        d, ink = score(ref, "Chromium without the dropped features")
     report("geometry matches (ink ratio within 3%)", abs(ink - 1) < 0.03)
     report("minified renders identically", res["s"]["rgba"] == res["m"]["rgba"])
     if a.png:

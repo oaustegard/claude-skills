@@ -44,11 +44,20 @@ def _len(v, default=0.0, ref=None):
 class _Css:
     def __init__(self):
         self.rules = []      # (selector, props)
+        self.defaults = {}   # custom property -> @property initial-value
 
     def add(self, text):
         text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+        # keyframes are animation states; the static picture uses the base rules
+        text = re.sub(r"@keyframes[^{]*\{(?:[^{}]*\{[^}]*\})*[^}]*\}", "", text)
         for sel, body in re.findall(r"([^{}]+)\{([^}]*)\}", text):
             props = _style_props(body)
+            sel = sel.strip()
+            if sel.startswith("@property"):
+                name = sel.split()[-1]
+                if "initial-value" in props:
+                    self.defaults[name] = props["initial-value"]
+                continue
             for s in sel.split(","):
                 self.rules.append((s.strip(), props))
 
@@ -57,8 +66,9 @@ class _Css:
         cls = set((el.get("class") or "").split())
         eid, tag = el.get("id"), _tag(el)
         for sel, props in self.rules:
-            if (sel.startswith(".") and sel[1:] in cls) or (sel.startswith("#") and sel[1:] == eid) \
-                    or sel == tag or sel == "*":
+            last = sel.split()[-1] if sel.split() else sel   # '#scope .c0' -> '.c0' (descendant: assume it holds)
+            if (last.startswith(".") and last[1:] in cls) or (last.startswith("#") and last[1:] == eid) \
+                    or last == tag or last == "*" or (last == ":root" and tag == "svg"):
                 out.update(props)
         return out
 
@@ -111,7 +121,7 @@ class SvgReader:
         return self.scene
 
     def style(self, el, inherited):
-        st = {k: v for k, v in inherited.items() if k in _INHERITED}
+        st = {k: v for k, v in inherited.items() if k in _INHERITED or k.startswith("--")}
         for k in ("fill", "stroke", "stroke-width", "fill-opacity", "stroke-opacity", "fill-rule",
                   "stroke-linecap", "opacity", "display", "visibility", "color", "stop-color",
                   "stop-opacity"):
@@ -119,7 +129,23 @@ class SvgReader:
                 st[k] = el.get(k)
         st.update(self.css.match(el))
         st.update(_style_props(el.get("style")))
+        for k in list(st):
+            if "var(" in st[k] and not k.startswith("--"):
+                st[k] = self.resolve_var(st[k], st)
         return st
+
+    def resolve_var(self, v, st, depth=0):
+        """CSS var(--x[, fallback]) from inherited custom properties, then @property defaults."""
+        def rep(m):
+            name, fb = m.group(1), m.group(2)
+            val = st.get(name, self.css.defaults.get(name))
+            if val is None:
+                if fb is None:
+                    self.warn(f"undefined custom property {name}")
+                    return "none"
+                return fb.strip()
+            return self.resolve_var(val, st, depth + 1) if "var(" in val and depth < 8 else val
+        return re.sub(r"var\(\s*(--[\w-]+)\s*(?:,([^)]*))?\)", rep, v)
 
     def walk(self, el, inherited, m: Affine, opacity, top=False):
         tag = _tag(el)
@@ -132,6 +158,9 @@ class SvgReader:
         st = self.style(el, inherited)
         if st.get("display") == "none":
             return
+        for attr in ("mask", "clip-path", "filter"):
+            if el.get(attr) or st.get(attr) not in (None, "none"):
+                self.warn(f"{attr} ignored: the shapes under it draw unmasked")
         if not top:
             m = m @ parse_transform(el.get("transform"))
         op = opacity * _len(st.get("opacity"), 1.0)
@@ -149,6 +178,12 @@ class SvgReader:
                 return
             mm = m @ Affine.translate(_len(el.get("x")), _len(el.get("y")))
             if _tag(ref) == "symbol":
+                vb = ref.get("viewBox")
+                if vb and el.get("width") and el.get("height"):
+                    bx, by, bw, bh = [float(v) for v in _NUM.findall(vb)]
+                    sc = min(_len(el.get("width")) / bw, _len(el.get("height")) / bh)
+                    mm = mm @ Affine.translate((_len(el.get("width")) - bw * sc) / 2, (_len(el.get("height")) - bh * sc) / 2) \
+                        @ Affine.scale(sc) @ Affine.translate(-bx, -by)
                 for c in ref:
                     self.walk(c, st, mm, op)
             else:

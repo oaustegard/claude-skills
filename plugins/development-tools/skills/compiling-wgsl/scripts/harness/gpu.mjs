@@ -4,7 +4,7 @@
 //
 // Job kinds (all share one browser and one GPUDevice):
 //   {id, kind:"compile", wgsl}                       -> {messages}
-//   {id, kind:"render",  wgsl, width, height, time}  -> {rgba}  (vs/fs entry points, uniform
+//   {id, kind:"render",  wgsl, width, height, time, storage?}  -> {rgba}  (vs/fs entry points, uniform
 //        @group(0) @binding(0) holding vec4f(width, height, time, 0), rgba8unorm target)
 //   {id, kind:"svg",     svg, width, height}         -> {rgba}  (Chromium's own SVG raster)
 //   {id, kind:"webgl",   glsl, width, height, time}  -> {rgba}  (WebGL2 fragment shader, Shadertoy uniforms)
@@ -108,7 +108,15 @@ window.runJob = async (job) => {
       const ubuf = d.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
       d.queue.writeBuffer(ubuf, 0, new Float32Array([w, h, job.time || 0, 0]));
       let bg = null;
-      try { bg = d.createBindGroup({ layout: pipe.getBindGroupLayout(0), entries: [{ binding: 0, resource: { buffer: ubuf } }] }); } catch (e) {}
+      const entries = [{ binding: 0, resource: { buffer: ubuf } }];
+      let sbuf = null;
+      if (job.storage) {   // path data the shader reads from a storage buffer at binding 1
+        const data = unb64(job.storage);
+        sbuf = d.createBuffer({ size: Math.max(16, Math.ceil(data.length / 4) * 4), usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+        d.queue.writeBuffer(sbuf, 0, data);
+        entries.push({ binding: 1, resource: { buffer: sbuf } });
+      }
+      try { bg = d.createBindGroup({ layout: pipe.getBindGroupLayout(0), entries }); } catch (e) { return { ok: false, error: "bind group: " + e.message }; }
       const tex = d.createTexture({ size: [w, h], format: "rgba8unorm", usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC });
       const enc = d.createCommandEncoder();
       const pass = enc.beginRenderPass({ colorAttachments: [{ view: tex.createView(), loadOp: "clear", storeOp: "store", clearValue: [0, 0, 0, 0] }] });
@@ -119,7 +127,7 @@ window.runJob = async (job) => {
       if (err) return { ok: false, error: "pipeline: " + err.message, messages };
       const rgba = await readTexture(d, tex, w, h);
       const draw_ms = performance.now() - t1;
-      tex.destroy(); ubuf.destroy();
+      tex.destroy(); ubuf.destroy(); if (sbuf) sbuf.destroy();
       return { ok: true, rgba: b64(rgba), messages, compile_ms, draw_ms };
     }
     if (job.kind === "compute") {
