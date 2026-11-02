@@ -214,10 +214,10 @@ TABLE_ROW = 10        # s, e, fill rgba8, stroke rgba8, half width (f32 bits), f
 CONST_LIMIT = 8192
 SEGMENT_WARN = 20000
 
-TABLE_FN = """// draw table rows D[a..b) back to front over c
-fn tbl(p: vec2f, px: f32, a: i32, b: i32, c0: vec4f) -> vec4f {
+TABLE_FN = """// draw table rows D[a..b) back to front over c{DOC}
+fn tbl(p: vec2f, px: f32, a: i32, b: i32, c0: vec4f{ARG}) -> vec4f {
     var c = c0;
-    for (var i = a; i < b; i += 10) {
+    for (var i = a; i < b; i += 10) {{REVEAL}
         let hw = bitcast<f32>(D[i + 4]);
         let ctr = vec2f(f32(D[i + 6]), f32(D[i + 7])) * Q;
         let ext = vec2f(f32(D[i + 8]), f32(D[i + 9])) * Q + hw + 2. * px;
@@ -228,16 +228,27 @@ fn tbl(p: vec2f, px: f32, a: i32, b: i32, c0: vec4f) -> vec4f {
             var inside = r.z != 0.;
             if (fl & 4) != 0 { inside = (i32(r.z) & 1) != 0; }
             let k = unpack4x8unorm(bitcast<u32>(D[i + 2]));
-            c = over(c, vec4f(k.rgb * k.a, k.a) * cov(select(r.x, -r.x, inside) / px));
+            c = over(c, vec4f(k.rgb * k.a, k.a){W} * cov(select(r.x, -r.x, inside) / px));
         }
         if (fl & 2) != 0 {
             let k = unpack4x8unorm(bitcast<u32>(D[i + 3]));
-            c = over(c, vec4f(k.rgb * k.a, k.a) * scov(r.y / px, hw / px));
+            c = over(c, vec4f(k.rgb * k.a, k.a){W} * scov(r.y / px, hw / px));
         }
     }
     return c;
 }
 """
+
+
+def table_fn(paint: bool) -> str:
+    """tbl(); with paint, r0 is how many rows are revealed: later rows are not drawn yet (the
+    loop stops), and the row being revealed fades in."""
+    if not paint:
+        return TABLE_FN.replace("{DOC}", "").replace("{ARG}", "").replace("{REVEAL}", "").replace("{W}", "")
+    return (TABLE_FN.replace("{DOC}", "; rows from r0 on are not revealed yet")
+            .replace("{ARG}", ", r0: f32")
+            .replace("{REVEAL}", "\n        let w = clamp(r0 - f32((i - a) / 10), 0., 1.);\n        if w <= 0. { break; }")
+            .replace("{W}", " * w"))
 
 
 def _rgba8(rgba, alpha_mul) -> int:
@@ -322,6 +333,8 @@ class Gen:
         self.data_buffer: bytes | None = None
         self.table_rows = 0
         self.segments = 0
+        self.paint_in = getattr(scene, "paint_in", None)   # seconds to paint the scene in, shape by shape
+        self.ordinal = 0                                    # shapes drawn so far, in paint order
 
     # ---------------------------------------------------------------- points
     def local(self, ops, q="p"):
@@ -561,14 +574,25 @@ class Gen:
             return
         a = len(self.data)
         self.data += rows
-        self.table_rows += len(rows) // TABLE_ROW
+        n = len(rows) // TABLE_ROW
+        self.table_rows += n
         self.helpers.update({"pth", "tbl"})
-        self.body.append(f"    c = tbl(p, px, {a}, {len(self.data)}, c); // shapes drawn from a table: {len(rows) // TABLE_ROW}")
+        reveal = f", rv - {self.ordinal}" if self.paint_in else ""
+        self.body.append(f"    c = tbl(p, px, {a}, {len(self.data)}, c{reveal}); // shapes drawn from a table: {n}")
+        self.ordinal += n
 
     def shape(self, k, sh: Shape):
         g = sh.geom
         b = self.body
-        b.append(f"    {{ // shape {k}: {type(g).__name__.lower()}")
+        weight = ""
+        if self.paint_in:
+            o = self.ordinal
+            self.ordinal += 1
+            b.append(f"    if rv > {o} {{ // shape {k}: {type(g).__name__.lower()}, revealed {o}th")
+            b.append(f"        let w = clamp(rv - {o}, 0., 1.);")
+            weight = " * w"
+        else:
+            b.append(f"    {{ // shape {k}: {type(g).__name__.lower()}")
         cap = CAPS.get(sh.linecap, 0)
         bake = isinstance(g, (Path, Circle, Ellipse, Rect)) and ops_static(sh.ops) and not g.ops
         m = ops_affine(sh.ops) if bake else None
@@ -610,11 +634,11 @@ class Gen:
         soft = f" + {_fmt(sh.soft)}" if sh.soft else ""
         if sh.fill is not None:
             col = self.paint(sh.fill, _mul(sh.opacity, sh.fill_opacity), q, local_from_q, geom_box)
-            b.append(f"        c = over(c, {col} * cov(({d}){mul} / (px{soft})));")
+            b.append(f"        c = over(c, {col}{weight} * cov(({d}){mul} / (px{soft})));")
         if sh.stroke is not None:
             col = self.paint(sh.stroke, _mul(sh.opacity, sh.stroke_opacity), q, local_from_q, geom_box)
             dist = sd if sd is not None else f"abs({d})"
-            b.append(f"        c = over(c, {col} * scov(({dist}){mul} / (px{soft}), {wg(smul(hw, scale))} / (px{soft})));")
+            b.append(f"        c = over(c, {col}{weight} * scov(({dist}){mul} / (px{soft}), {wg(smul(hw, scale))} / (px{soft})));")
         if culled:
             b.append("    }")
         b.append("    }")
@@ -651,7 +675,7 @@ class Gen:
                 out.append(f"const D = array<i32, {len(self.data)}>(\n" + ",\n".join(rows) + "\n);\n")
         for h in ("rot", "ell", "box", "smin", "pth", "tbl"):
             if h in self.helpers:
-                text = TABLE_FN if h == "tbl" else HELPERS[h]
+                text = table_fn(bool(self.paint_in)) if h == "tbl" else HELPERS[h]
                 if h == "pth":
                     # fill-only scenes get the path loop without stroke and cap code
                     text = text.replace("{STROKE}", STROKE_BLOCK if self.path_strokes else "")
@@ -664,6 +688,12 @@ class Gen:
         out.append(f"    let p = (f.xy - (u.r - vec2f({_fmt(vw)}, {_fmt(vh)}) * s) * .5) / s{off};")
         out.append("    let px = 1. / s;")
         out.append(f"    var c = {bg};")
+        if self.paint_in:
+            # rv = shapes revealed so far; looping scenes hold the finished picture for a quarter
+            # of the paint time, then start again
+            dur = _fmt(self.paint_in)
+            t = f"fract(u.t / ({dur} * 1.25)) * 1.25" if getattr(s, "paint_loop", False) else f"u.t / {dur}"
+            out.append(f"    let rv = clamp({t}, 0., 1.) * {self.ordinal};")
         out.extend(self.body)
         out.append("    return c;")
         out.append("}")

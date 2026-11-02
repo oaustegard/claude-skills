@@ -2,7 +2,7 @@
 name: compiling-wgsl
 description: "Produces and shrinks WGSL shaders. Converts GLSL (WebGL 1 and 2, Shadertoy mainImage code, Vulkan GLSL 450, compute shaders) to WGSL and checks the port pixel by pixel against WebGL; minifies a WebGPU shader (renaming, dead code, literal and type shortening) and proves the result unchanged with naga, Chrome's Tint and bit-identical compute runs; compiles an SVG file or a Python-built scene of circles, rects, paths, gradients and animated transforms into one resolution-independent WGSL fragment shader. Use for convert GLSL to WGSL, port this Shadertoy to WebGPU, WebGL shader to WebGPU, minify this WGSL, shrink my shader, make the shader smaller, WGSL optimizer, turn this SVG into a shader, draw this icon in WebGPU, SDF shapes in WGSL, smooth union shapes, animated vector graphics on the GPU, pretty-print WGSL."
 metadata:
-  version: 0.4.0
+  version: 0.5.0
 ---
 
 # Compiling WGSL
@@ -139,6 +139,17 @@ The shader's interface is fixed:
 
 `forge html` writes a working host page to copy from.
 
+**Self-painting.** `--paint-in 4` (`Scene(paint_in=4)`) makes the shapes appear one by one
+in paint order over 4 seconds of the time uniform, each fading in over its own slot.
+`--loop` holds the finished picture, then starts again, and `forge html` shows it live.
+Table rows stop the loop at the first unrevealed row, so early frames are also cheaper to
+draw. The reveal follows SVG order (back to front), because reordering overlapping shapes
+would change the picture. `verify.py svg X.svg --paint-in 4` checks the contract:
+- **t=0:** only the background shows.
+- **While painting:** no pixel's coverage ever decreases. Ink can legitimately fall when
+  light shapes paint over dark ones, so coverage is the measure.
+- **Finished frame:** bit-identical to the static shader, minified or not.
+
 **Size against accuracy.** `--grid N` (`Scene(grid=N)`) sets the path coordinate step,
 1/N of a nominal pixel. The default of 64 sits at the knee. On Twemoji's lion at 512 px,
 grid 16 saves 10% of gzip bytes and costs 4.6 dB, and grid 128 adds 4% for 0.6 dB.
@@ -259,6 +270,11 @@ them. Check those by rendering and reading the image.
   dropped. A missing element still scores well when it is small.
 
 ## Diagnosed failures (fixed, kept as signals)
+
+- 2026-11-02, **paint-in check**: the first version required ink to rise from frame to
+  frame. It failed on Twemoji's lion, where the dark mane paints first and the light face
+  covers it, so ink fell from 131% to 100% of the final value. That is correct painter's
+  order. The invariant is coverage per pixel, which is what the check now measures.
 
 - 2026-11-02, **real Python-made SVGs from the experiments repo**:
   - **matplotlib Pareto chart:** 235 KB of unrolled WGSL killed SwiftShader's pipeline

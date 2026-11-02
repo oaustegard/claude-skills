@@ -326,7 +326,8 @@ _TF_KEYS = {"transform", "translate", "rotate", "scale"}
 
 
 class Scene:
-    def __init__(self, width, height, viewbox=None, background=None, tolerance=0.2, grid=64):
+    def __init__(self, width, height, viewbox=None, background=None, tolerance=0.2, grid=64,
+                 paint_in=None, paint_loop=False):
         self.width, self.height = width, height
         self.viewbox = tuple(viewbox) if viewbox else (0.0, 0.0, float(width), float(height))
         self.background = parse_color(background) if background else None
@@ -335,6 +336,10 @@ class Scene:
         # Measured on Twemoji's lion at 512 px: 16 -> 33.2 dB, 64 -> 37.8 dB, 128 -> 38.4 dB,
         # gzip bytes 2595 / 2889 / 3003. Coarser grids pay off only for small, simple icons.
         self.grid = grid
+        # paint_in=seconds: shapes appear one by one in paint order over that time, each fading
+        # in over its own slot; paint_loop holds the finished picture, then starts again
+        self.paint_in = paint_in
+        self.paint_loop = paint_loop
         self.shapes: list[Shape] = []
         self._ops: list = []
         self._style: dict = {}
