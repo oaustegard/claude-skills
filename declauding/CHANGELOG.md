@@ -4,6 +4,12 @@ All notable changes to the `declauding` skill are documented in this file. The f
 
 ## [0.12.0] - 2026-11-02
 
+### Other
+
+- declauding 0.12.0: the newcomer read (step 4a) and its Stop hook
+
+## [0.12.0] - 2026-11-02
+
 ### Added
 
 - Step 4a, the newcomer read: `scripts/fresh_eyes.py packet FILE...` builds a
