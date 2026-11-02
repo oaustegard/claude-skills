@@ -144,7 +144,7 @@ chunk it came from before relaying it.
   score transcript segments first, then only the chunks inside the top 40% of
   segments, at 8x view. Over 52 delegations from 16 archived sessions (19 to
   581 chunks) it was never worse than the flat 4x filter and better on 3
-  (+2.7% fact recall, CI +0.0% to +6.4%), at ~40% fewer Jev tokens. It is the
+  (+2.7% fact recall, CI +0.0% to +6.4%), at a median 31% fewer Jev tokens. It is the
   default; `CONTEXT_FILTER_MODE=flat` restores the flat filter.
 - 2026-11-02: on sessions of ~500+ chunks the global-state loop never
   terminated and the hook timed out at 120 s, passing no context (fixed in

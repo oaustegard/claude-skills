@@ -4,7 +4,7 @@
 - Hierarchical selection is the default (`scripts/hierfilter.py`): Jev scores
   segments of the session from digests, keeps the top 40% (at least 3), then
   scores only their chunks at 8x view. Never worse than the flat filter on 52
-  delegations from 16 sessions, better on 3, ~40% fewer Jev tokens.
+  delegations from 16 sessions, better on 3, a median 31% fewer Jev tokens.
   `CONTEXT_FILTER_MODE=flat` (hook) or `--mode flat` (`preview.py`) keeps the
   old path. Evidence: `oaustegard/experiments` `subagent-context-filter`.
 
