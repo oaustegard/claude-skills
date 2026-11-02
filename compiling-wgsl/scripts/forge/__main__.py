@@ -4,7 +4,9 @@
     python3 -m forge fmt shader.wgsl                 # pretty-print (parse + print)
     python3 -m forge svg drawing.svg [-o out.wgsl] [--minify] [--tolerance 0.2]
     python3 -m forge py scene.py [-o out.wgsl] [--minify]   # module with build() -> Scene
-    python3 -m forge html in.(svg|py|wgsl) -o page.html     # self-contained live preview
+    python3 -m forge glsl shader.glsl [-o out.wgsl] [--minify] [--stage frag|vert|compute]
+                                  [--backend auto|naga|glslang]   # GLSL / WebGL / Shadertoy -> WGSL
+    python3 -m forge html in.(svg|py|wgsl|glsl) -o page.html     # self-contained live preview
 
 Output goes to stdout unless -o is given. Byte counts go to stderr.
 """
@@ -23,7 +25,7 @@ from .wgsl import parse
 PREVIEW = """<!doctype html><meta charset="utf-8"><title>wgsl-forge preview</title>
 <style>html,body{margin:0;height:100%;background:#fff}canvas{width:100%;height:100%;display:block}</style>
 <canvas></canvas><script type="module">
-const code = %s;
+const code = __CODE__;
 const cv = document.querySelector("canvas");
 const ad = await navigator.gpu?.requestAdapter();
 if (!ad) { document.body.textContent = "WebGPU is not available in this browser."; throw 0; }
@@ -58,6 +60,32 @@ def _load_scene(path):
     return mod.build()
 
 
+def _print_bindings(wgsl: str) -> None:
+    """The resource interface the host must supply, with buffer sizes and member offsets."""
+    from .reflect import bindings, buffer_type
+    try:
+        bs, lay = bindings(parse(wgsl))
+    except ValueError:
+        return
+    for g, b, d in bs:
+        kind = buffer_type(d) or (d.type.name if d.type is not None else "?")
+        line = f"binding @group({g}) @binding({b}) {d.name}: {kind}"
+        t = lay.resolve_alias(d.type) if d.type is not None else None
+        if buffer_type(d) and t is not None and t.name in lay.structs:
+            try:
+                size, _ = lay.size_align(t)
+                offs, off = [], 0
+                for mb in lay.structs[t.name].members:
+                    ms, ma = lay.size_align(mb.type)
+                    off = (off + ma - 1) // ma * ma
+                    offs.append(f"{mb.name}@{off}")
+                    off += ms
+                line += f", {size} bytes: " + " ".join(offs)
+            except ValueError:
+                pass
+        print(line, file=sys.stderr)
+
+
 def _emit(text, out):
     if out:
         Path(out).write_text(text)
@@ -82,6 +110,12 @@ def main(argv=None):
         p.add_argument("-o", "--out")
         p.add_argument("--minify", action="store_true")
         p.add_argument("--tolerance", type=float, default=None)
+    g = sub.add_parser("glsl")
+    g.add_argument("file")
+    g.add_argument("-o", "--out")
+    g.add_argument("--minify", action="store_true")
+    g.add_argument("--stage", choices=["frag", "vert", "compute"])
+    g.add_argument("--backend", default="auto", choices=["auto", "naga", "glslang"])
     h = sub.add_parser("html")
     h.add_argument("file")
     h.add_argument("-o", "--out", required=True)
@@ -96,10 +130,31 @@ def main(argv=None):
         _emit(out, a.out)
     elif a.cmd == "fmt":
         _emit(to_wgsl(parse(Path(a.file).read_text()), pretty=True), a.out)
+    elif a.cmd == "glsl":
+        from .glsl import GLSLError, glsl_to_wgsl
+        try:
+            c = glsl_to_wgsl(Path(a.file).read_text(), stage=a.stage, filename=a.file, backend=a.backend)
+        except GLSLError as e:
+            print(str(e), file=sys.stderr)
+            sys.exit(1)
+        for n in c.notes:
+            print(f"note: {n}", file=sys.stderr)
+        src = minify(c.wgsl) if a.minify else c.wgsl
+        print(f"{c.stage}{' (Shadertoy)' if c.shadertoy else ''} via {c.backend}: {len(src)} bytes of WGSL",
+              file=sys.stderr)
+        _print_bindings(c.wgsl)
+        _emit(src, a.out)
     elif a.cmd in ("svg", "py", "html"):
         path = Path(a.file)
         if path.suffix == ".wgsl":
             src = path.read_text()
+        elif path.suffix in (".glsl", ".frag", ".fs"):
+            from .glsl import glsl_to_wgsl
+            c = glsl_to_wgsl(path.read_text(), filename=str(path))
+            if not c.shadertoy:
+                print("html preview needs Shadertoy-style code (mainImage)", file=sys.stderr)
+                sys.exit(1)
+            src = c.wgsl
         else:
             if path.suffix == ".svg":
                 from .svg import read_svg
@@ -115,7 +170,7 @@ def main(argv=None):
             src = minify(src)
         print(f"{len(src)} bytes of WGSL", file=sys.stderr)
         if a.cmd == "html":
-            Path(a.out).write_text(PREVIEW % json.dumps(src))
+            Path(a.out).write_text(PREVIEW.replace("__CODE__", json.dumps(src)))
         else:
             _emit(src, a.out)
 
