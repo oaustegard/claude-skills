@@ -31,6 +31,12 @@
   chunks the task needs. `scripts/preview.py` shows the selection before the
   prompt is written. Measured in `oaustegard/experiments/subagent-context-filter`.
 
+## [0.2.3] - 2026-11-02
+
+### Other
+
+- delegating-with-context 0.2.3: fix infinite loop on 500+ chunk sessions
+
 ## [0.2.2] - 2026-10-11
 
 ### Other
