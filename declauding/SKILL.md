@@ -2,7 +2,7 @@
 name: declauding
 description: Load at the start of any task whose deliverable is prose another person will read — a PR description, commit message, README, doc, postmortem, blog post, issue or review comment, report, release note or essay — before drafting it, whether the result is pushed, posted, published or saved to a file, without being asked. Draft, then run this pass on the draft before handing it over. Also use when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make it sound human", or asks for a voice, tone or register edit. Rewrites the constructions that mark prose as model-written (staged reveals, verdict headers, aphoristic closers, "it's not X, it's Y", em-dash drama, forced triads, flat-certainty adverbs, noun stacks, dropped 'that') into plain technical prose and checks the rewrite kept every claim. Not for fiction, poetry, code, or quoted text; for a full adversarial review of a deliverable use challenging.
 metadata:
-  version: 0.12.1
+  version: 0.12.2
 ---
 
 # Declauding
@@ -216,8 +216,9 @@ what preceded it? delete it).
 
 **4a. Newcomer read, when the draft describes something that just changed.**
 Run this step on a README, doc, page or results section written or revised right
-after a change to the thing it describes. Text written then takes its focus
-from the change, and no sentence-level pass sees it. A bad example: a game's
+after a change to the thing it describes. The failure it catches: text that
+leans on a version the reader never saw, because it was written with the
+change in mind. No sentence-level pass sees it. A bad example: a game's
 start-screen step reading *pick your options here, upright*, written after the
 options moved off a sideways screen. *Here* and *upright* only mean something
 to a reader who saw that screen; the step a newcomer needs is *lock rotation in
@@ -225,8 +226,8 @@ portrait, then choose your options below*. The same failure shows as a README
 that explains how a bug was fixed where the reader needs to know how the
 feature behaves, or as one section updated while another still describes the
 old behaviour. Words like *now* and *no longer* are rarely present, and
-automatic judges did not catch the failure (`references/fresh-eyes.md`). A reader who
-never saw the old version does. You cannot be that reader for your own text, so
+automatic judges missed it (`references/fresh-eyes.md`). A reader who never
+saw the old version catches it. You cannot be that reader for your own text, so
 hand the text to one:
 
 ```

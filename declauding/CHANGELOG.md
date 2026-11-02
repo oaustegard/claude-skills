@@ -2,6 +2,13 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.12.2] - 2026-11-02
+
+### Fixed
+
+- `fresh_eyes.py` skips commits by bots (author containing `[bot]`), which a
+  fetch or rebase pulls into the turn's window.
+
 ## [0.12.1] - 2026-11-02
 
 ### Other
