@@ -4,6 +4,12 @@ All notable changes to the `making-kinescript-videos` skill are documented in th
 
 ## [0.1.1] - 2026-11-02
 
+### Other
+
+- making-kinescript-videos 0.1.1: Kokoro reference corrections from web research, each re-tested
+
+## [0.1.1] - 2026-11-02
+
 ### Changed
 
 - Kokoro reference: asterisks are sometimes spoken, links need a space on each side, 4-digit numbers read as years, rate 0.6 adds a phantom syllable, short lines take a different style row.
