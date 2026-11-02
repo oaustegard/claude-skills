@@ -4,6 +4,12 @@ All notable changes to the `making-kinescript-videos` skill are documented in th
 
 ## [0.1.0] - 2026-11-02
 
+### Other
+
+- making-kinescript-videos 0.1.0: Kinescript skill with a Kokoro speech reference
+
+## [0.1.0] - 2026-11-02
+
 ### Added
 
 - Initial skill: Kinescript setup on a CPU container (skia-python ≥ 144, EGL libraries, Kokoro in a Python 3.12 venv through `KINE_VOICE_CMD`), the write → voice → check → look → render loop, narration pace and mix, and gotchas from the gPu(doom) and games promos checked against 1.6.1.
