@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.1031.1027"
+    "version": "2026.1106.1907"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -13,7 +13,7 @@
       "name": "ai-and-reasoning",
       "description": "AI model invocation, multi-agent orchestration, prompt distillation, and structured reasoning frameworks.",
       "source": "./plugins/ai-and-reasoning",
-      "version": "2.7.2",
+      "version": "2.8.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",
@@ -95,6 +95,7 @@
       "keywords": [
         "check-tools",
         "coding-mojo",
+        "compiling-wgsl",
         "composing-html",
         "creating-bookmarklets",
         "creating-mcp-servers",
@@ -178,6 +179,7 @@
         "drawing-with-pycairo",
         "image-to-svg",
         "listening-to-music",
+        "making-kinescript-videos",
         "making-remotion-videos",
         "parsing-video",
         "processing-images",
@@ -257,10 +259,24 @@
       ]
     },
     {
+      "name": "declauding",
+      "description": "Load at the start of any task whose deliverable is prose another person will read \u2014 a PR description, commit message, README, doc, postmortem, blog post, issue or review comment, report, release note or essay \u2014 before drafting it, whether the result is pushed, posted, published or saved to a file, without being asked. Draft, then run this pass on the draft before handing it over. Also use when someone says \"de-claude\", \"de-slop\", \"humanize this\", \"this reads like AI\", \"make it sound human\", or asks for a voice, tone or register edit. Rewrites the constructions that mark prose as model-written (staged reveals, verdict headers, aphoristic closers, \"it's not X, it's Y\", em-dash drama, forced triads, flat-certainty adverbs, noun stacks, dropped 'that') into plain technical prose and checks the rewrite kept every claim. Not for fiction, poetry, code, or quoted text; for a full adversarial review of a deliverable use challenging.",
+      "source": "./plugins/declauding",
+      "version": "0.12.3",
+      "repository": "https://github.com/oaustegard/claude-skills",
+      "homepage": "https://github.com/oaustegard/claude-skills",
+      "license": "MIT",
+      "category": "Hooks",
+      "keywords": [
+        "declauding",
+        "hooks"
+      ]
+    },
+    {
       "name": "delegating-with-context",
       "description": "Delegates work to a subagent or spawned session by writing only the task, while a PreToolUse hook pages the parent transcript through Jev and appends the chunks that task needs. Use before writing any Agent tool prompt or create_session prompt, and when asked to delegate this, hand this off, use a subagent, spawn an agent, run agents in parallel, or brief a subagent on what we have done so far.",
       "source": "./plugins/delegating-with-context",
-      "version": "0.2.2",
+      "version": "0.3.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",

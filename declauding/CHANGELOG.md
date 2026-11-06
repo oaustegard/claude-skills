@@ -2,6 +2,67 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.12.3] - 2026-11-02
+
+### Other
+
+- declauding 0.12.3: fresh_eyes counts only commits made in this clone
+
+## [0.12.3] - 2026-11-02
+
+### Fixed
+
+- `fresh_eyes.py` counts a commit as the turn's only if the clone's reflog shows
+  it was made there (commit, rebase or pull pick, cherry-pick, merge, revert),
+  so commits another session pushed and a pull or rebase brought in are left
+  out.
+
+## [0.12.2] - 2026-11-02
+
+### Other
+
+- declauding 0.12.2: fresh_eyes skips bot commits; step 4a names the failure
+
+## [0.12.2] - 2026-11-02
+
+### Fixed
+
+- `fresh_eyes.py` skips commits by bots (author containing `[bot]`), which a
+  fetch or rebase pulls into the turn's window.
+
+## [0.12.1] - 2026-11-02
+
+### Other
+
+- declauding 0.12.1: fresh_eyes in shallow clones; clearer step 4a
+
+## [0.12.1] - 2026-11-02
+
+### Fixed
+
+- `fresh_eyes.py` in a shallow clone: the boundary commit, which git shows as
+  adding every file, no longer counts as the turn's, and the turn's own commits
+  are diffed against their parent.
+
+## [0.12.0] - 2026-11-02
+
+### Other
+
+- declauding 0.12.0: the newcomer read (step 4a) and its Stop hook
+
+## [0.12.0] - 2026-11-02
+
+### Added
+
+- Step 4a, the newcomer read: `scripts/fresh_eyes.py packet FILE...` builds a
+  packet of the current text and the prompt for a subagent that never saw the
+  earlier version. It catches text whose focus follows a change instead of the
+  reader, which the sentence-level passes cannot see.
+- `hooks/hooks.json`: a Stop hook that runs step 4a when a turn has changed
+  visible prose in a `.md` or `.html` file, found through git or by write time.
+  Ships as the `declauding` plugin; logs each run to
+  `~/.claude/fresh-eyes-log.jsonl`.
+
 ## [0.11.0] - 2026-10-27
 
 ### Other

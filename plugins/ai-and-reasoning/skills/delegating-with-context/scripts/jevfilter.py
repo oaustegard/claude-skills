@@ -77,12 +77,22 @@ def _global_state(task: str, chunks: list[dict]) -> dict:
     index = [f"c{c['id']} {c['kind']}{' ' + c.get('tool', '') if c['kind'] == 'tool' else ''}: "
              + clip((c.get("text") or c.get("input") or "").replace("\n", " "), 70) for c in chunks]
     g = {"task": task, "user_messages": users, "session_index": index}
-    while tokens(json.dumps(g)) > GLOBAL_TOKENS and len(g["session_index"]) > 0:
+    while tokens(json.dumps(g)) > GLOBAL_TOKENS:
+        before = json.dumps(g)
         g["session_index"] = [clip(x, max(20, len(x) // 2)) for x in g["session_index"]]
         if tokens(json.dumps(g)) > GLOBAL_TOKENS:
             g["user_messages"] = [clip(u, 150) for u in g["user_messages"]]
-        if all(len(x) <= 24 for x in g["session_index"]):
+        # clip(x, 20) returns 25 chars, a fixed point: stop when a pass changes nothing.
+        # The old exit test (every entry <= 24 chars) could never pass, so a session
+        # whose index outgrew GLOBAL_TOKENS (~500+ chunks) looped forever.
+        if json.dumps(g) == before:
             break
+    # Clipping bottomed out and it still does not fit: thin the index (ids stay in
+    # each entry), then drop the oldest user messages.
+    while tokens(json.dumps(g)) > GLOBAL_TOKENS and len(g["session_index"]) > 1:
+        g["session_index"] = g["session_index"][::2]
+    while tokens(json.dumps(g)) > GLOBAL_TOKENS and len(g["user_messages"]) > 1:
+        g["user_messages"] = g["user_messages"][1:]
     return g
 
 

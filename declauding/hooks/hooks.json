@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 20,
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/skills/declauding/scripts/fresh_eyes.py\" hook"
+          }
+        ]
+      }
+    ]
+  }
+}

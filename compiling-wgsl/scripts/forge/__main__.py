@@ -1,0 +1,215 @@
+"""wgsl-forge command line.
+
+    python3 -m forge minify shader.wgsl [-o out.wgsl] [--no-aliases] [--map]
+    python3 -m forge fmt shader.wgsl                 # pretty-print (parse + print)
+    python3 -m forge svg drawing.svg [-o out.wgsl] [--minify] [--tolerance 0.2]
+    python3 -m forge py scene.py [-o out.wgsl] [--minify]   # module with build() -> Scene
+    python3 -m forge glsl shader.glsl [-o out.wgsl] [--minify] [--stage frag|vert|compute]
+                                  [--backend auto|naga|glslang]   # GLSL / WebGL / Shadertoy -> WGSL
+    python3 -m forge html in.(svg|py|wgsl|glsl) -o page.html     # self-contained live preview
+
+Output goes to stdout unless -o is given. Byte counts go to stderr.
+"""
+from __future__ import annotations
+
+import argparse
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+from .minify import Options, minify
+from .printer import to_wgsl
+from .wgsl import parse
+
+PREVIEW = """<!doctype html><meta charset="utf-8"><title>wgsl-forge preview</title>
+<style>html,body{margin:0;height:100%;background:#fff}canvas{width:100%;height:100%;display:block}</style>
+<canvas></canvas><script type="module">
+const code = __CODE__;
+const cv = document.querySelector("canvas");
+const ad = await navigator.gpu?.requestAdapter();
+if (!ad) { document.body.textContent = "WebGPU is not available in this browser."; throw 0; }
+const dev = await ad.requestDevice();
+const ctx = cv.getContext("webgpu"), fmt = navigator.gpu.getPreferredCanvasFormat();
+ctx.configure({ device: dev, format: fmt, alphaMode: "premultiplied" });
+const mod = dev.createShaderModule({ code });
+const data = __DATA__;   // base64 path data for a storage buffer at binding 1, or null
+const pipe = dev.createRenderPipeline({ layout: "auto", vertex: { module: mod, entryPoint: "vs" },
+  fragment: { module: mod, entryPoint: "fs", targets: [{ format: fmt }] } });
+const ub = dev.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+const entries = [{ binding: 0, resource: { buffer: ub } }];
+if (data) {
+  const bytes = Uint8Array.from(atob(data), (ch) => ch.charCodeAt(0));
+  const sb = dev.createBuffer({ size: Math.ceil(bytes.length / 4) * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+  dev.queue.writeBuffer(sb, 0, bytes);
+  entries.push({ binding: 1, resource: { buffer: sb } });
+}
+const bg = dev.createBindGroup({ layout: pipe.getBindGroupLayout(0), entries });
+const t0 = performance.now();
+function frame() {
+  const w = cv.width = cv.clientWidth * devicePixelRatio, h = cv.height = cv.clientHeight * devicePixelRatio;
+  dev.queue.writeBuffer(ub, 0, new Float32Array([w, h, (performance.now() - t0) / 1000, 0]));
+  const enc = dev.createCommandEncoder();
+  const pass = enc.beginRenderPass({ colorAttachments: [{ view: ctx.getCurrentTexture().createView(), loadOp: "clear", storeOp: "store", clearValue: [0, 0, 0, 0] }] });
+  pass.setPipeline(pipe); pass.setBindGroup(0, bg); pass.draw(3); pass.end();
+  dev.queue.submit([enc.finish()]);
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+"""
+
+
+def _load_scene(path):
+    spec = importlib.util.spec_from_file_location("scene_module", path)
+    mod = importlib.util.module_from_spec(spec)
+    sys.path.insert(0, str(Path(path).resolve().parent))
+    spec.loader.exec_module(mod)
+    return mod.build()
+
+
+def _print_bindings(wgsl: str) -> None:
+    """The resource interface the host must supply, with buffer sizes and member offsets."""
+    from .reflect import bindings, buffer_type
+    try:
+        bs, lay = bindings(parse(wgsl))
+    except ValueError:
+        return
+    for g, b, d in bs:
+        kind = buffer_type(d) or (d.type.name if d.type is not None else "?")
+        line = f"binding @group({g}) @binding({b}) {d.name}: {kind}"
+        t = lay.resolve_alias(d.type) if d.type is not None else None
+        if buffer_type(d) and t is not None and t.name in lay.structs:
+            try:
+                size, _ = lay.size_align(t)
+                offs, off = [], 0
+                for mb in lay.structs[t.name].members:
+                    ms, ma = lay.size_align(mb.type)
+                    off = (off + ma - 1) // ma * ma
+                    offs.append(f"{mb.name}@{off}")
+                    off += ms
+                line += f", {size} bytes: " + " ".join(offs)
+            except ValueError:
+                pass
+        print(line, file=sys.stderr)
+
+
+def _emit(text, out):
+    if out:
+        Path(out).write_text(text)
+    else:
+        sys.stdout.write(text if text.endswith("\n") else text + "\n")
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(prog="python3 -m forge")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    m = sub.add_parser("minify")
+    m.add_argument("file")
+    m.add_argument("-o", "--out")
+    m.add_argument("--no-aliases", action="store_true", help="skip type aliases (better gzip)")
+    m.add_argument("--keep", default="", help="comma-separated names never renamed or dropped")
+    f = sub.add_parser("fmt")
+    f.add_argument("file")
+    f.add_argument("-o", "--out")
+    for name in ("svg", "py"):
+        p = sub.add_parser(name)
+        p.add_argument("file")
+        p.add_argument("-o", "--out")
+        p.add_argument("--minify", action="store_true")
+        p.add_argument("--tolerance", type=float, default=None)
+        p.add_argument("--paint-in", type=float, default=None,
+                       help="seconds over which the shapes appear one by one (self-painting)")
+        p.add_argument("--loop", action="store_true", help="with --paint-in: repeat after a pause")
+        p.add_argument("--grid", type=int, default=None,
+                       help="path coordinate steps per nominal pixel (default 64; 16 is ~10%% smaller, ~4 dB worse)")
+    g = sub.add_parser("glsl")
+    g.add_argument("file")
+    g.add_argument("-o", "--out")
+    g.add_argument("--minify", action="store_true")
+    g.add_argument("--stage", choices=["frag", "vert", "compute"])
+    g.add_argument("--backend", default="auto", choices=["auto", "naga", "glslang"])
+    h = sub.add_parser("html")
+    h.add_argument("file")
+    h.add_argument("-o", "--out", required=True)
+    h.add_argument("--minify", action="store_true")
+    h.add_argument("--paint-in", type=float, default=None)
+    h.add_argument("--loop", action="store_true")
+    h.add_argument("--grid", type=int, default=None)
+    a = ap.parse_args(argv)
+
+    if a.cmd == "minify":
+        src = Path(a.file).read_text()
+        opts = Options(type_aliases=not a.no_aliases, keep=set(filter(None, a.keep.split(","))))
+        out = minify(src, opts)
+        print(f"{len(src)} -> {len(out)} bytes", file=sys.stderr)
+        _emit(out, a.out)
+    elif a.cmd == "fmt":
+        _emit(to_wgsl(parse(Path(a.file).read_text()), pretty=True), a.out)
+    elif a.cmd == "glsl":
+        from .glsl import GLSLError, glsl_to_wgsl
+        try:
+            c = glsl_to_wgsl(Path(a.file).read_text(), stage=a.stage, filename=a.file, backend=a.backend)
+        except GLSLError as e:
+            print(str(e), file=sys.stderr)
+            sys.exit(1)
+        for n in c.notes:
+            print(f"note: {n}", file=sys.stderr)
+        src = minify(c.wgsl) if a.minify else c.wgsl
+        print(f"{c.stage}{' (Shadertoy)' if c.shadertoy else ''} via {c.backend}: {len(src)} bytes of WGSL",
+              file=sys.stderr)
+        _print_bindings(c.wgsl)
+        _emit(src, a.out)
+    elif a.cmd in ("svg", "py", "html"):
+        path = Path(a.file)
+        data = None
+        if path.suffix == ".wgsl":
+            src = path.read_text()
+        elif path.suffix in (".glsl", ".frag", ".fs"):
+            from .glsl import glsl_to_wgsl
+            c = glsl_to_wgsl(path.read_text(), filename=str(path))
+            if not c.shadertoy:
+                print("html preview needs Shadertoy-style code (mainImage)", file=sys.stderr)
+                sys.exit(1)
+            src = c.wgsl
+        else:
+            if path.suffix == ".svg":
+                from .svg import read_svg
+                scene = read_svg(path.read_text(), **({"tolerance": a.tolerance} if getattr(a, "tolerance", None) else {}))
+            else:
+                scene = _load_scene(path)
+                if getattr(a, "tolerance", None):
+                    scene.tolerance = a.tolerance
+            if getattr(a, "grid", None):
+                scene.grid = a.grid
+            if getattr(a, "paint_in", None):
+                scene.paint_in = a.paint_in
+                scene.paint_loop = a.loop
+            for w in scene.warnings:
+                print(f"warning: {w}", file=sys.stderr)
+            src = scene.compile()
+            data = scene.data_buffer
+        if getattr(a, "minify", False):
+            src = minify(src)
+        print(f"{len(src)} bytes of WGSL", file=sys.stderr)
+        if data is not None:
+            print(f"path data is {len(data)} bytes, read from a storage buffer at @group(0) "
+                  f"@binding(1)", file=sys.stderr)
+        if a.cmd == "html":
+            import base64
+            b64 = json.dumps(base64.b64encode(data).decode()) if data is not None else "null"
+            Path(a.out).write_text(PREVIEW.replace("__CODE__", json.dumps(src)).replace("__DATA__", b64))
+        else:
+            _emit(src, a.out)
+            if data is not None:
+                if not a.out:
+                    print("error: this scene needs its path data file; pass -o so it can be written "
+                          "next to the shader", file=sys.stderr)
+                    sys.exit(2)
+                Path(a.out).with_suffix(".bin").write_bytes(data)
+                print(f"wrote {Path(a.out).with_suffix('.bin')} (upload it to the storage buffer at "
+                      f"binding 1)", file=sys.stderr)
+
+
+if __name__ == "__main__":
+    main()

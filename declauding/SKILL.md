@@ -2,7 +2,7 @@
 name: declauding
 description: Load at the start of any task whose deliverable is prose another person will read — a PR description, commit message, README, doc, postmortem, blog post, issue or review comment, report, release note or essay — before drafting it, whether the result is pushed, posted, published or saved to a file, without being asked. Draft, then run this pass on the draft before handing it over. Also use when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make it sound human", or asks for a voice, tone or register edit. Rewrites the constructions that mark prose as model-written (staged reveals, verdict headers, aphoristic closers, "it's not X, it's Y", em-dash drama, forced triads, flat-certainty adverbs, noun stacks, dropped 'that') into plain technical prose and checks the rewrite kept every claim. Not for fiction, poetry, code, or quoted text; for a full adversarial review of a deliverable use challenging.
 metadata:
-  version: 0.11.0
+  version: 0.12.3
 ---
 
 # Declauding
@@ -213,6 +213,44 @@ coding-session report, read 53 to 56 first.
 (is an isolated line a real pivot or a drum roll?), fragment runs, rhetorical
 questions, and the closer (does the last paragraph paraphrase the subtext of
 what preceded it? delete it).
+
+**4a. Newcomer read, when the draft describes something that just changed.**
+Run this step on a README, doc, page or results section written or revised right
+after a change to the thing it describes. The failure it catches: text that
+leans on a version the reader never saw, because it was written with the
+change in mind. No sentence-level pass sees it. A bad example: a game's
+start-screen step reading *pick your options here, upright*, written after the
+options moved off a sideways screen. *Here* and *upright* only mean something
+to a reader who saw that screen; the step a newcomer needs is *lock rotation in
+portrait, then choose your options below*. The same failure shows as a README
+that explains how a bug was fixed where the reader needs to know how the
+feature behaves, or as one section updated while another still describes the
+old behaviour. Words like *now* and *no longer* are rarely present, and
+automatic judges missed it (`references/fresh-eyes.md`). A reader who never
+saw the old version catches it. You cannot be that reader for your own text, so
+hand the text to one:
+
+```
+python3 scripts/fresh_eyes.py packet README.md docs/setup.md
+```
+
+Pass every reader-facing file the work touched. The script writes the packet, a
+single Markdown file holding those files' text as it stands (Markdown whole,
+visible text only for HTML), and prints its path and a prompt. Send the prompt
+verbatim to a subagent that has not seen this conversation; the subagent reads
+the packet from disk and lists what a newcomer would stumble on, section by
+section. Fix each point or say why it stands; the step is done when a read of
+the final text comes back with nothing you have not answered. Where no
+subagent tool exists, read the packet yourself top to bottom, with nothing else
+open, list every phrase that leans on something the packet never says, and
+report that the read was not independent.
+
+When this skill is installed as a plugin, a Stop hook enforces the step: a turn
+that changed visible prose in a `.md` or `.html` file cannot end until a
+subagent has been sent that prompt after the last edit to those files. It skips
+changelogs, Log sections, generated pages and edits under 20 characters of
+prose, and logs each run to `~/.claude/fresh-eyes-log.jsonl`, which shows
+whether the hook runs in a given environment.
 
 **5. Check what the edit did.**
 
