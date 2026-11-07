@@ -76,7 +76,8 @@
         "reviewing-ai-papers",
         "swarming-to-green",
         "tiling-tree",
-        "verifying-claims"
+        "verifying-claims",
+        "verifying-review-findings"
       ]
     },
     "media-processing": {
