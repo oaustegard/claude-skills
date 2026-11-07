@@ -1,8 +1,8 @@
 ---
 name: making-kinescript-videos
-description: "Make an MP4 from a JSON scene file with Kinescript (drknowhow/kinescript, the `kine` CLI): text, shapes, charts, SVG, images, video clips, particles and 3D models on cue-based timing, with a checker that lints layout, contrast, reading time and the sound mix, and narration spoken by Kokoro TTS with word-level cues and captions. Covers setup in a Linux container (CPU backend, Python 3.12 venv for Kokoro), the write → voice → check → look → render loop, and controlling Kokoro's pronunciation, stress, pauses, pace and voice blends. Use for 'kine', 'Kinescript', 'kinescript scene', 'kine voice', 'narrated promo', 'explainer video', 'motion graphics video', 'video with voice-over and captions', 'Kokoro pronunciation', 'TTS says a name wrong', 'make the narrator emphasise', or any video built from type, shapes and captured footage."
+description: "Make an MP4 from a JSON scene file with Kinescript (drknowhow/kinescript, the `kine` CLI): text, shapes, charts, SVG, images, video clips, particles and 3D models on cue-based timing, with a checker that lints layout, contrast, reading time and the sound mix, and narration spoken by Kokoro TTS with word-level cues and captions. Covers setup in a Linux container (CPU backend, Python 3.12 venv for Kokoro), the write → voice → check → look → render loop, and controlling Kokoro's pronunciation, stress, pauses, pace and voice blends. Use for 'kine', 'Kinescript', 'kinescript scene', 'kine voice', 'narrated promo', 'explainer video', 'motion graphics video', 'video with voice-over and captions', 'Kokoro pronunciation', 'TTS says a name wrong', 'make the narrator emphasise', 'video thumbnail is blank', 'poster frame', or any video built from type, shapes and captured footage."
 metadata:
-  version: 0.1.3
+  version: 0.2.0
 ---
 
 # Making videos with Kinescript
@@ -38,6 +38,10 @@ kine doctor
 ```
 
 - Pin skia-python ≥ 144. `pyproject.toml` allows ≥ 87, but 138.0 crashes.
+- `canvas.poster` (step 6) is merged upstream (drknowhow/kinescript#124) but
+  not on PyPI in 1.7.1. Until a later release, install with
+  `pip install git+https://github.com/drknowhow/kinescript`; `kine docs`
+  mentions `poster` when the installed version has it.
 - With no GPU, `KINE_BACKEND=cpu` is used. Expect 3–7 fps at 1080p. A 55 s,
   1650-frame promo (the games promo in `oaustegard/experiments/games-promo`,
   cited below) took 231 s at `-j 4`.
@@ -87,11 +91,20 @@ The CPU torch index avoids a multi-GB CUDA download. The first `kine voice` run 
 5. **`kine look scene.json --boxes`** (and `--audio` once there is sound):
    read the contact sheet image before rendering. `kine still` renders one
    frame. `kine probe --at T` gives every layer's resolved box.
-6. **Render**: `kine render scene.json -o out.mp4 -q high -j 4`. Long renders
-   belong in a background job.
-7. **Verify** the file: `ffprobe` for size, fps and duration, a frame strip
-   (`ffmpeg -vf "select='not(mod(n\,90))',scale=270:-1,tile=8x2"`), and a
-   listen to the voice track.
+6. **Poster frame**: set `canvas.poster` to a moment that shows the title,
+   e.g. `"poster": "title.in+0.5"` (seconds, a marker, a cue or a word). Feeds,
+   players and a `<video>` without a poster show frame 0 before play, and a
+   scene that fades in from its background shows up there as a blank rectangle.
+   With `poster` set, the render draws that frame as frame 0 (one frame,
+   1/fps s, before the opening; audio unchanged). `kine check` warns
+   `blank-first-frame` when frame 0 is empty and no poster is set. For a page,
+   `kine still scene.json --at poster -o poster.jpg` gives the `<video poster>`
+   image. `--no-poster` keeps the real frame 0 for a master.
+7. **Render**: `kine render scene.json -o out.mp4 -q high -j 4`. Long renders
+   belong in a background job. The result's `"poster"` names the frame used.
+8. **Verify** the file: `ffprobe` for size, fps and duration, a frame strip
+   (`ffmpeg -vf "select='not(mod(n\,90))',scale=270:-1,tile=8x2"`) whose first
+   tile is the poster, and a listen to the voice track.
 
 ## Narration
 
