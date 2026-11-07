@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.1107.0018"
+    "version": "2026.1107.1048"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -36,7 +36,8 @@
         "reviewing-ai-papers",
         "swarming-to-green",
         "tiling-tree",
-        "verifying-claims"
+        "verifying-claims",
+        "verifying-review-findings"
       ]
     },
     {
