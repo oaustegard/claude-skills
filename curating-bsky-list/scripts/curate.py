@@ -28,7 +28,7 @@ import store as store_mod
 import topics as topics_mod
 import vet
 
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 OSKAR = "austegard.com"
 AI_LIST = "at://did:plc:r2whjvupgfw55mllpksnombn/app.bsky.graph.list/3lankcdrlip2f"
 LIST_NAME = "Muninn reads"
@@ -300,6 +300,7 @@ CHATTER = frozenset({
     "lmao", "today", "week", "year", "years", "thanks", "thank", "love", "feel", "looks", "look", "https",
     "http", "www", "com", "bsky", "social", "didn", "doesn", "isn", "wasn", "aren", "couldn", "shouldn",
     "wouldn", "haven", "hasn", "don", "won",
+    "youtu", "youtube", "html", "php", "amp",
 })
 
 

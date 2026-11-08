@@ -2,7 +2,7 @@
 name: curating-bsky-list
 description: Builds and maintains Muninn's own Bluesky curate list ("Muninn reads", on the muninn.austegard.com account). Accounts are chosen by per-topic classifiers on Ettin-17m post embeddings (topics are Muninn's interests and the clusters of Oskar's experiments atlas), plus about a third picked for exploration, outside every topic, and judged only on whether they write thoughtfully. Also turns the list's past week of posts into a digest so Muninn can save dated insights. Use for "build Muninn's list", "refresh Muninn's Bluesky list", "the weekly list refresh", "read Muninn's list", "what did the list post this week", "promote a theme to a topic", or a routine that runs the weekly refresh. Writes only list items on Muninn's own list. Not for Oskar's lists or one-off list building from a source (muninn_utils.bsky_list), and not for general Bluesky search or browsing (browsing-bluesky).
 metadata:
-  version: 0.1.1
+  version: 0.1.2
 ---
 
 # Curating Muninn's Bluesky list

@@ -1,5 +1,10 @@
 # curating-bsky-list - Changelog
 
+## 0.1.2 — 2026-11-08
+
+- `themes` also drops link fragments ("youtu" topped a live check on the 42 exploration members).
+- Verified live: insight memories saved with `remember` are found and counted per member by the refresh's query.
+
 ## 0.1.1 — 2026-11-08
 
 - A second refresh inside six days no longer counts as another week below the topic threshold.
