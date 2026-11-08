@@ -17,6 +17,12 @@
   model downloaded on first use, so a routine container needs neither the hub layer nor `/mnt/skills`.
 - 25 offline tests (27 in 0.1.1).
 
+## [0.1.1] - 2026-11-08
+
+### Other
+
+- curating-bsky-list 0.1.1: weekly counter guard, cleaner themes
+
 ## [0.1.0] - 2026-11-08
 
 ### Other
