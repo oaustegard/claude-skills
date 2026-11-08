@@ -1,0 +1,13 @@
+# curating-bsky-list - Changelog
+
+## 0.1.0 — 2026-11-08
+
+- First version. `curate.py build | refresh | read | status | add-topic` keeps one curate list on Muninn's
+  account: topic members chosen by per-run Ettin-17m topic models (Muninn's interests plus the
+  experiments-atlas clusters, with a per-topic cap), about a third exploration members chosen from Oskar's
+  follows, likes and reposts and the members' follows, all screened and judged by Claude Haiku.
+- Weekly rules: drop silent (60 days), below-threshold topic members (two weeks), and exploration members with
+  no saved insight in 28 days; add up to 10.
+- State in Muninn's config key `muninn-bsky-list-state` over Turso HTTP; dependencies pip-installed and the
+  model downloaded on first use, so a routine container needs neither the hub layer nor `/mnt/skills`.
+- 25 offline tests.

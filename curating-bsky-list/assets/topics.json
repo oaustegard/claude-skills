@@ -1,0 +1,28 @@
+{
+  "_source": "interests: Muninn's boot profile key intellectual_interests (work-facing list, 2026-03-15 / 2026-05-26). cluster_seeds: hand-picked searchable phrases per experiments-atlas cluster, merged with terms extracted from that cluster's purpose lines at run time. lang null = search every language.",
+  "interests": [
+    {"name": "atproto-web", "label": "client-side web and ATProto", "terms": ["ATProto", "AT Protocol", "atproto", "Bluesky API", "custom feed", "PDS", "local-first", "service worker", "web components", "IndexedDB"]},
+    {"name": "ai-policy", "label": "AI policy and governance", "terms": ["AI policy", "AI regulation", "AI Act", "AI governance", "frontier AI", "AI safety institute", "compute governance", "AI legislation"]},
+    {"name": "norway-politics", "label": "Norwegian politics", "lang": null, "terms": ["Stortinget", "Støre", "Arbeiderpartiet", "Høyre", "Frp", "Norwegian politics", "norsk politikk", "regjeringen"]},
+    {"name": "us-politics", "label": "US politics", "terms": ["Congress", "Supreme Court", "Senate Republicans", "House Democrats", "White House", "filibuster", "midterms", "executive order"]},
+    {"name": "bluesky-dynamics", "label": "Bluesky and the social web", "terms": ["fediverse", "decentralized social", "open social web", "Bluesky moderation", "Bluesky growth", "social media platforms", "content moderation"]},
+    {"name": "cycling", "label": "cycling and training physiology", "terms": ["cycling", "FTP", "power meter", "Zwift", "gravel ride", "VO2max", "lactate threshold", "Strava", "Tour de France", "zone 2"]},
+    {"name": "builders-philosophy", "label": "builder's philosophy and software craft", "terms": ["software engineering", "technical debt", "software architecture", "shipping software", "Joel Spolsky", "code review", "boring technology", "product engineering"]},
+    {"name": "ai-practitioner", "label": "AI as practitioner", "terms": ["LLM", "LLMs", "Claude Code", "coding agent", "agentic", "evals", "open weights", "AI agents", "vibe coding", "MCP server"]},
+    {"name": "small-reasoner", "label": "small reasoners with big knowledge bases", "terms": ["small language model", "small models", "retrieval augmented", "RAG", "Pleias", "synthetic data", "reasoning model", "knowledge distillation", "SLM"]}
+  ],
+  "cluster_seeds": {
+    "Embedding models": ["embedding model", "embeddings", "sentence embeddings", "EmbeddingGemma", "ModernBERT", "MTEB"],
+    "Vector quantization": ["vector quantization", "binary quantization", "vector database", "vector search", "RaBitQ", "FAISS"],
+    "Search and knowledge bases": ["information retrieval", "hybrid search", "BM25", "semantic search", "knowledge base", "reranking"],
+    "WebGPU and browser compute": ["WebGPU", "WGSL", "WebAssembly", "WASM", "onnxruntime", "shader"],
+    "Decision models and routing": ["LoRA", "model routing", "text classification", "LLM router", "cross-encoder", "classifier"],
+    "Model internals and fine-tuning": ["fine-tuning", "mechanistic interpretability", "interpretability", "distillation", "small language model", "weight editing"],
+    "Shell command help": ["shell command", "command line", "bash script", "terminal", "CLI tool", "man page"],
+    "Agents and delegation": ["coding agent", "subagents", "multi-agent", "agent harness", "agentic coding", "SWE-bench"],
+    "Muninn operations": ["agent memory", "LLM memory", "persistent memory", "memory system", "personal knowledge base"],
+    "Mathematics": ["combinatorics", "discrepancy theory", "Erdős", "Lean prover", "formal proof", "graph theory"],
+    "Film, music and art": ["generative art", "creative coding", "Strudel", "live coding", "music video", "SVG animation"],
+    "Phone, camera and sound toys": ["Web Audio", "PWA", "MediaPipe", "web toy", "accelerometer", "sound toy"]
+  }
+}
