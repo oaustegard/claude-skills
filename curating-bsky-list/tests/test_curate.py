@@ -339,3 +339,22 @@ def test_cross_negatives_sample_other_topics_and_skip_own_term_matches():
     assert out["ai"] == [0]                    # the two AI posts naming FTP or cycling are not negatives
     assert topics.term_matcher(["AI Act"]).search("the ai act passed") is not None
     assert topics.term_matcher(["RAG"]).search("ragged edges") is None
+
+
+def test_weeks_below_counts_once_per_week():
+    p = dict(curate.DEFAULTS)
+    members = {"did:t": _member("topic", "2026-01-01", weeks_below=1, last_eval=curate.today())}
+    rows = {"did:t": {"handle": "t", "last_days": 1, "norm": 0.1, "topic": "t"}}
+    assert curate.evaluate_members(members, rows, FakeStore([]), p) == []
+    assert members["did:t"]["weeks_below"] == 1
+    members["did:t"]["last_eval"] = "2026-01-01"
+    assert len(curate.evaluate_members(members, rows, FakeStore([]), p)) == 1
+
+
+def test_themes_need_three_members_and_drop_chatter():
+    pytest.importorskip("sklearn")
+    member = {f"m{i}": ["salmon watershed restoration yeah really", f"distinct{i} words here"] for i in range(4)}
+    member["m9"] = ["entirely unrelated quilting"]
+    bg = ["cat photo cute", "good morning everyone", "weekend plans coffee"] * 10
+    found = " ".join(curate.themes(member, bg))
+    assert "salmon" in found and "yeah" not in found and "really" not in found and "quilting" not in found

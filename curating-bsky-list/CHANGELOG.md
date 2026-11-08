@@ -1,5 +1,10 @@
 # curating-bsky-list - Changelog
 
+## 0.1.1 — 2026-11-08
+
+- A second refresh inside six days no longer counts as another week below the topic threshold.
+- `themes` drops conversational filler and contractions; the first live refresh listed "yeah" and "i've".
+
 ## 0.1.0 — 2026-11-08
 
 - First version. `curate.py build | refresh | read | status | add-topic` keeps one curate list on Muninn's
@@ -10,7 +15,7 @@
   no saved insight in 28 days; add up to 10.
 - State in Muninn's config key `muninn-bsky-list-state` over Turso HTTP; dependencies pip-installed and the
   model downloaded on first use, so a routine container needs neither the hub layer nor `/mnt/skills`.
-- 25 offline tests.
+- 25 offline tests (27 in 0.1.1).
 
 ## [0.1.0] - 2026-11-08
 

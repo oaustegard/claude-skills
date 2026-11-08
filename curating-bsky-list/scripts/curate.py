@@ -28,7 +28,7 @@ import store as store_mod
 import topics as topics_mod
 import vet
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 OSKAR = "austegard.com"
 AI_LIST = "at://did:plc:r2whjvupgfw55mllpksnombn/app.bsky.graph.list/3lankcdrlip2f"
 LIST_NAME = "Muninn reads"
@@ -293,6 +293,16 @@ def select_explore(rows, pool, n, sig, params, verdicts, exclude=()):
 
 # ── themes among exploration members ───────────────────────────────────
 
+# Conversational filler that survives English stop words and says nothing about a subject.
+CHATTER = frozenset({
+    "yeah", "yes", "okay", "really", "think", "thing", "things", "people", "time", "just", "like", "good",
+    "great", "know", "want", "make", "going", "pretty", "actually", "maybe", "probably", "right", "sure", "lol",
+    "lmao", "today", "week", "year", "years", "thanks", "thank", "love", "feel", "looks", "look", "https",
+    "http", "www", "com", "bsky", "social", "didn", "doesn", "isn", "wasn", "aren", "couldn", "shouldn",
+    "wouldn", "haven", "hasn", "don", "won",
+})
+
+
 def themes(texts_by_member, background, min_members=3, top=12):
     """Terms distinctive for at least `min_members` exploration members, against Discover posts."""
     from sklearn.feature_extraction.text import TfidfVectorizer
@@ -300,10 +310,16 @@ def themes(texts_by_member, background, min_members=3, top=12):
     docs = [" ".join(t) for t in texts_by_member.values() if t]
     if len(docs) < min_members:
         return []
-    bg = [" ".join(background[i:i + 30]) for i in range(0, len(background), 30)]
-    vec = TfidfVectorizer(stop_words="english", ngram_range=(1, 2), min_df=2, max_df=0.4,
-                          token_pattern=r"(?u)\b[^\W\d_][\w'-]{2,}\b")
-    M = vec.fit_transform(docs + bg)[:len(docs)]
+    bg = [" ".join(background[i:i + 10]) for i in range(0, len(background), 10)]
+    from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
+
+    stop = sorted(ENGLISH_STOP_WORDS | CHATTER)
+    vec = TfidfVectorizer(stop_words=stop, ngram_range=(1, 2), min_df=2, max_df=0.5, lowercase=True,
+                          token_pattern=r"(?u)\b[^\W\d_]{4,}\b")
+    try:
+        M = vec.fit_transform(docs + bg)[:len(docs)]
+    except ValueError:              # nothing survives the document-frequency limits
+        return []
     vocab = vec.get_feature_names_out()
     cnt = Counter()
     for i in range(M.shape[0]):
@@ -517,7 +533,10 @@ def evaluate_members(members, rows, st, params):
             continue
         if m["kind"] == "topic":
             if m["norm"] is None or m["norm"] < params["topic_drop"]:
-                m["weeks_below"] = m.get("weeks_below", 0) + 1
+                # a second run inside a week must not count as a second week
+                if days_between(m.get("last_eval") or m["added"], today()) >= 6 or not m.get("weeks_below"):
+                    m["weeks_below"] = m.get("weeks_below", 0) + 1
+                    m["last_eval"] = today()
             else:
                 m["weeks_below"] = 0
                 m["topic"] = best_topic
