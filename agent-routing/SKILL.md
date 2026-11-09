@@ -1,10 +1,10 @@
 ---
 name: agent-routing
-description: Decide which model, effort level, and cascade shape each subagent gets, and how to keep improvement loops safe (evaluator-as-selector, stop on regression). Routes on measured cost-per-completed-task rather than per-token price, because a tier's token count varies more by task shape than price varies across tiers. Covers per-model effort semantics, the concision lever, cascade preconditions, context handoff, and watching a subagent fan-out live. Use when choosing a subagent's model or effort, when choosing how to escalate a failed attempt, or when asked which model or effort a task should get. Grounded in a 2026-07 calibration, a 2026-08 coding-cost study, a 2026-09 seeded-bug repair battery, a 2026-10 Haiku 5.5 ladder priced per spawn, and a 2026-10 retry-versus-escalation ladder on 295 SWE-bench Verified tasks; Managed Agents API specifics are operational, not calibrated.
+description: Decide which model, effort level, and cascade shape each subagent gets, and how to keep improvement loops safe (evaluator-as-selector, stop on regression). Routes on measured cost-per-completed-task rather than per-token price, because a tier's token count varies more by task shape than price varies across tiers. Covers per-model effort semantics, the concision lever, cascade preconditions, context handoff, and watching a subagent fan-out live. Use when choosing a subagent's model or effort, when choosing how to escalate a failed attempt, or when asked which model or effort a task should get. Grounded in a 2026-07 calibration, a 2026-08 coding-cost study, a 2026-09 seeded-bug repair battery, a 2026-10 Haiku 5.5 ladder priced per spawn, a 2026-10 retry-versus-escalation ladder on 295 SWE-bench Verified tasks, and a 2026-11 Haiku-swarm-versus-Sonnet-loop search at equal spend; Managed Agents API specifics are operational, not calibrated.
 compatibility: Designed for Claude Code / Claude Code on the Web — assumes an orchestrator with Agent/Workflow subagent tools. Only the Workflow tool sets a subagent's effort; the Agent tool sets its model. Not applicable to claude.ai chat use.
 metadata:
   author: Oskar Austegard and Claude
-  version: "2.8.0"
+  version: "2.9.0"
 ---
 
 # Agent Routing — model, effort, and cascade selection
@@ -114,6 +114,8 @@ measurement).
 | Judging / scoring another model's output | `sonnet`+ | `medium` | — (judge ≠ worker) |
 | Ambiguity resolution, novel synthesis, architecture, taste | `sonnet`/`opus` | `high` | human or panel |
 | Long-horizon multi-step agentic work, cross-file reasoning | `sonnet`/`opus` | `high`/`xhigh` | milestone checks |
+| **Improving a program against an automatic scorer, small budget** | **`haiku` swarm: proposers + writer** (`evolving-with-swarms`) | proposers `low`, writer `medium` | the scorer, plus a bound it cannot exceed |
+| Same, when the last 0.1% matters and $3+ and wall-clock time are both on the table | `sonnet` loop | per problem: measure `medium` and `high` | the scorer |
 
 Haiku holds the top four rows on merit: 240/240 measured across nested modular
 arithmetic, 30-hop chains, 25-operation state tracking, trap-laden word math, and
@@ -137,6 +139,32 @@ Haiku 4.5 lost the generation rows on cost alone, not capability: it scored 14/1
 the same suite Opus swept. At 5.5 prices that cost argument is gone (see the top of this
 file), so the generation rows now start on Haiku behind a test verifier, pending a
 generation-suite run on 5.5.
+
+### Search against a scorer: the Haiku swarm wins small budgets, Sonnet catches up by $3
+
+Measured 2026-11-09 (`oaustegard/experiments` → `haiku-swarm-poc`, 48 runs, three seeds
+per arm, $3 cap or 60 minutes). Haiku 5.5 swarms (4 swarms per round, 8 proposers each at
+`low` writing 45-word ideas, one writer at `medium` per swarm) against stock OpenEvolve
+driving Sonnet 5.5, on three construction problems with exact scorers. Dollars until a
+program first scored 99% of the reference:
+
+| problem | Haiku swarm | Sonnet loop, best effort | Sonnet @ `low` |
+|---|---|---|---|
+| circle packing, n=26 | $0.013–0.019 | $0.32–0.44 (`medium`) | $0.36–0.37 |
+| hexagon packing, n=11 | $0.035–0.060 | $0.53–0.58 (`high`) | $2.39–2.55, one seed never |
+| Heilbronn triangle, n=11 | $0.09–0.50 | $0.77–1.02 (`medium`) | $0.46–1.17, one seed never |
+
+- At $0.25 every swarm seed beat its paired Sonnet seed on all three problems.
+- Given $3, Sonnet reached the same finals in 7–42 minutes; the swarm spends about $1 an
+  hour, so it is the cheap route, not the fast one.
+- **Sonnet 5.5's effort is problem-dependent in search.** No difference on circle
+  packing; `medium` alone reached the reference on all three Heilbronn seeds; on hexagon
+  `low` never reached 0.999 while `high` did on every seed. Do not carry an effort level
+  from one search problem to the next without a seed or two of evidence.
+- **The Haiku writer at `low` is a gamble**: better on the easy problem, worse on both
+  harder ones.
+- Proposers took about 60% of the swarm's spend, and on one circle-packing seed the
+  writer alone nearly tied. Run an N=0 control on a new problem.
 
 ## Effort is model-specific — verify per model before reusing a level
 
@@ -180,7 +208,9 @@ prompt; the routing table lists its effort as n/a.
 
 **Haiku 5.5 takes effort.** The API accepts `low` through `max` on it, defaults to
 `medium`, and thinks adaptively by default; `budget_tokens` and non-default `temperature`
-are 400s. Whether Claude Code's Workflow `agent({effort})` reaches a Haiku 5.5 subagent,
+are 400s. Through `claude -p` its thinking cannot be switched off: `MAX_THINKING_TOKENS=0`
+and `alwaysThinkingEnabled: false` are ignored, so `--effort low` is the floor; short-idea
+calls at `low` thought 0 tokens 65% of the time (mean 95, 2026-11-09). Whether Claude Code's Workflow `agent({effort})` reaches a Haiku 5.5 subagent,
 and what `low` does to its pass rate, are both unmeasured. The 2026-10-07 ladder ran it at
 the session's level through the Agent tool.
 

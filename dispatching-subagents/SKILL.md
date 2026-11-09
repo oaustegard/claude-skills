@@ -2,7 +2,7 @@
 name: dispatching-subagents
 description: Chooses how to launch subagents from Claude Code (the Agent tool, a Workflow script, or headless claude -p children) and runs a headless fan-out from one background command. Use for "fan this out to 50 agents", "run these tasks in parallel", "launch subagents for each file", "should I spawn agents or write a workflow", "batch this through Haiku", "run claude -p in parallel", "dispatch a task list without the launches eating my context", or before any launch of more than a handful of subagents, where the launching itself is the cost. Covers the parent-turn cost of each mechanism, concurrency ceilings, what context and tools each child gets, effort control, output contracts, a cost ledger, and resume after interruption.
 metadata:
-  version: 0.2.2
+  version: 0.3.0
 ---
 
 # Dispatching subagents
@@ -86,7 +86,8 @@ Answer in order. The first yes picks the mechanism.
        --model haiku --concurrency 16 --max-usd 5 > RUN.log 2>&1; python3 $S status RUN
    ```
    (`Bash run_in_background: true`.) Defaults are `--tools Read,Grep,Glob,Write`,
-   1 retry, 900 s per child, and concurrency 16.
+   1 retry, 900 s per child, concurrency 16, and 5-minute prompt-cache writes
+   (`--cache-ttl 5m`).
 5. **Read `status`.** It reports attempts, ok, failing ids with reasons, total
    cost, tokens and permission denials. Rerunning the same command skips done
    tasks and retries the rest.
@@ -150,6 +151,7 @@ bulk phase on a small container, a Workflow step can shell out to
 | a deterministic multi-step pipeline with no model judgment between steps | `flowing` |
 | work that must outlive this session or container | `create_session` (claude-workspace `docs/delegation.md`) |
 | hundreds of workers fixing failing tests for hours, each fix merged behind a no-regression gate | `swarming-to-green` (it runs this skill's headless runner per worker) |
+| improving one program against an automatic scorer with rounds of cheap proposers and a writer | `evolving-with-swarms` |
 | one subagent for one question | the Agent tool directly, with no ledger |
 
 **Abandon a headless run mid-way** when the first wave's ledger shows the same
@@ -177,6 +179,30 @@ task file, and rerun; done tasks are kept.
   launching once the cap is reached.
 - **Many children fail with "transient" reasons at once.** The run hit a rate or
   overload limit. Lower `--concurrency`. The runner backs off and retries.
+- **A short child costs several times its prompt.** Every `claude -p` call carries
+  about 1,370 tokens of the CLI's own, even with `--system-prompt`, `--tools ""` and
+  `--setting-sources ""`: about 550 read from cache and about 810 written fresh on
+  every call (they hold per-session details, so no later call can read them). On a
+  60-token Haiku answer that overhead is most of the bill. Batch small items into one
+  child, or account for it per call (measured 2026-11-09, `oaustegard/experiments`
+  `haiku-swarm-poc`).
+- **`cacheCreationEphemeral1hInputTokens` is non-zero in `modelUsage`.** The CLI
+  writes prompt cache at the 1-hour TTL by default, at 2x input against 1.25x for
+  the 5-minute one. `FORCE_PROMPT_CACHING_5M=1` (or `CLAUDE_CODE_PROMPT_CACHE_TTL=5m`)
+  switches it; the runner sets it unless `--cache-ttl 1h`. Use 1h only when
+  children sharing a prefix start more than five minutes apart.
+- **A Haiku 5.5 child keeps thinking at effort low.** Its thinking is adaptive and
+  the CLI cannot switch it off: `MAX_THINKING_TOKENS=0` and
+  `--settings '{"alwaysThinkingEnabled": false}'` are ignored, and
+  `CLAUDE_CODE_MAX_OUTPUT_TOKENS` below what the model wants fails the call with
+  "exceeded the N output token maximum" while billing the tokens. Effort low is the
+  floor; there it thought 0 tokens on 65% of short-idea calls (mean 95, top tenth
+  302 or more).
+- **A large fan-out stops on the account's usage window.** With
+  `--output-format stream-json --verbose` each child emits a `rate_limit_event` whose
+  `unifiedWindows` carry five-hour and seven-day `utilization`. Read it to pause
+  before the window runs out instead of failing mid-run; ten parallel lanes used
+  most of a five-hour window in about 70 minutes on 2026-11-09.
 
 ## Verification
 

@@ -121,10 +121,21 @@ def load_tasks(path: Path) -> list[dict]:
     return tasks
 
 
-def child_env(keep: list[str] | None = None) -> dict:
+def child_env(keep: list[str] | None = None, cache_ttl: str = "5m") -> dict:
+    """Environment for one child: session binding and secret-named variables removed.
+
+    cache_ttl "5m" sets FORCE_PROMPT_CACHING_5M: the CLI otherwise writes prompt
+    cache at the 1-hour TTL (2x input) where children seconds apart need only the
+    5-minute one (1.25x). Measured 2026-11-09 (oaustegard/experiments haiku-swarm-poc).
+    """
     keep = set(keep or [])
-    return {k: v for k, v in os.environ.items() if k not in SESSION_ENV
-            and (k in keep or not any(m in k.upper() for m in SECRET_MARKERS))}
+    env = {k: v for k, v in os.environ.items() if k not in SESSION_ENV
+           and (k in keep or not any(m in k.upper() for m in SECRET_MARKERS))}
+    if cache_ttl == "5m":
+        env["FORCE_PROMPT_CACHING_5M"] = "1"
+    else:
+        env.pop("FORCE_PROMPT_CACHING_5M", None)
+    return env
 
 
 def command(t: dict, a: argparse.Namespace) -> list[str]:
@@ -191,7 +202,7 @@ class Run:
         start = time.time()
         try:
             p = subprocess.run(command(t, self.a), input=prompt, capture_output=True, text=True, check=False,
-                               cwd=self.a.cwd or self.work, env=child_env(self.a.keep_env),
+                               cwd=self.a.cwd or self.work, env=child_env(self.a.keep_env, getattr(self.a, "cache_ttl", "5m")),
                                timeout=t.get("timeout", self.a.timeout))
             raw, err = p.stdout, p.stderr
         except subprocess.TimeoutExpired as e:
@@ -290,6 +301,8 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--deny", nargs="*", default=[], help='rules refused even when allowed, e.g. "Bash(curl:*)"')
     r.add_argument("--cwd", help="child working directory (default: --work; keep it outside any repo with hooks)")
     r.add_argument("--keep-env", nargs="*", default=[], help="secret-named variables to pass through")
+    r.add_argument("--cache-ttl", choices=["5m", "1h"], default="5m",
+                   help="prompt-cache write TTL; 1h only when children sharing a prefix start >5 min apart")
     r.add_argument("--retries", type=int, default=1)
     r.add_argument("--timeout", type=int, default=900, help="seconds per child")
     r.add_argument("--max-usd", type=float, help="stop launching once the run has spent this much")

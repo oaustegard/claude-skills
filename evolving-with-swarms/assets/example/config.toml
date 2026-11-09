@@ -1,0 +1,29 @@
+# Example: 8 points in a square, maximise the smallest distance. Runs for about $0.10.
+[problem]
+statement = "problem.md"
+initial_program = "initial_program.py"
+evaluator = "evaluator.py"
+entry = "place_points"
+interface = """The program is a complete Python file. The evaluator imports it and calls
+`place_points()`, which must return an (8, 2) numpy array of points inside the unit square.
+The score is the smallest pairwise distance divided by the best known value. numpy and scipy
+are available."""
+score_key = "combined_score"
+score_max = 1.000001          # nothing can beat the proven optimum; a higher score is a scorer bug
+show_metrics = ["min_distance"]
+eval_timeout = 60
+
+[swarm]
+K = 4
+N = 8
+proposer_model = "haiku"
+proposer_effort = "low"
+writer_model = "haiku"
+writer_effort = "medium"
+
+[budget]
+cap_usd = 0.10
+wall_minutes = 10
+
+[sandbox]
+prefix = []                   # e.g. ["sh", "/path/to/jail.sh", "-C", "{run_dir}", "--"]
