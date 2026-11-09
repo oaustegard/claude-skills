@@ -4,6 +4,12 @@ All notable changes to the `declauding` skill are documented in this file. The f
 
 ## [0.13.0] - 2026-11-09
 
+### Other
+
+- declauding 0.13.0: find the point before fixing sentences
+
+## [0.13.0] - 2026-11-09
+
 ### Added
 
 - Workflow step 1a: state the draft's one point before the sentence pass; when
