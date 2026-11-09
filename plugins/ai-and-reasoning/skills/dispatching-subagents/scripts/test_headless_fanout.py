@@ -115,6 +115,7 @@ def test_child_flags_and_env() -> None:
         assert sid != "parent-session" and len(sid) == 36
         assert "CLAUDE_CODE_SESSION_ID" not in c["env"]
         assert "MY_API_TOKEN" not in c["env"] and "HARMLESS" in c["env"]
+        assert "FORCE_PROMPT_CACHING_5M" in c["env"], "children default to 5-minute cache writes"
 
 
 def test_deny_rules_reach_the_child() -> None:
