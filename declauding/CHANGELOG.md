@@ -2,6 +2,17 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.13.0] - 2026-11-09
+
+### Added
+
+- Workflow step 1a: state the draft's one point before the sentence pass; when
+  the point is missing or the draft mostly does not serve it, rebuild from that
+  sentence instead of editing. Sentence-local rules cannot see a draft in which
+  every sentence is fine and the whole says little. Source: replies to Eugene
+  Vinitsky's 2026-11-09 Bluesky post on editing LLM text (low information per
+  page, no key point, editors rewriting from scratch).
+
 ## [0.12.3] - 2026-11-02
 
 ### Other

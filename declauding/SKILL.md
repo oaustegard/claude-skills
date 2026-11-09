@@ -2,7 +2,7 @@
 name: declauding
 description: Load at the start of any task whose deliverable is prose another person will read — a PR description, commit message, README, doc, postmortem, blog post, issue or review comment, report, release note or essay — before drafting it, whether the result is pushed, posted, published or saved to a file, without being asked. Draft, then run this pass on the draft before handing it over. Also use when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make it sound human", or asks for a voice, tone or register edit. Rewrites the constructions that mark prose as model-written (staged reveals, verdict headers, aphoristic closers, "it's not X, it's Y", em-dash drama, forced triads, flat-certainty adverbs, noun stacks, dropped 'that') into plain technical prose and checks the rewrite kept every claim. Not for fiction, poetry, code, or quoted text; for a full adversarial review of a deliverable use challenging.
 metadata:
-  version: 0.12.3
+  version: 0.13.0
 ---
 
 # Declauding
@@ -115,6 +115,20 @@ because it was built for shape rather than for accuracy. Designations of the for
 *the X that answers the real question* frequently designate the wrong X, and the
 draft itself often contradicts them a paragraph later. Note contradictions now;
 they are the most valuable thing this pass produces.
+
+**1a. Find the point before fixing sentences.** Write, in one sentence of your
+own, the thing the draft wants the reader to come away knowing. If you cannot,
+or the draft spends most of its length on material that does not bear on that
+sentence, the problem is above the sentence level and the sentence pass will not
+fix it: every sentence can be locally fine while the piece says little, which is
+why readers of model drafts report reaching the end of a page and not knowing
+what it said. In that case, say so, get the point from the author when it is
+theirs to supply, write that sentence first, and rebuild from it, keeping only
+the material that supports it. Rewriting from the point is cheaper than
+sentence-by-sentence repair on a draft like this, and is what editors of model
+prose report doing anyway. On a draft whose point is clear, this step takes one
+sentence and moves on. Hand the stated point to step 4a's reader as well: the
+newcomer read checks that a reader who does not share your context can find it.
 
 **2. Run the mechanical scan.**
 
