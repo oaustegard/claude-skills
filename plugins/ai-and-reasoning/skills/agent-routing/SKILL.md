@@ -4,7 +4,7 @@ description: Decide which model, effort level, and cascade shape each subagent g
 compatibility: Designed for Claude Code / Claude Code on the Web — assumes an orchestrator with Agent/Workflow subagent tools. Only the Workflow tool sets a subagent's effort; the Agent tool sets its model. Not applicable to claude.ai chat use.
 metadata:
   author: Oskar Austegard and Claude
-  version: "2.9.0"
+  version: "2.9.1"
 ---
 
 # Agent Routing — model, effort, and cascade selection
@@ -163,7 +163,7 @@ program first scored 99% of the reference:
   from one search problem to the next without a seed or two of evidence.
 - **The Haiku writer at `low` is a gamble**: better on the easy problem, worse on both
   harder ones.
-- Proposers took about 60% of the swarm's spend, and on one circle-packing seed the
+- Proposers took 30–39% of the swarm's spend, and on one circle-packing seed the
   writer alone nearly tied. Run an N=0 control on a new problem.
 
 ## Effort is model-specific — verify per model before reusing a level

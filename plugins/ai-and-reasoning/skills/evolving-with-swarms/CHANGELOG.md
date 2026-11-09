@@ -2,6 +2,12 @@
 
 All notable changes to the `evolving-with-swarms` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.1.1] - 2026-11-09
+
+### Other
+
+- evolving-with-swarms 0.1.1, agent-routing 2.9.1: proposer share is 30-39%
+
 ## [0.1.0] - 2026-11-09
 
 ### Other
