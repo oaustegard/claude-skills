@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.1108.2230"
+    "version": "2026.1109.1935"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -262,7 +262,7 @@
       "name": "declauding",
       "description": "Load at the start of any task whose deliverable is prose another person will read — a PR description, commit message, README, doc, postmortem, blog post, issue or review comment, report, release note or essay — before drafting it, whether the result is pushed, posted, published or saved to a file, without being asked. Draft, then run this pass on the draft before handing it over. Also use when someone says \"de-claude\", \"de-slop\", \"humanize this\", \"this reads like AI\", \"make it sound human\", or asks for a voice, tone or register edit. Rewrites the constructions that mark prose as model-written (staged reveals, verdict headers, aphoristic closers, \"it's not X, it's Y\", em-dash drama, forced triads, flat-certainty adverbs, noun stacks, dropped 'that') into plain technical prose and checks the rewrite kept every claim. Not for fiction, poetry, code, or quoted text; for a full adversarial review of a deliverable use challenging.",
       "source": "./plugins/declauding",
-      "version": "0.12.3",
+      "version": "0.13.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",
