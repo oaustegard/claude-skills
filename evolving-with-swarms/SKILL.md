@@ -2,7 +2,7 @@
 name: evolving-with-swarms
 description: Improves a program against an automatic scorer by running rounds of cheap Haiku 5.5 swarms, where each proposer suggests one short idea and one writer per swarm turns the ideas into a new program that is scored and kept in an archive, all metered to a dollar cap through headless claude -p. Use for "evolve this program against my evaluator", "optimize this function's score cheaply", "OpenEvolve-style search on a budget", "AlphaEvolve-style construction search with Haiku", "run a swarm to maximize this score", "search for a better heuristic or construction", or any program whose quality a script can score, when the budget is small. Ships the driver, a gateway with a dollar cap and a usage-window pause, a sandbox hook for model-written code, an example problem and an offline selftest; runs from Claude Code on the web or the desktop.
 metadata:
-  version: 0.1.0
+  version: 0.1.1
 ---
 
 # Evolving with swarms
@@ -146,9 +146,9 @@ line per evaluation with the spend at that moment, which is the curve to plot;
   `nobody` cannot enter the run directory (2). Put the run dir under `/tmp/jail/<name>/`
   and set `chown_uid = 65534`.
 - **Spend per program well above a cent** → the gateway's ledger shows the cost by role;
-  proposers were about 60% of the spend in the live example. Each `claude -p` call
+  proposers were 30–39% of the spend in the 2026-11 ledgers, the writer the rest. Each `claude -p` call
   carries about 1,370 tokens of the CLI's own, so many tiny calls cost more than their
-  prompts suggest. Fewer proposers (or N=0) is the lever.
+  prompts suggest. Fewer proposers (or N=0) and the writer's effort are the levers.
 - **`pauses.jsonl` appears and the run slows** → the account's five-hour window passed
   90% (non-Haiku calls) or 97% (Haiku). The gateway waits for the reset and leaves the
   wait out of the run clock; nothing to do unless it is urgent.

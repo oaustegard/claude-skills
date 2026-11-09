@@ -43,7 +43,7 @@ higher) and did it in 7–42 minutes; the swarms used their 60 minutes at $0.89�
 On one circle-packing seed, the writer alone (N=0) reached 0.999 at $0.26 against $0.20 with
 eight proposers per swarm. SwarmEvolve's own ablation (Appendix A.2) found its agent counts end
 the hour at similar scores. One seed on the easiest problem: run an N=0 control on a new
-problem before assuming the proposers earn their share (about 60% of the spend).
+problem before assuming the proposers earn their share (30–39% of the spend in the B-arm ledgers; the writer took the rest).
 
 ## Cost structure
 
