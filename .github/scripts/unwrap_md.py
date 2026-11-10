@@ -10,7 +10,21 @@ lines as they are. Reads a file path (or stdin) and writes to stdout.
 import re
 import sys
 
-BLOCK_START = re.compile(r"^\s*([-*+]|\d+[.)])\s|^\s*#|^\s*>|^\s*\||^\s*<|^\s*(---|\*\*\*|___)\s*$")
+BLOCK_START = re.compile(r"^\s*[-*+]\s|^\s*#|^\s*>|^\s*\||^\s*<|^\s*(---|\*\*\*|___)\s*$")
+ORDERED = re.compile(r"^\s*(\d+)[.)]\s")
+LIST_ITEM = re.compile(r"^\s*([-*+]|\d+[.)])\s")
+
+
+def starts_block(line: str, prev: str) -> bool:
+    """True when `line` cannot continue the paragraph or item in `prev`.
+
+    As in CommonMark, an ordered marker interrupts a paragraph only when it is
+    1, so a wrapped line that happens to begin "56." stays in its paragraph.
+    """
+    if BLOCK_START.match(line):
+        return True
+    m = ORDERED.match(line)
+    return bool(m) and (m.group(1) == "1" or bool(LIST_ITEM.match(prev)))
 
 
 def unwrap(text: str) -> str:
@@ -32,7 +46,7 @@ def unwrap(text: str) -> str:
             and not p.startswith(("```", "~~~", "#", "|", ">", "<"))
             and not re.match(r"^(---|\*\*\*|___)$", p)
             and not prev.endswith("  ")
-            and not BLOCK_START.match(line)
+            and not starts_block(line, prev)
         )
         if joinable:
             out[-1] = prev.rstrip() + " " + stripped
