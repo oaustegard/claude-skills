@@ -4,6 +4,12 @@ All notable changes to the `declauding` skill are documented in this file. The f
 
 ## [0.13.2] - 2026-11-10
 
+### Other
+
+- declauding 0.13.2: README as a snapshot, not a history
+
+## [0.13.2] - 2026-11-10
+
 ### Changed
 
 - README cut from 479 lines to about 130. It describes the skill as it is now;
