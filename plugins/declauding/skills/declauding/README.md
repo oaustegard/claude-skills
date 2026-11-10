@@ -1,377 +1,479 @@
 # declauding
 
-Removes LLM prose tics from a draft and returns plain human technical prose. The
-input is text; the output is either the rewritten text or an annotated HTML diff
-showing every edit with its original and its reason.
+declauding is a skill for Claude and other coding agents. It rewrites a draft
+that reads as model-written into the plain technical prose that a person would
+have written. Before handing the text back, it compares the rewrite with the
+draft for any number, name, quotation, hedge or ranking that the edit dropped or
+added, and resolves what it finds. Given text, it returns either the rewritten text or an annotated HTML file that shows each edit
+beside the original and gives the reason for it.
 
-The register has four groups. Entries 1 to 23, 37 and 38 are one move: **the
-sentence is built to make the reader feel a finding arrive, instead of stating
-the finding.** The fix is always the same: put a real subject in the subject
-slot, say the thing, stop. Entries 24 to 36 are the flatter slop patterns, where
-nothing is being staged and the prose is running on defaults. Entries 39 to 42
-are the register of reference prose — schema formality, and maxims welded onto
-facts. Entries 43 to 47 are this skill's own output: the flat, verdict-shaped
-register a clean pass lands in, which is now the fastest-growing cluster of
-GitHub pull request descriptions there is. Entries 48 to 52 are the confiding
-essayist. Entries 53 to 56 are compressed syntax: noun stacks, verbed nouns,
-dropped *that* and distant verbs, which pack a claim into fewer words than a
-reader can parse ([arXiv 2610.29162](https://arxiv.org/abs/2610.29162)).
-Numbering is chronological within the file, so a group is not a contiguous range.
+"Register" here means the style a piece of prose is written in. The register
+catalogue, [`references/register.md`](references/register.md), lists 56 tics
+that mark prose as model-written. [`SKILL.md`](SKILL.md) holds the workflow,
+[`references/exceptions.md`](references/exceptions.md) lists when a flagged shape
+should stay, and [`CHANGELOG.md`](CHANGELOG.md) holds the version history.
 
-See [`SKILL.md`](SKILL.md) for the workflow, the overcorrection guard and the
-earned-exception table. See [`references/register.md`](references/register.md)
-for the catalogue and [`references/corpus.md`](references/corpus.md) for the
-measurement behind entries 43 to 47. See [`CHANGELOG.md`](CHANGELOG.md) for
-version history.
+## Installing and calling it
 
-## Two output modes
+Install it from [oaustegard/claude-skills](https://github.com/oaustegard/claude-skills)
+like any other skill, or run the scripts in `scripts/` directly. An agent with the
+skill loads it before drafting prose that someone else will read, and also when
+asked to "declaude", "de-slop" or "humanize" a text. Ask for the annotated version
+by name; the clean rewrite is the default.
+
+## Output modes
 
 | Mode | Output | Use for |
 |---|---|---|
-| **clean** (default) | The rewritten text, nothing else | Fixing your own draft before publishing |
+| **clean** (default) | The rewritten text | Fixing your own draft before publishing |
 | **annotated** | One self-contained HTML file: rewritten text, every changed passage marked, each with the original verbatim, the tic name, and why | Reviewing someone else's draft, teaching the register, arguing about a specific edit |
 
-The annotated file has a toggle that hides the marks, so the same artifact
-serves as both the review and the result. No build step, no CDN, no server.
+The annotated file has a toggle that hides the marks, so one file holds both the
+review and the clean result. It opens from disk with no build step, CDN or
+server.
 
-Three call shapes change what comes back: pasted text returns the rewrite plus a
-short change list, file mode rewrites in place and reports a summary, and
-embedded mode (another agent calling this as one step) returns the final text
-and nothing else.
+How the skill is called changes what it returns. Pasted text gets the rewrite and
+a short list of changes. A file is rewritten in place, with a summary in the
+conversation. When another agent calls it as one step of a larger job (embedded
+mode), it returns the final text with no commentary.
 
-## Tics it catches
+## Workflow
 
-Fifty-two entries. All of them except part of the 24-to-36 block are grouped by
-mechanism rather than by phrase, since phrase blocklists miss the next
-paraphrase. The ones that show up in nearly every draft:
+`SKILL.md` has the full steps. In short:
 
-| Tic | Example |
-|---|---|
-| Negation-first reveal | *It is not a wrong answer. It is a non-answer.* |
-| Significance designation | *It is the leg that answers the actual question.* |
-| Abstraction agency | *Median hides it.* / *The table shows it.* |
-| Deferred noun | *Five of those six rows are one cluster. The sixth is not.* |
-| Coy or thesis-shaped header | *What "exhausted" means* / *The one gap that does clear the bar* |
-| Aphoristic closer | *It is the kind of number that looks like evidence and is not.* |
-| Straw-man knockdown | *"It thinks twice as long" is the obvious reading, and it is wrong.* |
-| Fragment cadence | *Six legs. One GPU, one server build, one sampler, one question set.* |
-| Dressed metaphor | *That is information loss wearing the costume of a style fix.* |
+1. Read the whole draft before editing, and note any place where it contradicts
+   itself.
+2. State the draft's point in one sentence. If it has none, get one from the
+   author and rebuild the draft around it instead of repairing sentences.
+3. Run the linter, and optionally the sentence ranking, then the structural
+   review in a context that did not write the draft (a subagent or a fresh
+   session).
+4. Go through the draft sentence by sentence, asking of each one whether it
+   states a finding or builds up to it for effect (the sentence-level test), then
+   check headers,
+   paragraph breaks and closers.
+5. When the draft describes something that just changed, have a reader who never
+   saw the old version read it.
+6. Run the preservation diff, and report contradictions to the author rather
+   than fixing them.
 
-Entries 24 to 36 come from the Wikipedia AI Cleanup project's *Signs of AI
-writing*, by way of [blader/humanizer](https://github.com/blader/humanizer).
-They cover the register that shows up in encyclopedic summary, product copy,
-README boilerplate and pasted chat:
+## The register
 
-| Tic | Example |
-|---|---|
-| Copula avoidance | *Gallery 825 serves as the exhibition space and boasts 3,000 square feet.* |
-| Participle tail | *…resonates with the region's beauty, symbolizing bluebonnets, reflecting the community's connection.* |
-| Forced triad | *keynote sessions, panel discussions, and networking opportunities* |
-| Elegant variation | *The protagonist… the main character… the central figure…* |
-| False range | *from the Big Bang to the cosmic web, from stars to dark matter* |
-| Inline-header list | *- **Performance:** Performance has been enhanced through optimized algorithms.* |
-| Chatbot residue | *I hope this helps! Let me know if you'd like me to expand on any section.* |
-| Filler and hedge stacking | *It could potentially possibly be argued that…* |
-| Speculative gap-filling | *…not publicly available, suggesting she maintains a low profile.* |
-| Diff-anchored documentation | *This function was added to replace the previous approach…* |
-| Subjectless fragment | *No configuration file needed. The results are preserved automatically.* |
+Each entry in the catalogue gives the surface tell, why it marks model prose, the
+fix, and a before-and-after from real text. Most entries describe a mechanism
+rather than a phrase, because a phrase list misses the next paraphrase. Entries
+are numbered in the order they were added, so a family does not always occupy a
+contiguous range.
 
-Entries 39 to 42 came from a reference document — an API page, where the prose is
-describing a system rather than making an argument. The staging entries mostly do
-not fire on that kind of writing, and these four do:
+| Entries | Family | What the prose is doing |
+|---|---|---|
+| 1–23, 37–42 | Staging | Building the sentence so the reader feels a finding arrive instead of being told it |
+| 24–36 | Encyclopedic and chatbot | Running on defaults with nothing staged |
+| 43–47 | Flat certainty | Letting an adverb, a compound word or an absolute negative stand in for evidence |
+| 48–52 | Confiding essayist | Staging aimed at the reader's trust |
+| 53–56 | Compressed syntax | Packing a claim into fewer words than a reader can parse |
 
-| Tic | Example |
-|---|---|
-| Welded epigram | *…are dropped, so a child never carries a grant its parent lacks.* |
-| Spec-ese | *That child holds no repository and waits for input.* |
-| Nominalized header | *GitHub authorship in a sourced child* |
-| Contents-list standfirst | *The parameter surface, plus the behavior the schema leaves out.* |
+### Staging (entries 1–23 and 37–42)
 
-Entry 41 is the overcorrection from entry 7 and is written up as one. A verdict
-header rewritten into an abstraction passes entry 7's regex and still fails entry
-7's own test.
+The commonest staging tics:
 
-Entries 43 to 47 are the flat, verdict-shaped register a clean pass lands in —
-the one this skill produces. `references/corpus.md` carries the measurement.
+| # | Tic | Example |
+|---|---|---|
+| 2 | Negation-first reveal | *It is not a wrong answer. It is a non-answer.* |
+| 3 | Significance designation | *It is the leg that answers the actual question.* |
+| 4 | Abstraction agency | *Median hides it.* / *The table shows it.* |
+| 5 | Deferred noun | *Five of those six rows are one cluster. The sixth is not.* |
+| 7 | Coy or thesis-shaped header | *What "exhausted" means* / *The one gap that does clear the bar* |
+| 11 | Straw-man knockdown | *"It thinks twice as long" is the obvious reading, and it is wrong.* |
+| 12 | Aphoristic closer | *It is the kind of number that looks like evidence and is not.* |
+| 15 | Fragment cadence | *Six legs. One GPU, one server build, one sampler, one question set.* |
+| 37 | Dressed metaphor | *That is information loss wearing the costume of a style fix.* |
+| 38 | Announce-then-deliver | *One factual note, not fixed: X and Y both assert what people generally do.* |
 
-Entries 48 to 52 are the confiding-essayist voice, where the staging is aimed at
-the reader's trust instead of at a finding:
+Entries 39 to 42 came from an API reference page, where the prose describes a
+system rather than arguing a point. The other staging entries rarely fire on
+reference prose, so these four cover it:
 
-| Tic | Example |
-|---|---|
-| Announced candour | *Let's be honest: I won't pretend the first run was clean.* |
-| Stranded auxiliary | *The tool died; the data didn't.* |
-| Retroactive significance | *That's why being able to open the environment mattered.* |
-| Totalizing designation | *That's the whole point of the format.* / *the only release notes I trust* |
-| Obituary headline | *Peer code review is dead* |
+| # | Tic | Example and what is wrong with it |
+|---|---|---|
+| 39 | Welded epigram | *…are dropped, so a child never carries a grant its parent lacks.* A maxim attached to a fact with *so* |
+| 40 | Spec-ese | *That child holds no repository and waits for input.* Worded like a standards document rather than a person explaining |
+| 41 | Nominalized header | *GitHub authorship in a sourced child.* A header turned into a noun pile |
+| 42 | Contents-list standfirst | *The parameter surface, plus the behavior the schema leaves out.* An opening line built as one noun phrase plus another, listing the contents |
 
-Each entry carries the surface tell, why it is a tic, the fix, and a
-before-and-after. The first 23 come from a real published draft; the second block
-keeps the Wikipedia specimens.
+Entry 41 is the overcorrection of entry 7. A thesis-shaped header rewritten into
+an abstraction passes the linter's header rule and is still not a plain label.
 
-Several of the second block are phrase lists rather than mechanisms, which is a
-real limitation and is stated as one in the register. They earn their place by
-being cheap to check.
+### Encyclopedic and chatbot patterns (entries 24–36)
+
+These come from the Wikipedia AI Cleanup project's *Signs of AI writing*, by way
+of [blader/humanizer](https://github.com/blader/humanizer). They appear in
+encyclopedic summary, product copy, README boilerplate and pasted chat:
+
+| # | Tic | Example |
+|---|---|---|
+| 24 | Copula avoidance | *Gallery 825 serves as the exhibition space and boasts 3,000 square feet.* |
+| 25 | Participle tail | *…resonates with the region's beauty, symbolizing bluebonnets, reflecting the community's connection.* |
+| 26 | Forced triad | *keynote sessions, panel discussions, and networking opportunities* |
+| 27 | Elegant variation | *The protagonist… the main character… the central figure…* |
+| 28 | False range | *from the Big Bang to the cosmic web, from stars to dark matter* |
+| 29 | Inline-header list | *- **Performance:** Performance has been enhanced through optimized algorithms.* |
+| 31 | Chatbot residue | *I hope this helps! Let me know if you'd like me to expand on any section.* |
+| 32 | Filler and hedge stacking | *It could potentially possibly be argued that…* |
+| 33 | Speculative gap-filling | *…not publicly available, suggesting she maintains a low profile.* |
+| 34 | Diff-anchored documentation | *This function was added to replace the previous approach…* |
+| 35 | Subjectless fragment | *No configuration file needed. The results are preserved automatically.* |
+
+Several of these are phrase lists rather than mechanisms, as is the slop
+vocabulary of entry 20 (*delve*, *tapestry*, *testament to*). The catalogue
+states that as a limitation and keeps them because they are cheap to check.
+
+### Flat certainty (entries 43–47)
+
+A declauding pass tends to land in this register once the staging is gone. The
+target is certainty with evidence behind it, and these entries catch certainty
+that has none. `references/corpus.md` has the measurement behind this family.
+
+| # | Tic | Example | Rewrite |
+|---|---|---|---|
+| 43 | Flat-certainty adverb | *The retry is provably safe.* | *The retry is idempotent: the handler keys on the request id.* |
+| 44 | Juridical register | *The guard refuses any caller without standing.* | *The guard returns 403 when the token has no `write` scope.* |
+| 45 | Verification-provenance compound | *The rewrite is byte-identical and mutation-checked.* | Name the check that ran and its result |
+| 46 | Privative coinage | *Three of the paths are unguarded.* | *Three of the paths have no length check before the index.* |
+| 47 | Exhaustive negation | *Nothing in the fit varies with time.* | *The fit has one parameter per cluster and none per week.* |
+
+### Confiding essayist (entries 48–52)
+
+In these entries the staging is aimed at the reader's trust:
+
+| # | Tic | Example |
+|---|---|---|
+| 48 | Announced candour | *Let's be honest: I won't pretend the first run was clean.* |
+| 49 | Stranded auxiliary | *The tool died; the data didn't.* A sentence that ends on a bare auxiliary for the beat |
+| 50 | Retroactive significance | *That's why being able to open the environment mattered.* |
+| 51 | Totalizing designation | *That's the whole point of the format.* / *the only release notes I trust* |
+| 52 | Obituary headline | *Peer code review is dead* |
+
+### Compressed syntax (entries 53–56)
+
+These pack a claim into fewer words than a person would use, and the reader pays
+for the saving in parse effort. The fix usually makes the sentence longer.
+
+| # | Tic | Example |
+|---|---|---|
+| 53 | Noun stack | *New tests for paths with spaces, dry-run write prevention, and idempotent config reinstalls.* |
+| 54 | Verbed noun | *…is quietly eating its own reader-patience budget — footnote it.* |
+| 55 | Dropped *that* | *the others check behaviour the old code never reached* |
+| 56 | Distant verb | *All five expression shapes — attribute access, subscript, calls, nested calls, string literals — leave current on NAME('b')* |
+
+These four need a parse, which the linter does not do. Look for them in the
+sentence pass.
 
 ## The linter
 
 ```sh
 python3 scripts/declaude_lint.py DRAFT.md            # human-readable
 python3 scripts/declaude_lint.py DRAFT.md --json     # machine-readable
-python3 scripts/declaude_lint.py - --quiet-slop      # stdin, minus vocabulary noise
+python3 scripts/declaude_lint.py - --quiet-slop      # stdin, without the slop-vocabulary hits
 python3 scripts/declaude_lint.py DOC.md --skip-quoted # ignore quoted specimens
 ```
 
-Stdlib only. It flags the lexical tells with line numbers and categories, plus
-header shape, Title Case headings, one-line-paragraph beats, fragment runs,
-forced triads in all three of their comma-list, anaphora and echo forms, runs of
-stacked rhetorical questions, inline-header bullets
-whose label restates the item, per-instance em-dash drum rolls, em-dash density,
-repeated sentence openings and phrases, curly-quote and emoji counts, and
-sentence-length monotony.
-
-One line is not a tell at all. `corpus-register density` reports how much of the
-draft is the top-150 vocabulary of the load-bearing corpus cluster, which locates
-the register and says nothing about the author: human stdlib docstrings run 0.08
-median and 0.32 at worst, this skill's own files run 1.5 to 3.2, and the
-human-written README of the repository the list came from scores 1.51, above this
-skill's `SKILL.md`. Above roughly 1.0 the
-cue is to read entries 43 to 47, never to cut `nothing` or `measured` on sight.
-[`references/corpus.md`](references/corpus.md) has the figures and the limits.
-
-The `reuse` block groups the hits the scan already produced and reports any
-construction used more than once. It adds no rules and costs nothing, and reuse
-is the strongest available evidence that a construction is a habit rather than a
-choice: one `the part that` is emphasis, three is a tic.
-
-HTML is flattened before scanning, so `<h1>`–`<h6>` and masthead
-`.subtitle` / `.eyebrow` / `.post-meta` elements reach the header rules. Before
-0.3.0 every header rule was silent on an HTML draft.
-
-`scripts/declaude_review.py` is stage 2. It extracts the slots regex cannot judge
-— headers, the opening sentence, each closing sentence, isolated one-sentence
-paragraphs — and sends only those to a model with the structural register
-entries. Slots rather than the whole document, so it is cheap enough to run every
-time. The two stages are complementary rather than redundant: stage 1 catches the
-verdict header deterministically and over-flags commas that belong to citations,
-stage 2 reads the comma in context and catches the aphoristic closer that no
-regex reaches.
+The linter reads Markdown, plain text or HTML and uses only the standard library.
+It flags the tells that can be matched as words or phrases, with line numbers and
+categories. It also checks the shape of the text: header form, Title Case
+headings, one-line paragraphs used as beats, fragment runs, forced triads (as a
+comma list, as repeated openings, or as consecutive sentences built on one
+skeleton), runs of
+stacked rhetorical questions, inline-header bullets whose label restates the
+item, em dashes that set up a closing clause, em-dash density overall, repeated
+sentence openings and phrases, curly-quote and emoji counts, and sentence-length
+monotony. HTML is flattened first, so `<h1>`–`<h6>` headings and `.subtitle`,
+`.eyebrow` and `.post-meta` elements reach the header rules.
 
 `--skip-quoted` blanks blockquotes, table rows, code (fenced and inline),
-`*italic*` spans and `<q>` elements while preserving line numbers. Use it on any
-document that quotes bad prose as a specimen, this README included.
+`*italic*` spans and `<q>` elements while keeping line numbers intact. Use it on
+any document that quotes bad prose as a specimen, this README included.
 
-It finds candidates and does not decide. Every hit still needs the
-sentence-level test, and no regex reaches a staged paragraph shape or a staged
-closer, so **a clean report means nothing on its own.**
+The `corpus-register density` line is not a tell. It reports how many of the
+draft's words, per 100, come from the 150 words most over-represented in the
+GitHub pull request cluster described under [Provenance](#provenance), words such
+as `nothing` and `measured`. That locates the register and says nothing about who
+wrote the draft. Python standard-library docstrings score 0.08 at the median and
+0.32 at worst. This skill's own files score between 1.1 and 3.2. The
+human-written README of the repository the word list came from scores 1.51, which
+is above this skill's `SKILL.md`. Above roughly 1.0, read entries 43 to 47 and
+check that each flagged word has evidence behind it. Do not cut `nothing` or
+`measured` on sight.
+[`references/corpus.md`](references/corpus.md) has the figures and their limits.
 
-Exit code 1 when it finds candidates, 0 when it does not, which makes it usable
-as a pre-commit hook.
+The `reuse` block groups the hits the scan already produced and reports any
+construction that the draft uses more than once. It adds no rules and costs
+nothing to run. Reuse is the strongest evidence available that a construction is
+a habit rather than a choice: one `the part that` is emphasis, and three is a
+tic.
+
+A hit is only a candidate and still needs the
+sentence-level test. No regex reaches a staged paragraph shape or a staged
+closer, so a clean report is not evidence that the draft is clean. It exits with
+1 when it finds candidates and 0 when it finds none, so it can run as a
+pre-commit hook.
+
+## Structural review
+
+```sh
+python3 scripts/declaude_review.py DRAFT.md
+python3 scripts/declaude_review.py DRAFT.md --emit-prompt   # print the prompt instead
+python3 scripts/declaude_review.py DRAFT.md --slots         # show what it extracts
+```
+
+The review extracts the parts of a draft that regex cannot judge (headers, the
+opening sentence, each closing sentence, isolated one-sentence paragraphs) and
+sends only those to a model, together with the catalogue entries about headers,
+openers, closers and paragraph shape. Sending those parts rather than the whole
+document keeps the review cheap enough to run on every draft. It calls Gemini
+when `GEMINI_API_KEY` is set and Claude when `ANTHROPIC_API_KEY` is set. With
+neither, it prints the prompt for an agent to answer.
+
+The linter and the review catch different things. The linter finds a
+thesis-shaped header deterministically, and its forced-triad rule also
+flags the comma list in a citation, which is a false positive. The model reads the list in
+context, where it can tell a citation from a triad, and it finds the aphoristic
+closer, which no regex reaches. Run the
+review in a context that did not write the draft.
 
 ## Model profiles
 
-`references/models/` holds one file per model family: Opus 5 and 5.5, Opus 4.6
-and 4.8, Sonnet 4.6 and 5, Haiku 4.5, Fable 5.1. Each says what that model's
-drafts carry and how that model fails when it runs the pass itself. They come
-from the model-register-drift run in
+`references/models/` has a file for each model family: Opus 5 and 5.5, Opus 4.6
+and 4.8, Sonnet 4.6 and 5, Haiku 4.5, and Fable 5.1. Each file says what that
+model's drafts tend to carry and how the model goes wrong when it runs the pass
+itself. The agent reads the profile of the model that wrote the draft, when that
+is known, and its own. The profiles draw on the model-register-drift run in
 [`oaustegard/experiments`](https://github.com/oaustegard/experiments/tree/main/model-register-drift),
-where six models wrote the same post with no voice instruction. Opus 5 was
-third-cleanest of the six on this linter and the only model whose blind staging
-score cleared zero, so its profile moves the pass's effort from the scan to
-headers and closers. Opus 5.5 has no samples yet and uses the Opus 5 profile.
-The earned-exception tables moved to `references/exceptions.md` at the same time.
+where six models wrote the same post with no voice instruction. Opus 5 was the
+third-cleanest of the six on this linter, and the only model whose staging score
+in the blind review was above zero. Its profile therefore tells the editor to
+expect a clean lint report and to spend the pass on headers and paragraph
+closers. Opus 5.5 has not been sampled for staging
+and uses the Opus 5 profile.
 
-## Preservation and rank
+## Preservation diff and sentence ranking
 
-Two stages that are not the linter.
-
-`scripts/declaude_diff.py` compares a draft against its rewrite and reports what
-the edit lost and what it invented — numbers, names, quotations, code and link
-targets by presence; superlative, scope, negation and hedge constructions by
-count. Constructions rather than tokens, because rewriting "the format that most
-invites staged reveals" as "more than most formats do" keeps the word and drops
-the ranking. `--git PATH` compares the working tree against a ref, which is what
-CI wants. Standard library, like the linter.
+`scripts/declaude_diff.py` compares a draft with its rewrite and reports what the
+edit lost and what it invented. It checks numbers, names, quotations, code and
+link targets by presence, and it counts superlative, scope, negation and hedge
+constructions. It counts constructions rather than words because a rewrite can
+keep a word and lose its meaning: turning "the format that most invites staged
+reveals" into "more than most formats do" keeps *most* and drops the ranking.
+`--git PATH` compares the working tree with a ref, which is the form CI needs.
+Like the linter, it uses only the standard library.
 
 ```sh
 python3 scripts/declaude_diff.py SOURCE.md REWRITE.md
 python3 scripts/declaude_diff.py --git blog/post.html --ref HEAD~1
 ```
 
-An embedding does not do this job. On three real cases the lossy rewrite scores
-*higher* cosine to the source than the faithful one, because paraphrase
-invariance is what an encoder is trained for and dropping a ranking word is a
-paraphrase by that measure.
+An embedding cannot do this check. On three real cases the lossy rewrite had a
+*higher* cosine similarity to the source than the faithful rewrite did, because
+encoders are trained to ignore paraphrase.
 
-`scripts/declaude_rank.py` is where an embedder does useful work: a fitted
-direction in sentence-embedding space, the mean of `embed(was) - embed(now)` over
-the 41 before/after pairs in `references/register.md`. Same content on both
-sides, so the axis is staging and not topic. It sorts a draft's sentences and
-stops there. 76% leave-one-out on the pairs; on one real pass it put all nine
-edited sentences at a median rank of 13 of 53 (p = 0.031) where the regex scan
-found one of nine. It cannot rank documents and does not offer a document score.
-Needs torch and transformers; nothing else here does.
+`scripts/declaude_rank.py` sorts a draft's sentences from most to least staged,
+as a shortlist for the sentence pass:
 
-A fitted axis rather than a model judge because a judge takes a prompt, and two
-defensible phrasings of one judging question ranked the same ten texts at -0.50
-to each other. An axis has no question to phrase.
-[`references/preservation.md`](references/preservation.md) has every number,
-including the ones that came back negative.
+```sh
+python3 scripts/declaude_rank.py DRAFT.md --top 15
+```
+
+It projects each sentence onto a fixed direction in the embedding space of
+`all-MiniLM-L6-v2`. The direction is the mean difference between the staged
+and plain sides of 41 before-and-after pairs in the catalogue.
+Both sides of a pair say the same thing, so the direction tracks staging rather
+than topic. Holding out one pair at a time, it put the staged side higher 76% of
+the time, against 50% for chance. On one real editing pass, the nine sentences
+that the pass changed had a median rank of 13 out of 53 (p = 0.031), and the
+regex scan had found one of the nine. It ranks sentences only and gives no score
+for a whole document. It needs torch and transformers.
+
+It uses a fitted direction rather than a model judge because a judge needs a
+prompt, and the rankings that two reasonable wordings of the same judging
+question gave the same ten texts correlated at -0.50. [`references/preservation.md`](references/preservation.md)
+has every number. It reports the negative results as well.
 
 ## False positives
 
 `tests/sample-clean.md` is human-written prose and must lint to zero.
-`tests/sample-tics.md` is a corpus of real specimens and currently reports 169
-candidates across 42 categories.
+`tests/sample-tics.md` is a collection of real specimens and currently reports 173
+candidates across 42 categories. Counts marked "reviewed" below are hits that were
+read one by one and left in place, each for a reason given here.
 
 ```sh
-python3 scripts/declaude_lint.py tests/sample-tics.md    # 169 candidates
+python3 scripts/declaude_lint.py tests/sample-tics.md    # 173 candidates
 python3 scripts/declaude_lint.py tests/sample-clean.md   # 0
-python3 scripts/declaude_lint.py SKILL.md --skip-quoted  # 12, all checked
-python3 scripts/declaude_lint.py README.md --skip-quoted # 20, all checked
+python3 scripts/declaude_lint.py SKILL.md --skip-quoted  # 8, reviewed
+python3 scripts/declaude_lint.py README.md --skip-quoted # 4, reviewed
 python3 scripts/declaude_diff.py tests/sample-clean.md tests/sample-clean.md  # 0
 python3 scripts/declaude_lint.py tests/sample-structure.html   # 10, HTML path
-python3 scripts/declaude_review.py tests/sample-structure.md --slots
+python3 scripts/declaude_review.py tests/sample-structure.md --slots  # 14 slots
 ```
 
-Three of the twenty on this README are `load-bearing`, which entry 19 does list
-as a metaphor and which here is the name of a repository. A proper name is the
-carve-out `SKILL.md` states and `--skip-quoted` cannot see. One is entry 49
-firing on "Symmetry and antithesis are not" in the Overcorrection list, which is
-the ordinary ellipsis the entry names as earned.
+The hits counted above were each read and left in place: proper names such as
+`load-bearing`, lists with three real items, deliberate repetition of the kind
+entry 27 protects, and the density line, which is not a tell.
 
-Several rules are deliberately tuned down to hold that zero, so the linter misses
-some real coy headers and some real inline-header bullets. A linter that fires on
-good writing gets ignored, and then it catches nothing. This skill's own prose is
-the second clean corpus: a rule that fires seven times on `SKILL.md` is a bad
-rule, and one did.
+Several rules are tuned down to keep `sample-clean.md` at zero, so the linter
+misses some real coy headers and some real inline-header bullets. A linter that
+fires on good writing gets ignored, and an ignored linter catches nothing. The
+skill's own files are a second check: a rule that once fired seven times on
+`SKILL.md` was treated as a bad rule.
 
 ## Overcorrection
 
 The failure mode of this skill is prose stripped of confidence, rhythm and
 personality until every sentence is the same length and the writer has no
-opinions. That is worse than the tics, so the guard is written into `SKILL.md`
-rather than left to judgment:
+opinions. That is worse than the tics, so `SKILL.md` writes the guard down rather
+than leaving it to judgment:
 
-- Flat is not hedged. *Class imbalance breaks the metric before overfitting
-  does* is flat and certain.
-- First-person judgment stays. *I did not expect the overlap to survive a 3x
-  range in bits per weight* is specific, falsifiable and human.
-- Sentence length varies with content. Uniformity is its own tell.
-- Digression and mild informality are human. Symmetry and antithesis are not.
+- Keep certainty that has evidence behind it. *Class imbalance breaks the metric
+  before overfitting does* is flat and certain, and should stay both.
+- Keep first-person judgment. *I did not expect the overlap to survive a 3x range
+  in bits per weight* is specific, falsifiable and human.
+- Do not compress what remains. A rewrite that is shorter and takes longer to
+  parse is worse than the draft (entries 53 to 56).
+- Let sentence length vary with the content. Uniform length is a tell of its own.
+- Keep digression and mild informality, and cut symmetry and antithesis.
 
-Every entry fires on a shape, and a shape sometimes carries a claim. Cutting it
-then removes content while looking like it removed only style. `SKILL.md`
-tabulates the earned form of 25 of the 47 entries, and names what hides inside a
-watched phrase: superlatives, rankings, simultaneity, scope words, and the
-condition attached to a hedge. *X rather than Y* is legitimate when the reader
-was genuinely holding Y; it is staged when you supplied Y so you could reject
-it.
+Every entry fires on a shape, and sometimes the shape carries a claim. Cutting it
+then removes content while appearing to remove only style.
+`references/exceptions.md` lists, for each shape, when it is banned and when it is
+earned. A phrase that a rule flags can hide a superlative, a ranking, a claim that
+several things hold at once, a scope word, or the condition attached to a hedge.
+*X rather than Y* is legitimate when the reader was already holding Y, and staged
+when the writer supplied Y to reject it.
 
-## Tics carry factual errors
+## Contradictions found while editing
 
 Step 1 of the workflow is to read the whole piece before editing anything, and
-step 6 is to report contradictions separately rather than fix them.
+the last step is to report contradictions to the author instead of fixing them.
 
-A sentence built for shape is disproportionately likely to be wrong. In the
-draft this skill was built on, two significance designations (*the leg that
-answers the actual question*, *the variable the fits exist to test*) both
-designated the wrong thing, and the draft contradicted each of them within two
-paragraphs. Finding those is worth more than the register pass.
+A sentence built for shape is more likely than its neighbours to be wrong. In the
+benchmark post that entries 1 to 23 came from, two significance designations
+(*the leg that answers the actual question*, *the variable the fits exist to
+test*) each pointed at the wrong thing, and the post contradicted both within two
+paragraphs. Finding those was worth more than the register pass.
 
 ## Extending
 
-The register is a working document. To add to it: put the specimen in
-`tests/sample-tics.md` verbatim, write the entry with a real before-and-after,
-add a lint rule if the tell is lexical, confirm `tests/sample-clean.md` still
-reports zero, bump `metadata.version`.
+The catalogue is a working document. To add to it, put the specimen in
+`tests/sample-tics.md` verbatim, write the entry in `references/register.md` with
+a real before-and-after, add a rule to `scripts/declaude_lint.py` if the tell can
+be matched as words, confirm that `tests/sample-clean.md` still reports zero, and
+bump `metadata.version` in `SKILL.md`.
 
-Add a phrase to the register after two sightings in real drafts. One sighting
-can be a choice; two is a habit.
+Add a phrase to the catalogue only after it has appeared in two real drafts,
+since a single sighting can be a choice.
 
-## It must not invent specifics
+## Invented specifics
 
-The fix for a vague sentence is a specific one, which is exactly how a register
-pass fabricates. *Experts believe it plays a crucial role* may become *the
-sources here do not say who studies it*, or may be cut. It may not become
+The fix for a vague sentence is a specific one, and that is how a register pass
+ends up fabricating. *Experts believe it plays a crucial role* may become *the
+sources here do not say who studies it*, or it may be cut. It may not become
 *researchers at Lanzhou University*. No name, number, date, quote or citation
 enters the rewrite unless the source or the author put it there. Stance and
-opinion are voice and stay; a factual claim the author did not make is a defect
+opinion are voice and stay. A factual claim the author did not make is a defect
 even when the result reads more human.
 
-## The author's own writing wins
+## The author's writing sample
 
-Given a sample of the author's writing, match its habits and let it override the
-rules here, including the em-dash density guard. Scrubbing a tell that is
-actually someone's voice makes the text less like them and no more human.
+When the author supplies a sample of their writing, the skill matches its habits
+and lets them override the rules here, the em-dash density check (entry 16) among
+them. Scrubbing a tell that is the author's real voice makes the text less like
+them without making it any more human.
+
+## Scope
+
+This skill edits register, checks that the edit kept the draft's claims, and
+reports contradictions it finds in the draft. It does not check claims against
+outside sources or improve the analysis. It is not for fiction, poetry, code or
+quoted text.
 
 ## Provenance
 
-Entries 1 to 23 came from a register pass on an external benchmark post
-(2026-08-16), where 34 passages carried about 45 tic instances across ten shapes.
-Every specimen in that half comes from a real published draft.
+| Entries | Source |
+|---|---|
+| 1–23 | A register pass on an external benchmark post, 2026-08-16 |
+| 24–36 | [blader/humanizer](https://github.com/blader/humanizer) v2.9.1 (MIT) |
+| 37, 38 | Found during this skill's own passes, versions 0.2.1 and 0.4.0 (claude-skills #761, #769) |
+| 39–42 | The reference page for a `create_session` tool, 2026-08-23 |
+| 43–47 | Louis Abraham's [load-bearing](https://github.com/louisabraham/load-bearing) clusters of pull request descriptions |
+| 48–52 | Simon Willison's [llm-cliche-highlighter](https://github.com/simonw/tools/blob/main/llm-cliche-highlighter.html), 2026-08-27 update |
+| 53–56 | Clark, Martin and Mahowald, [arXiv 2610.29162](https://arxiv.org/abs/2610.29162) |
 
-Entries 24 to 36 came from a comparison against
-[blader/humanizer](https://github.com/blader/humanizer) (v2.9.1, MIT), which
-packages the Wikipedia AI Cleanup project's
+The benchmark post had 34 passages carrying about 45 tic instances across ten
+shapes, and every specimen for entries 1 to 23 comes from that published draft.
+
+Humanizer packages the Wikipedia AI Cleanup project's
 [Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing)
-as a portable skill. Measured before porting: a probe file of 19 humanizer
-specimens produced 2 candidates from this linter, neither for the right reason.
-It now produces 33 across 13 categories. The no-fabrication rule, the
-voice-sample precedence, the embedded invocation mode and the "leave these alone"
-list are also from that skill.
+as a portable skill. Before entries 24 to 36 were ported from it, a probe file of
+19 humanizer specimens produced 2 candidates from this linter, neither for the
+right reason. It now produces 33 across 13 categories. The no-fabrication rule,
+the precedence of the author's writing sample, embedded mode and the list of
+human traits to leave alone also come from humanizer.
 
-Entries 43 to 47 came from a count instead of a draft. Louis Abraham's
-[load-bearing](https://github.com/louisabraham/load-bearing) clusters GitHub pull
-request descriptions by vocabulary — 461,121 of them across 85 whole weeks — and
-one of its ten clusters went from 0.70% of early 2025 to 39.5% of August 2026.
-Its highest-lift words are `load-bearing`, `plainly`, `quietly`, `refusal`,
-`re-derived`, `asserted`, `nobody`, `genuinely`, `outright`, `byte-identical`:
-not the slop vocabulary of entry 20, but the flat verdict-shaped register this
-skill aims at. The five entries and the `corpus-register` line came out of that,
-along with the measurement in
-[`references/corpus.md`](references/corpus.md) of what the rate can and cannot
-claim.
+The `create_session` reference page had already been through a pass with
+declauding 0.4.0 and linted clean. Two of its section headers were then flagged
+as thesis-shaped, all four of its headers were rewritten as nominalizations, and
+the linter passed the result. That overcorrection became entry 41, which is why
+the entry describes itself as one.
 
-Entries 48 to 52 came from another tool rather than another corpus. Simon
-Willison's
-[llm-cliche-highlighter](https://github.com/simonw/tools/blob/main/llm-cliche-highlighter.html)
-highlights LLM cliches in pasted text, and its 2026-08-27 update added fifteen
-patterns and three structural detectors. Eight of the fifteen were already here
-in some form and extended existing entries — "here's the twist" and "that's the
-part" under entry 3, bare "Turns out" under 18, "batteries included" and "zero
-config" under 19, stacked questions under 10, the echo run under 26. The other
-five had no entry, and the shapes are the ones an essay reaches for when it is
-addressing the reader directly. Several of the ported regexes are narrower here
-than in the source, which is tuned for essays rather than for technical prose;
-the register entries say which, and why.
+load-bearing clusters GitHub pull request descriptions by vocabulary: 461,121 of
+them across 85 whole weeks, in ten clusters. One cluster grew from 0.70% of early
+2025 to 39.5% of August 2026, the fastest growth of any cluster in the corpus. The
+words most over-represented in it are `load-bearing`, `plainly`, `quietly`,
+`refusal`, `re-derived`, `asserted`, `nobody`, `genuinely`, `outright` and
+`byte-identical`. They are not the slop vocabulary of entry 20. They belong to
+the flat, verdict-shaped register that a declauding rewrite tends to land in.
+Entries 43 to 47 and the linter's `corpus-register` line came from that cluster,
+along with the measurement in [`references/corpus.md`](references/corpus.md) of
+what the rate can and cannot support.
 
-Entries 39 to 42 came from a `create_session` reference artifact (2026-08-23)
-that had already been through a 0.4.0 pass and reported clean. Two of its section
-headers were flagged as verdict-shaped, all four were rewritten into
-nominalizations, and the linter then passed the result — which is entry 41, and
-the reason the entry names itself as an overcorrection.
+llm-cliche-highlighter marks LLM clichés in pasted text. Its 2026-08-27 update
+added fifteen patterns and three structural detectors. Eight of the fifteen were
+already covered here in some form and extended existing entries, such as *here's
+the twist* under entry 3 and *batteries included* under entry 19. The other five
+had no entry and became entries 48 to 52. Two of the three detectors were ported,
+and the third was already the comma-list form of entry 26. They are the shapes an essay uses when
+it addresses the reader directly. Several of the ported regexes are narrower here
+than in the source, which is tuned for essays rather than technical prose, and
+the catalogue entries say which ones and why.
 
-The two skills cover different halves of the problem and both remain worth
-reading. Humanizer is broader on encyclopedic and promotional slop and ships as a
-harness-neutral single file; this one goes deeper on the staging mechanisms,
-ships a linter with a false-positive budget, and treats a tic as a signal that
-the sentence may also be factually wrong.
+Clark, Martin and Mahowald (October 2026) parsed chat, coding-session and essay
+output from fourteen models, nine of them frontier or near-frontier, and compared
+it with round-trip paraphrases and with human text from the same genres. The
+frontier models used more of the constructions that psycholinguistics links to
+slower reading. The authors trace this to post-training that rewards correct
+answers rather than clear ones, and showed in a small model that a per-token
+length penalty alone produces the shorter forms.
 
 ## Complements
 
-- **[challenging](../challenging)** — its `prose-register` profile runs an
-  adversary against a draft's voice. That one evaluates and returns findings;
-  this one edits and returns text. Run `challenging` on the result if the stakes justify it.
-- **[crafting-instructions](../crafting-instructions)** — writing prompts and
-  instructions, where the target register is different.
-- **[composing-html](../composing-html)** — general single-file HTML artifacts.
-  This skill ships its own template because the annotated diff has one fixed
-  shape and no reason to depend on another skill.
-
-This skill edits register. It does not fact-check, restructure an argument, or
-improve the analysis.
+- **[challenging](../challenging)** runs an adversary against a draft's voice
+  through its `prose-register` profile. It evaluates and returns findings, where
+  this skill edits and returns text. Run `challenging` on the result when the
+  stakes justify it.
+- **[blader/humanizer](https://github.com/blader/humanizer)** is broader on
+  encyclopedic and promotional slop and ships as a single file that works in any
+  harness. This skill goes further into staging, ships a linter that is held to
+  zero hits on human prose, and treats a tic as a sign that the sentence may also
+  be factually wrong. Both are worth reading.
+- **[crafting-instructions](../crafting-instructions)** covers prompts and
+  instructions, which have a different target register.
+- **[composing-html](../composing-html)** builds general single-file HTML
+  artifacts. This skill ships its own template because the annotated diff has one
+  fixed shape and no reason to depend on another skill.
 
 ## Dependencies
 
-None — Python 3.9+ and the standard library, with a self-contained HTML template.
+The linter, the preservation diff and the annotated template need only Python
+3.9 or later with the standard library. `declaude_rank.py` needs torch and
+transformers, and downloads `all-MiniLM-L6-v2` on first use.
+`declaude_review.py` needs a Gemini or Anthropic API key to call a model itself,
+and otherwise prints its prompt.
