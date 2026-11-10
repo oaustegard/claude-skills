@@ -4,6 +4,12 @@ All notable changes to the `declauding` skill are documented in this file. The f
 
 ## [0.13.1] - 2026-11-10
 
+### Other
+
+- declauding 0.13.1: run the skill on its own README and SKILL.md
+
+## [0.13.1] - 2026-11-10
+
 ### Changed
 
 - README rewritten with the skill's own pass. Readers of Eugene Vinitsky's
