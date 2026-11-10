@@ -61,8 +61,8 @@ fences and, where marked, quoted specimens excluded:
 | Python stdlib docstrings, 116k words, 46 chunks of 2,500 | median 0.08, p90 0.17, max 0.32 |
 | `tests/sample-clean.md`, this skill's human control | 0.34 |
 | load-bearing's own `README.md`, written by a person | 1.51 |
-| this skill's `SKILL.md` | 1.47 |
-| this skill's `README.md` | 1.71 |
+| this skill's `SKILL.md` | 1.23 |
+| this skill's `README.md` | 1.06 |
 | `tests/sample-tics.md` | 2.87 |
 | this file | 2.65 |
 | this skill's `references/register.md` | 3.17 |

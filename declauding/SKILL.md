@@ -1,21 +1,21 @@
 ---
 name: declauding
-description: Load at the start of any task whose deliverable is prose another person will read — a PR description, commit message, README, doc, postmortem, blog post, issue or review comment, report, release note or essay — before drafting it, whether the result is pushed, posted, published or saved to a file, without being asked. Draft, then run this pass on the draft before handing it over. Also use when someone says "de-claude", "de-slop", "humanize this", "this reads like AI", "make it sound human", or asks for a voice, tone or register edit. Rewrites the constructions that mark prose as model-written (staged reveals, verdict headers, aphoristic closers, "it's not X, it's Y", em-dash drama, forced triads, flat-certainty adverbs, noun stacks, dropped 'that') into plain technical prose and checks the rewrite kept every claim. Not for fiction, poetry, code, or quoted text; for a full adversarial review of a deliverable use challenging.
+description: Load it without being asked at the start of any task whose deliverable is prose that another person will read, such as a PR description, commit message, README, doc, postmortem, blog post, issue or review comment, report, release note or essay, and do so before drafting, whether the result is pushed, posted, published or saved to a file. Draft, then run this pass on the draft before handing it over. Also use it when someone says "de-claude", "de-slop", "humanize this", "this reads like AI" or "make it sound human", or asks for a voice, tone or register edit. It rewrites the constructions that mark prose as model-written into plain technical prose, and checks that the rewrite kept the draft's claims. The constructions include staged reveals, verdict headers, aphoristic closers, "it's not X, it's Y", em-dash drama, forced triads, flat-certainty adverbs, noun stacks and dropped 'that'. Do not use it on fiction, poetry, code or quoted text. For a full adversarial review of a deliverable, use challenging.
 metadata:
-  version: 0.13.0
+  version: 0.13.1
 ---
 
 # Declauding
 
-Turn LLM-shaped prose into prose a human technical writer would have written.
+Turn LLM-shaped prose into prose that a human technical writer would have written.
 
-Two output modes:
-- **clean** (default) — the rewritten text, nothing else.
-- **annotated** — a single-file HTML artifact: rewritten text, every changed
-  passage marked, each with the original, the tic name, and why it goes. A
-  toggle hides the marks so the result can be read straight through.
+It has two output modes. **Clean** (the default) returns only the rewritten
+text. **Annotated** returns a single-file HTML artifact: the rewritten text with
+every changed passage marked, and for each mark the original, the tic's name and
+the reason it goes. A toggle hides the marks so the result can be read straight
+through.
 
-Three ways it gets called, which change what you deliver:
+What you deliver depends on how the skill was called:
 - **Pasted text** (default) — the user gives text in the conversation. Return
   the rewrite, plus a short list of what changed if the edit was substantial.
 - **File** — the user points at a path. Rewrite the file in place and report a
@@ -29,9 +29,9 @@ Three ways it gets called, which change what you deliver:
 ## Do not invent specifics
 
 The rewrite must not contain a fact, name, number, date, quote or citation that
-is not in the source. This is the failure mode the skill invites rather than
-prevents: the fix for a vague sentence is a specific one, and the specific has
-to come from the source or from the author.
+is not in the source. A register pass is prone to this, because the fix for a
+vague sentence is a specific one, and that specific has to come from the source
+or from the author.
 
 *Experts believe it plays a crucial role* becomes *the sources here do not say
 who studies it*, or gets cut. It does not become *researchers at Lanzhou
@@ -42,16 +42,16 @@ Opinions and stance count as voice rather than fact. Keeping the author's
 judgment is required (see Overcorrection); adding a factual claim they did not
 make is a defect even when the result reads more human.
 
-## The one pattern
+## The generative test
 
-Almost every tic in `references/register.md` is a version of the same move:
-**the sentence is built to make the reader feel a finding arrive, instead of
-stating the finding.**
+Most entries in `references/register.md` (the staging, flat-certainty and
+confiding families) describe one habit: building a sentence so the reader feels
+a finding arrive, instead of stating the finding.
 
-The generative test, applied per sentence: *am I saying the thing, or
-performing having had the thought?* Say the thing.
+Apply one test to each sentence: is it saying the thing, or performing having
+had the thought? Rewrite the second kind so that it says the thing.
 
-The register has four families. Read the one the draft needs first.
+The register has five families. Read the one the draft needs first.
 
 | Entries | Family | Mechanism |
 |---|---|---|
@@ -61,12 +61,12 @@ The register has four families. Read the one the draft needs first.
 | 48–52 | Confiding essayist | Staging aimed at the reader's trust: announced honesty, stranded auxiliaries, obituary headlines. From Simon Willison's [llm-cliche-highlighter](https://github.com/simonw/tools/blob/main/llm-cliche-highlighter.html), updated 2026-08-27 |
 | 53–56 | Compressed syntax | Nothing is staged; a claim is packed into fewer words than a reader can parse: noun stacks, verbed nouns, dropped *that*, a subject waiting behind a list for its verb. The fix makes the sentence longer. From [arXiv 2610.29162](https://arxiv.org/abs/2610.29162) |
 
-The flat-certainty register is where a clean pass lands, and it is now the
+A clean pass tends to land in the flat-certainty register, which is also the
 fastest-growing cluster of GitHub pull request descriptions: 0.70% of early
-2025, 39.5% of August 2026 (`references/corpus.md`). Its test is the same one
-turned over: *am I stating the finding, or performing having settled it?* The
-fix is never to put the staging back. It is to check that the adverb, compound
-or negative carries evidence.
+2025 and 39.5% of August 2026 (`references/corpus.md`). Its version of the test
+asks whether a sentence states the finding or performs having settled it. Fix
+it by checking that each adverb, compound or negative has evidence behind it.
+Do not put the staging back.
 
 ## Model profiles
 
@@ -144,23 +144,24 @@ one-line-paragraph beats, fragment runs, and constructions the document uses mor
 than once. The `reuse` block is the cheapest signal it produces, because a
 construction used twice is a habit and counting is free.
 
-It has no judgment. Everything it flags still needs the sentence-level test, it
-reaches roughly two thirds of what a careful pass finds, and the third it misses
-is the expensive third: staged paragraph shape, staged closers, dressed metaphor,
-and every earned exception. Step 2b takes part of that third; the rest is yours.
-Treat a clean report as meaningless on its own, and expect one on Opus 5
-drafts, which stage heavily in shapes the scan cannot see.
+The scan makes no judgments, so everything it flags still needs the
+sentence-level test. It finds roughly two thirds of what a careful pass finds.
+The third it misses takes the most effort to find by hand: staged paragraph
+shape, staged closers, dressed metaphor and every earned exception. Step 2b
+covers part of that third, and the rest is yours. A clean report is not evidence
+that the draft is clean. Expect one on Opus 5 drafts, which stage heavily in
+shapes the scan cannot see.
 
 Use `--skip-quoted` on any draft that quotes bad prose as a specimen. Without it
-the scan reports the draft's own examples, which is how a real pass loses time.
+the scan reports the draft's own examples, and real passes have lost time to
+that.
 
 HTML input is flattened before scanning: `<h1>`–`<h6>` become headings so the
 header rules see them, and a `.subtitle`, `.eyebrow` or `.post-meta` element is
-treated as a heading too, because a subtitle is a header by every test that
-matters. Force with `--html`, disable with `--no-html`. Reported line numbers
+treated as a heading too, because a reader takes a subtitle as a header. Force with `--html`, disable with `--no-html`. Reported line numbers
 refer to the flattened view.
 
-The `corpus-register` density line locates a register. It does not detect an
+The `corpus-register` density line locates a register and does not identify an
 author. Above roughly 1.0 per 100 words the draft sits in the cluster's register,
 and a person who chooses that register scores there too, so the line is a cue to
 read entries 43 to 47 and never a licence to cut `nothing` or `measured` on
@@ -190,13 +191,13 @@ has the numbers.
 python3 scripts/declaude_review.py DRAFT.md
 ```
 
-This is the third the scan cannot reach. It extracts the slots regex cannot
-judge — every header, the opening sentence, each closing sentence, isolated
-one-sentence paragraphs — and sends only those to a model with the structural
-entries from `references/register.md`. Slots rather than the whole document,
-because the payload stays small enough to run on every draft. Use
-`--emit-prompt` where no API key is available, `--slots` to see the extraction
-alone.
+This stage covers part of what the scan misses. It extracts the slots that regex
+cannot judge and sends only those to a model, along with the structural entries
+from `references/register.md`. The slots are every header, the opening sentence,
+each closing sentence and each isolated one-sentence paragraph. Sending slots
+instead of the whole document keeps the payload small enough to run on every
+draft. Use `--emit-prompt` where no API key is available, and `--slots` to see
+the extraction alone.
 
 The two stages do not subsume each other. Stage 1 finds the flat verdict header
 deterministically and over-flags commas, including the ones that belong to a
@@ -209,10 +210,10 @@ write the draft, answer the prompt yourself; if you did, hand it to a subagent.
 If you wrote it and cannot spawn one, answer it anyway and say in your report
 that the review was not independent.
 
-For a full-document register review against a named voice signature — positive
-markers, drift across the piece, imposter test — use the `challenging` skill's
-`prose-register` profile instead. This script is the cheap pass; that one is the
-thorough one.
+For a full-document register review against a named voice signature, use the
+`challenging` skill's `prose-register` profile instead. It checks for positive
+markers of the voice, drift across the piece and an imposter test, and costs
+more to run than this script.
 
 **3. Sentence pass.** For every sentence, in order: stating or staging? Load
 `references/register.md` for the catalogue of tells and their fixes, and
@@ -276,27 +277,27 @@ python3 scripts/declaude_diff.py --git path/to/draft.html --ref HEAD
 Run this before reporting the pass done. It compares source against rewrite for
 numbers, names, quotations, code and link targets by presence, and for
 superlative, scope, negation and hedge constructions by count, and reports what
-the edit lost and what it invented. Constructions rather than tokens, because
-rewriting "the format that most invites staged reveals" as "more than most
-formats do" keeps the word and drops the ranking.
+the edit lost and what it invented. It counts constructions rather than tokens
+because rewriting "the format that most invites staged reveals" as "more than
+most formats do" keeps the word and drops the ranking.
 
 An embedding similarity does not substitute for it: on the three real cases in
 `references/preservation.md` the lossy rewrite scores *higher* cosine to the
 source than the faithful one. Paraphrase invariance is what an encoder is trained
 for, and dropping a ranking word is a paraphrase by that measure.
 
-The script guards claims and not voice, and a finding is a question rather than a
-verdict — a rephrasing it cannot see through takes a `--waive`. Four failure
-modes, all of them common:
+The script guards claims and ignores voice, so treat each finding as a question
+to answer, and pass `--waive` for a rephrasing it cannot see through. Then check
+the rewrite for four failure modes, all of them common:
 - Content lost. Ask it as a question and answer it claim by claim, not paragraph
   by paragraph: *does the rewrite drop a claim the source made?* A dropped
   superlative leaves the paragraph looking intact, which is why the
   read-through misses it. Every fact, number, caveat and hedge-with-content must
-  survive; a tic wrapping a real qualification is still a real qualification.
-  See Earned exceptions for what hides inside a watched phrase. Structure is
-  free — merge or split paragraphs, compress the dull parts, dwell where the
-  author would. When keeping the information and mirroring the original's shape
-  pull against each other, the information wins.
+  survive. Keep a real qualification even when a tic wraps it.
+  See Earned exceptions for what hides inside a watched phrase. You may change
+  the structure: merge or split paragraphs, compress the dull parts, and dwell
+  where the author would. When keeping the information and mirroring the
+  original's shape pull against each other, keep the information.
 - Claims changed. Rewriting "the drop is largest where chains are longest" into
   "long chains cause the drop" is an edit that invents a finding. Register only.
 - Facts invented. Ask it directly: does the rewrite state any name, number, date
@@ -313,12 +314,13 @@ The failure mode of this skill is prose stripped of confidence, rhythm and
 personality until every sentence is the same length and the writer has no
 opinions. That is worse than the tics.
 
-- Shorter is not plainer. A rewrite that cuts staging tends to compress what is
-  left: three nouns stacked where a phrase stood, *that* dropped from a long
-  clause, a noun pressed into service as a verb. If the rewrite is shorter and
-  takes longer to parse, it is worse. Entries 53 to 56.
-- Flat is not hedged. "Class imbalance breaks the metric before overfitting
-  does" is flat *and* certain. Target plain-and-sure, never plain-and-timid.
+- Do not compress what is left. A rewrite that cuts staging tends to stack three
+  nouns where a phrase stood, drop *that* from a long clause, or press a noun
+  into service as a verb. If the rewrite is shorter and takes longer to parse,
+  it is worse (entries 53 to 56).
+- Keep the certainty. "Class imbalance breaks the metric before overfitting
+  does" is flat *and* certain. Aim for prose that is plain and still sure of
+  itself.
 - Do not delete first-person judgment. "I did not expect the overlap to survive
   a 3x range in bits per weight" is exactly right — specific, falsifiable,
   personal. Human technical writers state preferences and surprise directly.
@@ -328,17 +330,17 @@ opinions. That is worse than the tics.
 - Do not delete metaphor. Delete metaphor that is *doing significance work*
   where a plain noun fits. A metaphor that is the clearest available description
   stays.
-- Digression, asides and mild informality are human. Symmetry, antithesis and
-  balanced parallel clauses are not.
+- Keep digression, asides and mild informality. Cut symmetry, antithesis and
+  balanced parallel clauses.
 
-## Leave these alone
+## Signs of a person writing
 
 These are evidence of a person writing. Editing them out is how a register pass
 makes a draft worse, and each one is easier to destroy than to put back.
 
 - **Specific, hard-to-fabricate detail.** A street name, an odd quote, "the guy
-  who used to run the build before he left". Models round specifics off; people
-  hoard them.
+  who used to run the build before he left". Models tend to round specifics off,
+  and people tend to keep them.
 - **Mixed feelings and unresolved tension.** *I think this is mostly right and it
   still bothers me and I cannot say why.* Clean takes are the model default.
 - **Genuine self-interruption.** A parenthesis that corrects the sentence it sits
@@ -352,9 +354,9 @@ makes a draft worse, and each one is easier to destroy than to put back.
 Things that are not tells on their own, and should not be edited on their own:
 polished grammar, formal vocabulary, a mixed casual-and-formal register, curly
 quotes, a single em dash, one short emphatic sentence, an unsourced claim, a
-salutation or sign-off. Look for **clusters**. One em dash is punctuation; em
-dashes plus a forced triad plus *vibrant tapestry* plus a Conclusion section is a
-confession.
+salutation or sign-off. Look for clusters. A single em dash is punctuation. Em
+dashes together with a forced triad, *vibrant tapestry* and a Conclusion section
+are strong evidence of model text.
 
 Do not edit a watched phrase inside a quotation, a title, a proper name, or an
 example where the phrase is being discussed rather than used. The linter's
@@ -370,7 +372,7 @@ deleting. Two common cases: "X rather than Y" is earned when the reader was
 already holding Y, and a short closer is earned when it states a fact
 ("Default retries are back to 3.") rather than a moral.
 
-**Modifiers inside a watched phrase carry content.** "The single most important
+Modifiers inside a watched phrase carry content. "The single most important
 new build" ranks that item against every other item; "the important new build"
 ranks nothing. "Simultaneously X, Y and Z" claims the three hold at once; "X, Y
 and Z" does not. Superlatives, rankings, simultaneity, scope words, and the
@@ -383,23 +385,23 @@ spans and edit notes, the toggle, the tic-tally table, and how to handle
 passages deliberately left alone.
 
 Rules that make the annotation useful rather than decorative:
-- Quote the original verbatim in every note. An edit the reader cannot check is
-  an assertion.
+- Quote the original verbatim in every note, so the reader can check the edit.
 - Name the tic using the register's vocabulary so the reader accumulates a
   vocabulary rather than 40 unrelated opinions.
 - Say why *this instance* is a tic. Explaining the category teaches nothing
   about the text in front of the reader.
-- Mark what was kept and why. A pass that only flags failures teaches avoidance.
+- Mark what was kept and why, so the reader learns what works as well as what
+  fails.
 - Bundle stacked tics into one note per passage. Do not split a sentence into
   four notes to inflate the count.
 
 ## Calibration
 
-When a draft's register is genuinely unclear, read real prose in the target
+When a draft's register is unclear, read real prose in the target
 genre before editing — the author's own earlier writing, or a well-known human
 writer in that domain. Human technical prose runs on, digresses, states
 preferences without justifying them, and repeats a word rather than reaching for
-elegant variation. Its sentences vary because the thoughts vary.
+elegant variation. Its sentence length follows what each sentence has to say.
 
 ## Scope
 
@@ -419,9 +421,9 @@ The register is a working document, not a standard. Adding to it:
 2. Add a register entry: tell, why, fix, and the real before/after. Entries
    without a before/after get argued about instead of applied.
 3. If the tell is lexical, add a rule to `scripts/declaude_lint.py` and confirm
-   `tests/sample-clean.md` still reports zero. That file is human-written prose;
-   a rule that fires on it is a bad rule, and the false-positive budget is the
-   thing that keeps the linter worth running.
+   `tests/sample-clean.md` still reports zero. That file is human-written prose,
+   so a rule that fires on it is a bad rule. Holding the false-positive budget
+   keeps the linter worth running.
 4. Bump `metadata.version`.
 
 To add a model profile, sample that model with no voice instruction and score
@@ -430,7 +432,6 @@ instructions: where to look, what to cut, with one specimen per rule. Leave the
 scores in the experiment; the file gets one evidence line. Add a row to the
 Model profiles table.
 
-Promote a phrase to its own register entry only after it appears twice in real
-drafts. Reuse is the strongest evidence that a construction is a habit rather
-than a choice, and a register that grows on single sightings becomes a phrase
-blocklist that misses the next paraphrase.
+Promote a phrase to its own register entry only after it appears in two real
+drafts. An entry written from one sighting matches that phrase and misses its
+paraphrases.

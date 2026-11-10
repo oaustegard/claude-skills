@@ -2,6 +2,33 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.13.1] - 2026-11-10
+
+### Changed
+
+- README rewritten with the skill's own pass. Readers of Eugene Vinitsky's
+  2026-11-09 Bluesky post, which shared the README's tic table, pointed out
+  that the README was written in the register it catalogues; the linter agreed
+  (20 candidates, corpus-register density 1.67 per 100 words). The opening now
+  says what the skill does, the families follow `SKILL.md`, each family has its
+  own section, and provenance is a table. New sections cover installing, the
+  workflow and the structural review. Two newcomer reads by subagents checked it.
+- `SKILL.md` given the same pass. The description and the generative-test
+  section no longer use the constructions they list, and the closer is plain.
+- The summary of arXiv 2610.29162 in `references/register.md` and the README
+  matches the paper: fourteen models, nine of them frontier or near-frontier,
+  and the length penalty's transfer to untrained constructions was partial.
+- `references/corpus.md` carries the new densities for `SKILL.md` (1.23) and
+  the README (1.06).
+
+### Fixed
+
+- README counts: 56 entries in five families (was "fifty-two" and "four
+  groups"), 173 candidates on `tests/sample-tics.md` (was 169). The README no
+  longer says the earned-exception table is in `SKILL.md` or that the skill has
+  no dependencies beyond the standard library (`declaude_rank.py` needs torch).
+- `SKILL.md` said the register has four families and listed five.
+
 ## [0.13.0] - 2026-11-09
 
 ### Other

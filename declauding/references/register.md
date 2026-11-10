@@ -1125,18 +1125,23 @@ citing, a product whose vendor announced end of life.
 ## Compressed syntax: entries 53 to 56
 
 Clark, Martin and Mahowald ([arXiv 2610.29162](https://arxiv.org/abs/2610.29162),
-October 2026) parsed chat, coding-session and essay output from nine frontier
-models. They compared each reply with a paraphrase of the same sentences made by
+October 2026) parsed chat, coding-session and essay output from fourteen models,
+nine of them frontier or near-frontier, including Claude Sonnet 5, Opus 5,
+Opus 5.5 and Fable 5. They compared each reply with a paraphrase of the same sentences made by
 translating it to Japanese and back, and with human text from the same genre.
 The models used more of six constructions that psycholinguistics links to slower
 reading: rare word pairs, long distances between a word and the word it depends
 on, object relative clauses with the optional *that* left out, stacks of three or
 more nouns, nouns used as verbs, and inanimate subjects on verbs that normally
-take a person. All nine overused the rare word pairs and the inanimate subjects
-compared with human text. The authors' explanation is training that rewards a
-correct answer in fewer tokens. A length penalty alone pushed a small model to
-pick the shorter form of every syntactic alternation it was trained on, and of
-one it never saw.
+take a person. Almost all of the nine used more rare word pairs than their own
+round-trip paraphrases, and all nine used more inanimate subjects on animate
+verbs than human writers did. The authors trace the habit to post-training that
+rewards correct answers rather than clear ones. In a small model, a per-token
+length penalty alone produced a near-categorical preference for the shorter
+form of each alternation it was trained on; the preference carried over to
+held-out *that* constructions, and to one of four unrelated alternations (the
+genitive), only when training had no KL penalty. The authors call this a proof
+of concept and give no editing advice.
 
 These entries are a different mechanism from staging. Nothing here performs a
 finding. Each shape packs a claim into fewer words than a person would use, and
