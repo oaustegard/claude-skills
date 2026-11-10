@@ -1,8 +1,8 @@
 ---
 name: declauding
-description: Load it without being asked at the start of any task whose deliverable is prose that another person will read, such as a PR description, commit message, README, doc, postmortem, blog post, issue or review comment, report, release note or essay, and do so before drafting, whether the result is pushed, posted, published or saved to a file. Draft, then run this pass on the draft before handing it over. Also use it when someone says "de-claude", "de-slop", "humanize this", "this reads like AI" or "make it sound human", or asks for a voice, tone or register edit. It rewrites the constructions that mark prose as model-written into plain technical prose, and checks that the rewrite kept the draft's claims. The constructions include staged reveals, verdict headers, aphoristic closers, "it's not X, it's Y", em-dash drama, forced triads, flat-certainty adverbs, noun stacks and dropped 'that'. Do not use it on fiction, poetry, code or quoted text. For a full adversarial review of a deliverable, use challenging.
+description: Load it without being asked at the start of any task whose deliverable is prose that another person will read, such as a PR description, commit message, README, doc, postmortem, blog post, issue or review comment, report, release note or essay, and run it on the draft before the text is pushed, posted, published or saved. Draft first without this skill in context, from a positive writing brief if one exists. Also use it when someone says "de-claude", "de-slop", "humanize this", "this reads like AI" or "make it sound human", or asks for a voice, tone or register edit. It rewrites the constructions that mark prose as model-written into plain technical prose, and checks that the rewrite kept the draft's claims. The constructions include staged reveals, verdict headers, aphoristic closers, "it's not X, it's Y", em-dash drama, forced triads, flat-certainty adverbs, noun stacks and dropped 'that'. Do not use it on fiction, poetry, code or quoted text. For a full adversarial review of a deliverable, use challenging.
 metadata:
-  version: 0.13.2
+  version: 0.14.0
 ---
 
 # Declauding
@@ -136,6 +136,7 @@ newcomer read checks that a reader who does not share your context can find it.
 python3 scripts/declaude_lint.py DRAFT.md
 python3 scripts/declaude_lint.py DRAFT.html               # HTML is flattened automatically
 python3 scripts/declaude_lint.py DRAFT.md --skip-quoted   # if the draft quotes bad prose
+python3 scripts/declaude_lint.py POST.md --statement-headers  # house style writes headers as findings (entry 7)
 ```
 
 It flags greppable tells with line numbers and categories, plus four shapes that

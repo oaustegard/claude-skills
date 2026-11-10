@@ -161,6 +161,15 @@ point, make the header the definition.
 **Test:** read the header alone, as a table-of-contents entry. Does it tell you
 what is in the section?
 
+**House style for posts.** Where the author's style guide writes post and
+published-page headers as short declarative sentences that state the section's
+finding ("Three hundred labels nearly match a classifier trained on 1,542"), that
+guide wins, as the author's writing sample does. Such a header is a verdict the
+section's text supports, and the test above still applies: it must say what is in
+the section and claim no more than the section shows. Scan those drafts with
+`--statement-headers`, which skips the thesis-shaped rule and keeps the comma and
+coy rules. PR bodies, READMEs and reference docs keep flat noun-phrase labels.
+
 ---
 
 ## 8. Suspense construction

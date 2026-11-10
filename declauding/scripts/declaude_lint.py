@@ -405,7 +405,7 @@ def _blank_quoted(text: str) -> str:
     return re.sub(r"<q>.*?</q>", blank, text, flags=re.S)
 
 
-def scan_lines(text: str) -> list[dict]:
+def scan_lines(text: str, statement_headers: bool = False) -> list[dict]:
     hits: list[dict] = []
     lines = text.splitlines()
 
@@ -435,7 +435,8 @@ def scan_lines(text: str) -> list[dict]:
                 hits.append({"line": i, "category": "header",
                              "note": "coy header — could top three different sections; name the content",
                              "match": title[:90]})
-            elif not title.endswith("?") and VERDICT_HEADER_RE.search(title) and len(title.split()) > 3:
+            elif (not statement_headers and not title.endswith("?")
+                  and VERDICT_HEADER_RE.search(title) and len(title.split()) > 3):
                 hits.append({"line": i, "category": "header",
                              "note": "thesis-shaped header — states a verdict instead of labelling",
                              "match": title[:90]})
@@ -759,6 +760,10 @@ def main() -> int:
     ap.add_argument("--html", action="store_true",
                     help="force HTML flattening (headings, masthead subtitle, block prose)")
     ap.add_argument("--no-html", action="store_true", help="never flatten; scan the raw source")
+    ap.add_argument("--statement-headers", action="store_true",
+                    help="the house style writes headers as declarative statements of the "
+                         "section's finding (blog posts, published pages): skip the "
+                         "thesis-shaped header rule; comma and coy headers still fire")
     args = ap.parse_args()
 
     text = sys.stdin.read() if args.path == "-" else Path(args.path).read_text(encoding="utf-8")
@@ -767,7 +772,7 @@ def main() -> int:
     if args.skip_quoted:
         text = _blank_quoted(text)
 
-    hits = scan_lines(text) + scan_density(text)
+    hits = scan_lines(text, statement_headers=args.statement_headers) + scan_density(text)
     hits += scan_reuse(hits)
     if args.quiet_slop:
         hits = [h for h in hits if h["category"] not in {"slop", "editorializing", "time-inflation"}]

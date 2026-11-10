@@ -6,8 +6,8 @@ back, it checks the rewrite against the draft for any number, name, quotation,
 hedge or ranking that the edit dropped or added.
 
 Install it like any skill in [oaustegard/claude-skills](https://github.com/oaustegard/claude-skills),
-by copying this directory into the agent's skills folder. The agent then loads it
-before drafting prose that someone else will read, and when asked to "declaude",
+by copying this directory into the agent's skills folder. The agent then runs it
+on a draft of prose that someone else will read, and when asked to "declaude",
 "de-slop" or "humanize" a text. It returns the rewritten text, or, if you ask for
 the annotated version, an HTML file that marks each edit with the original and
 the reason for it.
