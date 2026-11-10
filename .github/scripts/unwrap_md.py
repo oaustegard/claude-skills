@@ -42,5 +42,9 @@ def unwrap(text: str) -> str:
 
 
 if __name__ == "__main__":
-    src = open(sys.argv[1], encoding="utf-8").read() if len(sys.argv) > 1 else sys.stdin.read()
+    if len(sys.argv) > 1:
+        with open(sys.argv[1], encoding="utf-8") as fh:
+            src = fh.read()
+    else:
+        src = sys.stdin.read()
     sys.stdout.write(unwrap(src))
