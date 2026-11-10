@@ -4,6 +4,13 @@ All notable changes to the `declauding` skill are documented in this file. The f
 
 ## [0.14.0] - 2026-11-10
 
+### Other
+
+- declauding 0.14.0: run on the draft, not before drafting; --statement-headers
+- declauding: clarify README and SKILL.md after a newcomer read
+
+## [0.14.0] - 2026-11-10
+
 ### Changed
 
 - The skill runs on a draft, not before drafting. The description no longer
