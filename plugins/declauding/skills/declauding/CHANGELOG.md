@@ -2,6 +2,24 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.13.2] - 2026-11-10
+
+### Other
+
+- declauding 0.13.2: README as a snapshot, not a history
+
+## [0.13.2] - 2026-11-10
+
+### Changed
+
+- README cut from 479 lines to about 130. It describes the skill as it is now;
+  provenance narratives, measurement detail and per-file lint bookkeeping moved
+  out, since `references/` and this changelog already hold them.
+- Structure pass (step 4) and entry 34: a README describes the current
+  snapshot, and the history of how a section came to be belongs in the
+  changelog or commit message. Entry 34 gains a specimen from this skill's own
+  0.13.1 README.
+
 ## [0.13.1] - 2026-11-10
 
 ### Other
