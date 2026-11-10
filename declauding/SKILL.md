@@ -2,7 +2,7 @@
 name: declauding
 description: Load it without being asked at the start of any task whose deliverable is prose that another person will read, such as a PR description, commit message, README, doc, postmortem, blog post, issue or review comment, report, release note or essay, and do so before drafting, whether the result is pushed, posted, published or saved to a file. Draft, then run this pass on the draft before handing it over. Also use it when someone says "de-claude", "de-slop", "humanize this", "this reads like AI" or "make it sound human", or asks for a voice, tone or register edit. It rewrites the constructions that mark prose as model-written into plain technical prose, and checks that the rewrite kept the draft's claims. The constructions include staged reveals, verdict headers, aphoristic closers, "it's not X, it's Y", em-dash drama, forced triads, flat-certainty adverbs, noun stacks and dropped 'that'. Do not use it on fiction, poetry, code or quoted text. For a full adversarial review of a deliverable, use challenging.
 metadata:
-  version: 0.13.1
+  version: 0.13.2
 ---
 
 # Declauding
@@ -227,7 +227,11 @@ coding-session report, read 53 to 56 first.
 **4. Structure pass.** Headers (are they labels or verdicts?), paragraph breaks
 (is an isolated line a real pivot or a drum roll?), fragment runs, rhetorical
 questions, and the closer (does the last paragraph paraphrase the subtext of
-what preceded it? delete it).
+what preceded it? delete it). On a README or other doc, check that it describes
+the thing as it is now. How a section or feature came to be, what an earlier
+version did and what was measured before a change belong in the changelog, or in
+the commit message when there is no changelog. Readers come to a README for the
+current snapshot and rarely open the history (entry 34).
 
 **4a. Newcomer read, when the draft describes something that just changed.**
 Run this step on a README, doc, page or results section written or revised right

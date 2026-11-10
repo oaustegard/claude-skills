@@ -611,6 +611,12 @@ previous approach was", "this has been updated to".
 reads coherently only to someone who knows what the last commit did. Six months
 later nobody does.
 
+The same failure at document scale is a README that narrates its own history:
+how each section came to be, what was ported from where and what it scored
+before the port, what an earlier version got wrong. Readers come to a README
+for the current snapshot. Nobody wants to read a changelog, and a README
+written as one makes them do it.
+
 **Fix:** describe the current state. The change belongs in the commit message or
 the changelog.
 
@@ -621,6 +627,11 @@ notes, a migration guide, an upgrade path. Narrating the change is the job there
 > through all items, which caused quadratic performance.*
 > now: *Looks up items through a hash map, so cost is constant per item rather
 > than quadratic in the list length.*
+
+> was: *Before entries 24 to 36 were ported from it, a probe file of 19 humanizer
+> specimens produced 2 candidates from this linter, neither for the right reason.
+> It now produces 33 across 13 categories.* (this skill's own README, 0.13.1)
+> now: cut from the README; the CHANGELOG entry for the port already says it.
 
 ---
 
