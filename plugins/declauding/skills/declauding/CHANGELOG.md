@@ -2,6 +2,29 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.14.0] - 2026-11-10
+
+### Other
+
+- declauding 0.14.0: run on the draft, not before drafting; --statement-headers
+- declauding: clarify README and SKILL.md after a newcomer read
+
+## [0.14.0] - 2026-11-10
+
+### Changed
+
+- The skill runs on a draft, not before drafting. The description no longer
+  says to load it before the first word. In oaustegard/experiments
+  `positive-writer-brief`, Opus 5.5 drafts written with this skill and the
+  Muninn voice signature in context had 4.88 lint hits per 1,000 words, and
+  drafts from a brief that named none of the tells had 5.34 (CI on the
+  difference -1.60 to +2.93, 12 tasks x 4 drafts); judged focus was slightly
+  better from the brief. The editor pass is unchanged.
+- `declaude_lint.py --statement-headers` skips the thesis-shaped header rule
+  for documents whose house style writes headers as statements of the
+  section's finding. Entry 7 says when that style wins. In the same
+  experiment this rule produced most of the brief arm's extra hits.
+
 ## [0.13.2] - 2026-11-10
 
 ### Other
