@@ -262,7 +262,8 @@ for SKILL_DIR in $SKILLS; do
   cd "$REPO_ROOT"
 
   # Prepare release description content from README
-  SKILL_README_CONTENT=$(cat "$SKILL_DIR/README.md" 2>/dev/null || echo "No README found for this skill.")
+  # Release bodies render each newline as a line break, so join wrapped paragraphs.
+  SKILL_README_CONTENT=$(python3 "$REPO_ROOT/.github/scripts/unwrap_md.py" "$SKILL_DIR/README.md" 2>/dev/null || echo "No README found for this skill.")
   SKILL_FOLDER_URL="https://github.com/${GITHUB_REPOSITORY}/tree/main/$SKILL_DIR"
   SKILL_DESCRIPTION_HEADER="$SKILL_README_CONTENT
 
