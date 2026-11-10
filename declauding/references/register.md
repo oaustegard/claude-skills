@@ -630,8 +630,9 @@ notes, a migration guide, an upgrade path. Narrating the change is the job there
 
 > was: *Before entries 24 to 36 were ported from it, a probe file of 19 humanizer
 > specimens produced 2 candidates from this linter, neither for the right reason.
-> It now produces 33 across 13 categories.* (this skill's own README, 0.13.1)
-> now: cut from the README; the CHANGELOG entry for the port already says it.
+> It now produces 33 across 13 categories.* (this skill's own README)
+> now: *A probe file of 19 humanizer specimens produces 33 candidates across 13
+> categories.* The before-and-after count moves to the changelog.
 
 ---
 

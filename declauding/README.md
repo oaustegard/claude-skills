@@ -70,23 +70,27 @@ python3 scripts/fresh_eyes.py packet README.md             # prompt for a newcom
 ```
 
 The linter reads Markdown, plain text and HTML, and needs only the standard
-library. It exits 1 when it finds candidates, so it can run as a pre-commit hook.
+library and Python 3.9 or later. It exits 1 when it finds candidates, so it can run as a pre-commit hook.
 Each hit still needs a reader's judgment, and no regex reaches a staged paragraph
 or closer, so a clean report does not mean the draft is clean. `--skip-quoted`
-ignores quoted specimens, which a document like this one needs.
+ignores blockquotes, table rows, code and italic spans, where a document like
+this one quotes bad prose as examples.
 
 The structural review sends only the headers, the opening and closing sentences
 and any isolated one-line paragraphs to a model: Gemini with `GEMINI_API_KEY`,
 Claude with `ANTHROPIC_API_KEY`, and with neither it prints the prompt for an
 agent to answer. The ranker needs torch and transformers. The diff counts
-constructions rather than words, because a rewrite can keep the word *most* and
-still lose the ranking it carried.
+constructions rather than words: rewriting "the format that most invites staged
+reveals" as "more than most formats do" keeps the word *most* and loses the
+ranking.
 
-`tests/sample-clean.md` is human-written prose, and every lint rule must report
-zero on it. [`references/corpus.md`](references/corpus.md) and
+When adding a lint rule, check that it reports zero on `tests/sample-clean.md`,
+which is human-written prose. [`references/corpus.md`](references/corpus.md) and
 [`references/preservation.md`](references/preservation.md) have the measurements
 behind the diff, the ranker, and the linter's `corpus-register` line, which
 measures how much of a draft uses the vocabulary of the flat-certainty family.
+Above about 1.0 per 100 words, read entries 43 to 47. A high score locates the
+register and does not mean a model wrote the draft.
 
 ## Overcorrection
 
@@ -110,8 +114,8 @@ the pass itself.
 
 ## Sources
 
-Entries 1 to 23 and their specimens come from a register pass on a published
-benchmark post. Other families draw on
+Entries 1 to 23 come from a register pass on a published benchmark post, and 37
+to 42 from passes on drafts and a reference page in this repository. Other families draw on
 [blader/humanizer](https://github.com/blader/humanizer) and the Wikipedia AI
 Cleanup project's [Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing)
 (24–36), Louis Abraham's [load-bearing](https://github.com/louisabraham/load-bearing)

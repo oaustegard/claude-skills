@@ -149,7 +149,7 @@ sentence-level test. It finds roughly two thirds of what a careful pass finds.
 The third it misses takes the most effort to find by hand: staged paragraph
 shape, staged closers, dressed metaphor and every earned exception. Step 2b
 covers part of that third, and the rest is yours. A clean report is not evidence
-that the draft is clean. Expect one on Opus 5 drafts, which stage heavily in
+that the draft is clean. Expect a clean report on Opus 5 drafts, which stage heavily in
 shapes the scan cannot see.
 
 Use `--skip-quoted` on any draft that quotes bad prose as a specimen. Without it
@@ -199,9 +199,9 @@ instead of the whole document keeps the payload small enough to run on every
 draft. Use `--emit-prompt` where no API key is available, and `--slots` to see
 the extraction alone.
 
-The two stages do not subsume each other. Stage 1 finds the flat verdict header
-deterministically and over-flags commas, including the ones that belong to a
-citation. Stage 2 reads a comma in context and finds the aphoristic closer, which
+The scan and the review catch different things. The scan finds a verdict header
+(entry 7) deterministically and over-flags commas, including the ones that belong
+to a citation. The review reads a comma in context and finds the aphoristic closer, which
 no regex reaches. Run both.
 
 Run stage 2 in a context that did not write the draft. A model reviewing its own
@@ -219,7 +219,7 @@ more to run than this script.
 `references/register.md` for the catalogue of tells and their fixes, and
 `references/exceptions.md` before deleting any flagged shape — it lists when
 each shape carries a claim. Start with the family the draft needs: the author
-model's profile names it; on a draft this skill or another model already
+model's profile in `references/models/` names it; on a draft this skill or another model already
 cleaned, read 43 to 47 first; on a personal essay, a launch post, or anything
 addressed to the reader as a confidant, read 48 to 52 first; on a chat reply or a
 coding-session report, read 53 to 56 first.
