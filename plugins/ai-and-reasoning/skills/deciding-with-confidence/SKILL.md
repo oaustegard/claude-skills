@@ -2,7 +2,7 @@
 name: deciding-with-confidence
 description: "Routes, triages, flags and rates a piece of text with a probability for every option: which department or queue a ticket goes to, which intent a message expresses, whether a yes/no condition holds (is this tool call grounded, should the agent ask first, is the customer angry), and how severe or urgent it is on a rubric, each with a calibrated confidence. Runs Claude Haiku in the request and response shapes of OpenAI's Decisions API, for when no purpose-built decision model is at hand. Use for \"route this ticket\", \"triage these\", \"classify with a confidence\", \"give me a probability that\", \"rate the severity\", \"score against this rubric\", guardrail checks before a tool call, or \"a Decisions API without OpenAI\"."
 metadata:
-  version: 0.1.1
+  version: 0.2.0
 ---
 
 # Deciding with confidence
@@ -21,12 +21,22 @@ because nothing checks it. When the confidence will gate an action, run
 literal, sceptic) and option order, averaged. Their disagreement lowers
 `confidence` and shows up in `diagnostics.agreement`.
 
-Expect about 85% of what a purpose-built decision model gets. On the bundled
-104-item eval (2026-10-09, three plain samples) accuracy was 0.846 against
-Jev's 0.894 with a matching calibration error (ECE 0.041); one sample scored
-0.865, with a confidence that separated right from wrong less well (AUROC
-0.80 against 0.86). The whole accuracy gap was on eight-way intent questions.
-`references/method.md` has the numbers.
+Measured 2026-11-10 on three labelled sets (104 short support and guardrail
+items, 554 questions about whole research articles, 1,070 about article
+sections):
+
+| | short items | whole articles | sections | cost |
+|---|---|---|---|---|
+| one sample, low effort (default) | 0.885 | 0.908 | 0.846 | 1x |
+| `--stack` | 0.846 | 0.935 | 0.866 | 3x |
+| three plain samples at the CLI's default effort (the 0.1 default) | 0.846 | 0.944 | 0.886 | about 4x |
+
+The default buys a third of the cost for 0.02 to 0.04 of accuracy on long
+scientific text. The stack's value is its agreement signal: answers its three
+samples agreed on were 91% to 96% right, split ones 39% to 66%. A
+purpose-built decision model (Jev) scored 0.894 on the short items and 0.965
+on a hard-label version of the article questions. `references/method.md` has
+the numbers.
 
 ## When NOT to use this skill
 
@@ -127,8 +137,9 @@ them. Rewrite the options (distinct, observable criteria) before sampling more.
 5. **Act on it with thresholds, never on the top answer alone.**
    - With one sample there is no `agreement`; use the top-probability rule
      alone, or rerun the doubtful ones with `--stack`.
-   - `agreement < 1` (the samples' top answers differ): escalate. On the bundled
-     eval, unanimous answers were 92% right and split ones 44%.
+   - `agreement < 1` (the samples' top answers differ): escalate. With `--stack`,
+     unanimous answers were 91% right on the bundled eval and split ones 39%;
+     on article sections 94% and 57%.
    - Top probability under 0.7: escalate. Together with the split rule that
      sent 23 of 104 items onward and left 6 wrong, assuming the escalation
      target got every escalated item right. The 0.7 was chosen on the same

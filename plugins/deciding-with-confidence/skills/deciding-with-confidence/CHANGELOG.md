@@ -1,5 +1,25 @@
 # deciding-with-confidence - Changelog
 
+## 0.2.0 - 2026-11-10
+
+### Changed
+- The default is one sample at low effort (was three samples at the CLI's
+  default effort). Measured on three labelled sets it costs about a quarter as
+  much and scores 0.885 / 0.908 / 0.846 against 0.846 / 0.944 / 0.886.
+- The `cli` transport sends the prompt on stdin and passes `--effort`.
+
+### Added
+- `--stack`: three samples, one under each of the `plain`, `literal` and
+  `sceptic` angles, pooled. Its agreement signal separates right answers
+  (0.91 to 0.96 when unanimous) from wrong ones (0.39 to 0.66 when split).
+  `--angles` and a request's `angles` take custom instruction text.
+- `input_file`: evidence read from a file by `run` and `batch`, and passed to
+  the subagent as a path by `emit`.
+- `input_transcript`: the session's own conversation as evidence, read from
+  Claude Code's transcript file, clipped and redacted.
+- `batch`: a JSONL of requests answered in parallel, resumable.
+- `eval` accepts items labelled for only some of their questions.
+
 ## 0.1.1 - 2026-10-09
 
 ### Fixed
@@ -33,6 +53,14 @@
   calibration (T = 0.62) fitted on it.
 - Ported from `oaustegard/claude-workspace` `scripts/decide.py`, without its
   Jev comparison backend.
+
+## [0.2.0] - 2026-11-11
+
+### Other
+
+- deciding-with-confidence 0.2.0: measured numbers for the new default and the stack
+- deciding-with-confidence: the conversation itself as evidence (input_transcript)
+- deciding-with-confidence: one low-effort sample by default, angle stack, file inputs, batch
 
 ## [0.1.1] - 2026-10-09
 

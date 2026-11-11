@@ -101,3 +101,40 @@ before trusting the bundled temperature.
 Jev is TypeSafe's decision model, reached at `api.typesafe.ai/v1/systemone` or
 through the Cloudflare AI Gateway; it was the comparison because its key was at
 hand. Its rows come from the same 104 items through the same scoring code.
+
+## Measured 2026-11-10: one sample, the angle stack, and the old default
+
+Three sets, all through the `cli` transport, metrics on the uncalibrated
+distributions. `bundled` is `assets/eval.jsonl`. `papers` is 150 open-access
+research articles, each read whole (median 3,850 words), with four questions;
+`sections` is 150 article sections with eight. Their labels are the answers
+on which Sonnet 5.5 and Opus 5.5 agreed. Both sets, the runner and the raw
+results are in `oaustegard/experiments`, `haiku-decider/`. Two runs per set of
+three samples each; single-sample rows are read off those runs' individual
+samples.
+
+| accuracy / ECE / AUROC | bundled (104) | papers (554) | sections (1,070) |
+|---|---|---|---|
+| one sample, low effort, plain (default) | 0.885 / 0.114 / 0.81 | 0.908 / 0.035 / 0.88 | 0.846 / 0.044 / 0.79 |
+| one sample, low effort, `literal` | 0.846 / 0.049 / 0.79 | 0.928 / 0.063 / 0.84 | 0.848 / 0.039 / 0.83 |
+| one sample, low effort, `sceptic` | 0.865 / 0.079 / 0.79 | 0.931 / 0.051 / 0.83 | 0.858 / 0.037 / 0.82 |
+| one sample, default effort, plain | 0.865 / 0.069 / 0.80 | 0.908 / 0.038 / 0.89 | 0.871 / 0.050 / 0.80 |
+| `--stack` at low effort | 0.846 / 0.101 / 0.89 | 0.935 / 0.073 / 0.87 | 0.866 / 0.075 / 0.85 |
+| three plain samples, default effort (0.1 default) | 0.846 / 0.088 / 0.87 | 0.944 / 0.079 / 0.86 | 0.886 / 0.083 / 0.85 |
+
+- `sceptic` beat `plain` on the two long-text sets and lost two items on the
+  bundled one, so `plain` stays the single-sample angle. Set
+  `DECIDER_ANGLE=sceptic` for long documents.
+- Low effort cost nothing on short items and whole articles and 0.025 on
+  sections (0.846 against 0.871 for one plain sample).
+- The stack's unanimous answers were right 0.912 / 0.964 / 0.939 of the time
+  and its split ones 0.385 / 0.660 / 0.569; splits were 13%, 10% and 20% of
+  answers.
+- Mean cost per request, stack against the 0.1 default: $0.0010 and $0.0012
+  on bundled, $0.0055 and $0.0076 on whole articles, $0.0027 and $0.0034 on
+  sections. One sample is a third of the stack. Median wall time through the
+  CLI was 6 to 9 s for three parallel samples; the CLI's start-up dominates.
+- The shipped choice temperature (0.621, fitted on three-sample pools) also
+  fits single samples: choice ECE fell from 0.128 to 0.072 on bundled, 0.084
+  to 0.050 on papers and 0.083 to 0.073 on sections. Predicates fitted near 1
+  on both new sets (0.96), so they stay unscaled.
