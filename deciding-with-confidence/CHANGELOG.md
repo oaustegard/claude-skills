@@ -84,6 +84,12 @@
 - Ported from `oaustegard/claude-workspace` `scripts/decide.py`, without its
   Jev comparison backend.
 
+## [0.4.0] - 2026-11-11
+
+### Other
+
+- deciding-with-confidence 0.4.0: System One requests, predicate criteria, cues returned
+
 ## [0.3.0] - 2026-11-11
 
 ### Other
