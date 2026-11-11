@@ -1,0 +1,30 @@
+{
+  "testing-with-agent-qa": [
+    "This project uses agent-qa. Check that tests/checkout.yaml is valid and selects only checkout, without opening the application.",
+    "Our staging login change is ready. Run its existing agent-qa regression using the configured target and report the recorded result.",
+    "The last agent-qa job exited zero, but its verdict says healed. Explain the result without calling it a clean pass.",
+    "For this agent-qa run ID, inspect what memidex supplied or learned and show the available evidence.",
+    "The agent-qa overview says the run never reached a verdict. Triage the incomplete record before anyone retries it."
+  ],
+  "using-webctl": [
+    "Use webctl to inspect the buttons on this page.",
+    "Chromium in this Claude.ai container fails with ERR_TUNNEL_CONNECTION_FAILED; fix webctl's proxy setup."
+  ],
+  "mapping-webapp": [
+    "Generate a feature inventory from this web application's source.",
+    "Create _FEATURES.md documenting the screens and flows in this repository."
+  ],
+  "swarming-to-green": [
+    "Use hundreds of isolated coding workers to clear this compiler's conformance-test backlog.",
+    "Our long-running test-fix swarm rejects every merge; investigate its gate and resume the loop."
+  ],
+  "session-memory": [
+    "Preserve this conversation's decisions for the next session."
+  ],
+  "__none__": [
+    "Write pytest unit tests for this shopping-cart function.",
+    "Explain JUnit XML syntax without running any testing tool.",
+    "Design a memory engine for an unrelated assistant.",
+    "Replace this Appium selector in our existing raw test script."
+  ]
+}
