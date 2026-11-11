@@ -54,6 +54,14 @@
 - Ported from `oaustegard/claude-workspace` `scripts/decide.py`, without its
   Jev comparison backend.
 
+## [0.2.0] - 2026-11-11
+
+### Other
+
+- deciding-with-confidence 0.2.0: measured numbers for the new default and the stack
+- deciding-with-confidence: the conversation itself as evidence (input_transcript)
+- deciding-with-confidence: one low-effort sample by default, angle stack, file inputs, batch
+
 ## [0.1.1] - 2026-10-09
 
 ### Other
