@@ -22,19 +22,31 @@ so decider uses it and `tests/test_decide.py` pins all three.
 
 ## Estimating confidence without logits
 
-1. Every sample gives a probability for every option. A reply that omits a key
-   is discarded rather than guessed at.
-2. k samples (default 3) run in parallel with the options shuffled (choice,
-   predicate) or the rubric reversed (score). Averaging cancels position bias,
-   and disagreement flattens the pooled distribution, which lowers
-   `confidence` through the same formula.
-3. The pool is temperature-scaled per question type, `p ∝ p^(1/T)`, with T
-   fitted by `calibrate` on labelled results.
+1. Every sample first quotes the words of the evidence that decide each
+   question (the `cue`), then gives a probability for every option. When a
+   sample leaves options out, they share the probability it left unassigned.
+2. One sample is the default since 0.2.0. With k > 1 the samples run in
+   parallel with the options shuffled (choice, predicate) or the rubric
+   reversed (score). Averaging cancels position bias, and disagreement
+   flattens the pooled distribution, which lowers `confidence` through the
+   same formula. `--stack` also gives each of three samples a different angle:
+   `plain` (no extra instruction), `literal` (decide from what the evidence
+   itself states, not what it attributes to others or raises as a
+   possibility) and `sceptic` (start from the answer that claims least and
+   move only on an explicit statement).
+3. The answer is temperature-scaled per question type, `p ∝ p^(1/T)`, with T
+   fitted by `calibrate` on labelled results. A pool of several samples has
+   its own temperatures (the `pooled` set in `calibration.json`), since
+   averaging makes it flatter than one sample.
 4. `diagnostics` on each answer carries `agreement` (share of samples whose top
    option matches the pool), `spread` (mean total-variation distance from the
    pool), the pre-temperature `raw` pool and each sample's distribution.
 
-## Measured
+## Measured 2026-10-09
+
+This run predates the cue, the one-sample default and the pooled
+temperatures. Its "k=3 is the default" was true at the time. Jev, the
+comparison row, is TypeSafe's decision model (last paragraph of this section).
 
 2026-10-09, `assets/eval.jsonl`: 104 labelled items. 64 are from
 the banking77 test split (PolyAI, CC-BY-4.0), restricted to eight card intents
@@ -96,3 +108,124 @@ before trusting the bundled temperature.
 Jev is TypeSafe's decision model, reached at `api.typesafe.ai/v1/systemone` or
 through the Cloudflare AI Gateway; it was the comparison because its key was at
 hand. Its rows come from the same 104 items through the same scoring code.
+
+## Measured 2026-11-11 with the cue prompt
+
+Three labelled sets, all through the `cli` transport at low effort:
+
+- `bundled`, the 104 items of `assets/eval.jsonl` described above.
+- `papers`, 150 open-access research articles, each read whole (median
+  3,850 words), with four questions each.
+- `sections`, 395 article sections with eight questions each.
+
+The papers and sections are labelled only where Sonnet 5.5 and Opus 5.5 gave
+the same answer, so they have fewer labels than questions. Items are split
+into a dev and a test half by a hash of their id. Prompts were chosen on dev,
+and every figure below except the first table is from test. The eval sets,
+the runner (`run/prompts.py`, `run/compare.py`) and every raw distribution
+are in `oaustegard/experiments`, `haiku-decider/`. Metrics are on
+uncalibrated distributions unless a row says otherwise, and intervals are
+paired-bootstrap 90% intervals.
+
+An angle is one extra instruction appended to a sample's prompt. Each
+candidate ran as one sample per dev item, and stacks of three were scored by
+averaging those samples. Mean over the three dev sets:
+
+| arm | accuracy | AUROC | Brier |
+|---|---|---|---|
+| `plain` (no angle) | 0.868 | 0.816 | 0.194 |
+| `literal` | 0.868 | 0.826 | 0.189 |
+| `sceptic` | 0.869 | 0.837 | 0.186 |
+| `contrast`: decide between the two best options on where they differ | 0.886 | 0.832 | 0.180 |
+| `strict`: each description is a test the evidence must pass | 0.865 | 0.861 | 0.188 |
+| `cue`: quote the deciding words before the probabilities | **0.902** | 0.829 | 0.160 |
+| `cue` + `literal` | 0.884 | 0.876 | 0.157 |
+| `cue` + `sceptic` | 0.899 | 0.856 | 0.151 |
+| stack: plain, literal, sceptic | 0.881 | 0.854 | 0.177 |
+| stack: each of those with the cue | **0.912** | 0.885 | **0.142** |
+
+The cue's gain on dev was +0.030 on papers and +0.033 on sections, and
+neither interval reached zero. The cue went into the system prompt's answer
+format, so every sample now writes it. The stack kept its three angles.
+
+Test half, run through `decide.py` itself (`--stack`, options shuffled per
+sample). "One sample" is the first sample of each stacked request:
+
+| accuracy (Δ vs old single, 90% interval) | bundled (52) | papers (289) | sections (1,457) |
+|---|---|---|---|
+| old single: plain, no cue | 0.808 | 0.931 | 0.857 |
+| old stack: plain + literal + sceptic, no cue | 0.769 | 0.924 | 0.870 |
+| one sample with the cue | 0.827 (+0.019, −0.058 to +0.096) | 0.969 (+0.038, +0.017 to +0.059) | 0.870 (+0.012, −0.001 to +0.027) |
+| stack with the cue | 0.865 (+0.058, 0 to +0.135) | 0.962 (+0.031, +0.010 to +0.052) | 0.906 (+0.049, +0.035 to +0.063) |
+
+The old stack here is scored by averaging the three cue-less single runs,
+without the option shuffle. On the answers the 2026-11-10 run also covered,
+three plain samples without the cue at the CLI's default effort (the 0.1
+default) scored 0.808, 0.952 and 0.885 (the last on 591 answers); the cue
+stack at low effort scored 0.865, 0.962 and 0.893 on the same answers.
+
+- **Agreement.** The stack's unanimous answers were right 0.902, 0.985 and
+  0.957 of the time on the three sets, its split ones 0.727, 0.632 and
+  0.671. Splits were 21%, 7% and 18% of answers.
+- **Escalation.** Calibrated top probability under 0.7, plus split answers
+  for the stack. On sections one sample sent 17% of answers onward and kept
+  5.6% wrong, and the stack sent 19% and kept 3.0% wrong. On papers the
+  figures were 7% and 1.7% for one sample, 8% and 1.0% for the stack.
+- **Cost and time.** Mean cost per stacked request was $0.0014, $0.0073 and
+  $0.0038 on the three sets, and one sample costs a third of that. The cue
+  adds output tokens, so one sample costs slightly more than the old single
+  call and takes 1 to 1.5 s longer. Median wall time for a stacked request
+  through the CLI was 7 to 11 s.
+- **Calibration.** Both arms are underconfident. With 2-fold
+  cross-validation by item, per-type temperatures bring ECE from
+  0.027 / 0.122 / 0.037 (predicate / choice / score) to 0.008 / 0.019 / 0.043
+  for one sample, and from 0.057 / 0.146 / 0.153 to 0.009 / 0.013 / 0.046 for
+  the stack. The stack needs the lower temperatures (0.44 / 0.52 / 0.50,
+  against 0.74 / 0.60 / 0.81 for one sample) because averaging flattens it,
+  so `calibration.json` carries a `pooled` set. The shipped temperatures are
+  fitted on all 1,798 test answers.
+- **Scope.** Two of the three sets are life-science text labelled by
+  agreeing Claude models. The short set is 52 items per half, too few to
+  separate one arm from another on its own.
+
+### Jev on the same items, and Typed Decisions
+
+Jev's distributions for the same articles and sections were saved by the
+`dettin-68m` experiment, so `run/jev_compare.py` in `haiku-decider` scores them
+on the test-half answers above:
+
+| accuracy (ECE uncalibrated / cross-validated) | articles (289) | sections (1,457) |
+|---|---|---|
+| Jev | 0.972 (0.023) | 0.894 (0.013) |
+| one sample with the cue | 0.969 (0.093 / 0.015) | 0.870 (0.060 / 0.015) |
+| stack with the cue | 0.962 (0.091 / 0.013) | 0.906 (0.113 / 0.014) |
+
+Stack minus Jev, 90% interval: −0.028 to +0.007 on articles, −0.002 to
++0.026 on sections. One sample minus Jev on sections: −0.041 to −0.008.
+On all 104 bundled items the stack scored 0.894 and one sample 0.856, against
+Jev's 0.894 from 2026-10-09; half of those items chose the prompt.
+
+[Typed Decisions](https://huggingface.co/datasets/LocalLLaMA/typed-decisions)
+has 400 synthetic test cases from four workflows (agent traces, customer
+service, invoices, security alerts), five questions each. Gold is the mean of
+three samples from a roughly 4B-class teacher, which agrees with itself 0.735
+of the time. Every case went through `decide.py` unchanged as a System One
+request, `--stack` at low effort, and was scored with a copy of the dataset's
+own scorer (`run/td.py`):
+
+| 2,000 decisions | accuracy | KL from gold | Brier | ECE |
+|---|---|---|---|---|
+| stack, shipped calibration | 0.7465 | 0.333 | 0.121 | 0.035 |
+| stack, uncalibrated | 0.7465 | 0.131 | 0.069 | 0.113 |
+| one sample, shipped calibration | 0.741 | 0.241 | 0.101 | 0.039 |
+| one sample, uncalibrated | 0.741 | 0.163 | 0.079 | 0.096 |
+| Jev 1.13.0 (card) | 0.727 | 1.442 | 0.148 | 0.144 |
+
+The shipped temperatures were fitted on hard labels, so they sharpen: ECE
+drops, and KL and Brier against the benchmark's soft gold rise. When the
+target is a soft distribution, read `diagnostics.raw`. By workflow the stack
+scored 0.668 (agent traces), 0.792 (customer service), 0.814 (invoices) and
+0.712 (security alerts); by type, 0.810 on yes/no, 0.737 on choice and 0.706 on
+score. Unanimous answers matched gold 0.830 of the time and split ones 0.522.
+A stacked case cost $0.0023 at list price and took a median 8.8 s.
+

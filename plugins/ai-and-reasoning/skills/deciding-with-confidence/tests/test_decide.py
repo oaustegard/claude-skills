@@ -247,6 +247,33 @@ def test_calibration_temperature_is_applied_per_type():
     assert a["diagnostics"]["temperature"] == 2.0
 
 
+def test_pooled_answers_use_the_pooled_temperature():
+    cal = {"predicate": 2.0, "pooled": {"predicate": 0.5}}
+    one = {"visible_damage": {"true": 0.8, "false": 0.2}}
+    a1, = dz.decide(DAMAGE, k=1, transport=fake([one]), calibration=cal)["answers"]
+    a3, = dz.decide(DAMAGE, k=3, transport=fake([one] * 3), calibration=cal)["answers"]
+    assert a1["diagnostics"]["temperature"] == 2.0 and a3["diagnostics"]["temperature"] == 0.5
+    a3b, = dz.decide(DAMAGE, k=3, transport=fake([one] * 3), calibration={"predicate": 2.0})["answers"]
+    assert a3b["diagnostics"]["temperature"] == 2.0  # no pooled temperature: the single one applies
+
+
+def test_calibrate_fits_single_and_pooled(tmp_path):
+    rng = random.Random(1)
+    rows = []
+    for i in range(120):
+        y = rng.random() < 0.5
+        s = [{"true": 0.7, "false": 0.3} if y else {"true": 0.3, "false": 0.7}] * 3
+        label = y if i % 7 else not y  # samples point the right way 6 times in 7, above their stated 0.7
+        rows.append({"id": i, "name": "q", "type": "predicate", "label": "true" if label else "false",
+                     "raw": {"true": 0.6 if y else 0.4, "false": 0.4 if y else 0.6}, "per_sample": s})
+    res, out = tmp_path / "rows.jsonl", tmp_path / "cal.json"
+    res.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    assert dz.main(["calibrate", str(res), "--out", str(out)]) == 0
+    data = json.loads(out.read_text())
+    # both are underconfident, so both sharpen; the flatter pool needs the lower temperature
+    assert data["pooled"]["predicate"]["temperature"] < data["predicate"]["temperature"] < 1
+
+
 # ------------------------------------------------------------ calibration and metrics
 
 def test_temperature_above_one_flattens():
@@ -276,7 +303,9 @@ def test_metrics_on_known_rows():
 # ------------------------------------------------------------ transports
 
 def test_cli_transport_is_isolated_from_session_config():
-    argv = dz.claude_argv("sys", "user")
+    argv = dz.claude_argv("sys")
+    assert "user" not in argv  # the sample prompt goes in on stdin, so a whole document fits
+    assert argv[argv.index("--effort") + 1] == "low"
     for flag in ("--tools", "--setting-sources", "--strict-mcp-config", "--no-session-persistence",
                  "--system-prompt"):
         assert flag in argv
@@ -359,7 +388,8 @@ def test_every_bundled_eval_item_parses_and_its_labels_resolve():
 
 def test_bundled_calibration_loads():
     cal = dz.load_calibration()
-    assert 0.3 < cal["choice"] < 1.0 and "predicate" not in cal
+    assert all(0.3 < cal[t] < 1.0 for t in ("predicate", "choice", "score"))
+    assert all(cal["pooled"][t] <= cal[t] for t in ("predicate", "choice", "score"))  # pools are flatter
 
 
 def test_emit_then_aggregate_round_trip(tmp_path):
@@ -395,3 +425,214 @@ def test_emit_for_an_installed_agent_omits_the_system_prompt():
     batch = dz.emit(ROUTE, k=1, agent="decider")
     assert batch["samples"][0]["subagent_type"] == "decider"
     assert batch["samples"][0]["prompt"].startswith("<evidence>")
+
+
+# ------------------------------------------------------------ one sample, angles, files, batches
+
+def test_one_low_effort_sample_is_the_default():
+    assert dz.K == 1 and dz.EFFORT == "low" and dz.ANGLE == "plain"
+    out = dz.decide(DAMAGE, transport=fake([{"visible_damage": {"true": 0.9, "false": 0.1}}]), calibration={})
+    assert out["usage"]["samples"] == 1 and out["usage"]["angles"] == ["plain"]
+    assert math.isclose(out["answers"][0]["probability"], 0.9)  # a lone sample still states its distribution
+
+
+def test_an_angle_adds_one_approach_block_and_plain_adds_none():
+    qs = dz.normalize_request(DAMAGE)
+    assert "<approach>" not in dz.sample_prompt(DAMAGE, qs, 0, "plain")
+    p = dz.sample_prompt(DAMAGE, qs, 0, "sceptic")
+    assert p.count("<approach>") == 1 and dz.ANGLES["sceptic"] in p
+    assert "Weigh the dates." in dz.sample_prompt(DAMAGE, qs, 0, "Weigh the dates.")  # a custom angle is its own text
+
+
+def test_stack_runs_one_sample_per_angle():
+    seen = []
+
+    def transport(system, user):
+        seen.append(user)
+        return {"answers": {"visible_damage": {"probabilities": {"true": 0.8, "false": 0.2}}}}
+
+    out = dz.decide(DAMAGE, k=3, transport=transport, calibration={}, angles=dz.STACK)
+    assert out["usage"]["angles"] == ["plain", "literal", "sceptic"]
+    assert ["<approach>" in u for u in seen].count(True) == 2
+    assert out["answers"][0]["diagnostics"]["samples"] == 3
+
+
+def test_cli_flags_pick_k_and_angles():
+    ns = lambda **kw: type("A", (), {"k": None, "stack": False, "angles": None, **kw})()  # noqa: E731
+    assert dz._sampling(ns()) == (dz.K, None)
+    assert dz._sampling(ns(stack=True)) == (3, list(dz.STACK))
+    assert dz._sampling(ns(k=2, angles="plain, sceptic")) == (2, ["plain", "sceptic"])
+
+
+def test_input_file_is_read_by_run_and_named_not_inlined_by_emit(tmp_path):
+    doc = tmp_path / "paper.txt"
+    doc.write_text("The mug arrived cracked along the handle.")
+    req = {"input_file": str(doc), "questions": DAMAGE["questions"]}
+    seen = []
+
+    def transport(system, user):
+        seen.append(user)
+        return {"answers": {"visible_damage": {"probabilities": {"true": 0.9, "false": 0.1}}}}
+
+    assert dz.decide(req, transport=transport, calibration={}) is not None
+    assert "cracked along the handle" in seen[0]
+    prompt = dz.emit(req, k=1, agent="decider")["samples"][0]["prompt"]
+    assert str(doc) in prompt and "cracked along the handle" not in prompt  # the subagent reads the file itself
+    with pytest.raises(dz.DeciderError):
+        dz.decide({"input_file": str(tmp_path / "missing.txt"), "questions": DAMAGE["questions"]}, transport=transport)
+
+
+def test_batch_answers_in_order_reports_failures_and_skips_done(tmp_path):
+    items = [{"id": "a", **DAMAGE}, {"id": "b", **DAMAGE}, {"id": "c", **DAMAGE}]
+
+    def transport(system, user):
+        return {"answers": {"visible_damage": {"probabilities": {"true": 0.7, "false": 0.3}}}}
+
+    out = tmp_path / "out.jsonl"
+    with out.open("a") as fh:
+        rows = dz.batch(items, 1, transport, out=fh, done=frozenset({"b"}))
+    assert [r["id"] for r in rows] == ["a", "c"] and all("response" in r for r in rows)
+    assert len(out.read_text().splitlines()) == 2
+    rows = dz.batch(items[:1], 1, fake([None]))
+    assert rows[0]["id"] == "a" and rows[0]["error"] == "boom" and "response" not in rows[0]
+
+
+def test_eval_scores_only_the_labelled_questions():
+    item = {"id": "x", "input": "Charged twice, and the app crashes on login.",
+            "questions": ROUTE["questions"] + DAMAGE["questions"], "labels": {"department": "billing"}}
+
+    def transport(system, user):
+        return {"answers": {"department": {"probabilities": {"billing": 0.9, "technical": 0.05, "shipping": 0.03, "other": 0.02}},
+                            "visible_damage": {"probabilities": {"true": 0.5, "false": 0.5}}}}
+
+    rows = dz.evaluate([item], 1, transport)
+    assert [r["name"] for r in rows] == ["department"] and rows[0]["label"] == "billing"
+
+
+# ------------------------------------------------------------ the conversation as evidence
+
+def _transcript(tmp_path, turns=3):
+    rows = []
+    for i in range(turns):
+        rows.append({"type": "user", "message": {"role": "user", "content": f"question {i}"}})
+        rows.append({"type": "assistant", "message": {"role": "assistant", "content": [
+            {"type": "text", "text": f"answer {i}"},
+            {"type": "tool_use", "id": f"t{i}", "name": "Bash", "input": {"command": "x" * 50}}]}})
+        rows.append({"type": "user", "message": {"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": f"t{i}", "content": "r" * 2000}]}})
+    rows.append({"type": "user", "isMeta": True, "message": {"role": "user", "content": "skill body"}})
+    f = tmp_path / "s.jsonl"
+    f.write_text("\n".join(json.dumps(r) for r in rows) + "\nnot json\n")
+    return f
+
+
+def test_transcript_renders_turns_clips_tools_and_keeps_the_newest(tmp_path):
+    f = _transcript(tmp_path)
+    text = dz.transcript_text({"path": str(f)})
+    assert "USER: question 0" in text and "ASSISTANT: answer 2" in text and "TOOL Bash input:" in text
+    assert "HARNESS: skill body" in text and "r" * 700 not in text  # tool results are clipped
+    last = dz.transcript_text({"path": str(f), "last_turns": 1})
+    assert "question 2" in last and "question 1" not in last and "left out" in last
+    short = dz.transcript_text({"path": str(f), "max_chars": 900})
+    assert len(short) < 1100 and "answer 2" in short and "question 0" not in short
+
+
+def test_transcript_is_found_by_session_id_and_redacts_secrets(tmp_path, monkeypatch):
+    proj = tmp_path / ".claude" / "projects" / "p"
+    proj.mkdir(parents=True)
+    secret = "s3cr3t-value-0123456789"
+    (proj / "abc.jsonl").write_text(json.dumps({"type": "user", "message": {"content": f"my key is {secret}"}}))
+    monkeypatch.setattr(dz.Path, "home", lambda: tmp_path)
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "abc")
+    monkeypatch.setenv("MY_API_TOKEN", secret)
+    req = {"input_transcript": True, "questions": DAMAGE["questions"]}
+    text = dz.input_text(req)
+    assert "my key is [REDACTED]" in text and secret not in text
+    prompt = dz.emit(req, k=1, agent="decider")["samples"][0]["prompt"]
+    assert "decider-transcript-" in prompt and "my key is" not in prompt  # the subagent reads the rendered file
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "missing")
+    with pytest.raises(dz.DeciderError):
+        dz.input_text(req)
+
+
+# ------------------------------------------------------------ System One shape, criteria, cues
+
+TICKET = {
+    "state": {"thread": [{"role": "customer", "text": "The parcel arrived empty. I want my money back today."}]},
+    "questions": {
+        "category": {"type": "choice", "instructions": "What is this about?",
+                     "criteria": {"delivery": "Shipping or delivery.", "refund": "Asking for money back."}},
+        "needs_human": {"type": "noul", "instructions": "A human must take over.",
+                        "criteria": {"true": "Judgement or authority is required.",
+                                     "false": "Automation can resolve it."}},
+        "urgency": {"type": "score", "instructions": "How time-sensitive is this?",
+                    "criteria": ["Can wait.", "Routine.", "Same week.", "Same day."]},
+    },
+}
+
+
+def test_systemone_request_gets_a_systemone_answer():
+    reply = {"category": {"delivery": 0.2, "refund": 0.8}, "needs_human": {"true": 0.7, "false": 0.3},
+             "urgency": {"0": 0.0, "1": 0.1, "2": 0.2, "3": 0.7}}
+    out = dz.decide(TICKET, k=1, transport=fake([reply]), calibration={})
+    a = out["answers"]
+    assert set(a) == {"category", "needs_human", "urgency"}
+    assert a["category"]["type"] == "choice" and a["category"]["label"] == "refund"
+    assert a["category"]["probabilities"] == pytest.approx({"delivery": 0.2, "refund": 0.8})
+    assert a["needs_human"]["type"] == "noul" and a["needs_human"]["probability_true"] == pytest.approx(0.7)
+    assert a["needs_human"]["probabilities"]["false"] == pytest.approx(0.3)
+    assert a["urgency"]["label"] == "3" and a["urgency"]["score"] == pytest.approx(2.6)
+    assert "usage" in out
+
+
+def test_systemone_criteria_reach_the_prompt():
+    seen = []
+
+    def transport(system, user):
+        seen.append(user)
+        return {"answers": {"category": {"probabilities": {"delivery": 1, "refund": 0}},
+                            "needs_human": {"probabilities": {"true": 1, "false": 0}},
+                            "urgency": {"probabilities": {"0": 1, "1": 0, "2": 0, "3": 0}}}}
+    dz.decide(TICKET, k=1, transport=transport, calibration={})
+    prompt = seen[0]
+    assert '"text": "The parcel arrived empty.' in prompt  # structured state is shown as JSON
+    assert "- true: Judgement or authority is required." in prompt  # noul criteria replace the defaults
+    assert "- 3: Same day." in prompt and "- refund: Asking for money back." in prompt
+
+
+def test_systemone_emit_then_aggregate_round_trip():
+    batch = dz.emit(TICKET, k=2)
+    assert batch["request"] is TICKET
+    reply = json.dumps({"answers": {"category": {"probabilities": {"delivery": 0.9, "refund": 0.1}},
+                                    "needs_human": {"probabilities": {"true": 0.4, "false": 0.6}},
+                                    "urgency": {"probabilities": {"0": 0.1, "1": 0.8, "2": 0.1, "3": 0}}}})
+    out = dz.aggregate(batch["request"], [reply, reply], calibration={})
+    assert out["answers"]["category"]["label"] == "delivery"
+    assert out["answers"]["needs_human"]["label"] == "false"
+
+
+def test_predicate_criteria_in_the_openai_shape():
+    req = {"input": "x", "questions": [{"type": "predicate", "name": "p", "instructions": "Holds?",
+                                        "criteria": {"true": "It holds.", "false": "It does not."}}]}
+    q, = dz.normalize_request(req)
+    assert [o.description for o in q.options] == ["It holds.", "It does not."]
+
+
+def test_each_samples_cue_is_returned():
+    def transport(system, user):
+        return {"answers": {"visible_damage": {"cue": "screen is cracked",
+                                               "probabilities": {"true": 0.9, "false": 0.1}}}}
+    a, = dz.decide(DAMAGE, k=2, transport=transport, calibration={})["answers"]
+    assert a["diagnostics"]["cues"] == ["screen is cracked", "screen is cracked"]
+
+
+
+def test_eval_and_batch_take_systemone_items():
+    reply = {"category": {"delivery": 0.3, "refund": 0.7}, "needs_human": {"true": 0.8, "false": 0.2},
+             "urgency": {"0": 0.0, "1": 0.0, "2": 0.1, "3": 0.9}}
+    item = TICKET | {"id": "t1", "labels": {"category": "refund", "needs_human": "true", "urgency": "3"}}
+    rows = dz.evaluate([item], 1, fake([reply]), angles=None)
+    assert {r["name"]: r["label"] for r in rows} == {"category": "refund", "needs_human": "true", "urgency": "3"}
+    assert all(max(r["probs"], key=r["probs"].get) == r["label"] for r in rows)
+    out, = dz.batch([TICKET | {"id": "t1"}], 1, fake([reply]))
+    assert out["response"]["answers"]["needs_human"]["type"] == "noul"
