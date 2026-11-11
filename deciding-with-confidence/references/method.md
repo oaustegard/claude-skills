@@ -24,10 +24,15 @@ so decider uses it and `tests/test_decide.py` pins all three.
 
 1. Every sample gives a probability for every option. A reply that omits a key
    is discarded rather than guessed at.
-2. k samples (default 3) run in parallel with the options shuffled (choice,
-   predicate) or the rubric reversed (score). Averaging cancels position bias,
-   and disagreement flattens the pooled distribution, which lowers
-   `confidence` through the same formula.
+2. One sample is the default since 0.2.0. With k > 1 the samples run in
+   parallel with the options shuffled (choice, predicate) or the rubric
+   reversed (score). Averaging cancels position bias, and disagreement
+   flattens the pooled distribution, which lowers `confidence` through the
+   same formula. `--stack` also gives each of three samples a different angle:
+   `plain` (no extra instruction), `literal` (decide from what the evidence
+   itself states, not what it attributes to others or raises as a
+   possibility) and `sceptic` (start from the answer that claims least and
+   move only on an explicit statement).
 3. The pool is temperature-scaled per question type, `p ∝ p^(1/T)`, with T
    fitted by `calibrate` on labelled results.
 4. `diagnostics` on each answer carries `agreement` (share of samples whose top

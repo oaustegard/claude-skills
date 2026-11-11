@@ -11,16 +11,22 @@ metadata:
 `questions` of type `predicate`, `choice` or `score`) and returns its response
 shape: a probability per option, the chosen value or score, and `confidence`.
 Claude Haiku 5.5 answers. Its logits are not exposed, so the distribution is
-estimated: each of k parallel samples states a probability per option with the
-options in a different order, the samples are averaged, and the average is
-temperature-scaled from a labelled eval. Disagreement between samples lowers
+estimated: a sample states a probability per option, and the result is
+temperature-scaled from a labelled eval.
+
+The default is **one sample at low effort**: one call, the answer, and the
+probability that call stated. That confidence is weaker than a pooled one,
+because nothing checks it. When the confidence will gate an action, run
+`--stack`: three parallel samples, each under a different angle (plain,
+literal, sceptic) and option order, averaged. Their disagreement lowers
 `confidence` and shows up in `diagnostics.agreement`.
 
-Expect about 85% of what a purpose-built decision model gets: on the bundled
-104-item eval, accuracy 0.846 against Jev's 0.894, with a calibration error
-(ECE 0.041) that matches it. The whole accuracy gap was on eight-way intent
-questions; yes/no and rubric questions tied. Disagreement between samples is
-the strongest warning sign. `references/method.md` has the numbers.
+Expect about 85% of what a purpose-built decision model gets. On the bundled
+104-item eval (2026-10-09, three plain samples) accuracy was 0.846 against
+Jev's 0.894 with a matching calibration error (ECE 0.041); one sample scored
+0.865, with a confidence that separated right from wrong less well (AUROC
+0.80 against 0.86). The whole accuracy gap was on eight-way intent questions.
+`references/method.md` has the numbers.
 
 ## When NOT to use this skill
 
@@ -42,7 +48,9 @@ them. Rewrite the options (distinct, observable criteria) before sampling more.
 1. **Write the request** as JSON in the OpenAI shape. Give every question a
    unique `name`. Options need `description`s that say when each applies; add
    an `other` choice when the set is not exhaustive. Score `levels` go lowest
-   first.
+   first. When the evidence is a file on disk (a paper, a log, a transcript),
+   give `"input_file": "path"` in place of `"input"`: the script or the
+   subagent reads it, and you do not write the document out again.
 
    ```json
    {"input": "I was charged twice for my order.",
@@ -73,11 +81,15 @@ them. Rewrite the options (distinct, observable criteria) before sampling more.
    a. With a transport:
    ```bash
    S=/mnt/skills/user/deciding-with-confidence/scripts   # or wherever the skill lives
-   python3 $S/decide.py run request.json            # k=3 by default
+   python3 $S/decide.py run request.json            # one low-effort sample
+   python3 $S/decide.py run request.json --stack    # three angles, pooled: use when confidence gates an action
    echo '{...}' | python3 $S/decide.py run -
+   python3 $S/decide.py batch requests.jsonl --out responses.jsonl   # one request per line, resumable
    ```
    From Python: `sys.path.insert(0, S); import decide; decide.decide(req)` returns
-   the response dict, or None when no sample was usable.
+   the response dict, or None when no sample was usable; pass
+   `k=3, angles=decide.STACK` for the stack. `--angles` takes any comma-separated
+   list, and a request's `"angles"` may hold instruction text of your own.
 
    b. In a Claude Code session, the plugin's `decider` subagent is the
    cheaper path: it is pinned to `claude-haiku-5-5` (the model the calibration
@@ -86,14 +98,16 @@ them. Rewrite the options (distinct, observable criteria) before sampling more.
    `agents/decider.md` to `.claude/agents/`; agent definitions load at session
    start. Then:
    ```bash
-   python3 $S/decide.py emit request.json -k 3 --agent deciding-with-confidence:decider > batch.json
+   python3 $S/decide.py emit request.json --stack --agent deciding-with-confidence:decider > batch.json
    ```
    Use the name the Agent tool lists: `deciding-with-confidence:decider` from
    the plugin, `decider` from `.claude/agents/`. Send each `samples[i].prompt`
    verbatim as an Agent call with that `subagent_type`, all in one message.
    Collect the reply texts into a JSON list in `replies.json`, then
-   `python3 $S/decide.py aggregate batch.json replies.json`. Pool before acting:
-   a single reply carries no agreement signal and no calibration.
+   `python3 $S/decide.py aggregate batch.json replies.json`. A single reply
+   carries no agreement signal and no calibration until `aggregate` has run.
+   With `input_file` the emitted prompt names the file and the subagent reads
+   it, so you send a short prompt however long the document is.
 
    Without the agent installed, omit `--agent`: the system prompt then rides
    inside each prompt for a stock general-purpose subagent with
@@ -106,6 +120,8 @@ them. Rewrite the options (distinct, observable criteria) before sampling more.
    `agreement`, `spread`, the pre-calibration `raw` pool and `per_sample`.
 
 5. **Act on it with thresholds, never on the top answer alone.**
+   - With one sample there is no `agreement`; use the top-probability rule
+     alone, or rerun the doubtful ones with `--stack`.
    - `agreement < 1` (the samples' top answers differ): escalate. On the bundled
      eval, unanimous answers were 92% right and split ones 44%.
    - Top probability under 0.7: escalate. Together with the split rule that
@@ -129,7 +145,8 @@ them. Rewrite the options (distinct, observable criteria) before sampling more.
 
 | Rule | Banned when | Earned when |
 |---|---|---|
-| k=3 samples | latency or cost is the constraint | always the default: parallel samples cost no wall time, and k=1 loses the agreement signal |
+| One sample | the confidence decides whether something is escalated, blocked or sent on | you need the answer, and a wrong one is cheap or gets reviewed anyway |
+| `--stack` | cost is the constraint and nothing reads the confidence | the confidence gates an action: parallel samples cost no wall time and 3x the tokens |
 | Bundled calibration | your transport or domain differs from the eval's (`cli`, banking and support text) | you have not yet labelled 50 items of your own |
 | Escalate on `agreement < 1` | nothing stronger sits behind it | a stronger model or a human can take the split items |
 
@@ -157,15 +174,15 @@ them. Rewrite the options (distinct, observable criteria) before sampling more.
 Run the tests, then one live request:
 
 ```bash
-python3 -m pytest /mnt/skills/user/deciding-with-confidence/tests -q    # 39 pass, no network
+python3 -m pytest /mnt/skills/user/deciding-with-confidence/tests -q    # 46 collected, no network
 echo '{"input":"Nobody can log in since the 2pm deploy.","questions":[{"type":"predicate","name":"outage","instructions":"Is a service down for users?"}]}' \
   | python3 $S/decide.py run -
 ```
 
 The live answer should have `probability` above 0.9 and `diagnostics.samples`
-equal to 3. A **bad success** is an answer with `samples: 1` from a k=3 run:
-it looks normal but has lost the agreement signal. Check `samples` when a
-batch runs under load.
+equal to 1 (3 with `--stack`). A **bad success** is an answer with `samples: 1`
+from a `--stack` run: it looks normal but has lost the agreement signal. Check
+`samples` when a batch runs under load.
 
 ## Diagnosed failures
 
@@ -179,3 +196,9 @@ batch runs under load.
 - **2026-10-09:** the claude-workspace PreToolUse hook that appends
   parent-transcript chunks to Agent prompts would have put them in the
   evidence. `emit` appends `[no-context]`, which that hook honours.
+- **2026-11-10:** the `cli` transport passed the sample prompt as a command-line
+  argument, which caps a single argument at about 128 KB and so cannot carry a
+  long document. The prompt now goes in on stdin.
+- **2026-11-10:** a session that pasted a document into each subagent prompt
+  paid for the document in its own output tokens, once per sample. A request
+  with `input_file` is emitted as a path for the subagent to read.
