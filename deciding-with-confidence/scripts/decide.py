@@ -124,8 +124,9 @@ def normalize_request(req: dict) -> list[Question]:
         if name in seen:
             raise DeciderError(f"duplicate question name {name!r}")
         seen.add(name)
-        if qtype == "predicate":
-            opts = [Option(k, k == "true", None, d) for k, d in PREDICATE]
+        if qtype == "predicate":  # `criteria` may say what true and false mean for this question
+            crit = q.get("criteria") or {}
+            opts = [Option(k, k == "true", None, crit.get(k) or d) for k, d in PREDICATE]
         elif qtype == "choice":
             opts = [Option(str(c["value"]), c["value"], None, c.get("description")) for c in q.get("choices") or []]
         else:
@@ -138,7 +139,60 @@ def normalize_request(req: dict) -> list[Question]:
     return out
 
 
-SECRET_NAME = re.compile(r"TOKEN|KEY|SECRET|PASSWORD|PASSWD|_PAT\b|CREDENTIAL", re.I)
+def is_systemone(req) -> bool:
+    """A System One request (TypeSafe's /v1/systemone body): `state` plus `questions` keyed by id."""
+    return isinstance(req, dict) and "state" in req and isinstance(req.get("questions"), dict)
+
+
+def from_systemone(req: dict) -> dict:
+    """A System One request in this skill's shape. `noul` becomes `predicate`, and each type's
+    `criteria` become the option descriptions (a score's criteria list the levels, lowest first)."""
+    state = req["state"]
+    out = {k: v for k, v in req.items() if k not in ("state", "questions", "model")}
+    out["input"] = state if isinstance(state, str) else json.dumps(state, indent=1, ensure_ascii=False)
+    qs = []
+    for qid, q in req["questions"].items():
+        qtype, crit = q.get("type"), q.get("criteria")
+        base = {"name": qid, "instructions": q.get("instructions") or ""}
+        if qtype == "noul":
+            qs.append(base | {"type": "predicate", "criteria": crit if isinstance(crit, dict) else {}})
+        elif qtype == "choice":
+            pairs = crit.items() if isinstance(crit, dict) else ((c, None) for c in crit or [])
+            qs.append(base | {"type": "choice", "choices": [{"value": v, "description": d} for v, d in pairs]})
+        elif qtype == "score":
+            levels = crit if isinstance(crit, list) else list((crit or {}).values())
+            qs.append(base | {"type": "score", "levels": [{"label": str(lv)} for lv in levels]})
+        else:
+            raise DeciderError(f"question {qid}: unknown System One type {qtype!r}")
+    out["questions"] = qs
+    return out
+
+
+def to_systemone(res: dict) -> dict:
+    """A response in System One's answer shape: per question id, `probabilities` keyed by option,
+    `label`, `confidence`, plus `probability_true` (noul) or `score` (score)."""
+    answers = {}
+    for a in res["answers"]:
+        if a["type"] == "refusal":
+            answers[a["name"]] = {"type": "refusal"}
+            continue
+        if a["type"] == "predicate":
+            p = a["probability"]
+            probs = {"true": p, "false": 1 - p}
+            ans = {"type": "noul", "label": "true" if p >= 0.5 else "false", "probability_true": p,
+                   "confidence": confidence(probs.values())}
+        elif a["type"] == "choice":
+            probs = {str(e["value"]): e["probability"] for e in a["probabilities"]}
+            ans = {"type": "choice", "label": str(a["choice"]), "confidence": a["confidence"]}
+        else:
+            probs = {str(i): e["probability"] for i, e in enumerate(a["probabilities"])}
+            ans = {"type": "score", "label": max(probs, key=probs.get), "score": a["score"],
+                   "confidence": a["confidence"]}
+        answers[a["name"]] = ans | {"probabilities": probs, "diagnostics": a["diagnostics"]}
+    return {"answers": answers} | {k: v for k, v in res.items() if k != "answers"}
+
+
+SECRET_NAME = re.compile(r"TOKEN|KEY|SECRET|PASSWORD|PASSWD|_PAT\b|CREDENTIAL", re.IGNORECASE)
 SECRET_SHAPES = [re.compile(p) for p in (
     r"ghp_[A-Za-z0-9]{36}", r"github_pat_[A-Za-z0-9_]{20,}", r"gh[osu]_[A-Za-z0-9]{36}", r"sk-[A-Za-z0-9_\-]{20,}",
     r"AKIA[0-9A-Z]{16}", r"eyJ[\w-]{10,}\.[\w-]{10,}\.[\w-]{10,}", r"xox[abp]-[A-Za-z0-9-]{10,}")]
@@ -187,7 +241,7 @@ def transcript_text(spec) -> str:
     spec = spec if isinstance(spec, dict) else {}
     last_turns, max_chars, tool_chars = (int(spec.get(k, d)) for k, d in
                                          (("last_turns", 20), ("max_chars", 60000), ("tool_chars", 600)))
-    clip = lambda t: t if len(t) <= tool_chars else t[:tool_chars] + " [...]"  # noqa: E731
+    clip = lambda t: t if len(t) <= tool_chars else t[:tool_chars] + " [...]"
     turns: list[list[str]] = []
     calls: dict = {}
     for line in find_transcript(spec).read_text(errors="ignore").splitlines():
@@ -321,7 +375,9 @@ def parse_reply(reply, qs: list[Question]) -> dict | None:
         rest = max(0.0, 1.0 - sum(stated.values())) / len(missing) if missing else 0.0
         vals = {o.key: stated.get(o.key, rest) for o in q.options}
         total = sum(vals.values())
-        out[q.name] = ({"probs": {k: v / total for k, v in vals.items()}, "refusal": bool(a.get("refusal"))}
+        cue = a.get("cue")
+        out[q.name] = ({"probs": {k: v / total for k, v in vals.items()}, "refusal": bool(a.get("refusal")),
+                        "cue": cue if isinstance(cue, str) else None}
                        if total > 0 else None)
     return out
 
@@ -396,6 +452,7 @@ def _assemble(qs: list[Question], parsed: list, failed: int, calibration: dict) 
             "temperature": T,
             "raw": {k: round(raw[k], 4) for k in keys},
             "per_sample": [{k: round(g["probs"][k], 4) for k in keys} for g in got],
+            "cues": [g.get("cue") for g in got],  # each sample's quote of the deciding evidence
         }
         if q.type == "predicate":
             answers.append({"type": "predicate", "name": q.name, "probability": p["true"], "diagnostics": diag})
@@ -511,7 +568,10 @@ def decide(req: dict, k: int = K, transport=None, calibration: dict | None = Non
            errors: list | None = None, angles=None) -> dict | None:
     """The Decisions-API-shaped response, or None. Transport failures are appended
     to `errors` when one is passed. `angles` names one angle per sample (cycled);
-    pass STACK with k=3 for the three-angle stack."""
+    pass STACK with k=3 for the three-angle stack. A System One request gets a System One answer."""
+    if is_systemone(req):
+        res = decide(from_systemone(req), k, transport, calibration, errors, angles)
+        return None if res is None else to_systemone(res)
     qs = normalize_request(req)
     transport = transport or pick_transport()
     calibration = load_calibration() if calibration is None else calibration
@@ -555,6 +615,8 @@ def emit(req: dict, k: int = K, agent: str | None = None, angles=None) -> dict:
     which would become evidence. A request with `input_file` is not inlined:
     the prompt names the file and the subagent reads it, so the session that
     dispatches the prompt does not write the evidence out as its own output."""
+    if is_systemone(req):  # the batch keeps the System One request, so aggregate answers in that shape
+        return emit(from_systemone(req), k, agent, angles) | {"request": req}
     qs = normalize_request(req)
     head = "" if agent else system_prompt() + "\n\n---\n\n"
     per_sample = resolve_angles(req, angles, k)
@@ -576,6 +638,9 @@ def emit(req: dict, k: int = K, agent: str | None = None, angles=None) -> dict:
 
 
 def aggregate(req: dict, replies: list, calibration: dict | None = None) -> dict | None:
+    if is_systemone(req):
+        res = aggregate(from_systemone(req), replies, calibration)
+        return None if res is None else to_systemone(res)
     qs = normalize_request(req)
     calibration = load_calibration() if calibration is None else calibration
     parsed = [parse_reply(r, qs) for r in replies]
@@ -629,7 +694,8 @@ def metrics(rows: list[dict]) -> dict:
 
 
 def _request_of(item: dict) -> dict:
-    return {key: item[key] for key in ("input", "input_file", "input_transcript", "questions", "angles") if key in item}
+    keys = ("input", "input_file", "input_transcript", "state", "questions", "angles")
+    return {key: item[key] for key in keys if key in item}
 
 
 def batch(items: list[dict], k: int, transport, angles=None, out=None, done=frozenset()) -> list[dict]:
@@ -658,14 +724,17 @@ def batch(items: list[dict], k: int, transport, angles=None, out=None, done=froz
 def evaluate(items: list[dict], k: int, transport, angles=None) -> list[dict]:
     def run(item):
         try:
-            return item, decide(_request_of(item), k=k, transport=transport, angles=angles)
+            req = _request_of(item)
+            return item, decide(from_systemone(req) if is_systemone(req) else req, k=k, transport=transport,
+                                angles=angles)
         except DeciderError:
             return item, None
 
     rows = []
     with ThreadPoolExecutor(max_workers=max(1, WORKERS // k)) as ex:
         for item, res in ex.map(run, items):
-            qs = {q.name: q for q in normalize_request(_request_of(item))}
+            req = _request_of(item)
+            qs = {q.name: q for q in normalize_request(from_systemone(req) if is_systemone(req) else req)}
             if res is None:
                 rows.append({"id": item.get("id"), "error": True})
                 continue
