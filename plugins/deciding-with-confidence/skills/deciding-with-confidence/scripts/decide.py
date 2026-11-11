@@ -138,8 +138,98 @@ def normalize_request(req: dict) -> list[Question]:
     return out
 
 
+SECRET_NAME = re.compile(r"TOKEN|KEY|SECRET|PASSWORD|PASSWD|_PAT\b|CREDENTIAL", re.I)
+SECRET_SHAPES = [re.compile(p) for p in (
+    r"ghp_[A-Za-z0-9]{36}", r"github_pat_[A-Za-z0-9_]{20,}", r"gh[osu]_[A-Za-z0-9]{36}", r"sk-[A-Za-z0-9_\-]{20,}",
+    r"AKIA[0-9A-Z]{16}", r"eyJ[\w-]{10,}\.[\w-]{10,}\.[\w-]{10,}", r"xox[abp]-[A-Za-z0-9-]{10,}")]
+
+
+def scrub(text: str) -> str:
+    """The text with secret-shaped strings, and the values of secret-named environment variables, redacted."""
+    for v in sorted((v for k, v in os.environ.items() if SECRET_NAME.search(k) and len(v) >= 12), key=len, reverse=True):
+        text = text.replace(v, "[REDACTED]")
+    for pat in SECRET_SHAPES:
+        text = pat.sub("[REDACTED]", text)
+    return text
+
+
+def find_transcript(spec: dict) -> Path:
+    """The session's transcript file: spec["path"], else the newest
+    ~/.claude/projects/*/<session id>.jsonl for spec["session"] or $CLAUDE_CODE_SESSION_ID."""
+    if spec.get("path"):
+        path = Path(spec["path"]).expanduser()
+        if not path.is_file():
+            raise DeciderError(f"input_transcript: no file at {path}")
+        return path
+    sid = spec.get("session") or os.environ.get("CLAUDE_CODE_SESSION_ID")
+    if not sid:
+        raise DeciderError("input_transcript: no session id; give \"path\" or \"session\", or set CLAUDE_CODE_SESSION_ID")
+    found = sorted(Path.home().glob(f".claude/projects/*/{sid}.jsonl"), key=lambda f: f.stat().st_mtime)
+    if not found:
+        raise DeciderError(f"input_transcript: no transcript for session {sid} under ~/.claude/projects")
+    return found[-1]
+
+
+def _block_text(content) -> str:
+    if isinstance(content, str):
+        return content
+    return "\n".join(b.get("text", "") for b in content or [] if isinstance(b, dict) and b.get("type") == "text")
+
+
+def transcript_text(spec) -> str:
+    """This conversation as evidence, read from the transcript Claude Code keeps on disk.
+
+    spec is true or {"path" | "session", "last_turns": 20, "max_chars": 60000, "tool_chars": 600}.
+    A turn starts at a message the user typed. The last `last_turns` turns are rendered as
+    USER / ASSISTANT / TOOL lines, tool inputs and results clipped to `tool_chars` each, and
+    the oldest lines are dropped until the text fits `max_chars`. Secrets are redacted. The file
+    can lag the turn in progress, so the newest tool result may be missing."""
+    spec = spec if isinstance(spec, dict) else {}
+    last_turns, max_chars, tool_chars = (int(spec.get(k, d)) for k, d in
+                                         (("last_turns", 20), ("max_chars", 60000), ("tool_chars", 600)))
+    clip = lambda t: t if len(t) <= tool_chars else t[:tool_chars] + " [...]"  # noqa: E731
+    turns: list[list[str]] = []
+    calls: dict = {}
+    for line in find_transcript(spec).read_text(errors="ignore").splitlines():
+        try:
+            rec = json.loads(line)
+        except ValueError:
+            continue
+        kind, content = rec.get("type"), (rec.get("message") or {}).get("content")
+        if kind == "user":
+            for b in ([{"type": "text", "text": content}] if isinstance(content, str) else content or []):
+                if not isinstance(b, dict):
+                    continue
+                if b.get("type") == "tool_result" and b.get("tool_use_id") in calls and turns:
+                    turns[-1].append(f"TOOL {calls.pop(b['tool_use_id'])}\nresult: {clip(_block_text(b.get('content')))}")
+                elif b.get("type") == "text" and b.get("text", "").strip():
+                    if b["text"].lstrip().startswith("<"):
+                        continue  # harness notices and reminders, not conversation
+                    if not rec.get("isMeta"):
+                        turns.append([f"USER: {b['text']}"])
+                    elif turns:
+                        turns[-1].append(f"HARNESS: {clip(b['text'])}")
+        elif kind == "assistant" and isinstance(content, list) and turns:
+            for b in content:
+                if b.get("type") == "text" and b.get("text", "").strip():
+                    turns[-1].append(f"ASSISTANT: {b['text']}")
+                elif b.get("type") == "tool_use":
+                    calls[b.get("id")] = f"{b.get('name', '?')} input: {clip(json.dumps(b.get('input', {}), ensure_ascii=False))}"
+    lines = [x for t in turns[-last_turns:] for x in t]
+    if not lines:
+        raise DeciderError("input_transcript: the transcript holds no user turn yet")
+    dropped = 0
+    while len(lines) > 1 and sum(len(x) + 2 for x in lines) > max_chars:
+        lines.pop(0)
+        dropped += 1
+    head = f"[conversation transcript; {dropped} earlier entries left out]\n\n" if dropped or len(turns) > last_turns else ""
+    return scrub(head + "\n\n".join(lines))
+
+
 def input_text(req: dict) -> str:
     inp = req.get("input")
+    if inp is None and req.get("input_transcript"):
+        return transcript_text(req["input_transcript"])
     if inp is None and req.get("input_file"):
         try:
             return Path(req["input_file"]).expanduser().read_text()
@@ -465,8 +555,14 @@ def emit(req: dict, k: int = K, agent: str | None = None, angles=None) -> dict:
     head = "" if agent else system_prompt() + "\n\n---\n\n"
     per_sample = resolve_angles(req, angles, k)
     evidence = None
-    if req.get("input") is None and req.get("input_file"):
-        path = Path(req["input_file"]).expanduser().resolve()
+    if req.get("input") is None and (req.get("input_file") or req.get("input_transcript")):
+        if req.get("input_transcript"):  # rendered and redacted here; the subagent reads the rendering
+            fd, name = tempfile.mkstemp(prefix="decider-transcript-", suffix=".txt")
+            with os.fdopen(fd, "w") as fh:
+                fh.write(transcript_text(req["input_transcript"]))
+            path = Path(name)
+        else:
+            path = Path(req["input_file"]).expanduser().resolve()
         evidence = (f'<evidence file="{path}"/>\nThe evidence is the whole file at that path. Read it once with the '
                     "Read tool, then answer.")
     return {"request": req,
@@ -529,7 +625,7 @@ def metrics(rows: list[dict]) -> dict:
 
 
 def _request_of(item: dict) -> dict:
-    return {key: item[key] for key in ("input", "input_file", "questions", "angles") if key in item}
+    return {key: item[key] for key in ("input", "input_file", "input_transcript", "questions", "angles") if key in item}
 
 
 def batch(items: list[dict], k: int, transport, angles=None, out=None, done=frozenset()) -> list[dict]:

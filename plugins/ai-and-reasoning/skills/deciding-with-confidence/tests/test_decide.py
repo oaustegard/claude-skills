@@ -480,3 +480,49 @@ def test_eval_scores_only_the_labelled_questions():
     rows = dz.evaluate([item], 1, transport)
     assert [r["name"] for r in rows] == ["department"] and rows[0]["label"] == "billing"
 
+
+# ------------------------------------------------------------ the conversation as evidence
+
+def _transcript(tmp_path, turns=3):
+    rows = []
+    for i in range(turns):
+        rows.append({"type": "user", "message": {"role": "user", "content": f"question {i}"}})
+        rows.append({"type": "assistant", "message": {"role": "assistant", "content": [
+            {"type": "text", "text": f"answer {i}"},
+            {"type": "tool_use", "id": f"t{i}", "name": "Bash", "input": {"command": "x" * 50}}]}})
+        rows.append({"type": "user", "message": {"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": f"t{i}", "content": "r" * 2000}]}})
+    rows.append({"type": "user", "isMeta": True, "message": {"role": "user", "content": "skill body"}})
+    f = tmp_path / "s.jsonl"
+    f.write_text("\n".join(json.dumps(r) for r in rows) + "\nnot json\n")
+    return f
+
+
+def test_transcript_renders_turns_clips_tools_and_keeps_the_newest(tmp_path):
+    f = _transcript(tmp_path)
+    text = dz.transcript_text({"path": str(f)})
+    assert "USER: question 0" in text and "ASSISTANT: answer 2" in text and "TOOL Bash input:" in text
+    assert "HARNESS: skill body" in text and "r" * 700 not in text  # tool results are clipped
+    last = dz.transcript_text({"path": str(f), "last_turns": 1})
+    assert "question 2" in last and "question 1" not in last and "left out" in last
+    short = dz.transcript_text({"path": str(f), "max_chars": 900})
+    assert len(short) < 1100 and "answer 2" in short and "question 0" not in short
+
+
+def test_transcript_is_found_by_session_id_and_redacts_secrets(tmp_path, monkeypatch):
+    proj = tmp_path / ".claude" / "projects" / "p"
+    proj.mkdir(parents=True)
+    secret = "s3cr3t-value-0123456789"
+    (proj / "abc.jsonl").write_text(json.dumps({"type": "user", "message": {"content": f"my key is {secret}"}}))
+    monkeypatch.setattr(dz.Path, "home", lambda: tmp_path)
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "abc")
+    monkeypatch.setenv("MY_API_TOKEN", secret)
+    req = {"input_transcript": True, "questions": DAMAGE["questions"]}
+    text = dz.input_text(req)
+    assert "my key is [REDACTED]" in text and secret not in text
+    prompt = dz.emit(req, k=1, agent="decider")["samples"][0]["prompt"]
+    assert "decider-transcript-" in prompt and "my key is" not in prompt  # the subagent reads the rendered file
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ID", "missing")
+    with pytest.raises(dz.DeciderError):
+        dz.input_text(req)
+

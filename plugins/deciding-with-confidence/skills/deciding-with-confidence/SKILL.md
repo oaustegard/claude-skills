@@ -50,7 +50,12 @@ them. Rewrite the options (distinct, observable criteria) before sampling more.
    an `other` choice when the set is not exhaustive. Score `levels` go lowest
    first. When the evidence is a file on disk (a paper, a log, a transcript),
    give `"input_file": "path"` in place of `"input"`: the script or the
-   subagent reads it, and you do not write the document out again.
+   subagent reads it, and you do not write the document out again. When the
+   evidence is this conversation, give `"input_transcript": true` (or
+   `{"last_turns": 20, "max_chars": 60000}`): the script reads the transcript
+   Claude Code keeps on disk for the session, renders the last turns with
+   tool calls clipped, and redacts secrets. The file can trail the turn in
+   progress, so do not ask it about a tool result from this same turn.
 
    ```json
    {"input": "I was charged twice for my order.",
@@ -162,6 +167,9 @@ them. Rewrite the options (distinct, observable criteria) before sampling more.
 - **Every answer near uniform** (confidence around 0.1–0.2 throughout) →
   options without descriptions, or descriptions that overlap. Rewrite them so
   each has distinct, observable criteria; more samples will not help.
+- **`decide: input_transcript: no session id` or `no transcript for session`**
+  → the script is not running inside a Claude Code session, or the transcript
+  lives elsewhere. Pass `{"path": "/path/to/session.jsonl"}`.
 - **A subagent reply with prose around the JSON** → `aggregate` takes the
   outermost `{...}` and copes. A reply with no JSON at all counts as a failed
   sample.
@@ -174,7 +182,7 @@ them. Rewrite the options (distinct, observable criteria) before sampling more.
 Run the tests, then one live request:
 
 ```bash
-python3 -m pytest /mnt/skills/user/deciding-with-confidence/tests -q    # 46 collected, no network
+python3 -m pytest /mnt/skills/user/deciding-with-confidence/tests -q    # 48 collected, no network
 echo '{"input":"Nobody can log in since the 2pm deploy.","questions":[{"type":"predicate","name":"outage","instructions":"Is a service down for users?"}]}' \
   | python3 $S/decide.py run -
 ```
@@ -202,3 +210,7 @@ from a `--stack` run: it looks normal but has lost the agreement signal. Check
 - **2026-11-10:** a session that pasted a document into each subagent prompt
   paid for the document in its own output tokens, once per sample. A request
   with `input_file` is emitted as a path for the subagent to read.
+- **2026-11-10:** a decision about the conversation itself meant restating the
+  conversation in the request. `input_transcript` reads it from the session's
+  transcript file; on a long session one call over the last six turns read
+  38,580 characters and cost $0.0036.
