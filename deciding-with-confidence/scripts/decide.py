@@ -79,7 +79,7 @@ ANGLES = {
                 "attributes to other sources, or raises as background, a plan or a possibility."),
     "sceptic": ("Start from the answer that claims least: false for a predicate, the least specific option for a "
                 "choice, the level the evidence plainly meets for a score. Move probability off it only as far "
-                "as the evidence states the fact outright."),
+                "as the cue states the fact outright."),
 }
 STACK = ("plain", "literal", "sceptic")
 ANGLE = os.environ.get("DECIDER_ANGLE", "plain")  # the angle a single sample uses
@@ -366,7 +366,10 @@ def load_calibration() -> dict:
         data = json.loads(CALIBRATION.read_text())
     except (OSError, ValueError):
         return {}
-    return {t: float(data[t]["temperature"]) for t in TYPES if t in data}
+    cal = {t: float(data[t]["temperature"]) for t in TYPES if t in data}
+    pooled = data.get("pooled") or {}
+    cal["pooled"] = {t: float(pooled[t]["temperature"]) for t in TYPES if t in pooled}
+    return cal
 
 
 # ---------------------------------------------------------------- assembly
@@ -382,7 +385,8 @@ def _assemble(qs: list[Question], parsed: list, failed: int, calibration: dict) 
             answers.append({"type": "refusal", "name": q.name})
             continue
         raw = {k: sum(g["probs"][k] for g in got) / len(got) for k in keys}
-        T = calibration.get(q.type, 1.0)
+        # a pool of several samples is flatter than one sample, so it has its own temperatures
+        T = ((calibration.get("pooled") or {}).get(q.type) if len(got) > 1 else None) or calibration.get(q.type, 1.0)
         p = temper(floored(raw), T) if T != 1.0 else raw
         top = max(keys, key=p.get)
         diag = {
@@ -801,17 +805,25 @@ def main(argv=None) -> int:
         print(f"decide: {e}", file=sys.stderr)
         return 2
     rows = [json.loads(line) for line in Path(a.results).read_text().splitlines() if line.strip()]
-    data = {}
-    for t in TYPES:
-        recs = [(r["raw"], r["label"]) for r in rows if r.get("type") == t and "raw" in r]
-        if len(recs) < MIN_CALIBRATION:
-            print(f"{t}: {len(recs)} labelled answers, fewer than {MIN_CALIBRATION}; keeping T = 1", file=sys.stderr)
-            continue
-        T = fit_temperature(recs)
-        before = metrics([{"probs": p, "label": y} for p, y in recs])
-        after = metrics([{"probs": temper(floored(p), T), "label": y} for p, y in recs])
-        data[t] = {"temperature": T, "n": len(recs), "nll_before": round(nll(recs, 1.0), 4),
-                   "nll_after": round(nll(recs, T), 4), "ece_before": before["ece"], "ece_after": after["ece"]}
+    rows = [r for r in rows if "raw" in r]
+    data: dict = {}
+    # single-sample temperatures from each row's first sample; pooled ones from the pools of k > 1 rows
+    for where, pick in ((data, lambda r: (r.get("per_sample") or [r["raw"]])[0]),
+                        (data.setdefault("pooled", {}), lambda r: r["raw"] if len(r.get("per_sample") or []) > 1 else None)):
+        for t in TYPES:
+            recs = [(pick(r), r["label"]) for r in rows if r.get("type") == t and pick(r) is not None]
+            if len(recs) < MIN_CALIBRATION:
+                if where is data or recs:
+                    print(f"{t}: {len(recs)} labelled answers, fewer than {MIN_CALIBRATION}; keeping T = 1",
+                          file=sys.stderr)
+                continue
+            T = fit_temperature(recs)
+            before = metrics([{"probs": p, "label": y} for p, y in recs])
+            after = metrics([{"probs": temper(floored(p), T), "label": y} for p, y in recs])
+            where[t] = {"temperature": T, "n": len(recs), "nll_before": round(nll(recs, 1.0), 4),
+                        "nll_after": round(nll(recs, T), 4), "ece_before": before["ece"], "ece_after": after["ece"]}
+    if not data["pooled"]:
+        del data["pooled"]
     data["fitted"] = time.strftime("%Y-%m-%d")
     data["source"] = os.path.basename(a.results)
     Path(a.out).write_text(json.dumps(data, indent=2) + "\n")
