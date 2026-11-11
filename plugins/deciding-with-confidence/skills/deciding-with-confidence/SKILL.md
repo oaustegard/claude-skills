@@ -1,8 +1,8 @@
 ---
 name: deciding-with-confidence
-description: "Routes, triages, flags and rates a piece of text with a probability for every option: which department or queue a ticket goes to, which intent a message expresses, whether a yes/no condition holds (is this tool call grounded, should the agent ask first, is the customer angry), and how severe or urgent it is on a rubric, each with a calibrated confidence. Runs Claude Haiku in the request and response shapes of OpenAI's Decisions API, for when no purpose-built decision model is at hand. Use for \"route this ticket\", \"triage these\", \"classify with a confidence\", \"give me a probability that\", \"rate the severity\", \"score against this rubric\", guardrail checks before a tool call, or \"a Decisions API without OpenAI\"."
+description: "Routes, triages, flags and rates a piece of text with a probability for every option: which department or queue a ticket goes to, which intent a message expresses, whether a yes/no condition holds (is this tool call grounded, should the agent ask first, is the customer angry), and how severe or urgent it is on a rubric, each with a calibrated confidence. Runs Claude Haiku in the request and response shapes of OpenAI's Decisions API, or of TypeSafe's System One API (Jev's), for when no purpose-built decision model is at hand. Use for \"route this ticket\", \"triage these\", \"classify with a confidence\", \"give me a probability that\", \"rate the severity\", \"score against this rubric\", guardrail checks before a tool call, \"a Decisions API without OpenAI\", or a stand-in for Jev."
 metadata:
-  version: 0.3.0
+  version: 0.4.0
 ---
 
 # Deciding with confidence
@@ -25,24 +25,29 @@ Every sample answers each question with a `cue` first: the few words of the
 evidence that decide it, quoted. Quoting before committing to probabilities
 was worth more than any other prompt change tested.
 
-Measured 2026-11-11 on the held-out half of three labelled sets, through the
-`cli` transport at low effort. The sets are 52 short banking-intent,
-guardrail and severity items; 77 whole research articles (289 labelled
-questions); and 204 article sections (1,457 labelled questions):
+Measured 2026-11-11 through the `cli` transport at low effort, on four
+labelled sets: 104 short banking-intent, guardrail and severity items; the
+held-out half of two life-science sets (77 whole research articles, 289
+labelled questions, and 204 article sections, 1,457); and the 2,000 test
+decisions of the public Typed Decisions benchmark, sent as System One
+requests. Jev, TypeSafe's purpose-built decision model, is scored on the same
+items, or taken from the benchmark's card:
 
-| | short items | whole articles | sections | cost per request |
+| | short items | whole articles | sections | Typed Decisions |
 |---|---|---|---|---|
-| one sample (default) | 0.827 | 0.969 | 0.870 | $0.0005–0.0024 |
-| `--stack` | 0.865 | 0.962 | 0.906 | 3x |
-| one sample, same prompt without the cue | 0.808 | 0.931 | 0.857 | slightly less |
+| one sample (default) | 0.856 | 0.969 | 0.870 | 0.741 |
+| `--stack` | 0.894 | 0.962 | 0.906 | 0.7465 |
+| Jev | 0.894 | 0.972 | 0.894 | 0.727 |
+| one sample without the cue | 0.827 | 0.931 | 0.857 | — |
 
-On whole articles one sample is as good as the stack. On sections the stack
-adds 0.036, and it also beat three cue-less samples at the CLI's default
-effort (0.893 against 0.885 on the 591 answers both runs covered). The
-stack's main value is its agreement signal: answers its three samples agreed
-on were 90% to 98% right, split ones 63% to 73%. For comparison, Jev, a
-purpose-built decision model from TypeSafe, scored 0.894 on all 104 short
-items. `references/method.md` has the full tables.
+Among the 43 general models the Typed Decisions card scores zero-shot, the
+stack would rank 10th and one sample 13th; Jev is 18th. The life-science labels come from Sonnet 5.5 and
+Opus 5.5 agreeing, which may favour Haiku, and half of the short items were
+used to choose the prompt. The stack's main value is its agreement signal:
+answers its three samples agreed on were 83% to 98% right, split ones 52% to
+73%. One sample costs $0.0005 to $0.0024 a request at list price, the stack
+three times that; a stacked request took a median 8.8 s through the CLI, where
+Jev answers in under a second. `references/method.md` has the full tables.
 
 ## When NOT to use this skill
 
@@ -86,6 +91,19 @@ them. Rewrite the options (distinct, observable criteria) before sampling more.
                   {"label": "Workaround", "description": "Fails, another way works."},
                   {"label": "Blocked", "description": "Fails with no workaround."}]}]}
    ```
+
+   A predicate may carry `"criteria": {"true": "...", "false": "..."}` to say
+   what each answer means; without it the defaults are "the condition holds"
+   and "does not hold".
+
+   A **System One request** (the body of TypeSafe's `POST /v1/systemone`, which
+   Jev and its clones answer) works as it is: `state` (text, or any JSON,
+   which the prompt shows as indented JSON) plus `questions` keyed by id, of
+   type `noul`, `choice` or `score`, each with `instructions` and `criteria`.
+   The response then comes back in System One's shape: per question id,
+   `probabilities` keyed by option, `label`, `confidence`, and
+   `probability_true` (noul) or `score` (score), plus `diagnostics`. A request
+   written for Jev needs no change.
 
 2. **Pick the transport.** `--transport auto` (the default) takes the first that works:
 
@@ -138,8 +156,10 @@ them. Rewrite the options (distinct, observable criteria) before sampling more.
    `choice`, `probabilities` and `confidence`. Scores give `score` (the
    probability-weighted level index, so 1.4 sits between levels 1 and 2),
    `probabilities` and `confidence`. Every answer carries `diagnostics`:
-   `agreement`, `spread`, the pre-calibration `raw` pool and `per_sample`.
-   The samples' cues are not returned.
+   `agreement`, `spread`, the pre-calibration `raw` pool, `per_sample`, and
+   `cues`, each sample's quote of the evidence it decided on. Read the cues
+   when an answer looks wrong: a cue of "none", or a quote from the wrong part
+   of the evidence, says the sample was guessing.
 
 5. **Act on it with thresholds, never on the top answer alone.**
    - With one sample there is no `agreement`; use the top-probability rule
@@ -208,7 +228,7 @@ them. Rewrite the options (distinct, observable criteria) before sampling more.
 Run the tests, then one live request:
 
 ```bash
-python3 -m pytest /mnt/skills/user/deciding-with-confidence/tests -q    # 50 collected, no network
+python3 -m pytest /mnt/skills/user/deciding-with-confidence/tests -q    # 56 collected, no network
 echo '{"input":"Nobody can log in since the 2pm deploy.","questions":[{"type":"predicate","name":"outage","instructions":"Is a service down for users?"}]}' \
   | python3 $S/decide.py run -
 ```

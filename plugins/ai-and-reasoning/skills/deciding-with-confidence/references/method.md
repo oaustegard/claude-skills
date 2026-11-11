@@ -187,3 +187,45 @@ stack at low effort scored 0.865, 0.962 and 0.893 on the same answers.
 - **Scope.** Two of the three sets are life-science text labelled by
   agreeing Claude models. The short set is 52 items per half, too few to
   separate one arm from another on its own.
+
+### Jev on the same items, and Typed Decisions
+
+Jev's distributions for the same articles and sections were saved by the
+`dettin-68m` experiment, so `run/jev_compare.py` in `haiku-decider` scores them
+on the test-half answers above:
+
+| accuracy (ECE uncalibrated / cross-validated) | articles (289) | sections (1,457) |
+|---|---|---|
+| Jev | 0.972 (0.023) | 0.894 (0.013) |
+| one sample with the cue | 0.969 (0.093 / 0.015) | 0.870 (0.060 / 0.015) |
+| stack with the cue | 0.962 (0.091 / 0.013) | 0.906 (0.113 / 0.014) |
+
+Stack minus Jev, 90% interval: −0.028 to +0.007 on articles, −0.002 to
++0.026 on sections. One sample minus Jev on sections: −0.041 to −0.008.
+On all 104 bundled items the stack scored 0.894 and one sample 0.856, against
+Jev's 0.894 from 2026-10-09; half of those items chose the prompt.
+
+[Typed Decisions](https://huggingface.co/datasets/LocalLLaMA/typed-decisions)
+has 400 synthetic test cases from four workflows (agent traces, customer
+service, invoices, security alerts), five questions each. Gold is the mean of
+three samples from a roughly 4B-class teacher, which agrees with itself 0.735
+of the time. Every case went through `decide.py` unchanged as a System One
+request, `--stack` at low effort, and was scored with a copy of the dataset's
+own scorer (`run/td.py`):
+
+| 2,000 decisions | accuracy | KL from gold | Brier | ECE |
+|---|---|---|---|---|
+| stack, shipped calibration | 0.7465 | 0.333 | 0.121 | 0.035 |
+| stack, uncalibrated | 0.7465 | 0.131 | 0.069 | 0.113 |
+| one sample, shipped calibration | 0.741 | 0.241 | 0.101 | 0.039 |
+| one sample, uncalibrated | 0.741 | 0.163 | 0.079 | 0.096 |
+| Jev 1.13.0 (card) | 0.727 | 1.442 | 0.148 | 0.144 |
+
+The shipped temperatures were fitted on hard labels, so they sharpen: ECE
+drops, and KL and Brier against the benchmark's soft gold rise. When the
+target is a soft distribution, read `diagnostics.raw`. By workflow the stack
+scored 0.668 (agent traces), 0.792 (customer service), 0.814 (invoices) and
+0.712 (security alerts); by type, 0.810 on yes/no, 0.737 on choice and 0.706 on
+score. Unanimous answers matched gold 0.830 of the time and split ones 0.522.
+A stacked case cost $0.0023 at list price and took a median 8.8 s.
+

@@ -554,3 +554,85 @@ def test_transcript_is_found_by_session_id_and_redacts_secrets(tmp_path, monkeyp
     with pytest.raises(dz.DeciderError):
         dz.input_text(req)
 
+
+# ------------------------------------------------------------ System One shape, criteria, cues
+
+TICKET = {
+    "state": {"thread": [{"role": "customer", "text": "The parcel arrived empty. I want my money back today."}]},
+    "questions": {
+        "category": {"type": "choice", "instructions": "What is this about?",
+                     "criteria": {"delivery": "Shipping or delivery.", "refund": "Asking for money back."}},
+        "needs_human": {"type": "noul", "instructions": "A human must take over.",
+                        "criteria": {"true": "Judgement or authority is required.",
+                                     "false": "Automation can resolve it."}},
+        "urgency": {"type": "score", "instructions": "How time-sensitive is this?",
+                    "criteria": ["Can wait.", "Routine.", "Same week.", "Same day."]},
+    },
+}
+
+
+def test_systemone_request_gets_a_systemone_answer():
+    reply = {"category": {"delivery": 0.2, "refund": 0.8}, "needs_human": {"true": 0.7, "false": 0.3},
+             "urgency": {"0": 0.0, "1": 0.1, "2": 0.2, "3": 0.7}}
+    out = dz.decide(TICKET, k=1, transport=fake([reply]), calibration={})
+    a = out["answers"]
+    assert set(a) == {"category", "needs_human", "urgency"}
+    assert a["category"]["type"] == "choice" and a["category"]["label"] == "refund"
+    assert a["category"]["probabilities"] == pytest.approx({"delivery": 0.2, "refund": 0.8})
+    assert a["needs_human"]["type"] == "noul" and a["needs_human"]["probability_true"] == pytest.approx(0.7)
+    assert a["needs_human"]["probabilities"]["false"] == pytest.approx(0.3)
+    assert a["urgency"]["label"] == "3" and a["urgency"]["score"] == pytest.approx(2.6)
+    assert "usage" in out
+
+
+def test_systemone_criteria_reach_the_prompt():
+    seen = []
+
+    def transport(system, user):
+        seen.append(user)
+        return {"answers": {"category": {"probabilities": {"delivery": 1, "refund": 0}},
+                            "needs_human": {"probabilities": {"true": 1, "false": 0}},
+                            "urgency": {"probabilities": {"0": 1, "1": 0, "2": 0, "3": 0}}}}
+    dz.decide(TICKET, k=1, transport=transport, calibration={})
+    prompt = seen[0]
+    assert '"text": "The parcel arrived empty.' in prompt  # structured state is shown as JSON
+    assert "- true: Judgement or authority is required." in prompt  # noul criteria replace the defaults
+    assert "- 3: Same day." in prompt and "- refund: Asking for money back." in prompt
+
+
+def test_systemone_emit_then_aggregate_round_trip():
+    batch = dz.emit(TICKET, k=2)
+    assert batch["request"] is TICKET
+    reply = json.dumps({"answers": {"category": {"probabilities": {"delivery": 0.9, "refund": 0.1}},
+                                    "needs_human": {"probabilities": {"true": 0.4, "false": 0.6}},
+                                    "urgency": {"probabilities": {"0": 0.1, "1": 0.8, "2": 0.1, "3": 0}}}})
+    out = dz.aggregate(batch["request"], [reply, reply], calibration={})
+    assert out["answers"]["category"]["label"] == "delivery"
+    assert out["answers"]["needs_human"]["label"] == "false"
+
+
+def test_predicate_criteria_in_the_openai_shape():
+    req = {"input": "x", "questions": [{"type": "predicate", "name": "p", "instructions": "Holds?",
+                                        "criteria": {"true": "It holds.", "false": "It does not."}}]}
+    q, = dz.normalize_request(req)
+    assert [o.description for o in q.options] == ["It holds.", "It does not."]
+
+
+def test_each_samples_cue_is_returned():
+    def transport(system, user):
+        return {"answers": {"visible_damage": {"cue": "screen is cracked",
+                                               "probabilities": {"true": 0.9, "false": 0.1}}}}
+    a, = dz.decide(DAMAGE, k=2, transport=transport, calibration={})["answers"]
+    assert a["diagnostics"]["cues"] == ["screen is cracked", "screen is cracked"]
+
+
+
+def test_eval_and_batch_take_systemone_items():
+    reply = {"category": {"delivery": 0.3, "refund": 0.7}, "needs_human": {"true": 0.8, "false": 0.2},
+             "urgency": {"0": 0.0, "1": 0.0, "2": 0.1, "3": 0.9}}
+    item = TICKET | {"id": "t1", "labels": {"category": "refund", "needs_human": "true", "urgency": "3"}}
+    rows = dz.evaluate([item], 1, fake([reply]), angles=None)
+    assert {r["name"]: r["label"] for r in rows} == {"category": "refund", "needs_human": "true", "urgency": "3"}
+    assert all(max(r["probs"], key=r["probs"].get) == r["label"] for r in rows)
+    out, = dz.batch([TICKET | {"id": "t1"}], 1, fake([reply]))
+    assert out["response"]["answers"]["needs_human"]["type"] == "noul"

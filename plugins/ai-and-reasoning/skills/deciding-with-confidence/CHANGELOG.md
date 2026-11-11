@@ -1,5 +1,18 @@
 # deciding-with-confidence - Changelog
 
+## 0.4.0 - 2026-11-11
+
+### Added
+- System One requests: a body written for TypeSafe's `POST /v1/systemone`
+  (`state` plus `noul` / `choice` / `score` questions keyed by id, with
+  `criteria`) is accepted as it is, and the answer comes back in System One's
+  shape (`probabilities` keyed by option, `label`, `confidence`,
+  `probability_true` or `score`). `run`, `batch`, `emit`, `aggregate` and
+  `eval` all take it.
+- A predicate's `criteria` (`{"true": ..., "false": ...}`) replace the default
+  option descriptions.
+- `diagnostics.cues`: each sample's quote of the evidence it decided on.
+
 ## 0.3.0 - 2026-11-11
 
 ### Changed
@@ -70,6 +83,12 @@
   calibration (T = 0.62) fitted on it.
 - Ported from `oaustegard/claude-workspace` `scripts/decide.py`, without its
   Jev comparison backend.
+
+## [0.4.0] - 2026-11-11
+
+### Other
+
+- deciding-with-confidence 0.4.0: System One requests, predicate criteria, cues returned
 
 ## [0.3.0] - 2026-11-11
 
