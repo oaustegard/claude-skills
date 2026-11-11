@@ -247,6 +247,33 @@ def test_calibration_temperature_is_applied_per_type():
     assert a["diagnostics"]["temperature"] == 2.0
 
 
+def test_pooled_answers_use_the_pooled_temperature():
+    cal = {"predicate": 2.0, "pooled": {"predicate": 0.5}}
+    one = {"visible_damage": {"true": 0.8, "false": 0.2}}
+    a1, = dz.decide(DAMAGE, k=1, transport=fake([one]), calibration=cal)["answers"]
+    a3, = dz.decide(DAMAGE, k=3, transport=fake([one] * 3), calibration=cal)["answers"]
+    assert a1["diagnostics"]["temperature"] == 2.0 and a3["diagnostics"]["temperature"] == 0.5
+    a3b, = dz.decide(DAMAGE, k=3, transport=fake([one] * 3), calibration={"predicate": 2.0})["answers"]
+    assert a3b["diagnostics"]["temperature"] == 2.0  # no pooled temperature: the single one applies
+
+
+def test_calibrate_fits_single_and_pooled(tmp_path):
+    rng = random.Random(1)
+    rows = []
+    for i in range(120):
+        y = rng.random() < 0.5
+        s = [{"true": 0.7, "false": 0.3} if y else {"true": 0.3, "false": 0.7}] * 3
+        label = y if i % 7 else not y  # samples point the right way 6 times in 7, above their stated 0.7
+        rows.append({"id": i, "name": "q", "type": "predicate", "label": "true" if label else "false",
+                     "raw": {"true": 0.6 if y else 0.4, "false": 0.4 if y else 0.6}, "per_sample": s})
+    res, out = tmp_path / "rows.jsonl", tmp_path / "cal.json"
+    res.write_text("".join(json.dumps(r) + "\n" for r in rows))
+    assert dz.main(["calibrate", str(res), "--out", str(out)]) == 0
+    data = json.loads(out.read_text())
+    # both are underconfident, so both sharpen; the flatter pool needs the lower temperature
+    assert data["pooled"]["predicate"]["temperature"] < data["predicate"]["temperature"] < 1
+
+
 # ------------------------------------------------------------ calibration and metrics
 
 def test_temperature_above_one_flattens():
@@ -361,7 +388,8 @@ def test_every_bundled_eval_item_parses_and_its_labels_resolve():
 
 def test_bundled_calibration_loads():
     cal = dz.load_calibration()
-    assert 0.3 < cal["choice"] < 1.0 and "predicate" not in cal
+    assert all(0.3 < cal[t] < 1.0 for t in ("predicate", "choice", "score"))
+    assert all(cal["pooled"][t] <= cal[t] for t in ("predicate", "choice", "score"))  # pools are flatter
 
 
 def test_emit_then_aggregate_round_trip(tmp_path):

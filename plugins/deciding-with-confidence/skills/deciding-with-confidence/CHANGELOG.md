@@ -1,5 +1,22 @@
 # deciding-with-confidence - Changelog
 
+## 0.3.0 - 2026-11-11
+
+### Changed
+- Every sample now quotes the words of the evidence that decide each
+  question (`cue`) before its probabilities. On the held-out half of three
+  labelled sets, one sample went from 0.808 / 0.931 / 0.857 to
+  0.827 / 0.969 / 0.870 (short items / whole articles / sections) and the
+  stack from 0.769 / 0.924 / 0.870 to 0.865 / 0.962 / 0.906.
+- `assets/calibration.json` is refitted for the cue prompt on 1,798 labelled
+  answers. It now covers predicates and scores as well as choices, and has
+  a separate `pooled` set of temperatures for k > 1.
+
+### Added
+- `calibrate` fits single-sample temperatures from each request's first
+  sample and pooled ones from the pools of a `--stack` eval; `decide` applies
+  the pooled set when more than one sample answered.
+
 ## 0.2.0 - 2026-11-10
 
 ### Changed
@@ -53,6 +70,12 @@
   calibration (T = 0.62) fitted on it.
 - Ported from `oaustegard/claude-workspace` `scripts/decide.py`, without its
   Jev comparison backend.
+
+## [0.3.0] - 2026-11-11
+
+### Other
+
+- deciding-with-confidence 0.3.0: cue prompt, refitted single and pooled temperatures
 
 ## [0.2.0] - 2026-11-11
 

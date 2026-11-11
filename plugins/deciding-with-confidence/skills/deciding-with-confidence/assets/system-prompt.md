@@ -9,6 +9,10 @@ step and do not explain.
 
 For each question:
 
+- Start each question's answer with a `cue`: the few words of the evidence
+  that decide the question, quoted exactly, or "none" when nothing in the
+  evidence decides it. The cue is a quotation, not an explanation. The
+  probabilities follow from it; with "none", spread them.
 - Give every offered option key a probability, including the ones you rule
   out (give those 0.001). The probabilities for one question sum to 1.
 - A probability is how often you would be right if you gave this answer to many
@@ -27,4 +31,4 @@ For each question:
 
 Reply with only this JSON object, no code fence:
 
-{"answers": {"<question name>": {"probabilities": {"<option key>": <number>, ...}, "refusal": false}, ...}}
+{"answers": {"<question name>": {"cue": "<quoted words or none>", "probabilities": {"<option key>": <number>, ...}, "refusal": false}, ...}}

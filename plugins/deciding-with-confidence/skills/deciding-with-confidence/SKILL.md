@@ -2,7 +2,7 @@
 name: deciding-with-confidence
 description: "Routes, triages, flags and rates a piece of text with a probability for every option: which department or queue a ticket goes to, which intent a message expresses, whether a yes/no condition holds (is this tool call grounded, should the agent ask first, is the customer angry), and how severe or urgent it is on a rubric, each with a calibrated confidence. Runs Claude Haiku in the request and response shapes of OpenAI's Decisions API, for when no purpose-built decision model is at hand. Use for \"route this ticket\", \"triage these\", \"classify with a confidence\", \"give me a probability that\", \"rate the severity\", \"score against this rubric\", guardrail checks before a tool call, or \"a Decisions API without OpenAI\"."
 metadata:
-  version: 0.2.0
+  version: 0.3.0
 ---
 
 # Deciding with confidence
@@ -21,22 +21,28 @@ because nothing checks it. When the confidence will gate an action, run
 literal, sceptic) and option order, averaged. Their disagreement lowers
 `confidence` and shows up in `diagnostics.agreement`.
 
-Measured 2026-11-10 on three labelled sets (104 short support and guardrail
-items, 554 questions about whole research articles, 1,070 about article
-sections):
+Every sample answers each question with a `cue` first: the few words of the
+evidence that decide it, quoted. Quoting before committing to probabilities
+was worth more than any other prompt change tested.
 
-| | short items | whole articles | sections | cost |
+Measured 2026-11-11 on the held-out half of three labelled sets, through the
+`cli` transport at low effort. The sets are 52 short banking-intent,
+guardrail and severity items; 77 whole research articles (289 labelled
+questions); and 204 article sections (1,457 labelled questions):
+
+| | short items | whole articles | sections | cost per request |
 |---|---|---|---|---|
-| one sample, low effort (default) | 0.885 | 0.908 | 0.846 | 1x |
-| `--stack` | 0.846 | 0.935 | 0.866 | 3x |
-| three plain samples at the CLI's default effort (the 0.1 default) | 0.846 | 0.944 | 0.886 | about 4x |
+| one sample (default) | 0.827 | 0.969 | 0.870 | $0.0005–0.0024 |
+| `--stack` | 0.865 | 0.962 | 0.906 | 3x |
+| one sample, same prompt without the cue | 0.808 | 0.931 | 0.857 | slightly less |
 
-The default buys a third of the cost for 0.02 to 0.04 of accuracy on long
-scientific text. The stack's value is its agreement signal: answers its three
-samples agreed on were 91% to 96% right, split ones 39% to 66%. A
-purpose-built decision model (Jev) scored 0.894 on the short items and 0.965
-on a hard-label version of the article questions. `references/method.md` has
-the numbers.
+On whole articles one sample is as good as the stack. On sections the stack
+adds 0.036, and it also beat three cue-less samples at the CLI's default
+effort (0.893 against 0.885 on the 591 answers both runs covered). The
+stack's main value is its agreement signal: answers its three samples agreed
+on were 90% to 98% right, split ones 63% to 73%. For comparison, Jev, a
+purpose-built decision model from TypeSafe, scored 0.894 on all 104 short
+items. `references/method.md` has the full tables.
 
 ## When NOT to use this skill
 
@@ -133,17 +139,19 @@ them. Rewrite the options (distinct, observable criteria) before sampling more.
    probability-weighted level index, so 1.4 sits between levels 1 and 2),
    `probabilities` and `confidence`. Every answer carries `diagnostics`:
    `agreement`, `spread`, the pre-calibration `raw` pool and `per_sample`.
+   The samples' cues are not returned.
 
 5. **Act on it with thresholds, never on the top answer alone.**
    - With one sample there is no `agreement`; use the top-probability rule
      alone, or rerun the doubtful ones with `--stack`.
-   - `agreement < 1` (the samples' top answers differ): escalate. With `--stack`,
-     unanimous answers were 91% right on the bundled eval and split ones 39%;
-     on article sections 94% and 57%.
-   - Top probability under 0.7: escalate. Together with the split rule that
-     sent 23 of 104 items onward and left 6 wrong, assuming the escalation
-     target got every escalated item right. The 0.7 was chosen on the same
-     data, so treat it as a starting point.
+   - `agreement < 1` (the samples' top answers differ): escalate. With
+     `--stack`, unanimous answers were 90% to 98% right across the three sets
+     and split ones 63% to 73%.
+   - Top probability under 0.7 (after calibration): escalate. On article
+     sections that sent 17% of one-sample answers onward and left 5.6% of
+     all answers wrong; with the stack, adding the split rule sent 19% and
+     left 3.0% wrong. Both assume the escalation target gets every escalated
+     answer right. Treat 0.7 as a starting point.
    - Set the final thresholds from labelled examples of your own traffic,
      weighing the cost of a false positive against a false negative.
 
@@ -153,9 +161,16 @@ them. Rewrite the options (distinct, observable criteria) before sampling more.
    python3 $S/decide.py calibrate results.jsonl --out my-cal.json
    export DECIDER_CALIBRATION=$PWD/my-cal.json
    ```
-   The bundled `assets/calibration.json` fits only `choice` (T = 0.62, fitted
-   through the `cli` transport). Predicate and score keep T = 1 until a type
-   has 50 labels, because smaller sets swung between folds.
+   Run `eval` with `--stack` so the file holds both temperature sets. One sample
+   and a pool of three need different temperatures, because averaging three
+   samples flattens the distribution. `calibrate` fits single-sample
+   temperatures from each request's first sample and pooled ones from the
+   pools, and a type with fewer than 50 labels keeps T = 1. The bundled
+   `assets/calibration.json` was fitted through the `cli` transport on the
+   1,798 labelled answers above. Every temperature is below 1, so Haiku's
+   stated probabilities are underconfident and the calibration sharpens
+   them. Single-sample T is 0.74 for predicates, 0.60 for choices and 0.81
+   for scores; the pooled T values are 0.44, 0.52 and 0.50.
 
 ## Earned exceptions
 
@@ -163,7 +178,7 @@ them. Rewrite the options (distinct, observable criteria) before sampling more.
 |---|---|---|
 | One sample | the confidence decides whether something is escalated, blocked or sent on | you need the answer, and a wrong one is cheap or gets reviewed anyway |
 | `--stack` | cost is the constraint and nothing reads the confidence | the confidence gates an action: parallel samples cost no wall time and 3x the tokens |
-| Bundled calibration | your transport or domain differs from the eval's (`cli`, banking and support text) | you have not yet labelled 50 items of your own |
+| Bundled calibration | your transport or domain differs from the eval's (`cli`; banking, support and life-science text) | you have not yet labelled 50 items of your own |
 | Escalate on `agreement < 1` | nothing stronger sits behind it | a stronger model or a human can take the split items |
 
 ## Common failure modes
@@ -193,7 +208,7 @@ them. Rewrite the options (distinct, observable criteria) before sampling more.
 Run the tests, then one live request:
 
 ```bash
-python3 -m pytest /mnt/skills/user/deciding-with-confidence/tests -q    # 48 collected, no network
+python3 -m pytest /mnt/skills/user/deciding-with-confidence/tests -q    # 50 collected, no network
 echo '{"input":"Nobody can log in since the 2pm deploy.","questions":[{"type":"predicate","name":"outage","instructions":"Is a service down for users?"}]}' \
   | python3 $S/decide.py run -
 ```
@@ -225,3 +240,8 @@ from a `--stack` run: it looks normal but has lost the agreement signal. Check
   conversation in the request. `input_transcript` reads it from the session's
   transcript file; on a long session one call over the last six turns read
   38,580 characters and cost $0.0036.
+- **2026-11-11:** one temperature per question type, fitted on pools,
+  applied to single samples and pools alike. With the cue prompt the stack's
+  pools were further from calibrated (ECE 0.10 to 0.15) than single samples
+  were, because averaging flattens them. Pools now have their own
+  temperatures, and cross-validated ECE is 0.01 to 0.05 for both.
