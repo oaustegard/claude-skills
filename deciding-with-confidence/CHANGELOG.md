@@ -71,6 +71,12 @@
 - Ported from `oaustegard/claude-workspace` `scripts/decide.py`, without its
   Jev comparison backend.
 
+## [0.3.0] - 2026-11-11
+
+### Other
+
+- deciding-with-confidence 0.3.0: cue prompt, refitted single and pooled temperatures
+
 ## [0.2.0] - 2026-11-11
 
 ### Other
