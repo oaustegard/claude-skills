@@ -10,10 +10,14 @@ exposed, so here they are estimated:
 
 1. Every sample states a probability per option; keys it leaves out share its
    unassigned mass.
-2. k samples (default 3) run in parallel with the options shuffled (choice,
-   predicate) or the rubric reversed (score), which cancels position bias.
+2. One sample at low effort is the default. With k > 1 the samples run in
+   parallel with the options shuffled (choice, predicate) or the rubric
+   reversed (score), which cancels position bias. `--stack` gives each of
+   three samples a different angle (plain, literal, sceptic), so they differ
+   in how they read the evidence and not only in option order.
 3. The answer is the mean of the samples. Disagreement flattens it, which
-   lowers `confidence`; `diagnostics.agreement` reports it directly.
+   lowers `confidence`; `diagnostics.agreement` reports it directly. One
+   sample has no agreement signal: its confidence is only what it stated.
 4. The pool is temperature-scaled per question type from a labelled eval
    (assets/calibration.json, or the file DECIDER_CALIBRATION names).
 
@@ -31,8 +35,9 @@ Transports (--transport, default auto):
 With none of these, `emit` prints prompts for parallel Haiku subagents and
 `aggregate` pools their replies.
 
-    python3 decide.py run request.json [-k 3] [--transport cli]
-    python3 decide.py emit request.json -k 3 > batch.json
+    python3 decide.py run request.json [--stack | -k 3] [--transport cli]
+    python3 decide.py batch requests.jsonl --out responses.jsonl   # many requests, resumable
+    python3 decide.py emit request.json --stack > batch.json
     python3 decide.py aggregate batch.json replies.json
     python3 decide.py eval ../assets/eval.jsonl --out results.jsonl
     python3 decide.py calibrate results.jsonl --out my-calibration.json
@@ -64,7 +69,20 @@ CLI_MODEL = os.environ.get("DECIDER_CLI_MODEL", "claude-haiku-5-5")  # the model
 API_MODEL = os.environ.get("DECIDER_API_MODEL", "claude-haiku-5-5")
 BEDROCK_MODEL = os.environ.get("DECIDER_BEDROCK_MODEL", "anthropic.claude-haiku-5-5")
 PRICE = (0.10, 0.50)  # Haiku 5.5 first-party $/MTok in, out, for prompts under 100K tokens
-K = int(os.environ.get("DECIDER_K", "3"))
+K = int(os.environ.get("DECIDER_K", "1"))
+EFFORT = os.environ.get("DECIDER_EFFORT", "low")  # "default" leaves the effort to the transport
+# An angle is one extra instruction a sample answers under. A stack runs one sample per angle and pools
+# them, so the samples differ in how they read the evidence and not only in option order.
+ANGLES = {
+    "plain": "",
+    "literal": ("Decide from what the evidence itself states happened or is the case. Do not count what it "
+                "attributes to other sources, or raises as background, a plan or a possibility."),
+    "sceptic": ("Start from the answer that claims least: false for a predicate, the least specific option for a "
+                "choice, the level the evidence plainly meets for a score. Move probability off it only as far "
+                "as the evidence states the fact outright."),
+}
+STACK = ("plain", "literal", "sceptic")
+ANGLE = os.environ.get("DECIDER_ANGLE", "plain")  # the angle a single sample uses
 TIMEOUT = float(os.environ.get("DECIDER_TIMEOUT", "60"))
 WORKERS = int(os.environ.get("DECIDER_WORKERS", "8"))
 MIN_CALIBRATION = 50  # labelled answers per type before a fitted temperature is trusted
@@ -122,6 +140,11 @@ def normalize_request(req: dict) -> list[Question]:
 
 def input_text(req: dict) -> str:
     inp = req.get("input")
+    if inp is None and req.get("input_file"):
+        try:
+            return Path(req["input_file"]).expanduser().read_text()
+        except (OSError, UnicodeDecodeError) as e:
+            raise DeciderError(f"input_file {req['input_file']!r}: {type(e).__name__}: {e}") from None
     if isinstance(inp, str):
         return inp
     parts = []
@@ -149,8 +172,19 @@ def presented_order(q: Question, i: int) -> list[str]:
     return keys
 
 
-def sample_prompt(req: dict, qs: list[Question], i: int) -> str:
-    blocks = [f"<evidence>\n{input_text(req)}\n</evidence>"]
+def angle_text(angle: str) -> str:
+    """A built-in angle's instruction, or the string itself when it names none (a custom angle)."""
+    return ANGLES.get(angle, angle)
+
+
+def resolve_angles(req: dict, angles=None, k: int = K) -> list[str]:
+    """One angle per sample: the caller's, else the request's `angles`, else ANGLE; cycled to length k."""
+    names = list(angles or req.get("angles") or [ANGLE])
+    return [names[i % len(names)] for i in range(k)]
+
+
+def sample_prompt(req: dict, qs: list[Question], i: int, angle: str = "", evidence: str | None = None) -> str:
+    blocks = [evidence if evidence is not None else f"<evidence>\n{input_text(req)}\n</evidence>"]
     for q in qs:
         by_key = {o.key: o for o in q.options}
         order = presented_order(q, i)
@@ -163,6 +197,8 @@ def sample_prompt(req: dict, qs: list[Question], i: int) -> str:
             lines = [f"- {k}" + (f": {by_key[k].description}" if by_key[k].description else "") for k in order]
         blocks.append(f'<question name="{q.name}" type="{q.type}">\n{q.instructions}\n{head}\n'
                       + "\n".join(lines) + "\n</question>")
+    if angle_text(angle):
+        blocks.append(f"<approach>\n{angle_text(angle)}\n</approach>")
     blocks.append("Answer every question with a probability for each option key.")
     return "\n\n".join(blocks)
 
@@ -288,17 +324,19 @@ def system_prompt() -> str:
     return PROMPT.read_text().strip()
 
 
-def claude_argv(system: str, user: str) -> list[str]:
+def claude_argv(system: str) -> list[str]:
     # No --json-schema: structured output costs a second turn and ~3x the output
     # tokens (2.2s vs 0.8s of API time, measured 2026-10-09); parse_reply copes.
-    return ["claude", "-p", "--model", CLI_MODEL, "--output-format", "json",
+    # The sample prompt goes in on stdin: a whole document does not fit one argv string.
+    argv = ["claude", "-p", "--model", CLI_MODEL, "--output-format", "json",
             "--system-prompt", system, "--tools", "", "--setting-sources", "",
-            "--strict-mcp-config", "--no-session-persistence", user]
+            "--strict-mcp-config", "--no-session-persistence"]
+    return argv if EFFORT == "default" else argv + ["--effort", EFFORT]
 
 
 def cli_transport(system: str, user: str) -> dict:
     try:
-        r = subprocess.run(claude_argv(system, user), capture_output=True, text=True, check=False,
+        r = subprocess.run(claude_argv(system), input=user, capture_output=True, text=True, check=False,
                            timeout=TIMEOUT, cwd=tempfile.gettempdir())
         out = json.loads(r.stdout)
     except (subprocess.TimeoutExpired, ValueError, OSError) as e:
@@ -320,7 +358,7 @@ def message_params(model: str, system: str, user: str) -> dict:
     # Haiku 5.5: thinking is on by default and may be disabled only at effort high or
     # below; temperature and assistant prefill are rejected.
     return {"model": model, "max_tokens": 1024, "system": system,
-            "thinking": {"type": "disabled"}, "output_config": {"effort": "low"},
+            "thinking": {"type": "disabled"}, "output_config": {"effort": "low" if EFFORT == "default" else EFFORT},
             "messages": [{"role": "user", "content": user}]}
 
 
@@ -376,17 +414,20 @@ def parse_json(text: str):
 
 
 def decide(req: dict, k: int = K, transport=None, calibration: dict | None = None,
-           errors: list | None = None) -> dict | None:
+           errors: list | None = None, angles=None) -> dict | None:
     """The Decisions-API-shaped response, or None. Transport failures are appended
-    to `errors` when one is passed."""
+    to `errors` when one is passed. `angles` names one angle per sample (cycled);
+    pass STACK with k=3 for the three-angle stack."""
     qs = normalize_request(req)
     transport = transport or pick_transport()
     calibration = load_calibration() if calibration is None else calibration
     system = system_prompt()
+    per_sample = resolve_angles(req, angles, k)
+    evidence = f"<evidence>\n{input_text(req)}\n</evidence>"  # read a file-backed input once, not once per sample
 
     def one(i):
         try:
-            return transport(system, sample_prompt(req, qs, i))
+            return transport(system, sample_prompt(req, qs, i, per_sample[i], evidence))
         except DeciderError as e:
             if errors is not None:
                 errors.append(str(e))
@@ -405,24 +446,33 @@ def decide(req: dict, k: int = K, transport=None, calibration: dict | None = Non
     if out is None:
         return None
     usage = [r["_usage"] for r in replies if isinstance(r, dict) and "_usage" in r]
-    out["usage"] = {"samples": k, "latency_ms": round((time.monotonic() - t0) * 1000),
+    out["usage"] = {"samples": k, "angles": per_sample, "latency_ms": round((time.monotonic() - t0) * 1000),
                     "cost_usd": round(sum(u["cost_usd"] for u in usage), 6)}
     return out
 
 
-def emit(req: dict, k: int = K, agent: str | None = None) -> dict:
+def emit(req: dict, k: int = K, agent: str | None = None, angles=None) -> dict:
     """Prompts for k parallel Haiku subagents, for a session with no transport.
     Without `agent` the system prompt rides inside each prompt, so a stock
     general-purpose Haiku subagent can answer (~58K tokens a sample, measured).
     With `agent` (agents/decider.md, installed by the plugin) the prompt
     carries only the sample (~9K). [no-context] stops a context-appending
     PreToolUse hook (delegating-with-context) from adding transcript chunks,
-    which would become evidence."""
+    which would become evidence. A request with `input_file` is not inlined:
+    the prompt names the file and the subagent reads it, so the session that
+    dispatches the prompt does not write the evidence out as its own output."""
     qs = normalize_request(req)
     head = "" if agent else system_prompt() + "\n\n---\n\n"
+    per_sample = resolve_angles(req, angles, k)
+    evidence = None
+    if req.get("input") is None and req.get("input_file"):
+        path = Path(req["input_file"]).expanduser().resolve()
+        evidence = (f'<evidence file="{path}"/>\nThe evidence is the whole file at that path. Read it once with the '
+                    "Read tool, then answer.")
     return {"request": req,
-            "samples": [{"subagent_type": agent or "general-purpose", "model": "haiku",
-                         "prompt": head + sample_prompt(req, qs, i) + "\n\n[no-context]"} for i in range(k)]}
+            "samples": [{"subagent_type": agent or "general-purpose", "model": "haiku", "angle": per_sample[i],
+                         "prompt": head + sample_prompt(req, qs, i, per_sample[i], evidence) + "\n\n[no-context]"}
+                        for i in range(k)]}
 
 
 def aggregate(req: dict, replies: list, calibration: dict | None = None) -> dict | None:
@@ -478,20 +528,51 @@ def metrics(rows: list[dict]) -> dict:
             "auroc": None if au is None else round(au, 3)}
 
 
-def evaluate(items: list[dict], k: int, transport) -> list[dict]:
+def _request_of(item: dict) -> dict:
+    return {key: item[key] for key in ("input", "input_file", "questions", "angles") if key in item}
+
+
+def batch(items: list[dict], k: int, transport, angles=None, out=None, done=frozenset()) -> list[dict]:
+    """decide() over many requests in parallel: [{"id", "response"} or {"id", "error"}], in input order.
+    Items whose id is in `done` are skipped; each result is appended to the open file `out` as it lands."""
     def run(item):
-        req = {"input": item["input"], "questions": item["questions"]}
-        return item, decide(req, k=k, transport=transport)
+        errors: list = []
+        try:
+            res = decide(_request_of(item), k=k, transport=transport, errors=errors, angles=angles)
+        except DeciderError as e:
+            res, errors = None, [str(e)]
+        return ({"id": item.get("id"), "response": res} if res is not None
+                else {"id": item.get("id"), "error": errors[0] if errors else "unparseable replies"})
+
+    rows = []
+    todo = [it for it in items if it.get("id") not in done]
+    with ThreadPoolExecutor(max_workers=max(1, WORKERS // k)) as ex:
+        for row in ex.map(run, todo):
+            rows.append(row)
+            if out is not None:
+                out.write(json.dumps(row) + "\n")
+                out.flush()
+    return rows
+
+
+def evaluate(items: list[dict], k: int, transport, angles=None) -> list[dict]:
+    def run(item):
+        try:
+            return item, decide(_request_of(item), k=k, transport=transport, angles=angles)
+        except DeciderError:
+            return item, None
 
     rows = []
     with ThreadPoolExecutor(max_workers=max(1, WORKERS // k)) as ex:
         for item, res in ex.map(run, items):
-            qs = {q.name: q for q in normalize_request(item)}
+            qs = {q.name: q for q in normalize_request(_request_of(item))}
             if res is None:
                 rows.append({"id": item.get("id"), "error": True})
                 continue
             for a in res["answers"]:
                 q = qs[a["name"]]
+                if q.name not in item.get("labels", {}):
+                    continue  # an item may be labelled for only some of its questions
                 if a["type"] == "refusal":
                     rows.append({"id": item.get("id"), "name": q.name, "type": q.type, "refusal": True})
                     continue
@@ -525,24 +606,54 @@ def report(rows: list[dict]) -> dict:
 # ---------------------------------------------------------------- CLI
 
 def _read(path: str):
-    return json.load(sys.stdin) if path == "-" else json.loads(Path(path).read_text())
+    if path == "-":
+        return json.load(sys.stdin)
+    data = json.loads(Path(path).read_text())
+    if isinstance(data, dict) and data.get("input_file") and not Path(data["input_file"]).expanduser().is_absolute():
+        data["input_file"] = str(Path(path).resolve().parent / data["input_file"])  # relative to the request file
+    return data
+
+
+def _jsonl(path: str) -> list[dict]:
+    base = Path(path).resolve().parent
+    items = [json.loads(line) for line in Path(path).read_text().splitlines() if line.strip()]
+    for it in items:
+        if it.get("input_file") and not Path(it["input_file"]).expanduser().is_absolute():
+            it["input_file"] = str(base / it["input_file"])
+    return items
+
+
+def _sampling(a) -> tuple[int, list[str] | None]:
+    """(k, angles) from -k, --stack and --angles. --stack is the three built-in angles, one sample each."""
+    angles = list(STACK) if a.stack else ([x.strip() for x in a.angles.split(",")] if a.angles else None)
+    k = a.k if a.k is not None else (len(angles) if a.stack else K)
+    return k, angles
 
 
 def main(argv=None) -> int:
+    global EFFORT
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
-    for name in ("run", "eval"):
+    def sampling_args(p):
+        p.add_argument("-k", type=int, default=None, help=f"samples per request (default {K}; 3 with --stack)")
+        p.add_argument("--stack", action="store_true", help="one sample under each of: " + ", ".join(STACK))
+        p.add_argument("--angles", help="comma-separated angle names, one per sample, cycled: " + ", ".join(ANGLES))
+
+    for name in ("run", "eval", "batch"):
         p = sub.add_parser(name)
         p.add_argument("request" if name == "run" else "items",
-                       help="request JSON, or - for stdin" if name == "run"
-                       else "JSONL of {id, input, questions, labels: {name: value}}")
-        p.add_argument("-k", type=int, default=K)
+                       help={"run": "request JSON, or - for stdin",
+                             "eval": "JSONL of {id, input | input_file, questions, labels: {name: value}}",
+                             "batch": "JSONL of {id, input | input_file, questions}"}[name])
+        sampling_args(p)
         p.add_argument("--transport", choices=["auto", "api", "cli", "bedrock"], default="auto")
-        if name == "eval":
+        p.add_argument("--effort", choices=["default", "low", "medium", "high"], default=None,
+                       help=f"reasoning effort for the call (default {EFFORT}; 'default' leaves it to the transport)")
+        if name != "run":
             p.add_argument("--out", required=True)
     p = sub.add_parser("emit")
     p.add_argument("request")
-    p.add_argument("-k", type=int, default=K)
+    sampling_args(p)
     p.add_argument("--agent", help="subagent type of the installed agents/decider.md, e.g. decider")
     p = sub.add_parser("aggregate")
     p.add_argument("batch")
@@ -551,11 +662,14 @@ def main(argv=None) -> int:
     p.add_argument("results", help="JSONL written by eval")
     p.add_argument("--out", required=True, help="calibration JSON to write; point DECIDER_CALIBRATION at it")
     a = ap.parse_args(argv)
+    if getattr(a, "effort", None):
+        EFFORT = a.effort
 
     try:
         if a.cmd == "run":
             errors: list = []
-            res = decide(_read(a.request), k=a.k, transport=pick_transport(a.transport), errors=errors)
+            k, angles = _sampling(a)
+            res = decide(_read(a.request), k=k, transport=pick_transport(a.transport), errors=errors, angles=angles)
             if res is None:
                 print(f"decide: no usable sample; first error: {errors[0] if errors else 'unparseable replies'}",
                       file=sys.stderr)
@@ -563,15 +677,27 @@ def main(argv=None) -> int:
             print(json.dumps(res, indent=2))
             return 0
         if a.cmd == "emit":
-            print(json.dumps(emit(_read(a.request), a.k, a.agent), indent=2))
+            k, angles = _sampling(a)
+            print(json.dumps(emit(_read(a.request), k, a.agent, angles), indent=2))
             return 0
+        if a.cmd == "batch":
+            k, angles = _sampling(a)
+            out = Path(a.out)
+            done = set()
+            if out.exists():
+                done = {r.get("id") for r in map(json.loads, out.read_text().splitlines()) if r.get("response")}
+            with out.open("a") as fh:
+                rows = batch(_jsonl(a.items), k, pick_transport(a.transport), angles, fh, frozenset(done))
+            failed = sum("error" in r for r in rows)
+            print(f"batch: {len(rows) - failed} answered, {failed} failed, {len(done)} already in {out}", file=sys.stderr)
+            return 1 if failed else 0
         if a.cmd == "aggregate":
             res = aggregate(_read(a.batch)["request"], _read(a.replies))
             print(json.dumps(res, indent=2))
             return 0 if res is not None else 1
         if a.cmd == "eval":
-            items = [json.loads(line) for line in Path(a.items).read_text().splitlines() if line.strip()]
-            rows = evaluate(items, a.k, pick_transport(a.transport))
+            k, angles = _sampling(a)
+            rows = evaluate(_jsonl(a.items), k, pick_transport(a.transport), angles)
             Path(a.out).write_text("".join(json.dumps(r) + "\n" for r in rows))
             print(json.dumps(report(rows), indent=2))
             return 0

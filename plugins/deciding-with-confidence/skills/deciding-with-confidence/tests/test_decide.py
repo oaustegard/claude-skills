@@ -276,7 +276,9 @@ def test_metrics_on_known_rows():
 # ------------------------------------------------------------ transports
 
 def test_cli_transport_is_isolated_from_session_config():
-    argv = dz.claude_argv("sys", "user")
+    argv = dz.claude_argv("sys")
+    assert "user" not in argv  # the sample prompt goes in on stdin, so a whole document fits
+    assert argv[argv.index("--effort") + 1] == "low"
     for flag in ("--tools", "--setting-sources", "--strict-mcp-config", "--no-session-persistence",
                  "--system-prompt"):
         assert flag in argv
@@ -395,3 +397,86 @@ def test_emit_for_an_installed_agent_omits_the_system_prompt():
     batch = dz.emit(ROUTE, k=1, agent="decider")
     assert batch["samples"][0]["subagent_type"] == "decider"
     assert batch["samples"][0]["prompt"].startswith("<evidence>")
+
+
+# ------------------------------------------------------------ one sample, angles, files, batches
+
+def test_one_low_effort_sample_is_the_default():
+    assert dz.K == 1 and dz.EFFORT == "low" and dz.ANGLE == "plain"
+    out = dz.decide(DAMAGE, transport=fake([{"visible_damage": {"true": 0.9, "false": 0.1}}]), calibration={})
+    assert out["usage"]["samples"] == 1 and out["usage"]["angles"] == ["plain"]
+    assert math.isclose(out["answers"][0]["probability"], 0.9)  # a lone sample still states its distribution
+
+
+def test_an_angle_adds_one_approach_block_and_plain_adds_none():
+    qs = dz.normalize_request(DAMAGE)
+    assert "<approach>" not in dz.sample_prompt(DAMAGE, qs, 0, "plain")
+    p = dz.sample_prompt(DAMAGE, qs, 0, "sceptic")
+    assert p.count("<approach>") == 1 and dz.ANGLES["sceptic"] in p
+    assert "Weigh the dates." in dz.sample_prompt(DAMAGE, qs, 0, "Weigh the dates.")  # a custom angle is its own text
+
+
+def test_stack_runs_one_sample_per_angle():
+    seen = []
+
+    def transport(system, user):
+        seen.append(user)
+        return {"answers": {"visible_damage": {"probabilities": {"true": 0.8, "false": 0.2}}}}
+
+    out = dz.decide(DAMAGE, k=3, transport=transport, calibration={}, angles=dz.STACK)
+    assert out["usage"]["angles"] == ["plain", "literal", "sceptic"]
+    assert ["<approach>" in u for u in seen].count(True) == 2
+    assert out["answers"][0]["diagnostics"]["samples"] == 3
+
+
+def test_cli_flags_pick_k_and_angles():
+    ns = lambda **kw: type("A", (), {"k": None, "stack": False, "angles": None, **kw})()  # noqa: E731
+    assert dz._sampling(ns()) == (dz.K, None)
+    assert dz._sampling(ns(stack=True)) == (3, list(dz.STACK))
+    assert dz._sampling(ns(k=2, angles="plain, sceptic")) == (2, ["plain", "sceptic"])
+
+
+def test_input_file_is_read_by_run_and_named_not_inlined_by_emit(tmp_path):
+    doc = tmp_path / "paper.txt"
+    doc.write_text("The mug arrived cracked along the handle.")
+    req = {"input_file": str(doc), "questions": DAMAGE["questions"]}
+    seen = []
+
+    def transport(system, user):
+        seen.append(user)
+        return {"answers": {"visible_damage": {"probabilities": {"true": 0.9, "false": 0.1}}}}
+
+    assert dz.decide(req, transport=transport, calibration={}) is not None
+    assert "cracked along the handle" in seen[0]
+    prompt = dz.emit(req, k=1, agent="decider")["samples"][0]["prompt"]
+    assert str(doc) in prompt and "cracked along the handle" not in prompt  # the subagent reads the file itself
+    with pytest.raises(dz.DeciderError):
+        dz.decide({"input_file": str(tmp_path / "missing.txt"), "questions": DAMAGE["questions"]}, transport=transport)
+
+
+def test_batch_answers_in_order_reports_failures_and_skips_done(tmp_path):
+    items = [{"id": "a", **DAMAGE}, {"id": "b", **DAMAGE}, {"id": "c", **DAMAGE}]
+
+    def transport(system, user):
+        return {"answers": {"visible_damage": {"probabilities": {"true": 0.7, "false": 0.3}}}}
+
+    out = tmp_path / "out.jsonl"
+    with out.open("a") as fh:
+        rows = dz.batch(items, 1, transport, out=fh, done=frozenset({"b"}))
+    assert [r["id"] for r in rows] == ["a", "c"] and all("response" in r for r in rows)
+    assert len(out.read_text().splitlines()) == 2
+    rows = dz.batch(items[:1], 1, fake([None]))
+    assert rows[0]["id"] == "a" and rows[0]["error"] == "boom" and "response" not in rows[0]
+
+
+def test_eval_scores_only_the_labelled_questions():
+    item = {"id": "x", "input": "Charged twice, and the app crashes on login.",
+            "questions": ROUTE["questions"] + DAMAGE["questions"], "labels": {"department": "billing"}}
+
+    def transport(system, user):
+        return {"answers": {"department": {"probabilities": {"billing": 0.9, "technical": 0.05, "shipping": 0.03, "other": 0.02}},
+                            "visible_damage": {"probabilities": {"true": 0.5, "false": 0.5}}}}
+
+    rows = dz.evaluate([item], 1, transport)
+    assert [r["name"] for r in rows] == ["department"] and rows[0]["label"] == "billing"
+
