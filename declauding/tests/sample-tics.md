@@ -249,3 +249,12 @@ I acknowledge concerns about distraction, but Policy 1's class-time shutdown req
 Three fail on the old code; the others check behaviour the old code never reached.
 
 All five expression shapes — attribute access, subscript, calls, nested calls, string literals — leave current on NAME('b'), and the full template renders correctly.
+
+## Entries 57-60 specimens (a home-automation rules list, verbatim)
+
+1. No internet, no problem. Core stuff has to work with the internet unplugged. Alexa can be a way in, but never the only way.
+2. Don’t remove the old way while adding the new one. If someone tapes a wall switch on so a smart bulb keeps power, I skipped this rule.
+3. Be agile. Rooms get used differently and people move in and out, so it all has to be cheap to change.
+4. Check your automations. I once had four scheduled triggers hitting the same garden pump.
+6. A cloud device needs an API with logs or it doesn’t get installed. I don’t want a black box in the house.
+11. No batteries unless they last a year or more between changes. Nobody wants to swap a door sensor battery at 2am.

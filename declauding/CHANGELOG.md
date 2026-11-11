@@ -2,6 +2,21 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.15.0] - 2026-11-11
+
+### Added
+
+- Rule-list family, entries 57 to 60: slogan rule names, prohibition-first
+  absolutes, gotcha closers and clipped list cadence. The fix writes each item
+  as one or two full sentences joining the rule and its reason, so the item
+  gets longer. All specimens come from one document, a home-automation rules
+  list; a second source is still needed under the two-drafts rule.
+- `declaude_lint.py` reports these as `rule-list`. On the specimen list in
+  `tests/sample-tics.md` it reports 8 hits; on the rewritten list, none; on
+  `tests/sample-clean.md`, none.
+- Overcorrection: removing a slogan or punchline from a list item should not
+  leave a fragment behind.
+
 ## [0.14.0] - 2026-11-10
 
 ### Other

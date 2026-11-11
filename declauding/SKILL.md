@@ -2,7 +2,7 @@
 name: declauding
 description: Load it without being asked at the start of any task whose deliverable is prose that another person will read, such as a PR description, commit message, README, doc, postmortem, blog post, issue or review comment, report, release note or essay, and run it on the draft before the text is pushed, posted, published or saved. Draft first without this skill in context, from a positive writing brief if one exists. Also use it when someone says "de-claude", "de-slop", "humanize this", "this reads like AI" or "make it sound human", or asks for a voice, tone or register edit. It rewrites the constructions that mark prose as model-written into plain technical prose, and checks that the rewrite kept the draft's claims. The constructions include staged reveals, verdict headers, aphoristic closers, "it's not X, it's Y", em-dash drama, forced triads, flat-certainty adverbs, noun stacks and dropped 'that'. Do not use it on fiction, poetry, code or quoted text. For a full adversarial review of a deliverable, use challenging.
 metadata:
-  version: 0.14.0
+  version: 0.15.0
 ---
 
 # Declauding
@@ -51,7 +51,7 @@ a finding arrive, instead of stating the finding.
 Apply one test to each sentence: is it saying the thing, or performing having
 had the thought? Rewrite the second kind so that it says the thing.
 
-The register has five families. Read the one the draft needs first.
+The register has six families. Read the one the draft needs first.
 
 | Entries | Family | Mechanism |
 |---|---|---|
@@ -60,6 +60,7 @@ The register has five families. Read the one the draft needs first.
 | 43–47 | Flat certainty | This skill's own output. An adverb, compound or absolute negative stands in for evidence: `plainly`, `quietly`, `refusal`, `re-derived`, `byte-identical`, `nothing` |
 | 48–52 | Confiding essayist | Staging aimed at the reader's trust: announced honesty, stranded auxiliaries, obituary headlines. From Simon Willison's [llm-cliche-highlighter](https://github.com/simonw/tools/blob/main/llm-cliche-highlighter.html), updated 2026-08-27 |
 | 53–56 | Compressed syntax | Nothing is staged; a claim is packed into fewer words than a reader can parse: noun stacks, verbed nouns, dropped *that*, a subject waiting behind a list for its verb. The fix makes the sentence longer. From [arXiv 2610.29162](https://arxiv.org/abs/2610.29162) |
+| 57–60 | Rule lists | Items in a list of rules perform the rule: slogan labels, bans standing in for defaults, quip closers, clipped cadence. The fix makes each item longer |
 
 A clean pass tends to land in the flat-certainty register, which is also the
 fastest-growing cluster of GitHub pull request descriptions: 0.70% of early
@@ -223,7 +224,8 @@ each shape carries a claim. Start with the family the draft needs: the author
 model's profile in `references/models/` names it; on a draft this skill or another model already
 cleaned, read 43 to 47 first; on a personal essay, a launch post, or anything
 addressed to the reader as a confidant, read 48 to 52 first; on a chat reply or a
-coding-session report, read 53 to 56 first.
+coding-session report, read 53 to 56 first; on a list of rules, principles or
+guidelines, read 57 to 60 first.
 
 **4. Structure pass.** Headers (are they labels or verdicts?), paragraph breaks
 (is an isolated line a real pivot or a drum roll?), fragment runs, rhetorical
@@ -323,6 +325,9 @@ opinions. That is worse than the tics.
   nouns where a phrase stood, drop *that* from a long clause, or press a noun
   into service as a verb. If the rewrite is shorter and takes longer to parse,
   it is worse (entries 53 to 56).
+- Do not shorten list items. In a list of rules or principles, removing a
+  slogan or a punchline should make the item a longer, full sentence that
+  joins the rule and its reason. Leaving a fragment behind is entry 60.
 - Keep the certainty. "Class imbalance breaks the metric before overfitting
   does" is flat *and* certain. Aim for prose that is plain and still sure of
   itself.

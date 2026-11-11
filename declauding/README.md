@@ -15,9 +15,9 @@ the reason for it.
 ## The register
 
 "Register" means the style a piece of prose is written in.
-[`references/register.md`](references/register.md) catalogues 56 tics that mark
+[`references/register.md`](references/register.md) catalogues 60 tics that mark
 prose as model-written. Each entry gives the tell (the surface pattern to look
-for), why it marks model prose, the fix, and a before-and-after from real text. They fall into five families:
+for), why it marks model prose, the fix, and a before-and-after from real text. They fall into six families:
 
 | Entries | Family | Example |
 |---|---|---|
@@ -26,6 +26,7 @@ for), why it marks model prose, the fix, and a before-and-after from real text. 
 | 43–47 | **Flat certainty:** an adverb or absolute negative stands in for evidence | *The retry is provably safe.* |
 | 48–52 | **Confiding essayist:** staging aimed at the reader's trust | *Let's be honest: I won't pretend the first run was clean.* |
 | 53–56 | **Compressed syntax:** a claim packed into fewer words than a reader can parse | *the others check behaviour the old code never reached* |
+| 57–60 | **Rule lists:** list items written as slogans, bans and punchlines | *Be agile.* / *Nobody wants to swap a door sensor battery at 2am.* |
 
 The staging entries that come up most often:
 
@@ -98,7 +99,7 @@ Prose stripped of confidence, rhythm and opinion is worse than the tics. The
 skill keeps certainty that has evidence behind it, first-person judgment, varied
 sentence length, digression and the author's own habits. It does not compress
 what remains: a rewrite that is shorter and harder to parse fails entries 53 to
-56. A flagged shape sometimes carries a claim, and
+56, and a list item left as a fragment after its slogan is cut fails entry 60. A flagged shape sometimes carries a claim, and
 [`references/exceptions.md`](references/exceptions.md) lists when each one is
 earned.
 
@@ -122,7 +123,8 @@ Cleanup project's [Signs of AI writing](https://en.wikipedia.org/wiki/Wikipedia:
 clusters of pull request descriptions (43–47), Simon Willison's
 [llm-cliche-highlighter](https://github.com/simonw/tools/blob/main/llm-cliche-highlighter.html)
 (48–52), and Clark, Martin and Mahowald,
-[arXiv 2610.29162](https://arxiv.org/abs/2610.29162) (53–56).
+[arXiv 2610.29162](https://arxiv.org/abs/2610.29162) (53–56). Entries 57 to 60 come from a
+register pass on a home-automation rules list.
 [`CHANGELOG.md`](CHANGELOG.md) has the history of each addition.
 
 Related skills: [challenging](../challenging) runs an adversarial review of a
