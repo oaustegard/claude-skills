@@ -2,7 +2,7 @@
 name: making-kinescript-videos
 description: "Make an MP4 from a JSON scene file with Kinescript (drknowhow/kinescript, the `kine` CLI): text, shapes, charts, SVG, images, video clips, particles and 3D models on cue-based timing, with a checker that lints layout, contrast, reading time and the sound mix, and narration spoken by Kokoro TTS with word-level cues and captions, and avatars (drawn or glTF characters) that lip-sync to it. Covers setup in a Linux container (CPU backend, Python 3.12 venv for Kokoro), the write → voice → check → look → render loop, and controlling Kokoro's pronunciation, stress, pauses, pace and voice blends. Use for 'kine', 'Kinescript', 'kinescript scene', 'kine voice', 'narrated promo', 'explainer video', 'motion graphics video', 'video with voice-over and captions', 'Kokoro pronunciation', 'TTS says a name wrong', 'make the narrator emphasise', 'video thumbnail is blank', 'poster frame', 'talking avatar', 'presenter character', 'lip sync', or any video built from type, shapes and captured footage."
 metadata:
-  version: 0.3.0
+  version: 0.3.1
 ---
 
 # Making videos with Kinescript
@@ -15,7 +15,7 @@ and every frame is a pure function of the scene and the frame number. The
 `drknowhow`). Oskar Austegard, who maintains this skill collection, contributes
 as a collaborator. Muninn is the name of the Claude agent that works for him.
 
-This file was last checked against Kinescript 1.6.1 (2026-11-01), and
+This file was last checked against Kinescript 2.5.0 (2026-11-12), and
 upstream releases often. **`kine docs` is the authoritative reference for the installed
 version.** Read it before writing a scene, and don't rely on feature lists
 remembered from earlier sessions, this file included.
@@ -38,35 +38,38 @@ kine doctor
 ```
 
 - Pin skia-python ≥ 144. `pyproject.toml` allows ≥ 87, but 138.0 crashes.
-- `canvas.poster` (step 6) is merged upstream (drknowhow/kinescript#124) but
-  not on PyPI in 1.7.1. Until a later release, install with
-  `pip install git+https://github.com/drknowhow/kinescript`; `kine docs`
-  mentions `poster` when the installed version has it.
-- With no GPU, `KINE_BACKEND=cpu` is used. Expect 3–7 fps at 1080p. A 55 s,
-  1650-frame promo (the games promo in `oaustegard/experiments/games-promo`,
-  cited below) took 231 s at `-j 4`.
+- With no GPU, `KINE_BACKEND=cpu` is used. Kinescript 2.5.0 rendered a
+  2:12 1080p explainer (3,968 frames of text, shapes and captions) in 41 s at
+  `-j 4` on 4 CPUs, 98 fps (`oaustegard/experiments/colbert-pooling-explainer`).
+  Versions before 2.x managed 3–7 fps, so budget from a short `--from/--to`
+  render rather than from memory.
 - **In `oaustegard/claude-workspace` sessions**, that repo's rules require
   third-party code to run inside its sandbox, `scripts/jail.sh` (no network,
   no secrets). Install from PyPI outside it and run `kine` through it.
 
 ### Kokoro for `kine voice`
 
-`kine voice` needs a voice plugin. Kokoro's (`kinescript-kokoro`) needs
-Python 3.10–3.12. If the system Python is newer, install the plugin only in
-its own venv (here with `uv`) and point `KINE_VOICE_CMD` at it; `kine` stays
-in the system Python:
+`kine voice` needs a voice plugin. Kokoro's, `kinescript-kokoro`, is not on
+PyPI: it lives in the Kinescript repo at `plugins/kinescript-kokoro`. Kokoro
+0.9.4 and misaki 0.9.4, the latest releases (April 2025), require Python
+3.10–3.12; on 3.13 pip falls back to kokoro 0.7.16. So give Kokoro its own
+3.12 venv and point `KINE_VOICE_CMD` at it; `kine` stays in the system Python:
 
 ```bash
-uv venv -p 3.12 ~/kokoro-env
+git clone --depth 1 https://github.com/drknowhow/kinescript ~/kinescript
+uv python install 3.12 && uv venv -p 3.12 ~/kokoro-env
 VIRTUAL_ENV=~/kokoro-env uv pip install --index-strategy unsafe-best-match \
-  --extra-index-url https://download.pytorch.org/whl/cpu torch kinescript-kokoro
-export KINE_VOICE_CMD="$HOME/kokoro-env/bin/python -m kinescript_kokoro"
-# misaki downloads spaCy's en_core_web_sm through uv on first use; if that fails with
-# "No virtual environment found", run it once with VIRTUAL_ENV=~/kokoro-env set
+  --extra-index-url https://download.pytorch.org/whl/cpu torch "kokoro==0.9.4" "misaki[en]==0.9.4" \
+  https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+export KINE_VOICE_CMD="env PYTHONPATH=$HOME/kinescript/plugins/kinescript-kokoro $HOME/kokoro-env/bin/python -m kinescript_kokoro"
 ```
 
-The CPU torch index avoids a multi-GB CUDA download. The first `kine voice` run downloads the model
-(327 MB) and spaCy's small English model.
+The CPU torch index avoids a multi-GB CUDA download; the venv comes to 1.4 GB.
+Installing spaCy's model up front saves misaki's first-use download. The first
+`kine voice` run downloads the model (327 MB). With no network at voice time
+(a sandbox), fetch `hexgrad/Kokoro-82M` (`config.json`, `kokoro-v1_0.pth`,
+`voices/*.pt`) with `huggingface_hub.snapshot_download` beforehand and pass
+`HF_HOME` and `HF_HUB_OFFLINE=1` inside `KINE_VOICE_CMD`.
 
 ## Procedure
 
@@ -191,6 +194,10 @@ the reference.
 
 The version in brackets is the one where each was seen. Check it against
 `kine docs` and the CHANGELOG before working around it.
+
+- **A colour key takes `hsl()` only as an expression** (2.5.0). `"fill":
+  "=hsl(200, 0.6, 0.5)"` works; `"fill": "hsl(200, 0.6, 0.5)"` is a
+  `bad-colour` error. A scene builder can write hex instead.
 
 - **Group children are placed from the group's anchor, not its top-left
   corner** (1.4.0). A centre-anchored group needs a child at `(-w/2, -h/2)`
