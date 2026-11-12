@@ -2,7 +2,7 @@
 name: making-kinescript-videos
 description: "Make an MP4 from a JSON scene file with Kinescript (drknowhow/kinescript, the `kine` CLI): text, shapes, charts, SVG, images, video clips, particles and 3D models on cue-based timing, with a checker that lints layout, contrast, reading time and the sound mix, and narration spoken by Kokoro TTS with word-level cues and captions, and avatars (drawn or glTF characters) that lip-sync to it. Covers setup in a Linux container (CPU backend, Python 3.12 venv for Kokoro), the write → voice → check → look → render loop, and controlling Kokoro's pronunciation, stress, pauses, pace and voice blends. Use for 'kine', 'Kinescript', 'kinescript scene', 'kine voice', 'narrated promo', 'explainer video', 'motion graphics video', 'video with voice-over and captions', 'Kokoro pronunciation', 'TTS says a name wrong', 'make the narrator emphasise', 'video thumbnail is blank', 'poster frame', 'talking avatar', 'presenter character', 'lip sync', or any video built from type, shapes and captured footage."
 metadata:
-  version: 0.3.1
+  version: 0.3.2
 ---
 
 # Making videos with Kinescript
@@ -115,6 +115,11 @@ Installing spaCy's model up front saves misaki's first-use download. The first
 When the person has a brand, or makes several videos that should look alike,
 use a Kinescript brand (1.9.0) instead of copying colours and fonts into
 each scene. `kine docs brands` has the full format.
+
+**Muninn's videos use the Muninn brand**: `brand/kinescript/` in
+`oaustegard/muninn.austegard.com` (paper and night palettes from the site,
+Fraunces, Source Serif 4, DM Mono, the raven mark, Muninn's voice). Copy that
+folder into the project as `brand/` and set `"brand": "brand"`.
 
 - **Find or make one.** `kine brand list` shows the library
   (`~/.kinescript/brands`). `kine brand init acme` makes one from the default
