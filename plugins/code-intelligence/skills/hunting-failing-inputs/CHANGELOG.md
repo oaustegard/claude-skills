@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0 — 2026-11-13
+
+SKILL.md trimmed to procedure only (about 230 lines down to 131). The intro,
+provenance and results numbers were removed: they live here and in the
+language references. Source: Google Developers blog, 2026-11-12, "Catch Go bugs
+that fuzzing misses with Gemini and a constraint solver".
+
 ## 0.2.0 — 2026-11-13
 
 Renamed from `hunting-go-bounds-panics` and generalised from Go to Python,
@@ -20,6 +27,12 @@ JavaScript/TypeScript, C and WGSL. Go is now one of five language references.
 
 First version, as `hunting-go-bounds-panics`. Go bounds checks listed with
 `-d=ssa/check_bce`, modelled in Z3, and replayed with `go test`.
+
+## [0.3.0] - 2026-11-13
+
+### Other
+
+- hunting-failing-inputs: trim SKILL.md to the procedure
 
 ## [0.2.1] - 2026-11-13
 
