@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0 — 2026-11-13
+
+SKILL.md trimmed to procedure only (about 230 lines down to 131). The intro,
+provenance and results numbers were removed: they live here and in the
+language references. Source: Google Developers blog, 2026-11-12, "Catch Go bugs
+that fuzzing misses with Gemini and a constraint solver".
+
 ## 0.2.0 — 2026-11-13
 
 Renamed from `hunting-go-bounds-panics` and generalised from Go to Python,
