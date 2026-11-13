@@ -15,3 +15,9 @@ Gemini.
   model to bytes.
 - `references/worked-example.md`: the post's two planted bug classes, run end
   to end on go1.24.7.
+
+## [0.1.0] - 2026-11-13
+
+### Other
+
+- hunting-go-bounds-panics: Z3 path models for Go bounds checks
