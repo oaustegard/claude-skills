@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.1 — 2026-11-13
+
+The references were trimmed the same way (268 lines down to 172). The fuzz-comparison
+tables and the story of where the method came from were removed. The
+measurements they held: random testing found the Python bug after 1,581 inputs
+with `strict` and missed it in 200,000 without; JS, 4,413 with and none in
+200,000 without; C libFuzzer, about 250 runs with ASan and none in 77M without;
+Go fuzzing, under 1 s with `cap == len` and none in 30 s without.
+
 ## 0.3.0 — 2026-11-13
 
 SKILL.md trimmed to procedure only (about 230 lines down to 131). The intro,
