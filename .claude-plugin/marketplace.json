@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.1113.0436"
+    "version": "2026.1113.0452"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -196,7 +196,7 @@
       "name": "skill-development",
       "description": "Tools for creating, versioning, installing, inspecting, and orchestrating Claude skills.",
       "source": "./plugins/skill-development",
-      "version": "2.3.0",
+      "version": "2.4.0",
       "repository": "https://github.com/oaustegard/claude-skills",
       "homepage": "https://github.com/oaustegard/claude-skills",
       "license": "MIT",

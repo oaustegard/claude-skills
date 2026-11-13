@@ -2,7 +2,7 @@
 name: hunting-failing-inputs
 description: Finds inputs that make a parser, decoder or WGSL compute shader index out of bounds or overflow, using Z3. Use for "can this crash", "find an input that breaks this", or when fuzzing found nothing on code that reads untrusted bytes.
 metadata:
-  version: 0.3.0
+  version: 0.3.1
 ---
 
 # Hunting failing inputs

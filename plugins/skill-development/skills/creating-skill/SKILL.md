@@ -2,7 +2,7 @@
 name: creating-skill
 description: Builds and revises a complete skill DIRECTORY — SKILL.md, scripts, references, assets — and packages it. Use for "create a skill for X", "turn this into a skill", "update/improve this skill", "why doesn't my skill trigger", "review this SKILL.md", "package this skill", or when a repeated procedure should become a reusable artifact. Enforces the structure that makes skills work — a concrete procedure rather than a goal statement, an explicit applicability boundary, failure modes with their signals, a runtime verification step, and a description checked against the existing catalogue for confusability. For choosing whether the instruction should be a skill at all rather than project instructions or a prompt, use crafting-instructions. For writing quality inside the prose, use writing-instructions.
 metadata:
-  version: 2.3.0
+  version: 2.4.0
 ---
 
 # Creating Skills
@@ -83,7 +83,11 @@ description: What it does. Use when [trigger patterns].
 
 **name:** Follow naming convention above
 
-**description:** (max 1024 chars)
+**description:** (aim for about 250 chars; the hard limit of 1024 is not a target)
+- It is a trigger, not documentation. It has one job: to make the right request
+  pull the skill in. One sentence on what the skill does, then two or three
+  phrasings a user would type. The mechanism, the languages covered and the
+  results all belong in the body.
 - Third person voice: "Processes files" not "I process files"
 - WHAT it does + WHEN to use it (trigger patterns)
 - Specify: file types, keywords, task types that should activate this skill
@@ -113,9 +117,13 @@ Four rules, each measured on this catalogue:
 
 1. **Lead with the unit of the question**, not the technology. Users ask about
    symbols, not about ASTs.
-2. **Enumerate literal phrasings a user types.** The skill that scored 4/5 on
+2. **Include a few literal phrasings a user types.** The skill that scored 4/5 on
    its own queries is the one whose description contains "de-claude",
-   "humanize this", "this reads like AI".
+   "humanize this", "this reads like AI". Three are enough. *Diagnosed
+   2026-11-13*: `hunting-failing-inputs` shipped 870 characters with 11
+   phrasings. Cut to 245 characters, it still took top-1 on 5/5 queries.
+   Keeping one specific term ("WGSL compute shader") was all it took to beat
+   the nearest neighbour.
 3. **Separate from a neighbour by OMISSION, never by disclaimer.** A retriever
    scores bag-of-meaning and cannot represent negation, so "does not debug a
    Docker build" reads as "Docker build" and pulls you *toward* the thing you
@@ -183,6 +191,32 @@ disk the whole time.
 ## Writing Effective SKILL.md
 
 Apply **writing-instructions** principles:
+
+### Write for a reader who already chose the skill
+
+The body loads only after the description has done its work, so the reader
+has already decided to use the skill. Anything that argues for the skill costs
+context and buys nothing. Start the body at the first thing the reader needs
+to act on: a definition the procedure relies on, the routing table, setup.
+
+Leave these out of SKILL.md and the references:
+- motivation ("fuzzers miss silent failures, so…"), and the story of where
+  the method came from
+- results that prove the method works ("Z3 found every planted bug",
+  comparison tables against a baseline)
+- a "use it on…" paragraph that repeats the description
+
+Provenance and measurements go in the CHANGELOG. A diagnosed failure stays in
+the body, because it teaches a step, not the skill's worth. A reference file
+holds the semantics, the commands and the expected outputs the reader checks
+against, and nothing that shows the method was good.
+
+*Diagnosed 2026-11-13*: `hunting-failing-inputs` shipped with an intro
+paragraph, a provenance paragraph, results numbers and per-language
+fuzz-comparison tables. Trimmed to the procedure, SKILL.md went from about 230
+lines to 131, and the references from 268 to 172, without losing a step. The
+pull toward writing about the skill comes from having just built and measured
+it. That evidence goes in the CHANGELOG.
 
 ### Imperative Construction
 Frame as direct commands:
@@ -429,7 +463,7 @@ Before providing skill to user:
 
 **Metadata:**
 - [ ] Name: lowercase, hyphens, gerund form, max 64 chars
-- [ ] Description: third person, includes WHAT + WHEN triggers, max 1024 chars, no XML
+- [ ] Description: third person, WHAT + WHEN triggers, about 250 chars (1024 is the hard limit), no XML
 - [ ] Description leads with the unit of the question, not the technology
 - [ ] Description contains literal phrasings a user would type
 - [ ] Description separates from siblings by OMISSION, not by a disclaimer
@@ -444,6 +478,7 @@ Before providing skill to user:
 - [ ] References one level deep (no long chains)
 
 **Content:**
+- [ ] No selling in SKILL.md or references: no motivation, provenance or results (those go in the CHANGELOG)
 - [ ] Imperative voice throughout
 - [ ] Positive phrasing — while keeping negative *scope* (they are not the same rule)
 - [ ] Mechanics concrete: real commands, real flags, real order

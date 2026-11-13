@@ -2,6 +2,21 @@
 
 All notable changes to the `creating-skill` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.4.0] - 2026-11-13
+
+### Other
+
+- creating-skill: no selling in skill bodies; hunting-failing-inputs: trim references
+
+## [2.4.0] - 2026-11-13
+
+### Added
+- "Write for a reader who already chose the skill": SKILL.md and the
+  references carry no motivation, provenance or results. Those go in the
+  CHANGELOG. Diagnosed on `hunting-failing-inputs`.
+- Description length: aim for about 250 characters with three phrasings. The
+  1024 limit is not a target.
+
 ## [2.3.0] - 2026-08-25
 
 ### Other
