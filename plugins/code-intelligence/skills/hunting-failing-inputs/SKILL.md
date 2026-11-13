@@ -1,8 +1,8 @@
 ---
 name: hunting-failing-inputs
-description: Finds concrete inputs that make a parser, decoder or kernel read out of range, divide by zero or overflow, in Python, JavaScript/TypeScript, C, WGSL compute shaders and Go. Lists every operation that can fail, models the path to each as Z3 constraints, solves for a failing input and replays it as a test. Also makes silent failures loud for fuzzers and property tests (Python slices that come back short, JS undefined reads, WebGPU clamped indexes, C overreads). Use for "can this parser crash", "find an input that breaks this", "fuzzing found nothing but I don't trust it", "edge cases for this byte decoder", "could this index go out of bounds", "harden this binary format reader", "could this WGSL compute shader index out of bounds", "GPU buffer overrun in a WebGPU kernel", "property test for a decoder", "Z3 counterexample", "integer wraparound in a length check".
+description: Finds inputs that make a parser, decoder or WGSL compute shader index out of bounds or overflow, using Z3. Use for "can this crash", "find an input that breaks this", or when fuzzing found nothing on code that reads untrusted bytes.
 metadata:
-  version: 0.2.0
+  version: 0.2.1
 ---
 
 # Hunting failing inputs
