@@ -37,6 +37,12 @@ JavaScript/TypeScript, C and WGSL. Go is now one of five language references.
 First version, as `hunting-go-bounds-panics`. Go bounds checks listed with
 `-d=ssa/check_bce`, modelled in Z3, and replayed with `go test`.
 
+## [0.3.1] - 2026-11-13
+
+### Other
+
+- creating-skill: no selling in skill bodies; hunting-failing-inputs: trim references
+
 ## [0.3.0] - 2026-11-13
 
 ### Other

@@ -4,6 +4,12 @@ All notable changes to the `creating-skill` skill are documented in this file. T
 
 ## [2.4.0] - 2026-11-13
 
+### Other
+
+- creating-skill: no selling in skill bodies; hunting-failing-inputs: trim references
+
+## [2.4.0] - 2026-11-13
+
 ### Added
 - "Write for a reader who already chose the skill": SKILL.md and the
   references carry no motivation, provenance or results. Those go in the
