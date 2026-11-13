@@ -1292,6 +1292,122 @@ it is a quoted name.
 
 ---
 
+## Rule lists: entries 57 to 60
+
+These fire on lists of rules, principles, guidelines and house policies. The
+four shapes usually appear together, and the fix for all four is the same: write
+each item as one or two full sentences that state the rule and its reason. The
+rewrite is longer than the draft. A pass that only cuts the slogan or the
+punchline leaves a fragment behind, which is entry 60 and the overcorrection
+this family is most prone to.
+
+Rule lists carry real absolutes, so read entry 58 against the document. If the
+author allows exceptions somewhere (a rule like *break a rule only for a good
+reason*), the other rules are defaults and should read as defaults.
+
+---
+
+## 57. Slogan rule name
+
+**Tell:** a catchphrase or buzzword opens the item and the next sentence states
+the actual rule: "No internet, no problem.", "Exceptions must be exceptional.",
+"Be agile."
+
+**Why:** the slogan performs the rule instead of stating it, and the reader
+has to read past it to learn what the rule is.
+
+**Fix:** make the rule the sentence and drop the slogan.
+
+> was: *1. No internet, no problem. Core stuff has to work with the internet
+> unplugged. Alexa can be a way in, but never the only way.*
+> now: *1. The core functions of the house should keep working when the
+> internet is down, so Alexa can be one way to control things but there should
+> always be another.*
+
+> was: *3. Be agile. Rooms get used differently and people move in and out, so
+> it all has to be cheap to change.*
+> now: *3. The setup should be cheap to change, because rooms get used
+> differently over time and people move in and out.*
+
+**Earned:** the label is a name the reader will use to refer to the rule later
+(a numbered principle cited in reviews), or the document is a slide.
+
+---
+
+## 58. Prohibition-first absolute
+
+**Tell:** a rule framed as a ban or ultimatum: *no X unless*, *never*, *nobody*,
+*or it doesn't get installed*, *don't remove*.
+
+**Why:** a default written as a ban overstates the author's position, and the
+document often says so itself by allowing exceptions elsewhere. The ultimatum
+also tilts the item toward a gotcha (entry 59).
+
+**Fix:** say what should happen, with *should*, and attach the reason.
+
+> was: *6. A cloud device needs an API with logs or it doesn't get installed.*
+> now: *6. Cloud devices should have an API with logs, so I can see what
+> they're doing.*
+
+> was: *2. Don't remove the old way while adding the new one.*
+> now: *2. When I add a new way to control something, the old way should keep
+> working too.*
+
+**Earned:** a hard constraint with no exceptions (legal, safety, security), or
+a rule the author states as absolute on purpose.
+
+---
+
+## 59. Gotcha closer
+
+**Tell:** a short second sentence that lands the item as a quip or a jab:
+"I don't want a black box in the house.", "Nobody wants to swap a door sensor
+battery at 2am.", "If someone tapes a wall switch on, I skipped this rule."
+
+**Why:** it is entry 12's aphoristic closer at list-item scale. The reason for
+the rule is real, but it is delivered as a punchline.
+
+**Fix:** fold the reason into the rule with *so*, *because* or *since*, and
+state it plainly. Keep the concrete detail; drop the jab.
+
+> was: *11. No batteries unless they last a year or more between changes.
+> Nobody wants to swap a door sensor battery at 2am.*
+> now: *11. Battery-powered devices should only be used if the batteries last
+> at least a year, since changing a door sensor battery in the middle of the
+> night is no fun.*
+
+> was: *4. Check your automations. I once had four scheduled triggers hitting
+> the same garden pump.*
+> now: *4. Automations need checking from time to time, since I once found four
+> scheduled triggers all controlling the same garden pump.*
+
+**Earned:** the closer states a fact the rule depends on rather than a jab.
+
+---
+
+## 60. Clipped list cadence
+
+**Tell:** most items are two or three sentences of eight words or fewer, so the
+list reads as a drumbeat. The linter reports it when more than half the items
+have this shape.
+
+**Why:** it is entry 15's staccato fragment cadence spread across a list. It is also what
+a register pass produces when it cuts entries 57 to 59 without rebuilding the
+sentence.
+
+**Fix:** one or two full sentences per item, joining rule and reason. Accept
+that the list gets longer.
+
+> was (after a pass that only cut the tics): *6. Cloud devices need an API with
+> logs. I don't want a black box in the house.*
+> now: *6. Cloud devices should have an API with logs, so I can see what
+> they're doing.*
+
+**Earned:** a checklist or reference card meant to be scanned, where each item
+is a single short imperative.
+
+---
+
 ## Quick self-check before shipping an edit
 
 1. Does any sentence exist to make a finding feel bigger than it is?
@@ -1322,3 +1438,6 @@ it is a quoted name.
 16. Is the rewrite shorter and harder to parse? Look for three nouns in a row,
     a noun used as a verb, a long clause with its *that* dropped, and a subject
     waiting behind a list for its verb. Entries 53 to 56.
+17. In a list of rules, does an item open with a slogan, start with a ban,
+    end on a quip, or read as a run of short sentences? Entries 57 to 60.
+    Did fixing them leave the item shorter than a full sentence?
