@@ -31,6 +31,19 @@ Detached side-effects:
     def store_memory(create_issue):
         remember(create_issue["url"], ...)
     # Failure here does NOT block the main pipeline
+
+Rollback (edit, verify, restore on red):
+    @task(undo=restore)
+    def before():
+        return snapshot(["src/a.py", "src/b.py"])
+
+    @task(depends_on=[before])
+    def edit(before): ...
+
+    @task(depends_on=[edit])
+    def verify(edit): ...   # raises on a failing test run
+
+    Flow(verify).run()      # verify fails -> before's undo restores both files
 """
 
 from __future__ import annotations
@@ -39,6 +52,7 @@ import base64
 import hashlib
 import inspect
 import json
+import os
 import pickle
 import sys
 import time
@@ -50,7 +64,7 @@ from concurrent.futures import (
 from concurrent.futures import (
     TimeoutError as FuturesTimeoutError,
 )
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import Any
 
@@ -62,6 +76,10 @@ class StepState(Enum):
     SUCCEEDED = "succeeded"
     FAILED = "failed"
     SKIPPED = "skipped"
+    # Succeeded, then undone because a later main task failed (v1.6). Either
+    # its own undo= ran, or it sits downstream of a task whose undo= ran, so
+    # its inputs no longer exist. resume() re-runs it; the journal forgets it.
+    ROLLED_BACK = "rolled_back"
 
 
 @dataclass
@@ -91,6 +109,8 @@ class TaskDef:
     when: Callable | None = None         # gate: receives gathered kwargs, returns bool. False -> SKIPPED
     validate: Callable | None = None     # edge contract: receives gathered kwargs, raises on bad inputs. Raise -> FAILED, no retry
     retry_until: Callable | None = None  # predicate loop: receives task return value, returns bool. False -> retry (uses retry= budget)
+    # v1.6 compensation
+    undo: Callable | None = None         # receives the task's return value; called in reverse completion order when the main DAG fails
 
     def __call__(self, *args, **kwargs):
         return self.fn(*args, **kwargs)
@@ -135,7 +155,14 @@ def task(
     when: Callable | None = None,
     validate: Callable | None = None,
     retry_until: Callable | None = None,
+    undo: Callable | None = None,
 ) -> TaskDef:
+    if undo is not None and detached:
+        raise ValueError(
+            "undo= cannot be combined with detached=True: detached tasks run "
+            "after the main DAG and a main failure never rolls them back"
+        )
+
     def wrap(f: Callable) -> TaskDef:
         td = TaskDef(
             name=name or f.__name__,
@@ -149,6 +176,7 @@ def task(
             when=when,
             validate=validate,
             retry_until=retry_until,
+            undo=undo,
         )
         _TASK_REGISTRY.append(td)
         return td
@@ -201,8 +229,8 @@ def compute_step_key(td: TaskDef, dep_keys: list[str]) -> str:
     control callables. The result is `v<version>:<sha256>`.
 
     What is deliberately NOT in the key: name, retry/backoff/timeout knobs,
-    detached flag. Tuning a reliability knob or renaming must not bust the
-    cache; changing behaviour must.
+    detached flag, undo. Tuning a reliability knob, renaming, or changing how
+    a step is reversed must not bust the cache; changing what it produces must.
     """
     h = hashlib.sha256()
     h.update(f"v{STEP_KEY_VERSION}\n".encode())
@@ -217,6 +245,73 @@ def compute_step_key(td: TaskDef, dep_keys: list[str]) -> str:
         h.update(_fn_fingerprint(f).encode())
         h.update(b"\n")
     return f"v{STEP_KEY_VERSION}:{h.hexdigest()}"
+
+
+@dataclass
+class FileSnapshot:
+    """Byte-exact contents of a set of files, taken by snapshot().
+
+    files maps each absolute path to its bytes, or to None when the file did
+    not exist. missing_dirs lists directories that did not exist either, so
+    restore() can remove the ones an edit created for a new file.
+    """
+    files: dict[str, bytes | None]
+    missing_dirs: list[str] = field(default_factory=list)
+
+
+def snapshot(paths) -> FileSnapshot:
+    """Record the current bytes of each path (None for a missing file).
+
+    Pair it with restore() as a task's undo= so a failing later step puts the
+    files back:  @task(undo=restore) def before(): return snapshot([...])
+    """
+    files: dict[str, bytes | None] = {}
+    missing: set[str] = set()
+    for p in paths:
+        ap = os.path.abspath(os.fspath(p))
+        try:
+            with open(ap, "rb") as fh:
+                files[ap] = fh.read()
+        except FileNotFoundError:
+            files[ap] = None
+            d = os.path.dirname(ap)
+            while d and not os.path.exists(d):
+                missing.add(d)
+                d = os.path.dirname(d)
+    return FileSnapshot(files=files, missing_dirs=sorted(missing))
+
+
+def restore(snap: FileSnapshot) -> list[str]:
+    """Put every file in snap back to its recorded bytes. Returns changed paths.
+
+    A file that existed is rewritten only if its bytes differ; a file that did
+    not exist is deleted, then any directory created for it is removed if it
+    is empty. Contents only: permissions and timestamps are not restored.
+    """
+    changed: list[str] = []
+    for p, data in snap.files.items():
+        if data is None:
+            try:
+                os.remove(p)
+                changed.append(p)
+            except FileNotFoundError:
+                pass
+            continue
+        try:
+            with open(p, "rb") as fh:
+                if fh.read() == data:
+                    continue
+        except FileNotFoundError:
+            os.makedirs(os.path.dirname(p) or ".", exist_ok=True)
+        with open(p, "wb") as fh:
+            fh.write(data)
+        changed.append(p)
+    for d in sorted(snap.missing_dirs, key=len, reverse=True):
+        try:
+            os.rmdir(d)  # only succeeds when empty
+        except OSError:
+            pass
+    return changed
 
 
 def _run_step(td: TaskDef, results: dict[str, StepResult]) -> StepResult:
@@ -333,7 +428,7 @@ def _run_step(td: TaskDef, results: dict[str, StepResult]) -> StepResult:
 # @lat: [[orchestration#DAG Workflow Runner]]
 class Flow:
     def __init__(self, *terminals: TaskDef, max_workers: int = 5, fail_fast: bool = True,
-                 journal_path: str | None = None):
+                 journal_path: str | None = None, rollback: bool = True):
         if not terminals:
             raise ValueError("Flow requires at least one terminal task")
         self.terminals = list(terminals)
@@ -341,6 +436,12 @@ class Flow:
         self.fail_fast = fail_fast
         self.results: dict[str, StepResult] = {}
         self.detached_failures: list[StepResult] = []
+        # Compensation (v1.6): when a main task fails, completed tasks with
+        # undo= are undone in reverse completion order. rollback=False keeps
+        # the failed state on disk for inspection.
+        self.rollback = rollback
+        self.rollback_failures: list[StepResult] = []
+        self._live_order: list[TaskDef] = []  # main tasks that succeeded live in this call
         # Content-addressed durable journal (opt-in). When set, run() replays
         # the unchanged prefix from disk and only executes tasks whose
         # step_key is absent — surviving container death and re-running any
@@ -371,6 +472,10 @@ class Flow:
                 entry = json.loads(line)
             except json.JSONDecodeError:
                 continue  # truncated final line — discard
+            if entry.get("kind") == "RolledBack":
+                # A later rollback cancels an earlier Completed for the key.
+                self._journal_completed.pop(entry.get("key"), None)
+                continue
             if entry.get("kind") != "Completed":
                 continue
             try:
@@ -434,6 +539,61 @@ class Flow:
                            "name": result.name, "value": blob})
         with open(self.journal_path, "a", encoding="utf-8") as fh:
             fh.write(line + "\n")
+
+    def _journal_rollback(self, result: StepResult) -> None:
+        """Append a RolledBack entry so the next run re-executes this step."""
+        if not self.journal_path or result.step_key is None:
+            return
+        line = json.dumps({"kind": "RolledBack", "key": result.step_key,
+                           "name": result.name})
+        with open(self.journal_path, "a", encoding="utf-8") as fh:
+            fh.write(line + "\n")
+
+    def _rollback(self) -> None:
+        """Undo this call's completed main tasks after a main-DAG failure.
+
+        Walks the tasks that succeeded live in this call in reverse completion
+        order and calls each one's undo(value). A task downstream of an undone
+        task is marked ROLLED_BACK as well: its inputs are gone, so resume()
+        and the journal must re-run it. Cached (journal-replayed) results are
+        never undone; their effects belong to an earlier run. An undo that
+        raises leaves its task SUCCEEDED (the effect is still in place) and is
+        recorded in self.rollback_failures; the walk continues.
+        """
+        if not self.rollback:
+            return
+        if not any(r.state == StepState.FAILED for r in self.results.values()):
+            return
+        if not any(t.undo is not None for t in self._live_order):
+            return
+        _log("ROLLBACK", candidates=len(self._live_order))
+        undone: set[TaskDef] = set()
+        for td in reversed(self._live_order):
+            r = self.results.get(td.name)
+            if r is None or r.state != StepState.SUCCEEDED or r.cached:
+                continue
+            if td.undo is not None:
+                try:
+                    td.undo(r.value)
+                except Exception as e:
+                    _log(f"ROLLBACK_FAIL {td.name}", error=str(e)[:120])
+                    self.rollback_failures.append(replace(r, error=e))
+                    continue
+                _log(f"UNDONE {td.name}")
+                undone.add(td)
+        if not undone:
+            return
+        # Mark undone tasks and everything downstream of them, in completion order.
+        rolled: set[TaskDef] = set()
+        for td in self._live_order:
+            r = self.results.get(td.name)
+            if r is None or r.state != StepState.SUCCEEDED:
+                continue
+            if td in undone or any(dep in rolled for dep in td.depends_on):
+                rolled.add(td)
+                nr = replace(r, state=StepState.ROLLED_BACK)
+                self.results[td.name] = nr
+                self._journal_rollback(nr)
 
     def _collect_tasks(self) -> tuple[set[TaskDef], set[TaskDef]]:
         """Collect all tasks, separating main DAG from detached tasks.
@@ -570,21 +730,28 @@ class Flow:
                         pool.submit(_run_step, td, self.results): td
                         for td in layer
                     }
+                    tripped = False
                     for future in as_completed(futures):
+                        if future.cancelled():
+                            continue
                         td = futures[future]
                         result = future.result()
                         if self.journal_path:
                             result.step_key = self._step_keys.get(td)
                         self.results[result.name] = result
                         self._journal_append(result)
-                        if self.fail_fast and result.state == StepState.FAILED:
+                        if result.state == StepState.SUCCEEDED:
+                            self._live_order.append(td)
+                        if (self.fail_fast and not tripped
+                                and result.state == StepState.FAILED):
+                            tripped = True
                             _log(f"FAIL_FAST triggered by {result.name}")
-                            # Cancels queued-but-unstarted siblings. Siblings
-                            # already running can't be killed — they finish on
-                            # their pool threads — but fail_fast's real job is
-                            # done: the next layer won't start.
-                            pool.shutdown(wait=False, cancel_futures=True)
-                            break
+                            # Cancel queued-but-unstarted siblings. Siblings
+                            # already running can't be killed, so keep draining:
+                            # their results must be recorded for rollback to
+                            # undo what they did. The next layer won't start.
+                            for f in futures:
+                                f.cancel()
             else:
                 for td in layer:
                     result = _run_step(td, self.results)
@@ -592,6 +759,8 @@ class Flow:
                         result.step_key = self._step_keys.get(td)
                     self.results[result.name] = result
                     self._journal_append(result)
+                    if result.state == StepState.SUCCEEDED:
+                        self._live_order.append(td)
                     if self.fail_fast and result.state == StepState.FAILED:
                         _log(f"FAIL_FAST triggered by {result.name}")
                         break
@@ -681,6 +850,8 @@ class Flow:
         """Execute the full DAG from scratch."""
         self.results = {}
         self.detached_failures = []
+        self.rollback_failures = []
+        self._live_order = []
 
         main_tasks, detached_tasks = self._collect_tasks()
         self._validate_signatures(main_tasks | detached_tasks)
@@ -696,8 +867,10 @@ class Flow:
 
         flow_t0 = time.monotonic()
 
-        # Execute main DAG
+        # Execute main DAG, then undo it if it failed (before detached tasks,
+        # so a side-effect never fires for work that was rolled back)
         self._execute(main_layers)
+        self._rollback()
 
         # Execute detached tasks (only if main DAG didn't fail, or their deps succeeded)
         self._execute_detached(detached_tasks)
@@ -706,19 +879,23 @@ class Flow:
         succeeded = sum(1 for r in self.results.values() if r.state == StepState.SUCCEEDED)
         failed = sum(1 for r in self.results.values() if r.state == StepState.FAILED)
         skipped = sum(1 for r in self.results.values() if r.state == StepState.SKIPPED)
+        rolled = sum(1 for r in self.results.values() if r.state == StepState.ROLLED_BACK)
 
         _log("DONE", ms=f"{flow_dur:.0f}",
-             succeeded=succeeded, failed=failed, skipped=skipped)
+             succeeded=succeeded, failed=failed, skipped=skipped, rolled_back=rolled)
         return self.results
 
     def resume(self) -> dict[str, StepResult]:
         """Re-run from failure point. SUCCEEDED tasks keep their cached values.
         FAILED and SKIPPED tasks are cleared from results and re-execute."""
         self.detached_failures = []
+        self.rollback_failures = []
+        self._live_order = []
 
-        # Reset FAILED and SKIPPED tasks
+        # Reset FAILED, SKIPPED and ROLLED_BACK tasks
         to_reset = [name for name, r in self.results.items()
-                    if r.state in (StepState.FAILED, StepState.SKIPPED)]
+                    if r.state in (StepState.FAILED, StepState.SKIPPED,
+                                   StepState.ROLLED_BACK)]
         for name in to_reset:
             del self.results[name]
 
@@ -735,6 +912,7 @@ class Flow:
 
         # Execute with skip_succeeded=True
         self._execute(main_layers, skip_succeeded=True)
+        self._rollback()
 
         # Re-run detached tasks (they may have been skipped/failed before)
         self._execute_detached(detached_tasks)
@@ -743,9 +921,10 @@ class Flow:
         succeeded = sum(1 for r in self.results.values() if r.state == StepState.SUCCEEDED)
         failed = sum(1 for r in self.results.values() if r.state == StepState.FAILED)
         skipped = sum(1 for r in self.results.values() if r.state == StepState.SKIPPED)
+        rolled = sum(1 for r in self.results.values() if r.state == StepState.ROLLED_BACK)
 
         _log("DONE", ms=f"{flow_dur:.0f}",
-             succeeded=succeeded, failed=failed, skipped=skipped)
+             succeeded=succeeded, failed=failed, skipped=skipped, rolled_back=rolled)
         return self.results
 
     def override(self, td: TaskDef, value: Any) -> None:

@@ -2,6 +2,22 @@
 
 All notable changes to the `flowing` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.6.0] - 2026-11-14
+
+### Added
+
+- **`undo=` compensation.** When a main task fails, tasks that succeeded live in this call and declared `undo=` get `undo(value)` in reverse completion order. Undone tasks and their downstream end as the new `StepState.ROLLED_BACK`; `resume()` re-runs them, the journal records a `RolledBack` entry that cancels their `Completed` one, and detached dependents skip. Failing undos are collected in `flow.rollback_failures`. `Flow(rollback=False)` opts out. Prompted by OnlyTerp/turnpack's `ship` tool (edits plus a verify command, restored byte-for-byte on failure), which flowing could not express before.
+- **`snapshot(paths)` / `restore(snap)`** helpers for the edit, verify, restore-on-red recipe; `restore` also deletes files the edit created and the empty directories made for them.
+- 16 tests (49 total).
+
+### Fixed
+
+- Under `fail_fast`, a parallel layer used to stop collecting results at the first failure, so siblings that were already running finished their work unrecorded. Their results are now drained and recorded, which rollback needs in order to undo them.
+
+### Changed
+
+- Description now names the edit/test/restore trigger and the one-tool-call saving; SKILL.md adds a section on folding dependent tool calls into one flow.
+
 ## [1.5.0] - 2026-08-25
 
 ### Other
