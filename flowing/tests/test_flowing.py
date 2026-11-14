@@ -848,15 +848,23 @@ class TestRollback(unittest.TestCase):
         self.assertEqual(r["announce"].state, StepState.SKIPPED)
 
     def test_parallel_fail_fast_still_undoes_running_sibling(self):
+        import threading
+
         undone = []
+        started = threading.Event()
 
         @task(undo=undone.append)
         def slow_ok():
+            started.set()
             time.sleep(0.2)
             return "slow"
 
         @task
         def fast_fail():
+            # Fail only once slow_ok is running. Layer order is a set, so
+            # without this fast_fail can fail while slow_ok is still queued,
+            # and cancelling a queued task (correctly) leaves nothing to undo.
+            self.assertTrue(started.wait(2))
             raise RuntimeError("boom")
 
         @task(depends_on=[slow_ok, fast_fail])
