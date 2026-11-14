@@ -1,8 +1,8 @@
 ---
 name: flowing
-description: Runs a multi-step procedure as a Python DAG, so ordering, branching and retries are enforced by the runner rather than described in prose a model can generate past. Use for "run these steps in order and retry the flaky one until the check passes", "build a pipeline that fetches, validates, then skips the upload when nothing changed", "make sure these steps cannot be skipped", "resume from where it broke instead of redoing the expensive early stages", "run these independent calls at once and merge the results", or any procedure of 3+ steps with branches, input contracts, or side effects that must not block the critical path. Primitives are depends_on, when=, validate=, retry_until=, detached= and journal_path=. Not for a single sequential call, for steps needing reasoning between them that no predicate captures, or for async and distributed work. To audit whether one verification check can actually go red, use gating. To fan work out across many subagents, use a dynamic workflow.
+description: Runs a multi-step procedure as a Python DAG, so ordering, branching, retries and rollback are enforced by the runner rather than described in prose a model can generate past, and the whole procedure costs one tool call instead of a model turn per step. Use for "edit these files, run the tests, and restore everything if they fail", "retry the flaky step until the check passes", "fetch, validate, then skip the upload when nothing changed", "make sure these steps cannot be skipped", "resume from where it broke instead of redoing the expensive stages", "run these independent calls at once and merge the results", or any procedure of 3+ steps with branches, input contracts, or side effects. Primitives are depends_on, when=, validate=, retry_until=, undo=, detached= and journal_path=. Not for a single call, for steps needing reasoning between them that no predicate captures, or for async and distributed work. To audit whether one check can go red, use gating. To fan work out across subagents, use a dynamic workflow.
 metadata:
-  version: 1.5.0
+  version: 1.6.0
 ---
 
 ## NOT SUPERSEDED BY DYNAMIC WORKFLOWS — read first
@@ -88,21 +88,53 @@ def generate_until_valid():
 
 Distinct from `retry=` alone, which only retries on a raised exception.
 
+### `undo=` — rollback on a later failure
+
+When a main task fails, every task that succeeded in this run and declared `undo=` has `undo(value)` called with its own return value, in reverse completion order. Undone tasks and everything downstream of them end as `ROLLED_BACK`, so `resume()` re-runs them and the journal forgets them. Detached dependents of a rolled-back task skip, so no notification fires for work that was undone.
+
+The common case is edit, test, and restore on red. `snapshot(paths)` records byte-exact contents (a missing file counts, and is deleted again on restore); `restore` is its undo:
+
+```python
+from flowing import task, Flow, snapshot, restore
+
+@task(undo=restore)
+def before():
+    return snapshot(["src/tax.py", "src/invoice.py"])
+
+@task(depends_on=[before])
+def edit(before):
+    rename_everywhere("calculate_tax", "compute_tax")
+
+@task(depends_on=[edit])
+def verify(edit):
+    r = subprocess.run(["pytest", "-q"], capture_output=True, text=True)
+    if r.returncode:
+        raise RuntimeError(r.stdout[-3000:])
+
+flow = Flow(verify)
+flow.run()   # red tests: both files are back as they were; flow.results["verify"].error holds the output
+```
+
+Put `undo=` on the step *before* the risky one. `undo` only runs for tasks that succeeded, so an `edit` that fails halfway through its files would never undo itself; the snapshot step that preceded it does.
+
+Limits: an `undo` that raises is logged, collected in `flow.rollback_failures`, and leaves its task `SUCCEEDED` while the rest of the walk continues. Results replayed from the journal are never undone, because their effects belong to an earlier run. Side effects of the failing step itself (a migrated database, a sent message) are only undone if some step's `undo` covers them. `Flow(..., rollback=False)` keeps the failed state on disk for inspection. `undo=` is refused on a `detached=True` task.
+
 ## Other capabilities
 
 - **Parallel execution** — independent tasks in a layer run on a thread pool (`max_workers=`).
 - **`detached=True`** — side-effect tasks (memory writes, notifications) that run after the main DAG and never block it on failure.
 - **In-process resume** — `flow.run()` → fix → `flow.resume()` re-runs from the failure point, keeping succeeded tasks cached **in memory** (same process only). `flow.override(task, value)` injects a corrected result.
 - **Durable journal (`journal_path=`)** — opt-in content-addressed replay that survives container death. `Flow(term, journal_path="/path/run.jsonl").run()` appends each succeeded task's result to an append-only JSONL keyed by a `step_key` = SHA-256 over the task's bytecode + its `when`/`validate`/`retry_until` bodies + its dependencies' keys (chained, so an upstream change propagates downstream). A later `run()` — even in a fresh container — replays the unchanged prefix from the journal and only executes tasks whose key is absent; editing a task body busts its key and re-runs it and its dependents, while cosmetic knobs (`retry=`, `timeout_s=`, `name`) do not. This is the cross-session checkpoint hub-spoke work relies on. Caveat: results are pickled, so non-picklable return values simply re-run; closure-captured values are not part of the key (only the task body's own code is).
-- **`timeout_s=`**, **`retry=`** with exponential backoff, **`fail_fast=`**.
+- **`timeout_s=`**, **`retry=`** with exponential backoff, **`fail_fast=`**. Under `fail_fast`, parallel siblings that were already running still have their results recorded, so rollback can undo them.
 
-Read [references/reference.md](references/reference.md) before using anything beyond the quick start and the three primitives above — it covers every `@task` parameter, the `Flow` methods, resume/override, detached auto-discovery, and the `validate=`/`when=` signature-matching gotcha.
+Read [references/reference.md](references/reference.md) before using anything beyond the quick start and the primitives above — it covers every `@task` parameter, the `Flow` methods, resume/override, detached auto-discovery, and the `validate=`/`when=` signature-matching gotcha.
 
 ## When to use
 
 - A procedure has branches that matter → `when=` makes them structural.
 - Steps have input contracts → `validate=` makes them enforceable.
 - An LLM step needs to converge → `retry_until=` puts the check in the loop.
+- A change spans several files and must pass a check, or not land at all → `snapshot`/`restore` as `undo=`.
 - 3+ independent operations that can parallelize.
 - Multi-step pipelines where late failures shouldn't waste early work.
 - Side-effects that shouldn't block the critical path → `detached=True`.
@@ -115,4 +147,6 @@ Read [references/reference.md](references/reference.md) before using anything be
 
 ## Authoring discipline
 
-If you find yourself writing prose like *"first call X, validate Y, then if Z retry up to 3 times"* — that is a flowing graph. Refactor before shipping. Prose imperatives don't enforce; `@task` graphs do.
+If you find yourself writing prose like *"first call X, validate Y, then if Z retry up to 3 times"*, that is a flowing graph. Refactor before shipping. Prose imperatives don't enforce; `@task` graphs do.
+
+The same holds for your own tool calls. Search, edit and test as three model turns, each waiting on the last, is one Bash call running one flow. Each turn saved is a full wait for the model plus the tokens to restate the plan. When the next step does not need judgment about the last result, put the steps in a graph instead of in turns.

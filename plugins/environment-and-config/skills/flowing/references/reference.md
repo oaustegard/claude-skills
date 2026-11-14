@@ -18,6 +18,7 @@ anything beyond the quick start.
     when=lambda **deps: bool,        # conditional gate — falsy skips the task
     validate=lambda **deps: None,    # edge contract — raise to FAIL with no retry
     retry_until=lambda result: bool, # predicate loop — falsy retries the body
+    undo=lambda result: None,        # compensation — called with this task's value if a later main task fails
 )
 def my_step(other_task):
     return result
@@ -40,15 +41,46 @@ the container exits — fine for run-once ephemeral use, but not a hard cancel.
 ## `Flow` class
 
 ```python
-flow = Flow(terminal_task, max_workers=5, fail_fast=True)
+flow = Flow(terminal_task, max_workers=5, fail_fast=True, rollback=True)
 results = flow.run()       # dict[str, StepResult]
 flow.summary()             # human-readable status table
 flow.value(some_task)      # return value of a succeeded task
 ```
 
 `fail_fast` stops the *next* layer from starting once a task in the current
-layer fails. Siblings already running in parallel can't be killed and run to
-completion on their pool threads.
+layer fails. Siblings already running in parallel can't be killed; they run to
+completion on their pool threads and their results are recorded, so rollback
+can undo them. Queued siblings that never started are cancelled and have no
+result.
+
+## Rollback (`undo=`, `snapshot`, `restore`)
+
+After the main DAG runs, if any main task is `FAILED` and `rollback=True` (the
+default), the runner walks the tasks that succeeded live in this `run()` or
+`resume()` call in reverse completion order and calls `undo(value)` on each one
+that declared it. Then it marks every undone task, and every task downstream
+of one, `ROLLED_BACK`. Detached tasks run after this, so a detached task that
+depends on a rolled-back task is `SKIPPED`.
+
+| case | outcome |
+|---|---|
+| `undo` raises | logged as `ROLLBACK_FAIL`, appended to `flow.rollback_failures` (a copy of the `StepResult` with `error` set to the undo's exception); the task stays `SUCCEEDED` unless it is downstream of another undone task; the walk continues |
+| task replayed from the journal (`cached=True`) | never undone |
+| task succeeded in an earlier `run()` and was skipped by `resume()` | never undone |
+| `rollback=False` | no undo runs; states stay as they ended |
+| `detached=True` with `undo=` | `ValueError` at decoration time |
+
+`resume()` resets `ROLLED_BACK` tasks along with `FAILED` and `SKIPPED` ones.
+With `journal_path=`, each rolled-back task appends a `RolledBack` entry that
+cancels its earlier `Completed` entry, so the next run re-executes it. `undo`
+is not part of the step key: changing how a step is reversed does not re-run it.
+
+`snapshot(paths) -> FileSnapshot` reads each path's bytes (`None` for a
+missing file) and records missing parent directories. `restore(snap) ->
+list[str]` rewrites each file whose bytes differ, deletes files that did not
+exist, removes the recorded directories if they are empty, and returns the
+paths it changed. It restores contents only, not permissions or timestamps,
+and it does not detect a file that someone else edited after the snapshot.
 
 ## Resume from failure
 

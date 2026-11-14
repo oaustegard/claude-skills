@@ -35,6 +35,7 @@ The distinctive part — branches and contracts as graph structure, not `if` sta
 | `when=` | Predicate over dep values; falsy → task SKIPPED, skip cascades to dependents | Branch selection in the topology |
 | `validate=` | Checks dep values before the body runs; raise → FAILED with **no retry** | Enforceable input contracts between steps |
 | `retry_until=` | Predicate over the return value; falsy → retry, consuming the `retry=` budget | Self-correcting LLM steps (generate → check → regenerate) |
+| `undo=` | Called with the task's own value, in reverse completion order, when a later main task fails; pairs with `snapshot()`/`restore()` | Multi-file edits that must pass a check or not land at all |
 
 `retry_until=` is distinct from `retry=` alone: `retry=` only retries on a raised exception, `retry_until=` retries on *output shape*.
 
@@ -49,7 +50,7 @@ The distinctive part — branches and contracts as graph structure, not `if` sta
 
 | File | Audience | Contents |
 |---|---|---|
-| [`SKILL.md`](SKILL.md) | Claude | Trigger, mental model, quick start, the three primitives, when / when-not-to-use |
+| [`SKILL.md`](SKILL.md) | Claude | Trigger, mental model, quick start, the control-flow primitives and `undo=` rollback, when / when-not-to-use |
 | [`references/reference.md`](references/reference.md) | Claude | Full API — every `@task` parameter, `Flow` methods, resume/override, detached auto-discovery, signature gotchas |
 | [`scripts/flowing.py`](scripts/flowing.py) | — | The runner itself (no third-party dependencies) |
 | [`tests/test_flowing.py`](tests/test_flowing.py) | — | 28 tests — `python3 -m unittest tests.test_flowing` |
