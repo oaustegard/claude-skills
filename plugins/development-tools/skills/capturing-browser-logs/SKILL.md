@@ -2,7 +2,7 @@
 name: capturing-browser-logs
 description: Gets runtime evidence from a web page the agent cannot run itself, using Agent Log (austegard.com/web-utilities/agent-log.html), a script that records console calls, errors and fetch/XHR traffic as OpenTelemetry logs in the user's browser. Use when debugging a page, web app, browser game or bookmarklet that misbehaves on the user's device, when the user says "it doesn't work" about a page and you need to see what happened, when you want to add console.log instrumentation and read it back, or when the user hands you an OTLP JSON log export or a file named agent-log-*.json.
 metadata:
-  version: 0.1.0
+  version: 0.1.1
 ---
 
 # Capturing browser logs
@@ -131,13 +131,13 @@ An OTLP/JSON `ExportLogsServiceRequest`. Each page load is one `resourceLogs` en
 | `error.rejection` | `exception.*`, or `reason` for a non-Error |
 | `error.resource` | `url.full`, `html.element` |
 | `csp.violation` | `csp.directive`, `csp.blocked_uri` |
-| `http.fetch`, `http.xhr` | `http.request.method`, `url.full`, `http.response.status_code`, `duration_ms`, `error.type` on failure |
+| `http.fetch`, `http.xhr` | `http.request.method`, `url.full`, `http.response.status_code`, `duration_ms`, `error.type` on failure; with `agentlog.source: resource-timing` there is no method, and `agentlog.before_start` marks a request made before logging started |
 | `page.navigation`, `page.visibility`, `agentlog.start`, `agentlog.stop` | `url.full`, `navigation.type`, `page.visibility` |
 
 ## Failure modes
 
 - **No badge appears.** The script did not load. On a strict-CSP page the console shows a Content-Security-Policy error naming austegard.com; switch the user to the full-script paste. On your own page, check that the tag is present and the URL has `logging=true`.
-- **The log starts after the bug.** The bookmarklet and console routes start recording when clicked, so errors during page load are missing. Use a page that includes the script and reload it with `?logging=true`.
+- **The log starts after the bug.** The bookmarklet and console routes start recording when clicked, so console output and errors during page load are missing (requests from page load are included, marked `agentlog.before_start`). An app that kept its own reference to `console.log` at startup also bypasses the capture when it starts late. Use a page that includes the script and reload it with `?logging=true`.
 - **The export is empty or from another page.** The log is stored per site: it must be exported from a page on the same origin as the one that was logged.
 - **The interesting records are gone.** More than 20,000 records pushed them out. Reduce the logging rate, or have the page call `AgentLog.start({ max: 100000 })`.
 - **Private data in the export.** Credential-like query parameters are redacted in URLs, but console arguments are recorded as given. Do not log tokens or personal data, and tell the user to review the file before sharing it anywhere else.
