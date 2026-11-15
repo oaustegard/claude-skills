@@ -35,6 +35,7 @@
     "development-tools": {
       "description": "Software development utilities: MCP servers, bookmarklets, frameworks, patching, and environment validation.",
       "skills": [
+        "capturing-browser-logs",
         "check-tools",
         "coding-mojo",
         "compiling-wgsl",
