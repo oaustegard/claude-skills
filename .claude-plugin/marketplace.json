@@ -3,7 +3,7 @@
   "name": "oaustegard-claude-skills",
   "description": "Community skills for Claude Code and Claude.ai",
   "metadata": {
-    "version": "2026.1114.1241"
+    "version": "2026.1115.0028"
   },
   "owner": {
     "name": "Oskar Austegard"
@@ -96,6 +96,7 @@
       "license": "MIT",
       "category": "Development Tools",
       "keywords": [
+        "capturing-browser-logs",
         "check-tools",
         "coding-mojo",
         "compiling-wgsl",
