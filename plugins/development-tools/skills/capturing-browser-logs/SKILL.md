@@ -2,7 +2,7 @@
 name: capturing-browser-logs
 description: Gets runtime evidence from a web page the agent cannot run itself, using Agent Log (austegard.com/web-utilities/agent-log.html), a script that records console calls, errors, fetch/XHR traffic and the events and DOM changes of elements the user picks, as OpenTelemetry logs in the user's browser. Use when debugging a page, web app, browser game or bookmarklet that misbehaves on the user's device, when the user says "it doesn't work" about a page and you need to see what happened, when you want to add console.log instrumentation and read it back, when you need to see what happens on a specific button, field or element, or when the user hands you an OTLP JSON log export or a file named agent-log-*.json.
 metadata:
-  version: 0.2.1
+  version: 0.2.2
 ---
 
 # Capturing browser logs
@@ -37,7 +37,7 @@ Use it when the bug happens in a real browser that you do not control: the user'
    - Let the user point: ask them to click the badge, press **Watch an element** and click the element. The click that picks is not passed to the page.
    Watches persist per site until removed with × in the panel or `AgentLog.unwatch(selector)`.
 
-4. **Ask the user to reproduce, then export.** Tell them: click the **Logging** badge, press **Download** (or **Copy** and paste the JSON), and attach the file. The export holds every page load on that site since the log was last cleared; ask them to press **Clear** before reproducing when old runs would get in the way.
+4. **Ask the user to reproduce, then export.** Tell them: click the **Logging** badge, press **Download** (or **Copy** and paste the JSON), and attach the file. The export holds every page load on that site since the log was last cleared; ask them to press **Clear** before reproducing when old runs would get in the way. Tell them, in one sentence, that the log has stayed in their browser until now and that sending it to you sends it to your provider, so they should look it over and cut anything private before attaching it.
 
 5. **Read the export with the reader below.** Save it as `read_agent_log.py` and run it with the export's path.
    ```bash
