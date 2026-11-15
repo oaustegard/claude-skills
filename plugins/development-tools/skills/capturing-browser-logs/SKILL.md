@@ -2,7 +2,7 @@
 name: capturing-browser-logs
 description: Gets runtime evidence from a web page the agent cannot run itself, using Agent Log (austegard.com/web-utilities/agent-log.html), a script that records console calls, errors, fetch/XHR traffic and the events and DOM changes of elements the user picks, as OpenTelemetry logs in the user's browser. Use when debugging a page, web app, browser game or bookmarklet that misbehaves on the user's device, when the user says "it doesn't work" about a page and you need to see what happened, when you want to add console.log instrumentation and read it back, when you need to see what happens on a specific button, field or element, or when the user hands you an OTLP JSON log export or a file named agent-log-*.json.
 metadata:
-  version: 0.2.0
+  version: 0.2.1
 ---
 
 # Capturing browser logs
@@ -32,7 +32,7 @@ Use it when the bug happens in a real browser that you do not control: the user'
    - Keep the volume low: once a second, or on change, not once per frame. The log keeps only the newest 20,000 records, so a 60 fps log fills it in under six minutes and pushes out the error you wanted.
    - Mark these calls as temporary in a comment and remove them once the bug is fixed.
 
-3. **Watch the elements involved** when the bug is about an interaction (a button that does nothing, a field that loses its value, a counter that stops updating). Watched elements get records for clicks, typing (one per pause, with the value; passwords and token-like fields are `[hidden]`), changes, submits, focus, non-text keys, and changes to their attributes, text and children. Pick one of:
+3. **Watch the elements involved** when the bug is about an interaction (a button that does nothing, a field that loses its value, a counter that stops updating). Watched elements get records for clicks, typing (one per pause, with the value; password, email, phone and other personal or credential fields are `[hidden]`), changes, submits, focus, non-text keys, and changes to their attributes, text and children. Pick one of:
    - Name them yourself: tell the user to open the page with `&watch=<url-encoded selector>` (repeatable) on a page that includes the script, or to run `AgentLog.watch("#checkout", { label: "checkout button" })` in the console.
    - Let the user point: ask them to click the badge, press **Watch an element** and click the element. The click that picks is not passed to the page.
    Watches persist per site until removed with × in the panel or `AgentLog.unwatch(selector)`.
@@ -149,4 +149,4 @@ An OTLP/JSON `ExportLogsServiceRequest`. Each page load is one `resourceLogs` en
 - **The log starts after the bug.** The bookmarklet and console routes start recording when clicked, so console output and errors during page load are missing (requests from page load are included, marked `agentlog.before_start`). An app that kept its own reference to `console.log` at startup also bypasses the capture when it starts late. Use a page that includes the script and reload it with `?logging=true`.
 - **The export is empty or from another page.** The log is stored per site: it must be exported from a page on the same origin as the one that was logged.
 - **The interesting records are gone.** More than 20,000 records pushed them out. Reduce the logging rate, or have the page call `AgentLog.start({ max: 100000 })`.
-- **Private data in the export.** Credential-like query parameters are redacted in URLs, but console arguments are recorded as given. Do not log tokens or personal data, and tell the user to review the file before sharing it anywhere else.
+- **Private data in the export.** URLs are redacted (credential-named query parameters such as `auth_token` or `x-api-key`, the same pairs in `#fragments`, and fragments that are one long token), and password, email, phone and other personal fields are `[hidden]` in watched-element records. Console arguments, the text of watched elements and ordinary field values are recorded as given. Do not log tokens or personal data, and tell the user to review the file before sharing it anywhere else.
