@@ -1,8 +1,8 @@
 ---
 name: capturing-browser-logs
-description: Gets runtime evidence from a web page the agent cannot run itself, using Agent Log (austegard.com/web-utilities/agent-log.html), a script that records console calls, errors and fetch/XHR traffic as OpenTelemetry logs in the user's browser. Use when debugging a page, web app, browser game or bookmarklet that misbehaves on the user's device, when the user says "it doesn't work" about a page and you need to see what happened, when you want to add console.log instrumentation and read it back, or when the user hands you an OTLP JSON log export or a file named agent-log-*.json.
+description: Gets runtime evidence from a web page the agent cannot run itself, using Agent Log (austegard.com/web-utilities/agent-log.html), a script that records console calls, errors, fetch/XHR traffic and the events and DOM changes of elements the user picks, as OpenTelemetry logs in the user's browser. Use when debugging a page, web app, browser game or bookmarklet that misbehaves on the user's device, when the user says "it doesn't work" about a page and you need to see what happened, when you want to add console.log instrumentation and read it back, when you need to see what happens on a specific button, field or element, or when the user hands you an OTLP JSON log export or a file named agent-log-*.json.
 metadata:
-  version: 0.1.1
+  version: 0.2.0
 ---
 
 # Capturing browser logs
@@ -32,21 +32,27 @@ Use it when the bug happens in a real browser that you do not control: the user'
    - Keep the volume low: once a second, or on change, not once per frame. The log keeps only the newest 20,000 records, so a 60 fps log fills it in under six minutes and pushes out the error you wanted.
    - Mark these calls as temporary in a comment and remove them once the bug is fixed.
 
-3. **Ask the user to reproduce, then export.** Tell them: click the **Logging** badge, press **Download** (or **Copy** and paste the JSON), and attach the file. The export holds every page load on that site since the log was last cleared; ask them to press **Clear** before reproducing when old runs would get in the way.
+3. **Watch the elements involved** when the bug is about an interaction (a button that does nothing, a field that loses its value, a counter that stops updating). Watched elements get records for clicks, typing (one per pause, with the value; passwords and token-like fields are `[hidden]`), changes, submits, focus, non-text keys, and changes to their attributes, text and children. Pick one of:
+   - Name them yourself: tell the user to open the page with `&watch=<url-encoded selector>` (repeatable) on a page that includes the script, or to run `AgentLog.watch("#checkout", { label: "checkout button" })` in the console.
+   - Let the user point: ask them to click the badge, press **Watch an element** and click the element. The click that picks is not passed to the page.
+   Watches persist per site until removed with × in the panel or `AgentLog.unwatch(selector)`.
 
-4. **Read the export with the reader below.** Save it as `read_agent_log.py` and run it with the export's path.
+4. **Ask the user to reproduce, then export.** Tell them: click the **Logging** badge, press **Download** (or **Copy** and paste the JSON), and attach the file. The export holds every page load on that site since the log was last cleared; ask them to press **Clear** before reproducing when old runs would get in the way.
+
+5. **Read the export with the reader below.** Save it as `read_agent_log.py` and run it with the export's path.
    ```bash
    python3 read_agent_log.py agent-log.json --pages          # page loads: url, start, records, errors
    python3 read_agent_log.py agent-log.json --min warn       # warnings and errors first
    python3 read_agent_log.py agent-log.json --event console --grep "bot tick" --tail 50
    python3 read_agent_log.py agent-log.json --event http --attr http.response.status_code=404
+   python3 read_agent_log.py agent-log.json --event dom --attr watch.label="checkout button"   # one watched element
    python3 read_agent_log.py agent-log.json --load 2 --jsonl > load2.jsonl   # flat rows for pandas or jq
    ```
    Read errors before anything else, then the records just before the first error in the same page load. Times are UTC.
 
-5. **Verify the capture before diagnosing.** `--pages` must list the page load the user reproduced in, with a URL and a record count above one. If it does not, see the failure modes, fix the capture and ask for another run, rather than reasoning from an empty log.
+6. **Verify the capture before diagnosing.** `--pages` must list the page load the user reproduced in, with a URL and a record count above one. If it does not, see the failure modes, fix the capture and ask for another run, rather than reasoning from an empty log.
 
-6. **Report from the records.** Quote the timestamp, `eventName` and attributes you are relying on, so the user can find the same lines in the panel.
+7. **Report from the records.** Quote the timestamp, `eventName` and attributes you are relying on, so the user can find the same lines in the panel.
 
 ## The reader
 
@@ -132,6 +138,9 @@ An OTLP/JSON `ExportLogsServiceRequest`. Each page load is one `resourceLogs` en
 | `error.resource` | `url.full`, `html.element` |
 | `csp.violation` | `csp.directive`, `csp.blocked_uri` |
 | `http.fetch`, `http.xhr` | `http.request.method`, `url.full`, `http.response.status_code`, `duration_ms`, `error.type` on failure; with `agentlog.source: resource-timing` there is no method, and `agentlog.before_start` marks a request made before logging started |
+| `dom.click` `.dblclick` `.input` `.change` `.submit` `.focus` `.blur` `.keydown` | `watch.selector`, `watch.label`, `dom.target`, `dom.watched` (when the event hit a descendant), `dom.text`, `pointer.x`/`.y`, `dom.value`, `dom.checked`, `key`, `key.modifiers` |
+| `dom.mutation` | `watch.selector`, `dom.text` (the element's text after the change), `dom.added`, `dom.removed`, `dom.changes` (attribute and text changes with old and new values) |
+| `dom.watch` | `watch.selector`, `watch.matches`: a watch was added or removed, or now matches a different number of elements (0 means the element is gone) |
 | `page.navigation`, `page.visibility`, `agentlog.start`, `agentlog.stop` | `url.full`, `navigation.type`, `page.visibility` |
 
 ## Failure modes
