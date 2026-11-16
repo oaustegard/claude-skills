@@ -11,7 +11,7 @@ description: >-
   check fail", "known-bad", "negative control", "calibration gate", "sanity
   check my results", "is this test actually testing anything".
 metadata:
-  version: 0.3.0
+  version: 0.3.1
 ---
 
 # gating
@@ -30,6 +30,7 @@ Scope is ONE check and whether it can be made to fail.
 | Situation | Use |
 |---|---|
 | Sequence several steps with branches and retries | flowing |
+| Find correctness bugs with generated inputs against a reference model | building-property-tests (its step 5 calibrates with `scripts/mutate.py` from here) |
 | Run the repo's existing suite | run it |
 | Decide what to test at all | this skill has no opinion; that is design |
 

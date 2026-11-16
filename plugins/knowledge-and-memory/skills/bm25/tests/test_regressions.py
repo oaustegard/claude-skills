@@ -43,4 +43,7 @@ def test_cli_no_indexable_terms_exits_cleanly(tmp_path, files):
         (tmp_path / n).write_text(t)
     r = subprocess.run([sys.executable, str(SKILL), str(tmp_path), "alpha", "--no-cache"],
                        capture_output=True, text=True)
-    assert "Traceback" not in r.stderr, r.stderr[-300:]
+    assert r.returncode == 0 and "Traceback" not in r.stderr, r.stderr[-300:]
+    hits = [l for l in r.stdout.splitlines() if l.strip()[:2].rstrip(".").isdigit()]
+    assert len(hits) == len(files), r.stdout          # one zero-score hit per file
+    assert all(" 0.00 " in l for l in hits), r.stdout

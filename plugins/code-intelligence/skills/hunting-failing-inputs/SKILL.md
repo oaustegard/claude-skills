@@ -2,7 +2,7 @@
 name: hunting-failing-inputs
 description: Finds inputs that make a parser, decoder or WGSL compute shader index out of bounds or overflow, using Z3. Use for "can this crash", "find an input that breaks this", or when fuzzing found nothing on code that reads untrusted bytes.
 metadata:
-  version: 0.3.1
+  version: 0.3.2
 ---
 
 # Hunting failing inputs
@@ -17,7 +17,7 @@ not wrap.
 |---|---|
 | Races, deadlocks, async ordering | race detector or stress test |
 | Whole programs, I/O, network, UI | fuzzing plus sanitizers; extract the pure core first |
-| Wrong results no precondition expresses | property tests against a reference, or `reasoning-semiformally` |
+| Wrong results no precondition expresses | `building-property-tests`, or `reasoning-semiformally` |
 | Whether a test can go red | `gating` |
 | Validating or minifying WGSL | `compiling-wgsl` |
 

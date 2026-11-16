@@ -2,7 +2,7 @@
 name: declaring-invariants
 description: Find tests that enumerate a domain by copying it, and declare the invariants a codebase depends on. Reports where a parametrize list, for-loop, or it.each iterates a hand-written subset of a dict/set/tuple/Enum that exists in the source, and names the members nothing covers. Use when reviewing tests, when a module gains a name-to-thing table, registry, enum, or dispatch map, before trusting a green suite as evidence a domain is covered, or when asked "is this test actually total", "does anything cover X", "what does this repo guarantee", "which invariants do we declare". Also for vacuous tests that pass over an empty collection, for a domain that has silently NARROWED (an enumeration cannot see that), and for recording the refutation that proves a claim can fail.
 metadata:
-  version: 0.2.3
+  version: 0.2.4
 ---
 
 # declaring-invariants
@@ -271,3 +271,6 @@ naming convention is assumed, and none is required.
   reality? Agent-judged, non-deterministic, run as a triggered review. This
   skill is the deterministic half, over code and tests rather than prose.
 - `tree-sitting` locates the registry or the test before you edit it.
+- `building-property-tests` finds the bugs; its step 9 promotes the properties
+  a codebase depends on into `invariant:` claims checked here. Draw its
+  generators' domains from the registry, as a test's parametrize list should.
