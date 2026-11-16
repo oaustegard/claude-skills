@@ -4,6 +4,12 @@ All notable changes to the `creating-skill` skill are documented in this file. T
 
 ## [2.5.0] - 2026-11-16
 
+### Other
+
+- creating-skill: diagnosed failures as signal-action rows, stories to CHANGELOG (2.5.0)
+
+## [2.5.0] - 2026-11-16
+
 ### Changed
 
 - Diagnosed failures now go in the body as signal → action rows only; the date,
