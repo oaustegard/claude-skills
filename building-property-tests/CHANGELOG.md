@@ -4,6 +4,12 @@ All notable changes to the `building-property-tests` skill are documented in thi
 
 ## [0.1.1] - 2026-11-16
 
+### Other
+
+- building-property-tests: cut SKILL.md and references to instructions (0.1.1)
+
+## [0.1.1] - 2026-11-16
+
 ### Changed
 
 - SKILL.md and both references cut to instructions: the dated case histories,
