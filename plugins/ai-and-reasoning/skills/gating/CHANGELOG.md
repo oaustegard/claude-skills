@@ -4,12 +4,6 @@ All notable changes to the `gating` skill are documented in this file. The forma
 
 ## [0.3.1] - 2026-11-16
 
-### Added
-
-- property testing against reference models (0.1.0)
-
-## [0.3.1] - 2026-11-16
-
 ### Changed
 
 - Route property-based bug hunting to `building-property-tests`, which uses `mutate.py` for harness calibration.

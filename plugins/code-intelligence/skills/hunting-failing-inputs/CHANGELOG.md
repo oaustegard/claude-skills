@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2 — 2026-11-16
+
+Wrong-result bugs that no precondition expresses now route to the new
+`building-property-tests` skill. Added `README.md`, from which the release
+notes are built; 0.3.2's notes had shipped without one.
+
 ## 0.3.1 — 2026-11-13
 
 The references were trimmed the same way (268 lines down to 172). The fuzz-comparison
@@ -36,18 +42,6 @@ JavaScript/TypeScript, C and WGSL. Go is now one of five language references.
 
 First version, as `hunting-go-bounds-panics`. Go bounds checks listed with
 `-d=ssa/check_bce`, modelled in Z3, and replayed with `go test`.
-
-## [0.3.2] - 2026-11-16
-
-### Added
-
-- property testing against reference models (0.1.0)
-
-## [0.3.2] - 2026-11-16
-
-### Changed
-
-- Route wrong-result bugs to the new `building-property-tests` skill.
 
 ## [0.3.1] - 2026-11-13
 

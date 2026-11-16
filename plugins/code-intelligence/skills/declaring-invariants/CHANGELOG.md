@@ -119,12 +119,6 @@ naming `'none'`. 45 tests, plus a `--selftest` in each script.
 
 ## [0.2.4] - 2026-11-16
 
-### Added
-
-- property testing against reference models (0.1.0)
-
-## [0.2.4] - 2026-11-16
-
 ### Changed
 
 - Point to `building-property-tests` for the invariant-declaration step of a property-testing run.
