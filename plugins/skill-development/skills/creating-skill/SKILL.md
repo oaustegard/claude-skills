@@ -2,7 +2,7 @@
 name: creating-skill
 description: Builds and revises a complete skill DIRECTORY — SKILL.md, scripts, references, assets — and packages it. Use for "create a skill for X", "turn this into a skill", "update/improve this skill", "why doesn't my skill trigger", "review this SKILL.md", "package this skill", or when a repeated procedure should become a reusable artifact. Enforces the structure that makes skills work — a concrete procedure rather than a goal statement, an explicit applicability boundary, failure modes with their signals, a runtime verification step, and a description checked against the existing catalogue for confusability. For choosing whether the instruction should be a skill at all rather than project instructions or a prompt, use crafting-instructions. For writing quality inside the prose, use writing-instructions.
 metadata:
-  version: 2.4.0
+  version: 2.5.0
 ---
 
 # Creating Skills
@@ -206,10 +206,11 @@ Leave these out of SKILL.md and the references:
   comparison tables against a baseline)
 - a "use it on…" paragraph that repeats the description
 
-Provenance and measurements go in the CHANGELOG. A diagnosed failure stays in
-the body, because it teaches a step, not the skill's worth. A reference file
-holds the semantics, the commands and the expected outputs the reader checks
-against, and nothing that shows the method was good.
+Provenance, measurements and the story of each diagnosed failure go in the
+CHANGELOG. The body keeps only what the failure teaches: its signal and the
+action, as a row in the failure-mode table. A reference file holds the
+semantics, the commands and the expected outputs the reader checks against,
+and nothing that shows the method was good.
 
 *Diagnosed 2026-11-13*: `hunting-failing-inputs` shipped with an intro
 paragraph, a provenance paragraph, results numbers and per-language
@@ -272,12 +273,14 @@ the boundary instead of stating it positively, and the boundary is the defence
 against the 10.0% misapplication rate. Keep both: say what the skill does, and
 say where it stops.
 
-### Provide Context
-Explain WHY for non-obvious requirements:
-- ✅ "Keep SKILL.md under 500 lines to enable progressive loading—move detailed content to references/"
-- ❌ "Keep SKILL.md under 500 lines"
+### Provide Context, in One Clause
+Give a reason only where it changes what the reader does — typically a step
+that looks redundant and would otherwise be skipped. One clause, attached to
+the rule:
+- ✅ "Run the property suite with `SKIP_KNOWN=0` — it catches fixes the regression accepts."
+- ❌ A paragraph on the incident that produced the rule, with its date.
 
-Context helps Claude make good autonomous decisions in edge cases.
+A rule whose reason is obvious gets no reason.
 
 ### Example Quality
 Examples teach ALL patterns, including unintended ones. Ensure every aspect demonstrates desired behavior. Better to omit examples than include mixed signals.
@@ -338,24 +341,24 @@ For a skill that edits or produces something, also state what a **bad success**
 looks like — the output that passes inspection while having lost content. That
 is the failure a read-through does not catch.
 
-### Diagnosed Failures, With Their Outcomes Labelled
+### Diagnosed Failures: Signal in the Body, Story in the CHANGELOG
 
-When the skill encodes something learned the hard way, record that it went
-wrong, when, and what the signal was. Withholding outcome labels during skill
-construction cost 15 to 35 points in the study's ablation once failed
-trajectories entered the source pool — an unlabelled failure reads as a
-procedure to copy.
+When the skill encodes something learned the hard way, the body carries it as
+a failure-mode row: the signal the reader will see, and the action. Label it
+unambiguously as a failure, so it cannot be read as a procedure to copy (the
+study's 15–35 point ablation is about unlabelled failures in the source pool).
+The date, the incident and how it was found go in the CHANGELOG.
 
 ```
-✅ "Diagnosed 2026-08-22 on a FreeToken review: a 5,697-line gather was cut at
-    line 120 and every finding came from targeted reads instead. Use --orient."
-❌ "Use --orient for reviews."
+✅ Body:      | Gather output stops at line 120 | use --orient; read targeted ranges |
+   CHANGELOG: 2026-08-22, FreeToken review: a 5,697-line gather was cut at line 120.
+❌ Body:      "Diagnosed 2026-08-22 on a FreeToken review: a 5,697-line gather was
+              cut at line 120 and every finding came from targeted reads instead."
 ```
 
-Dates and specifics, not "a known issue". And keep them inside a procedure that
-works: a skill distilled purely from post-mortems measured *below* the no-skill
-baseline in nearly every configuration. Failures annotate a working procedure;
-they are not a substitute for one.
+Keep failures inside a procedure that works: a skill distilled purely from
+post-mortems measured below the no-skill baseline in nearly every
+configuration.
 
 ## Bundled Resources Patterns
 
@@ -483,7 +486,7 @@ Before providing skill to user:
 - [ ] Positive phrasing — while keeping negative *scope* (they are not the same rule)
 - [ ] Mechanics concrete: real commands, real flags, real order
 - [ ] Judgment left open: applies-here, which-approach, when-to-abandon
-- [ ] Context provided for non-obvious requirements
+- [ ] Reasons only where they change behaviour, one clause each
 - [ ] Examples perfectly demonstrate desired patterns
 - [ ] Consistent terminology
 
@@ -495,7 +498,7 @@ Before providing skill to user:
 - [ ] Setup and its silent-failure signal, if the skill wraps a tool
 - [ ] Verification: the command that confirms success
 - [ ] What a *bad success* looks like, if the skill edits or produces something
-- [ ] Diagnosed failures carry a date, a signal, and the outcome label
+- [ ] Diagnosed failures appear as signal → action rows; dates and stories are in the CHANGELOG
 
 **Resources:**
 - [ ] Scripts solve actual problems (not punting to Claude)

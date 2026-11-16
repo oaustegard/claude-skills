@@ -2,6 +2,22 @@
 
 All notable changes to the `creating-skill` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.5.0] - 2026-11-16
+
+### Other
+
+- creating-skill: diagnosed failures as signal-action rows, stories to CHANGELOG (2.5.0)
+
+## [2.5.0] - 2026-11-16
+
+### Changed
+
+- Diagnosed failures now go in the body as signal → action rows only; the date,
+  incident and discovery story go in the CHANGELOG. "Provide Context" is limited
+  to one clause, and only where it changes what the reader does. Prompted by
+  Oskar on building-property-tests 0.1.0, which followed the old guidance and
+  shipped a SKILL.md full of dated case histories.
+
 ## [2.4.0] - 2026-11-13
 
 ### Other
