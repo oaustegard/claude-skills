@@ -117,6 +117,12 @@ Measured at release: on `remex` at main, exactly the four rotation tests that
 parametrize `["haar", "rht"]` against a three-member `ROTATION_CODES`, each
 naming `'none'`. 45 tests, plus a `--selftest` in each script.
 
+## [0.2.4] - 2026-11-16
+
+### Changed
+
+- Point to `building-property-tests` for the invariant-declaration step of a property-testing run.
+
 ## [0.2.3] - 2026-08-25
 
 ### Other
