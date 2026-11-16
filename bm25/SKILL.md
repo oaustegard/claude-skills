@@ -12,7 +12,7 @@ description: >-
   prior-session decisions (remembering), not for a named symbol or a file's
   structure (tree-sitting), and not for a literal string you could grep.
 metadata:
-  version: 0.2.1
+  version: 0.2.2
 ---
 
 # bm25
@@ -108,14 +108,17 @@ you specifically want BM25's length-normalized scoring.
 
 - **Session-local disk cache** at `/home/claude/.bm25-cache/<key>/`. The
   key is a hash of `(resolved_corpus_path, include_globs, exclude_globs,
-  max_file_bytes)` — any change invalidates naturally. First invocation
-  builds and saves; subsequent invocations against the same corpus and
-  filters load in tens of milliseconds. The cache lives in `/home/claude`,
+  max_file_bytes)` plus every discovered file's path and content hash, so
+  editing, adding or deleting a file invalidates it. A hit still reads the
+  corpus to hash it but skips tokenizing and indexing (1,649 files: 0.35s
+  hit vs ~1s rebuild). The cache lives in `/home/claude`,
   which is ephemeral, so it expires at the session boundary — same
   lifetime as the corpus state itself, no cross-session staleness.
   ~5–35MB per cached index, depending on corpus size.
-- **`--no-cache`** bypasses both load and save — useful only if you've
-  mutated the corpus mid-session (rare) or want to confirm a rebuild matches.
+- **`--no-cache`** bypasses both load and save — useful to confirm a
+  rebuild matches.
+- **A corpus with no indexable terms** (empty, or only one-character
+  tokens) returns zero-score hits instead of crashing bm25s.
 - **Reuse within a single invocation.** The retriever stays in memory
   between queries in one process. Passing multiple queries positionally,
   or using `--interactive`, amortizes any rebuild cost across queries.

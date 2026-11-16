@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.2 — 2026-11-16
+
+Two bugs found by a model-based property test (`oaustegard/experiments` `bm25-proptest/`):
+
+- The session cache served a stale index after the corpus changed: the key hashed the path and filters only, so an edited file returned its old text, a deleted file was still returned and a new file was never seen. The key now also hashes each discovered file's path and content. Files are read once and handed to `build`.
+- A corpus with no indexable terms (empty directory, or only one-character tokens) crashed with `ValueError: max() iterable argument is empty` from `bm25s.BM25.index`. It now returns zero-score hits up to `min(k, N)`, matching how a normal corpus pads to k, and is not cached.
+
+Regressions in `tests/test_regressions.py`.
+
 ## 0.1.2 — 2026-05-18
 
 Added a session-local disk cache at `/home/claude/.bm25-cache/<key>/`. Across `bash_tool` invocations the in-memory retriever evaporates at process exit, so repeat queries against the same corpus would otherwise rebuild from scratch. The cache key hashes the resolved corpus path plus the include/exclude globs plus max-file-bytes, so any input change invalidates naturally. Verified on Django (1,962 files): 1.5s rebuild → 40ms load. `--no-cache` bypasses both load and save for the rare "I mutated the corpus mid-session" case.
