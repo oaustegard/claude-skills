@@ -2,6 +2,15 @@
 
 All notable changes to the `building-property-tests` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.1.1] - 2026-11-16
+
+### Changed
+
+- SKILL.md and both references cut to instructions: the dated case histories,
+  framing and per-rule backstory are removed (they remain in 0.1.0's
+  provenance above and in experiments/remex-proptest). SKILL.md 220 to 119
+  lines, references 149 to 73.
+
 ## [0.1.0] - 2026-11-16
 
 Initial release. Adapts the method of Inanna Malick's `proptest-praxis` skill
