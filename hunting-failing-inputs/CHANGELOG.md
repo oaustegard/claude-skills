@@ -39,6 +39,12 @@ First version, as `hunting-go-bounds-panics`. Go bounds checks listed with
 
 ## [0.3.2] - 2026-11-16
 
+### Added
+
+- property testing against reference models (0.1.0)
+
+## [0.3.2] - 2026-11-16
+
 ### Changed
 
 - Route wrong-result bugs to the new `building-property-tests` skill.

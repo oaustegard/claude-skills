@@ -4,6 +4,12 @@ All notable changes to the `building-property-tests` skill are documented in thi
 
 ## [0.1.0] - 2026-11-16
 
+### Added
+
+- property testing against reference models (0.1.0)
+
+## [0.1.0] - 2026-11-16
+
 Initial release. Adapts the method of Inanna Malick's `proptest-praxis` skill
 ([inanna-malick/agent-skills](https://github.com/inanna-malick/agent-skills),
 MIT) and her post
