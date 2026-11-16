@@ -10,7 +10,7 @@ Areas that share no state each get a worker: search or query paths, containers
 and serialization, stateful objects and caches, encode or numerics. A split by
 property kind ("all round trips") sends four agents through the same code with
 four partial models. On remex (2026-11-16) four area workers produced 68
-failing regression cases across 19 defects. Three of them found the same
+failing regression cases across 21 defects. Three of them found the same
 warm-cache guard bypass independently. Read that agreement as a confidence
 signal, not as waste.
 

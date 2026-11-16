@@ -20,7 +20,7 @@ Two runs on 2026-11-16 shaped the procedure:
   bm25 0.2.2. The property suite rejected a wrong first fix that the regression
   test accepted (step 8).
 - `oaustegard/experiments/remex-proptest`: four Sonnet agents, one per area,
-  on remex 2.2.0. Their regressions failed in 68 cases covering 19 defects,
+  on remex 2.2.0. Their regressions failed in 68 cases covering 21 defects,
   among them silent code corruption between the two `.npz` writers at
   `d*bits % 8 != 0` and a segfault after pickling the default quantizer.
   Fixed in remex 2.2.1. The harnesses caught 72 of 73 planted bugs.
