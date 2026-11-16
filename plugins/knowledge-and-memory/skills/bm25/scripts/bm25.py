@@ -135,16 +135,19 @@ def resolve_corpus(spec: str) -> Path:
 
 # ---------- index ----------
 
-CACHE_ROOT = Path('/home/claude/.bm25-cache')
+CACHE_ROOT = Path("/home/claude/.bm25-cache")
 
 
-def cache_key(corpus_root: Path, include, exclude, max_bytes: int) -> str:
+def cache_key(corpus_root: Path, include, exclude, max_bytes: int, files=()) -> str:
     """Stable 16-hex hash of the inputs that fully determine an index.
 
     Same key → identical index. Changing any of: corpus root path,
-    include/exclude globs, or max_bytes → new key → cache miss → rebuild.
+    include/exclude globs, max_bytes, or any discovered file's path or
+    content → new key → cache miss → rebuild.
     """
     h = hashlib.sha256()
+    for rel, text in files:
+        h.update(rel.encode() + b'\0' + hashlib.sha256(text.encode('utf-8', 'surrogatepass')).digest())
     h.update(str(corpus_root.resolve()).encode())
     h.update(b'|')
     h.update(','.join(sorted(include)).encode())
@@ -174,16 +177,18 @@ class CorpusIndex:
         self.source = source  # 'built' or 'cache'
 
     @classmethod
-    def build(cls, corpus_root: Path, include, exclude, max_bytes: int):
-        """Walk the corpus, tokenize, index. Returns a new CorpusIndex."""
+    def build(cls, corpus_root: Path, include, exclude, max_bytes: int, files=None):
+        """Walk the corpus (unless files are given), tokenize, index."""
         t0 = time.time()
-        paths, docs = [], []
-        for rel, text in discover_files(corpus_root, include, exclude, max_bytes):
-            paths.append(rel)
-            docs.append(text)
+        if files is None:
+            files = list(discover_files(corpus_root, include, exclude, max_bytes))
+        paths = [rel for rel, _ in files]
+        docs = [text for _, text in files]
         tokens = bm25s.tokenize(docs, stopwords=None, show_progress=False)
-        retriever = bm25s.BM25()
-        retriever.index(tokens, show_progress=False)
+        retriever = None
+        if tokens.vocab:  # bm25s cannot index an empty vocabulary
+            retriever = bm25s.BM25()
+            retriever.index(tokens, show_progress=False)
         return cls(corpus_root, paths, docs, retriever, time.time() - t0, source='built')
 
     def save(self, cache_dir: Path):
@@ -221,6 +226,8 @@ class CorpusIndex:
             return None
 
     def query(self, q: str, k: int = 10):
+        if self.retriever is None:  # no indexable terms: every doc scores 0
+            return [(i, 0.0) for i in range(min(k, len(self.docs)))]
         tokens = bm25s.tokenize([q], stopwords=None, show_progress=False)
         idxs, scores = self.retriever.retrieve(tokens, k=min(k, len(self.docs)), show_progress=False)
         return [(int(i), float(s)) for i, s in zip(idxs[0], scores[0])]
@@ -228,14 +235,15 @@ class CorpusIndex:
 
 def get_or_build_index(corpus_root: Path, include, exclude, max_bytes: int, use_cache: bool):
     """Cache-aware index lookup. Returns (CorpusIndex, cache_dir_or_None, key)."""
-    key = cache_key(corpus_root, include, exclude, max_bytes)
+    files = list(discover_files(corpus_root, include, exclude, max_bytes))
+    key = cache_key(corpus_root, include, exclude, max_bytes, files)
     cache_dir = CACHE_ROOT / key
     if use_cache:
         loaded = CorpusIndex.load(cache_dir, corpus_root)
         if loaded is not None:
             return loaded, cache_dir, key
-    idx = CorpusIndex.build(corpus_root, include, exclude, max_bytes)
-    if use_cache:
+    idx = CorpusIndex.build(corpus_root, include, exclude, max_bytes, files)
+    if use_cache and idx.retriever is not None:
         try:
             idx.save(cache_dir)
         except Exception as e:
