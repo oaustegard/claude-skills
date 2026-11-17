@@ -1,525 +1,111 @@
 ---
 name: creating-skill
-description: Builds and revises a complete skill DIRECTORY — SKILL.md, scripts, references, assets — and packages it. Use for "create a skill for X", "turn this into a skill", "update/improve this skill", "why doesn't my skill trigger", "review this SKILL.md", "package this skill", or when a repeated procedure should become a reusable artifact. Enforces the structure that makes skills work — a concrete procedure rather than a goal statement, an explicit applicability boundary, failure modes with their signals, a runtime verification step, and a description checked against the existing catalogue for confusability. For choosing whether the instruction should be a skill at all rather than project instructions or a prompt, use crafting-instructions. For writing quality inside the prose, use writing-instructions.
+description: Builds a new agent skill or revises one (SKILL.md, scripts and references), validated and packaged as a zip. Use for "create a skill for X", "turn this into a reusable skill", "why does my skill not trigger", or "review this SKILL.md".
 metadata:
-  version: 2.5.0
+  version: 2.6.0
 ---
 
-# Creating Skills
+# Creating skills
 
-Create portable, reusable expertise that extends Claude's capabilities across contexts.
+A skill is instructions to the agent: a procedure with commands, checks and failure signals. Facts alone belong in a document labelled as a reference. The measurements behind every rule here are in `references/skill-utility-evidence.md`; read it when a rule seems arbitrary.
 
-## What a skill is for — read before writing one
+## Not for
 
-A skill is a **procedural anchor**. Measured across 528 paired executions,
-65.7% of skill effects come from supplying a usable procedure — setup steps,
-tool sequence, intermediate checks, pitfalls — and 4.5% from supplying facts
-the agent lacked (Jiang et al. 2026, arXiv:2608.14036).
+| Situation | Use |
+|---|---|
+| Whether the instruction should be a skill, project instructions or a prompt | `crafting-instructions` |
+| Sentence-level quality of instruction prose | `writing-instructions` |
+| Revising an existing skill that has evidence of underperforming | `optimizing-skills` |
+| Project-specific context, one-off tasks | project instructions or a prompt |
 
-Three consequences shape every rule below:
+## Procedure
 
-1. **The procedure is the deliverable.** A high-level plan of three to five
-   steps measured at 47.7% success against a 50.0% no-skill baseline. The same
-   experience written as a full SKILL.md measured 79.2%. Vagueness scores worse
-   than silence.
-2. **Abstraction costs something.** `skill_guidance_misapplied_or_ignored`
-   runs at 0.8% without a skill and **10.0%** with one. A skill that never says
-   when it does not apply has not paid for itself.
-3. **Facts are a reference, not a skill.** Writing one is fine. Call it a
-   reference and do not expect it to change behaviour.
+1. **Create the directory.** `mkdir -p <name>/{scripts,references,assets}`; delete unused ones before shipping. Name: gerund first word (`processing-pdfs`), lowercase and hyphens, at most 64 characters, no "anthropic" or "claude".
 
-Load [references/skill-utility-evidence.md](references/skill-utility-evidence.md)
-before authoring or reviewing a SKILL.md. It carries the failure-mode tables
-behind every requirement here, and reading it is what stops these rules from
-being followed as ritual.
+2. **Write the description** (about 250 characters; 1024 is the hard limit):
+   - one sentence on what it does, then two or three phrasings a user would type;
+   - lead with the unit of the question (symbols, not ASTs);
+   - third person; no angle brackets anywhere (`->` and `>200MB` are rejected too);
+   - separate from neighbours by omission — a disclaimer ("does not X") pulls toward X; routing goes in the body;
+   - never reuse a sibling's trigger phrases.
 
-## When to Create Skills
+3. **Validate the frontmatter:**
+   ```bash
+   python3 /mnt/skills/examples/skill-creator/scripts/quick_validate.py <skill-dir>
+   ```
+   Allowed keys: `name`, `description`, `license`, `allowed-tools`, `metadata`, `compatibility`. One SKILL.md per directory.
 
-Skills are appropriate when:
-- Capability needed across multiple projects/conversations
-- Procedural knowledge that applies broadly (not project-specific)
-- Instructions should activate automatically on trigger patterns
-- Want portable expertise that loads progressively on-demand
+4. **Check confusability** from `oaustegard/claude-workspace`:
+   ```bash
+   python3 scripts/skill_confusability.py --skills <skills-root> --queries q.json
+   ```
+   `q.json`: five task-shaped queries under the skill's name, negatives under `__none__`. Require top-1 on 5/5, no steals of sibling queries, no near-miss above the hit floor. A neighbour above ~0.65 cosine needs a routing row in both bodies.
 
-Not appropriate when:
-- Context is project-specific (use Project instructions instead)
-- One-off task (use standalone prompt instead)
-- See **crafting-instructions** skill for detailed decision framework
+5. **Write the body** in this order:
+   - **Not for** — routing table naming real sibling skills; plus when to abandon the procedure mid-run.
+   - **Setup** — install commands and each tool's silent-failure signal.
+   - **Procedure** — numbered steps with the actual commands, flags and order; the intermediate checks and what a wrong result looks like. Leave to judgment whether the skill applies, which approach fits, and when to abandon.
+   - **Rules with exceptions** — a table for any rule that is sometimes wrong.
+   - **Failure modes** — a `signal | action` table. The signal is what the reader sees.
+   - **Verification** — the commands that confirm success, and what a bad success looks like (passes inspection, lost content).
 
-## Skill Structure
+   Write imperatives. Give a reason only where it changes what the reader does, in one clause ("— it catches fixes the regression accepts"). Leave out motivation, provenance, results, dated incidents and paragraphs repeating the description; they go in the CHANGELOG. Phrase instructions positively, but keep negative scope (the Not-for table) as content.
 
-Every skill is a directory containing:
-- `SKILL.md` (required): Frontmatter + imperative instructions
-- `scripts/` (optional): Executable code for deterministic operations
-- `references/` (optional): Detailed docs loaded on-demand
-- `assets/` (optional): Templates/files used in output
+6. **Add resources only when they earn it.** Code Claude would rewrite each time → `scripts/`, with explicit errors and non-zero exits. Detail that would push SKILL.md past ~500 lines → `references/`, one level deep. Output templates → `assets/`. A script that fails quietly is worse than none.
 
-Create this structure directly:
-```bash
-mkdir -p skill-name/{scripts,references,assets}
-```
+7. **Write the CHANGELOG entry**: what changed, provenance, measurements, and the dated story of any diagnosed failure the body now encodes as a row.
 
-Delete unused directories before packaging.
+8. **Bump `metadata.version`** (releases trigger on the change). Commit each skill's bump separately: the release bot writes the commit subject into every bumped skill's CHANGELOG.
 
-## Naming Convention
+9. **Test on three real scenarios** — simple, complex, edge — and fix what actually happened.
 
-Use gerund form (verb + -ing):
-- ✅ `processing-pdfs`, `analyzing-data`, `creating-reports`
-- ❌ `pdf-helper`, `data-tool`, `report-maker`
+10. **Package for claude.ai upload** when needed:
+    ```bash
+    zip -r <name>.zip <name>/ && unzip -l <name>.zip
+    ```
+    README.md, CHANGELOG.md and tests/ are stripped from release zips; put anything that must ship (credits, licenses) in SKILL.md or a shipped file.
 
-Requirements:
-- Lowercase letters, numbers, hyphens only
-- Max 64 characters
-- No reserved words (anthropic, claude)
+## Failure modes
 
-## Frontmatter Requirements
+| Signal | Action |
+|---|---|
+| Skill does not load; no error | an unquoted `: ` or an angle bracket in the description; run `quick_validate.py` |
+| Skill loses its own queries | description too long or reusing a sibling's phrases; cut to ~250 characters with three phrasings |
+| Skill wins queries it should ignore | a disclaimer in the description; delete it and move routing into the body |
+| Body explains, tells history or sells | move it to the CHANGELOG; keep steps, commands, signals |
+| Steps read as goals ("scan the repo and check") | replace with the command and the output that means failure |
+| CHANGELOG entry describes another skill's change | the release bot used a shared commit subject; edit it and bump separately next time |
+| Agent applies the skill where it does not fit | the Not-for table is missing or names categories, not skills |
 
-```yaml
----
-name: skill-name
-description: What it does. Use when [trigger patterns].
----
-```
-
-**name:** Follow naming convention above
-
-**description:** (aim for about 250 chars; the hard limit of 1024 is not a target)
-- It is a trigger, not documentation. It has one job: to make the right request
-  pull the skill in. One sentence on what the skill does, then two or three
-  phrasings a user would type. The mechanism, the languages covered and the
-  results all belong in the body.
-- Third person voice: "Processes files" not "I process files"
-- WHAT it does + WHEN to use it (trigger patterns)
-- Specify: file types, keywords, task types that should activate this skill
-- No angle brackets at all — the rule is stricter than "no XML tags". A `->` arrow
-  or a `>200MB` threshold is rejected on upload just as a `<tag>` is.
-
-**Good examples:**
-- "Creates PowerPoint presentations. Use when users mention slides, .pptx files, or presentations."
-- "Analyzes SQL queries for performance. Use when debugging slow queries, optimization requests, or EXPLAIN output."
-
-**Ineffective examples:**
-- "I can help create presentations" (first person, no triggers)
-- "Presentation creator" (no triggers, vague what)
-- "Advanced presentation creation with animations" (over-detailed implementation)
-
-The description is critical—it determines when Claude activates this skill.
-
-### The description competes against its neighbours
-
-A description is never read alone — it is ranked against every other skill, and
-the nearest in meaning are what beat it. Confusability, not catalogue size, is
-the stressor: embedding top-1 falls to 84.1% at a pool of 100 with unrelated
-distractors and 53.4% with near-neighbour ones, and in a personal catalogue
-every distractor is a near neighbour.
-
-Four rules, each measured on this catalogue:
-
-1. **Lead with the unit of the question**, not the technology. Users ask about
-   symbols, not about ASTs.
-2. **Include a few literal phrasings a user types.** The skill that scored 4/5 on
-   its own queries is the one whose description contains "de-claude",
-   "humanize this", "this reads like AI". Three are enough. *Diagnosed
-   2026-11-13*: `hunting-failing-inputs` shipped 870 characters with 11
-   phrasings. Cut to 245 characters, it still took top-1 on 5/5 queries.
-   Keeping one specific term ("WGSL compute shader") was all it took to beat
-   the nearest neighbour.
-3. **Separate from a neighbour by OMISSION, never by disclaimer.** A retriever
-   scores bag-of-meaning and cannot represent negation, so "does not debug a
-   Docker build" reads as "Docker build" and pulls you *toward* the thing you
-   disclaimed — measured at +0.05 and +0.10 cosine on two skills. Routing goes
-   in the body under When NOT to use, where an LLM reads it and understands the
-   negation. The description is scored; the body is read.
-4. **Do not reuse a sibling's trigger phrases.** `tree-sitting` listed "map
-   this codebase" and "explore repo" — both `exploring-codebases`' territory —
-   and lost all five of its own canonical queries.
-
-**Run the check before shipping.** `oaustegard/claude-workspace` carries it:
-
-```bash
-python3 scripts/skill_confusability.py --queries q.json
-```
-
-Positives go under the skill's own name; negatives under the reserved
-`__none__` key. Read three numbers: **top-1** (does it win its own queries),
-**steals** (does it win other skills' queries), **near-misses** (does anything
-it should ignore score in hit territory). A description tuned on top-1 alone
-gets better at being found and worse at staying out of the way.
-
-Full measurements and the per-clause experiment:
-[references/skill-utility-evidence.md](references/skill-utility-evidence.md).
-
-### Validate the frontmatter with Anthropic's validator, not by eye
-
-A description rich enough to be findable is long enough to break the spec. An
-unquoted `: ` ends the YAML scalar and the file stops parsing; an angle bracket
-is rejected outright. Either way the skill does not load, silently, because
-nothing validates frontmatter at read time.
-
-Do not hand-roll this check. `skill-creator` ships one, and it is stricter than
-anything worth rewriting:
+## Verification
 
 ```bash
 python3 /mnt/skills/examples/skill-creator/scripts/quick_validate.py <skill-dir>
+python3 scripts/skill_confusability.py --skills <skills-root> --queries q.json   # top-1 5/5
+wc -l <skill-dir>/SKILL.md                                                       # under 500
+grep -n "Diagnosed\|20[0-9][0-9]-[0-9][0-9]-" <skill-dir>/SKILL.md                # dated stories left in the body
 ```
 
-It enforces YAML parseability, the allowed-property whitelist
-(`name`, `description`, `license`, `allowed-tools`, `metadata`,
-`compatibility`), kebab-case names under 64 chars, descriptions under 1024
-chars with no angle brackets, and exactly one SKILL.md per directory — the
-Skills API and claude.ai reject multiple on upload even though Claude Code's
-filesystem loads them.
-
-Run it over the whole catalogue before a batch edit:
-
-```bash
-for d in */; do
-  printf '%-24s ' "${d%/}"
-  python3 /mnt/skills/examples/skill-creator/scripts/quick_validate.py "$d" 2>&1 | tail -1
-done
-```
-
-Diagnosed 2026-08-24, twice in one pass. First: two skills shipped
-`Primitives: depends_on...` and `makes skills work: a concrete...` inside
-unquoted descriptions, and both files became unparseable. Second, the next day:
-a description carrying the literal `"review what's new in <repo>"` violated the
-no-angle-brackets rule. A regex reader — including `skill_confusability.py` —
-accepts all three happily, so the retrieval check passes while the skill is
-dead. `quick_validate.py` catches every one in about a second, and it was on
-disk the whole time.
-
-## Writing Effective SKILL.md
-
-Apply **writing-instructions** principles:
-
-### Write for a reader who already chose the skill
-
-The body loads only after the description has done its work, so the reader
-has already decided to use the skill. Anything that argues for the skill costs
-context and buys nothing. Start the body at the first thing the reader needs
-to act on: a definition the procedure relies on, the routing table, setup.
-
-Leave these out of SKILL.md and the references:
-- motivation ("fuzzers miss silent failures, so…"), and the story of where
-  the method came from
-- results that prove the method works ("Z3 found every planted bug",
-  comparison tables against a baseline)
-- a "use it on…" paragraph that repeats the description
-
-Provenance, measurements and the story of each diagnosed failure go in the
-CHANGELOG. The body keeps only what the failure teaches: its signal and the
-action, as a row in the failure-mode table. A reference file holds the
-semantics, the commands and the expected outputs the reader checks against,
-and nothing that shows the method was good.
-
-*Diagnosed 2026-11-13*: `hunting-failing-inputs` shipped with an intro
-paragraph, a provenance paragraph, results numbers and per-language
-fuzz-comparison tables. Trimmed to the procedure, SKILL.md went from about 230
-lines to 131, and the references from 268 to 172, without losing a step. The
-pull toward writing about the skill comes from having just built and measured
-it. That evidence goes in the CHANGELOG.
-
-### Imperative Construction
-Frame as direct commands:
-- ✅ "Extract text with pdfplumber" / "Validate output with script"
-- ❌ "Consider extracting..." / "You might want to validate..."
-
-### Concrete Procedure, Strategic Judgment
-Split the two. Mechanics get spelled out; the decision to engage stays a
-judgment call.
-
-Spell out — this is the 65.7% a skill exists to deliver:
-- the setup and dependency sequence, with the actual commands
-- the tool sequence, in order, with the flags that matter
-- the intermediate checks, and what a wrong answer looks like
-- the pitfalls, each with the signal that announces it
-
-Leave to judgment — forcing these produces mechanical misapplication:
-- whether the situation is the one this skill addresses
-- which of several defensible approaches fits this case
-- when to abandon the procedure because its assumptions broke
-
-- ✅ "`$TREESIT /tmp/$REPO --stats`. Zero symbols on a repo you know has code means tree-sitter core is missing; it exits 0 either way."
-- ❌ "Scan the repo structurally and check the result."
-
-The second form is the measured short-plan condition: 47.7% success against a
-50.0% no-skill baseline. Trimming a procedure down to its goal does not make it
-strategic, it makes it worse than absent.
-
-Trivially inferable steps still come out — `mkdir -p skill-name/{scripts,references}`
-is one line, not three. The test is whether omitting a step costs the reader a
-wrong guess, not whether the result looks tidy.
-
-### Trust Base Behavior
-Claude already knows:
-- Basic programming patterns, common tools, file operations
-- How to structure clear output, format markdown
-- General best practices for code quality
-
-Only specify skill-specific deviations or domain expertise Claude lacks.
-
-### Positive Directive Framing
-State what TO do, not what to avoid:
-- ✅ "Write in imperative voice with direct instructions"
-- ❌ "Don't use suggestive language or tentative phrasing"
-
-Frame requirements positively because it's clearer and more actionable.
-
-**This rule governs how an instruction is phrased. It does not apply to
-scope.** "When NOT to use this skill", the routing table, and the earned
-exceptions are content, not phrasing, and they are required — see Applicability
-Boundary below. Rewriting "do not use this for X" into "use this for Y" deletes
-the boundary instead of stating it positively, and the boundary is the defence
-against the 10.0% misapplication rate. Keep both: say what the skill does, and
-say where it stops.
-
-### Provide Context, in One Clause
-Give a reason only where it changes what the reader does — typically a step
-that looks redundant and would otherwise be skipped. One clause, attached to
-the rule:
-- ✅ "Run the property suite with `SKIP_KNOWN=0` — it catches fixes the regression accepts."
-- ❌ A paragraph on the incident that produced the rule, with its date.
-
-A rule whose reason is obvious gets no reason.
-
-### Example Quality
-Examples teach ALL patterns, including unintended ones. Ensure every aspect demonstrates desired behavior. Better to omit examples than include mixed signals.
-
-**For comprehensive prompting guidance**, invoke **writing-instructions**.
-**For whether this should be a skill at all**, invoke **crafting-instructions**.
-
-## Required Sections
-
-Every skill that changes how work is done carries these four. A pure reference
-document may skip them — and must say in its first line that it is a reference,
-so nobody expects it to change execution.
-
-### Applicability Boundary
-
-Non-negotiable. `skill_guidance_misapplied_or_ignored` runs at 0.8% without a
-skill and 10.0% with one; a plausible skill applied to the wrong situation is
-the single largest cost skills introduce. Write:
-
-- **When NOT to use this skill** — as a routing table when siblings exist:
-  situation in one column, the skill that owns it in the other. Name real
-  skills, not categories.
-- **Earned exceptions** — for any rule strong enough to be wrong sometimes,
-  a `banned when` / `earned when` pair. `declauding` is the model here: three
-  such tables, and it is why a register pass can cut a tic without cutting the
-  claim the tic was carrying.
-- **When to abandon it mid-run** — the condition under which the procedure's
-  assumptions have broken and continuing makes things worse.
-
-A skill whose author cannot name a case where it does not apply has not
-finished thinking about scope.
-
-### Common Failure Modes
-
-Each entry is **signal → mitigation**, never a bare warning. The signal is what
-the reader will actually see; without it the mitigation cannot fire.
-
-```
-✅ "Zero symbols on a repo you know has code → tree-sitter core is missing.
-    It exits 0 and prints no error. Reinstall before concluding anything."
-❌ "Make sure dependencies are installed."
-```
-
-Environment, output-format and service-lifecycle failures are the most
-skillable class there is — writing the setup sequence down took
-`environment_infrastructure_failure` from 5.3% to 0.2% in the study. If a skill
-wraps a tool, that tool's setup and its silent-failure signal belong here.
-
-### Verification
-
-State how to confirm the work actually succeeded, with the command. Skills do
-not add runtime verification on their own: `static_verification_without_runtime`
-sits at 12.5% without a skill and 11.7% with one, a 0.8-point move across the
-whole study. An agent checks at runtime when the skill tells it to, and not
-otherwise.
-
-For a skill that edits or produces something, also state what a **bad success**
-looks like — the output that passes inspection while having lost content. That
-is the failure a read-through does not catch.
-
-### Diagnosed Failures: Signal in the Body, Story in the CHANGELOG
-
-When the skill encodes something learned the hard way, the body carries it as
-a failure-mode row: the signal the reader will see, and the action. Label it
-unambiguously as a failure, so it cannot be read as a procedure to copy (the
-study's 15–35 point ablation is about unlabelled failures in the source pool).
-The date, the incident and how it was found go in the CHANGELOG.
-
-```
-✅ Body:      | Gather output stops at line 120 | use --orient; read targeted ranges |
-   CHANGELOG: 2026-08-22, FreeToken review: a 5,697-line gather was cut at line 120.
-❌ Body:      "Diagnosed 2026-08-22 on a FreeToken review: a 5,697-line gather was
-              cut at line 120 and every finding came from targeted reads instead."
-```
-
-Keep failures inside a procedure that works: a skill distilled purely from
-post-mortems measured below the no-skill baseline in nearly every
-configuration.
-
-## Bundled Resources Patterns
-
-**Decision framework:** Will Claude repeatedly generate similar code? → `scripts/`.
-Is there extensive domain knowledge, or is SKILL.md nearing 500 lines? →
-`references/`. Are there output templates the user receives? → `assets/`.
-Otherwise SKILL.md only.
-
-Scripts need explicit error handling and clear outputs — a script that fails
-quietly is worse than no script, because the skill then reports success. Keep
-references one level deep; assets are used but never read into context, which
-is what makes them free.
-
-Full patterns and worked examples:
-[references/bundled-resources.md](references/bundled-resources.md).
-
-## Progressive Disclosure
-
-Skills load in three tiers:
-1. **Metadata** (name + description): Always loaded for all skills
-2. **SKILL.md body**: Loaded when skill activates
-3. **Bundled resources**: Loaded as Claude reads them
-
-Keep SKILL.md focused on core workflows (~500 lines max). Move detailed content to references/ for on-demand loading. This enables context-efficient skill ecosystems.
-
-## Token Efficiency
-
-Challenge each line: Does Claude really need this explanation? Can I assume Claude knows this? Does this justify its token cost?
-
-Prefer concise patterns:
-- Code examples over verbose explanations
-- Decision frameworks over exhaustive lists
-- One command with its failure signal over a paragraph describing the command
-
-**Cut process residue, not procedure.** These are opposite things and the
-distinction is measurable. Raw trajectories and lightly-cleaned workflow memory
-fail through process overload — `timeout_budget_exhaustion` at 10.6% against
-1.7% for no help at all — because they preserve exploration, dead ends and
-low-level debugging alongside the decisive steps. Distillation is the whole
-difference between a skill and a trace dump, and a SKILL.md that grows back
-toward the trace re-earns the trace's failure mode.
-
-So the thing to delete is the narration of how the procedure was discovered.
-The thing to keep is the procedure, its checks, and its pitfalls — even when
-that runs long. Skills cost real context (521.5K tokens per task against
-426.2K for workflow memory in the study) and buy 4.8 points of success with it.
-Length spent on steps and signals is the purchase; length spent on backstory is
-the leak.
-
-## Packaging & Delivery
-
-Create ZIP archive:
-```bash
-cd /home/claude
-zip -r /mnt/user-data/outputs/skill-name.zip skill-name/
-```
-
-Verify contents:
-```bash
-unzip -l /mnt/user-data/outputs/skill-name.zip
-```
-
-Show user the packaged structure:
-```bash
-tree skill-name/
-# or
-ls -lhR skill-name/
-```
-
-Provide download link:
-```markdown
-[Download skill-name.zip](computer:///mnt/user-data/outputs/skill-name.zip)
-```
-
-## Version Control (Optional)
-
-For skills under active development, track changes:
-```bash
-cd /home/claude/skill-name
-git init && git add . && git commit -m "Initial: skill structure"
-```
-
-After modifications:
-```bash
-git add . && git commit -m "Update: description of change"
-```
-
-See **versioning-skills** for advanced patterns (rollback, branching, comparison).
-
-## Best Practices
-
-Write TO Claude in imperative commands, not ABOUT Claude in documentation.
-Lead with what the skill enables, group related instructions, and use headings
-that name content rather than describe procedure. Assume Claude's intelligence:
-specify success criteria and let it choose the approach, and only add a bundled
-resource that solves a real problem. Keep terminology consistent, and put the
-WHY next to any requirement that is not self-evident.
-
-Test on 3+ real scenarios — simple, complex, edge case — and iterate on what
-actually happened rather than on what you expected.
-
-## Quality Checklist
-
-Before providing skill to user:
-
-**Metadata:**
-- [ ] Name: lowercase, hyphens, gerund form, max 64 chars
-- [ ] Description: third person, WHAT + WHEN triggers, about 250 chars (1024 is the hard limit), no XML
-- [ ] Description leads with the unit of the question, not the technology
-- [ ] Description contains literal phrasings a user would type
-- [ ] Description separates from siblings by OMISSION, not by a disclaimer
-- [ ] `skill_confusability.py` run: skill takes top-1 on 5 task-shaped queries
-- [ ] No neighbour above ~0.65 cosine without an explicit boundary in both
-- [ ] `quick_validate.py` passes (YAML, allowed keys, name, length, no angle brackets)
-- [ ] `metadata.version` bumped (releases gate on the delta; unchanged = silent no-op)
-
-**Structure:**
-- [ ] SKILL.md under 500 lines (move extras to references/)
-- [ ] Unused directories deleted
-- [ ] References one level deep (no long chains)
-
-**Content:**
-- [ ] No selling in SKILL.md or references: no motivation, provenance or results (those go in the CHANGELOG)
-- [ ] Imperative voice throughout
-- [ ] Positive phrasing — while keeping negative *scope* (they are not the same rule)
-- [ ] Mechanics concrete: real commands, real flags, real order
-- [ ] Judgment left open: applies-here, which-approach, when-to-abandon
+Bad success: a skill that validates and wins its queries while its body is a goal statement or a history — read the procedure as someone who must execute it with no other context.
+
+## Checklist
+
+- [ ] Name and description follow step 1–2; `quick_validate.py` passes; confusability 5/5
+- [ ] Not-for table names real skills; abandonment condition stated
+- [ ] Setup with silent-failure signals, if it wraps a tool
+- [ ] Every step has a command or a concrete check
+- [ ] Failure modes are `signal | action` rows
+- [ ] Verification commands and the bad-success case
+- [ ] No motivation, provenance, results or dated stories in the body or references
 - [ ] Reasons only where they change behaviour, one clause each
-- [ ] Examples perfectly demonstrate desired patterns
-- [ ] Consistent terminology
+- [ ] SKILL.md under 500 lines; references one level deep; unused directories deleted
+- [ ] CHANGELOG entry; version bumped in its own commit
+- [ ] Tested on three real scenarios
 
-**Required sections** (skip only for a document that declares itself a reference):
-- [ ] When NOT to use — routing table naming real sibling skills
-- [ ] Earned exceptions for any rule that is sometimes wrong
-- [ ] When to abandon the procedure mid-run
-- [ ] Failure modes written as signal → mitigation, never a bare warning
-- [ ] Setup and its silent-failure signal, if the skill wraps a tool
-- [ ] Verification: the command that confirms success
-- [ ] What a *bad success* looks like, if the skill edits or produces something
-- [ ] Diagnosed failures appear as signal → action rows; dates and stories are in the CHANGELOG
+## References
 
-**Resources:**
-- [ ] Scripts solve actual problems (not punting to Claude)
-- [ ] Scripts have error handling and clear outputs
-- [ ] References are focused and topic-specific
-- [ ] Assets are templates/files for output
-
-**Testing:**
-- [ ] Tested on 3+ real scenarios
-- [ ] Activates on expected triggers
-- [ ] Bundled resources accessible
-- [ ] Package structure verified
-
-## Advanced Topics
-
-For complex skill patterns, see:
-- [references/skill-utility-evidence.md](references/skill-utility-evidence.md) - The measurements behind the required sections
-- **writing-instructions** skill - Comprehensive prompting principles
-- **crafting-instructions** skill - Choosing between skill, project instructions and prompt
-- **versioning-skills** skill - Git-based development workflow
-- [references/advanced-patterns.md](references/advanced-patterns.md) - Validation workflows, multi-stage patterns
-- [references/optimization-techniques.md](references/optimization-techniques.md) - Token budget management
-- [references/bundled-resources.md](references/bundled-resources.md) - Detailed resource patterns and examples
-- [references/environment-reference.md](references/environment-reference.md) - Environment-specific patterns
+- `references/skill-utility-evidence.md` — measurements behind each rule, and the dated catalogue cases
+- `references/bundled-resources.md` — scripts, references and assets patterns
+- `references/advanced-patterns.md` — validation workflows, multi-stage skills
+- `references/optimization-techniques.md` — token budget
+- `references/environment-reference.md` — Claude.ai vs Claude Code paths
