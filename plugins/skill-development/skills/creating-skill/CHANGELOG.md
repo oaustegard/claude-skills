@@ -2,6 +2,27 @@
 
 All notable changes to the `creating-skill` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.6.0] - 2026-11-17
+
+### Other
+
+- creating-skill: rewrite as a procedure; evidence and dated cases to references (2.6.0)
+
+## [2.6.0] - 2026-11-16
+
+### Changed
+
+- SKILL.md rewritten as a procedure (522 to 111 lines): routing table,
+  ten numbered steps with commands, a signal | action failure table,
+  verification commands and a short checklist. Study measurements and the dated
+  catalogue cases moved to references/skill-utility-evidence.md ("Diagnosed in
+  this catalogue"). The skill now follows the rule it teaches in 2.5.0.
+- Description cut from about 900 to 236 characters. Confusability on five
+  task-shaped queries: 4/5 top-1, against 3/5 for the old description; the
+  remaining miss ("meeting notes") loses to session-memory under both.
+- New step: commit each skill's version bump separately, because the release
+  bot writes the commit subject into every bumped skill's CHANGELOG.
+
 ## [2.5.0] - 2026-11-16
 
 ### Other

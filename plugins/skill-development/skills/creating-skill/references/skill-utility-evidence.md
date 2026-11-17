@@ -214,3 +214,32 @@ the task, and confirm it takes top-1. A query that echoes the description
 measures its own phrasing and nothing else. Any neighbour above ~0.65 cosine
 needs an explicit boundary in both descriptions, or the two skills need
 merging.
+
+## Diagnosed in this catalogue
+
+Dated cases behind the failure-mode table in SKILL.md.
+
+- **2026-08-24, unparseable frontmatter.** Two skills shipped `Primitives:
+  depends_on...` and `makes skills work: a concrete...` inside unquoted
+  descriptions; both files stopped parsing. The next day a description with
+  the literal `"review what's new in <repo>"` broke the no-angle-brackets
+  rule. `skill_confusability.py` reads with a regex and accepted all three;
+  `quick_validate.py` caught each in about a second.
+- **2026-11-13, overlong description.** `hunting-failing-inputs` shipped 870
+  characters with 11 phrasings. Cut to 245 characters it still took top-1 on
+  5/5 queries; one specific term ("WGSL compute shader") beat the nearest
+  neighbour.
+- **2026-11-13, a body that sold the skill.** `hunting-failing-inputs` shipped
+  an intro, a provenance paragraph, results and fuzz-comparison tables.
+  Trimmed to the procedure: SKILL.md about 230 to 131 lines, references 268
+  to 172, no step lost.
+- **2026-11-16, case histories in the body.** `building-property-tests` 0.1.0
+  followed the earlier "diagnosed failures with dates in the body" guidance
+  and shipped dated stories in its steps and failure modes. Oskar: "Once again
+  you've created documentation in the form of a skill.md." Cut to
+  instructions in 0.1.1: SKILL.md 220 to 119 lines. creating-skill 2.5.0 moved
+  the stories to the CHANGELOG; 2.6.0 applied the same rule to itself.
+- **2026-11-16, release-bot changelog entries.** One commit bumped four skills.
+  The release workflow wrote that commit's subject ("property testing against
+  reference models (0.1.0)") into all four CHANGELOGs, so three skills claimed
+  a feature they did not have. Bump unrelated skills in separate commits.
