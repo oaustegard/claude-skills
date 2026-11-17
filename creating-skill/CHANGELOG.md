@@ -2,6 +2,12 @@
 
 All notable changes to the `creating-skill` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [2.6.0] - 2026-11-17
+
+### Other
+
+- creating-skill: rewrite as a procedure; evidence and dated cases to references (2.6.0)
+
 ## [2.6.0] - 2026-11-16
 
 ### Changed
