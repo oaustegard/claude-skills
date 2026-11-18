@@ -343,7 +343,7 @@ CATEGORY_ORDER = [
     "rtfm", "dev-cliche", "slop", "editorializing", "time-inflation",
     "copula", "participle", "false-range", "list-shape", "chatbot", "filler",
     "gap-fill", "diff-anchored", "subjectless", "hyphenation", "spec-ese",
-    "flat-certainty", "juridical", "verification", "privative", "exhaustive",
+    "rule-list", "flat-certainty", "juridical", "verification", "privative", "exhaustive",
     "candour", "reversal", "retroactive", "totalizing", "obituary",
     "header", "typography", "cadence", "reuse", "density",
 ]
@@ -626,6 +626,40 @@ def _fragment_runs(text: str) -> list[dict]:
     return out
 
 
+LIST_ITEM_RE = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+(.+)$")
+PROHIBITION_RE = re.compile(r"^(?:no|never|don['’]?t|do not|nothing|nobody|none)\b", re.I)
+ABSOLUTE_CLOSER_RE = re.compile(r"\b(?:never|nobody|no one|nothing|always|everything|every)\b", re.I)
+
+
+def _rule_list(text: str) -> list[dict]:
+    """Entries 57 to 60: list items written as slogans, bans and punchlines."""
+    out, items = [], []
+    for i, ln in enumerate(text.splitlines(), 1):
+        m = LIST_ITEM_RE.match(ln)
+        if m:
+            items.append((i, m.group(1).strip()))
+    for i, item in items:
+        sents = [x.strip() for x in re.split(r"(?<=[.!?])\s+", item) if x.strip()]
+        if PROHIBITION_RE.match(item):
+            out.append({"line": i, "category": "rule-list", "match": item[:70],
+                        "note": "prohibition-first item (entry 58) — say what should happen, unless it is a hard ban"})
+        if len(sents) >= 2 and len(sents[0].split()) <= 4 and len(sents[1].split()) > len(sents[0].split()):
+            out.append({"line": i, "category": "rule-list", "match": sents[0],
+                        "note": "slogan label before the real rule (entry 57) — state the rule as the sentence"})
+        if len(sents) >= 2 and len(sents[-1].split()) <= 8 and ABSOLUTE_CLOSER_RE.search(sents[-1]) or \
+           len(sents) >= 2 and re.match(r"^(?:nobody|no one|i don['’]?t want)\b", sents[-1], re.I):
+            out.append({"line": i, "category": "rule-list", "match": sents[-1],
+                        "note": "gotcha closer (entry 59) — fold the reason into the rule with so/because/since"})
+    if len(items) >= 4:
+        clipped = sum(1 for _, it in items
+                      if len([x for x in re.split(r"(?<=[.!?])\s+", it) if x.strip()]) >= 2
+                      and max(len(x.split()) for x in re.split(r"(?<=[.!?])\s+", it) if x.strip()) <= 12)
+        if clipped / len(items) > 0.5:
+            out.append({"line": items[0][0], "category": "rule-list", "match": "clipped list cadence",
+                        "note": f"{clipped} of {len(items)} items are 2+ short sentences (entry 60) — one or two full sentences per item"})
+    return out
+
+
 def scan_reuse(hits: list[dict]) -> list[dict]:
     """Constructions the document uses more than once.
 
@@ -772,7 +806,7 @@ def main() -> int:
     if args.skip_quoted:
         text = _blank_quoted(text)
 
-    hits = scan_lines(text, statement_headers=args.statement_headers) + scan_density(text)
+    hits = scan_lines(text, statement_headers=args.statement_headers) + scan_density(text) + _rule_list(text)
     hits += scan_reuse(hits)
     if args.quiet_slop:
         hits = [h for h in hits if h["category"] not in {"slop", "editorializing", "time-inflation"}]
