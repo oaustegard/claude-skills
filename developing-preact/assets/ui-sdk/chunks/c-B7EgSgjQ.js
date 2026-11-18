@@ -1,0 +1,1 @@
+function e(e){return{"data-open":e?``:void 0,"data-closed":e?void 0:``}}function t(e){return{"data-checked":e===!0?``:void 0,"data-unchecked":e===!1?``:void 0,"data-indeterminate":e===`indeterminate`?``:void 0}}function n(e){return e.replace(/[\s%]/g,encodeURIComponent)}export{n,e as r,t};

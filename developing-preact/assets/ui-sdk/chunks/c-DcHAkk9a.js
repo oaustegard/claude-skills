@@ -1,0 +1,1 @@
+import{i as e,l as t,n,r,s as i}from"./c-B-JB21Si.js";import{t as a}from"./c-nqvPsD_Y.js";var o={payload:a,behavior:`tooltip`,role:`tooltip`,side:`top`,delay:600,closeDelay:0,focusDelay:0,placement:e,hover:r,focus:n,group:t,resetStyles:i},s={payload:a,behavior:`hoverCard`,delay:600,closeDelay:300,placement:e,hover:r,focus:n,resetStyles:i};export{o as n,s as t};

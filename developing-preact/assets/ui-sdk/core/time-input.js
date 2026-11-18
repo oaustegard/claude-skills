@@ -1,0 +1,1 @@
+import{o as e,t}from"../chunks/c-B5VtlymT.js";import{a as n,i as r,n as i,r as a,t as o}from"../chunks/c-BX4VPcPn.js";function s(){return e()}var{unavailable:c,...l}=r,u=/* @__PURE__ */ t({name:`time-input`,options:l,state:e=>a(`time`,e),sync:e=>n(`time`,e),api:i,slots:e=>o(e),agent:{actions:[`setValue`,`clear`]}});export{s as createTimeInputController,u as timeInput};

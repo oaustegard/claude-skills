@@ -1,0 +1,1 @@
+function e(e,t,n,r={}){if(n<1||Math.hypot(e,t)<(r.deadZone??18))return-1;let i=(Math.atan2(e,-t)/(2*Math.PI)-(r.start??0)+2)%1;return Math.round(i*n)%n}export{e as t};

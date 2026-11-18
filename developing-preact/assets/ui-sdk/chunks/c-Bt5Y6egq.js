@@ -1,0 +1,1 @@
+import{n as e}from"./c-B7EgSgjQ.js";var t=`\0select-all`,n=e=>e===void 0?t:`${t}:${e}`,r=e=>e.startsWith(t);function i(t,n){return n.startsWith(`\0`)?`${t}-${n.slice(1).replace(/[^\w-]/g,`-`)}`:`${t}-option-${e(n)}`}export{n as i,r as n,i as r,t};

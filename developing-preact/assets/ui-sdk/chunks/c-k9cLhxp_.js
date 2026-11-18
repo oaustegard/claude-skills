@@ -1,0 +1,1 @@
+function e(e,{el:t}){let n=e.target.closest(`input, textarea, select, [contenteditable]:not([contenteditable="false"])`);(!n||n.contains(t??null))&&e.preventDefault()}var t={pointerdown:e,mousedown:e};export{t as n,e as t};

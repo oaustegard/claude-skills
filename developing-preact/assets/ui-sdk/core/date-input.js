@@ -1,0 +1,1 @@
+import{o as e,t}from"../chunks/c-B5VtlymT.js";import{a as n,i as r,n as i,r as a,t as o}from"../chunks/c-BX4VPcPn.js";function s(){return e()}var c=/* @__PURE__ */ t({name:`date-input`,options:r,state:e=>a(`date`,e),sync:e=>n(`date`,e),api:i,slots:e=>o(e),agent:{actions:[`setValue`,`clear`]}});export{s as createDateInputController,c as dateInput};

@@ -1,0 +1,1 @@
+import{t as e}from"./c-CYbt0Exq.js";function t(t){return t.map(({text:t,match:n},r)=>n?/* @__PURE__ */ (0,e.jsx)(`mark`,{children:t},r):t)}function n(e,t){return typeof e==`string`?e:t??``}export{n,t};

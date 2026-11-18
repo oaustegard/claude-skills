@@ -1,0 +1,1 @@
+import{s as e}from"../chunks/c-BAxPgVuz.js";import{o as t,r as n}from"../chunks/c-BOXqiKGJ.js";function r(e,n={}){let{within:r,live:i}=n;return t(r?(t,n)=>{let i=typeof r==`function`?r():r;i&&n.some(e=>i.contains(e.el))&&e(t)}:t=>e(t),i)}function i(e){let t=n(e);return t.find(e=>!t.some(t=>t!==e&&t.contains(e)))??t[0]}export{i as elementOf,r as observe,e as withSource};
