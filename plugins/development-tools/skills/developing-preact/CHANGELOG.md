@@ -2,6 +2,12 @@
 
 All notable changes to the `developing-preact` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.3.0] - 2026-11-18
+
+### Added
+
+- vendor ui-sdk's accessible components for Preact 11
+
 ## [1.2.1] - 2026-09-09
 
 ### Added

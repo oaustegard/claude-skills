@@ -1,8 +1,8 @@
 ---
 name: developing-preact
-description: Specialized Preact development skill for standards-based web applications with native-first architecture and minimal dependency footprint. Use when building Preact projects, particularly those involving data visualization, interactive applications, single-page apps with HTM syntax, Web Components integration, CSV/JSON data parsing, WebGL shader visualizations, or zero-build solutions with vendored ESM imports.
+description: Specialized Preact development skill for standards-based web applications with native-first architecture and minimal dependency footprint. Use when building Preact projects, particularly those involving data visualization, interactive applications, single-page apps with HTM syntax, Web Components integration, CSV/JSON data parsing, WebGL shader visualizations, or zero-build solutions with vendored ESM imports. Also use when a Preact page needs accessible widgets (dialog, menu, select, combobox, tabs, tooltip, popover, toast, date picker, slider, tree); the skill vendors ui-sdk's 55 components built for Preact.
 metadata:
-  version: 1.2.1
+  version: 1.3.0
 ---
 
 # Preact Developer
@@ -28,6 +28,7 @@ Trigger this skill when working on:
 - **Web Components** integration projects
 - **Zero-build prototypes** with CDN-based dependencies
 - **Progressive web applications** emphasizing accessibility and performance
+- **Interactive widgets** with keyboard, focus and ARIA requirements (use ui-sdk, below)
 
 ## Project Type Decision Tree
 
@@ -188,6 +189,25 @@ Use function components with:
 **Avoid**: Inline styles except for dynamic values impossible to express through utilities.
 **Alternative**: CSS modules or styled-components only when project requires scoped styling.
 
+### Accessible Components (ui-sdk)
+
+For any widget with a WAI-ARIA pattern (dialog, popover, menu, menubar, select,
+combobox, autocomplete, listbox, tabs, tooltip, toast, drawer, date picker,
+slider, tree, toolbar and the rest of 55 components), use ui-sdk instead of
+writing focus traps, arrow-key handling and ARIA by hand.
+
+1. Vendor it: `./scripts/vendor.sh ./vendor --ui-sdk` (adds `preact/compat` and
+   `vendor/ui-sdk/`; prints the import map).
+2. Find the component in `references/ui-sdk.md`: one entry per component with
+   what it is for, its module (`ui-sdk/<name>.js`) and its parts.
+3. Before first use, read its Composition section:
+   `./scripts/ui_sdk_docs.sh <name> --section Composition`. Docs are React TSX;
+   the same parts and props work in HTM.
+4. Style by state attributes (`[data-open]`, `[data-highlighted]`,
+   `[data-selected]`) and start the page CSS with `@layer ui-sdk;`.
+
+Requires Preact 11 (`vendor.sh` pins 11.2.0).
+
 ## Dependency Evaluation Framework
 
 Before recommending any external package, verify:
@@ -255,7 +275,8 @@ Start with:
 ### 4. Reference Documentation
 
 Consult bundled references as needed:
-- `references/preact-v10-guide.md` - Comprehensive Preact API reference
+- `references/preact-v10-guide.md` - Comprehensive Preact API reference (written for v10; `vendor.sh` now ships 11, where function components receive `ref` as a prop)
+- `references/ui-sdk.md` - Accessible component catalog and HTM usage
 - `references/architecture-patterns.md` - Advanced patterns and best practices
 
 ### 5. Use Component Patterns
@@ -359,11 +380,15 @@ import { users, isAuthenticated } from './state.js';
 
 ### References (Load as Needed)
 
-- **`references/preact-v10-guide.md`**: Complete Preact v10 API reference covering import maps, HTM syntax, React differences, Signals API, Web Components, SSR, performance patterns, Context, error boundaries, and common gotchas
+- **`references/ui-sdk.md`**: ui-sdk for Preact: setup, writing parts in HTM, state and controllers, styling, and a catalog of all 55 components with their modules and parts
+
+- **`references/preact-v10-guide.md`**: Complete Preact v10 API reference (the vendored version is now 11.2.0) covering import maps, HTM syntax, React differences, Signals API, Web Components, SSR, performance patterns, Context, error boundaries, and common gotchas
   
 - **`references/architecture-patterns.md`**: Advanced patterns including zero-build architecture, state management strategies, data fetching, routing, forms, progressive enhancement, accessibility, performance optimization, testing, and security best practices
 
 ### Assets (Copy into Projects)
+
+- **`assets/ui-sdk/`**: ui-sdk 0.1.0-beta.10 built for Preact 11 as split ES modules (`ui-sdk/<name>.js`, `ui-sdk/core/<name>.js`); copied by `vendor.sh --ui-sdk`
 
 - **`assets/boilerplate.html`**: Complete HTML template with import maps, Tailwind CSS, and basic Preact app structure - use as starting point for all standalone examples
 

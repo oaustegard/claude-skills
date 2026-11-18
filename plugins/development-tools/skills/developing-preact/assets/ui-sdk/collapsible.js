@@ -1,0 +1,1 @@
+"use client";import{n as e}from"./chunks/c-CSK0OQ4h.js";import{collapsible as t,createCollapsibleController as n}from"./core/collapsible.js";var r=e(t,{root:`div`,trigger:`button`,panel:`div`}),i=r.Root,a=r.Trigger,o=r.Panel;export{i as Collapsible,o as CollapsiblePanel,a as CollapsibleTrigger,n as createCollapsibleController};

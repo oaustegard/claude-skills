@@ -1,0 +1,1 @@
+import{t as e}from"./c-BOPJ9oAM.js";import{o as t}from"./c-CSK0OQ4h.js";var n=e.createContext(null),r=e.createContext(!1);function i(){let i=e.useContext(n),a=e.useContext(r);return i?t(i,()=>i.api.internal.scopeIn(a)):void 0}export{r as n,i as r,n as t};

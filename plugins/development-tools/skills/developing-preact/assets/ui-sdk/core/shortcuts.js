@@ -1,0 +1,1 @@
+import{n as e,o as t,u as n}from"../chunks/c-Dr2iCcRB.js";import{n as r,t as i}from"../chunks/c-c9TWY2CF.js";export{e as ariaKeyshortcuts,t as formatShortcut,n as matchesShortcut,i as registerShortcut,r as shortcuts};

@@ -1,0 +1,1 @@
+function e(e,t){return{opening(n,r,i){let a={trigger:e.get().trigger,payload:e.get().payload};return n!==void 0&&e.set({trigger:n}),t(r,i),()=>e.set(a)},handOver(n,r,i){e.set({trigger:n}),t(r,i)},reopening(e,n){return`payload`in e&&t(e.payload,n)}}}export{e as t};
