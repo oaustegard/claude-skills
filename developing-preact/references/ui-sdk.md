@@ -6,7 +6,8 @@ tabs, tooltips, toasts, date pickers, sliders, trees and about 40 more.
 `assets/ui-sdk/` is a build of its React adapter (`@ui-sdk/react`
 0.1.0-beta.10) for Preact 11 through `preact/compat`. It passes 2,868 of the
 2,991 tests in ui-sdk's own React suite, where React passes 2,884; the gap is
-React-only features (below). Source and test results:
+React-only features (below). Every component, running every upstream
+example: https://austegard.com/ai-tools/ui-sdk-preact/. Source and test results:
 https://github.com/oaustegard/experiments/tree/main/ui-sdk-preact
 
 ## When to reach for it
