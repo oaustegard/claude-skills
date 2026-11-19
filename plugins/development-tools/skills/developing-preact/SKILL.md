@@ -2,7 +2,7 @@
 name: developing-preact
 description: Specialized Preact development skill for standards-based web applications with native-first architecture and minimal dependency footprint. Use when building Preact projects, particularly those involving data visualization, interactive applications, single-page apps with HTM syntax, Web Components integration, CSV/JSON data parsing, WebGL shader visualizations, or zero-build solutions with vendored ESM imports. Also use when a Preact page needs accessible widgets (dialog, menu, select, combobox, tabs, tooltip, popover, toast, date picker, slider, tree); the skill vendors ui-sdk's 55 components built for Preact.
 metadata:
-  version: 1.3.0
+  version: 1.3.1
 ---
 
 # Preact Developer
@@ -206,7 +206,8 @@ writing focus traps, arrow-key handling and ARIA by hand.
 4. Style by state attributes (`[data-open]`, `[data-highlighted]`,
    `[data-selected]`) and start the page CSS with `@layer ui-sdk;`.
 
-Requires Preact 11 (`vendor.sh` pins 11.2.0).
+Requires Preact 11 (`vendor.sh` pins 11.2.0). To see a component in action
+before using it: https://austegard.com/ai-tools/ui-sdk-preact/#<name>.
 
 ## Dependency Evaluation Framework
 
