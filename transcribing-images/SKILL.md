@@ -2,7 +2,7 @@
 name: transcribing-images
 description: "Reads the visual content of slides, pages, and images the way a human would, not just their embedded text. Use when a PPTX or PDF has image slides, screenshots, charts, scanned figures, or flattened-to-image layouts that the built-in pptx/pdf skills read as empty; when asked to transcribe, describe, OCR, or extract what is shown in an image, slide deck, or document page; or when embedded-text extraction returned little or nothing from a visually rich file. Triggers on 'read this deck', 'what's on these slides', 'transcribe', 'OCR', 'extract text from image', 'describe this chart/diagram', .pptx/.pdf/.png/.jpg with visual content."
 metadata:
-  version: 0.3.0
+  version: 0.3.1
 ---
 
 # Transcribing Images
@@ -52,19 +52,21 @@ The transcription core and its empirical cost/recall data are reused from
 `browsing-bluesky/scripts/image_transcribe.py` — same registry, kept in sync.
 Pick with `--model`:
 
-- `gemini-lite` (default) — gemini-3.5-flash-lite. Cheapest and fastest,
-  ~$0.0009 and ~2s per page; read every token of the 2026-11-20 test
-  screenshots. Right for routine deck reading.
+- `gemini-lite` (default) — gemini-3.5-flash-lite. Cheapest and fastest:
+  ~$0.0009 and ~2s per image on 3 synthetic terminal screenshots (2026-11-20),
+  where it read every token. Dense slides cost more. Right for routine deck
+  reading.
 - `gemini-flash` — gemini-4-hydrogen at thinking level `low`. About 8x the cost
   and 3x the latency of lite. Use when a page needs interpretation, not just
-  reading. (`gemini-3.5-flash` is accepted as an old name for it.)
+  reading. (`--model gemini-3.5-flash` also runs gemini-4-hydrogen: the 3.5
+  Flash model is retired, and the name is kept so existing commands work.)
 - `opus` — for interactive sessions where you want the reading in your own
   context anyway.
 - `haiku` — only if constrained to single-vendor Anthropic; weak at dense
   transcription (tends to summarize instead of transcribe). That finding is from
-  Haiku 4.5; the alias now resolves to `claude-haiku-5-5` and has not been re-measured.
+  Haiku 4.5; the alias calls `claude-haiku-5-5`, which has not been measured.
 
-Default to `gemini-lite` and escalate only when recall or reasoning demands it.
+Default to `gemini-lite`. Move to `gemini-flash` when a page needs interpreting, and to `opus` when the reading belongs in an interactive conversation.
 
 ## OCR fallback (tesseract)
 
