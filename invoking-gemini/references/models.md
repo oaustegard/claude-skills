@@ -129,12 +129,14 @@ the CF gateway on 2026-11-20 (`generate_image(model="image")`).
 
 #### nano-banana-2
 
-**Status:** GA on Vertex AI. The Gemini Developer API, which this client calls, serves it under the `-preview` ID below.
-**API Model ID:** `gemini-3.1-flash-image-preview`
-**Alias:** `image`
+**Status:** GA. Verified live 2026-11-20; the old `gemini-3.1-flash-image-preview` ID also still works.
+**API Model ID:** `gemini-3.1-flash-image`
+**Alias:** `nano-banana-2`
+**Pricing:** $0.50 / 1M input, $3 / 1M text output, $60 / 1M image output
+(about $0.045 per 0.5K image, $0.067 per 1K, $0.101 per 2K, $0.151 per 4K).
 
-Fast generation/editing on the Gemini 3.1 Flash Image platform. Default image
-model in `generate_image()`. Capabilities on the Developer API:
+Fast generation/editing on the Gemini 3.1 Flash Image platform (superseded by
+nano-banana-2.1 as the `image` default). Capabilities on the Developer API:
 - Output resolutions: 512 (0.5K), 1K, 2K generally available; 4K in preview.
   512 is 3.1-Flash-only.
 - Up to 14 reference images (up to 10 high-fidelity objects + up to 4 characters).
@@ -150,9 +152,11 @@ image generation — don't route video here.
 
 #### nano-banana-pro
 
-**Status:** GA on Vertex; Developer API still serves it as `-preview` (this client's surface)
-**API Model ID:** `gemini-3-pro-image-preview`
+**Status:** GA. Verified live 2026-11-20; the old `gemini-3-pro-image-preview` ID also still works.
+**API Model ID:** `gemini-3-pro-image`
 **Alias:** `image-pro`
+**Pricing:** $2 / 1M input, $12 / 1M text output, $120 / 1M image output
+(about $0.134 per 1K/2K image, $0.24 per 4K).
 
 High-fidelity generation on the Gemini 3 Pro Image platform — legible stylized
 text rendering and professional asset production. The model always reasons before drawing.
@@ -176,6 +180,7 @@ True no-thinking pass (minimal)?           → gemini-3.5-flash-lite
 Pin to previous-generation Flash?          → gemini-3.8-flash (alias: flash-3.8)
 Image generation?                          → nano-banana-2.1 (alias: image)
 Image generation (high-fidelity)?          → nano-banana-pro (alias: image-pro)
+Image generation (lowest cost/latency)?    → nano-banana-2-lite
 Speech?                                    → gemini-3.8-flash-tts (alias: tts)
 ```
 
@@ -255,9 +260,10 @@ Old aliases `flash-3.7`, `flash-3.6`, `flash-3.5`, `flash-3`, `stable-flash`
 and `stable-pro` reroute the same way. Speech previews
 `gemini-3.1-flash-tts-preview` and `gemini-2.5-*-preview-tts` will shut down on
 2026-12-18 (replacement: `gemini-3.8-flash-tts` / `-lite-tts`).
-`gemini-3.1-flash-image-preview` and `gemini-3-pro-image-preview` (the
-`nano-banana-2` and `nano-banana-pro` IDs) are still served; Google's docs list
-GA IDs `gemini-3.1-flash-image` and `gemini-3-pro-image`; those have not been tested against this client.
+`gemini-3.1-flash-image-preview` and `gemini-3-pro-image-preview` are listed
+for shutdown but still generate images (verified 2026-11-20). `nano-banana-2`
+and `nano-banana-pro` now use the GA IDs `gemini-3.1-flash-image` and
+`gemini-3-pro-image`, which also generate (verified 2026-11-20).
 
 ## Cost Optimization Tips
 

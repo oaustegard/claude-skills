@@ -28,6 +28,12 @@
   on 2026-11-20.
 - Cost note: Carbon and Argon are $2 / $10 only through 2026-11-30, then
   $4 / $20. 3.8 Flash is $0.75 / $3.75 through 2026-12-31, then $1.50 / $7.50.
+- Image IDs: `nano-banana-2` and `nano-banana-pro` now use the GA IDs
+  `gemini-3.1-flash-image` and `gemini-3-pro-image` (Google lists the -preview
+  IDs for shutdown). Added `nano-banana-2-lite` (`gemini-3.1-flash-lite-image`,
+  $0.25 in, $0.034 per 1K image). All six image IDs, preview and GA, returned
+  an image through the CF gateway on 2026-11-20. Corrected the input prices:
+  nano-banana-2 is $0.50 / 1M, not $0.25.
 - Not changed: speech models (3.8 Flash TTS and Flash-Lite TTS are current).
   Gemini Decision 1 (Decisions API), Omni (video) and Live are not wired in.
 
@@ -176,12 +182,6 @@ input, and got the pitch direction wrong both times.
 
 
 All notable changes to the `invoking-gemini` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
-
-## [0.10.0] - 2026-11-20
-
-### Other
-
-- invoking-gemini: Gemini 4 (Hydrogen/Neon/Carbon/Argon) default; retire 3.5-3.7 Flash, 3.1 Pro, 2.5, nano-banana
 
 ## [0.9.0] - 2026-09-24
 
