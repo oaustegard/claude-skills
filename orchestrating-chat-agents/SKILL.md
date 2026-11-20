@@ -2,7 +2,7 @@
 name: orchestrating-chat-agents
 description: Fans Claude work out over the Anthropic API from surfaces with no native subagents, chiefly claude.ai chat and projects, with parallel calls with a shared cached context, streaming, long-lived conversation threads with cached history, and named agent pools; also delegates to Gemini through the Cloudflare AI Gateway on any surface. Use for multi-perspective analysis, a panel of reviewers, or task decomposition from claude.ai, or for Python code that calls several Claude instances concurrently over the API.
 metadata:
-  version: 1.1.0
+  version: 1.1.1
 ---
 
 ## SURFACE ROUTING — read first
@@ -63,14 +63,17 @@ and for a genuinely independent second opinion in a judge panel — a different
 model family fails differently, which is the whole point of a panel.
 
 Call mechanics live in **`invoking-gemini`**; do not duplicate them here. Three
-things that bite:
+things to know:
 
-- The default model is `gemini-4-hydrogen` (the `flash` alias). Use
-  `gemini-3.5-flash-lite` (`lite`) for bulk extraction and classification.
+- `invoking-gemini`'s default model is `gemini-4-hydrogen`, Google's current
+  default; its `flash` alias points there too. Use `gemini-3.5-flash-lite`
+  (`lite`) for bulk extraction and classification.
 - `thinking_level` is a string in `{minimal, low, medium, high, xhigh}`.
   Hydrogen defaults to `high`, so set `low` for mechanical generation or the
   model silently spends its output budget reasoning — symptom is an empty or
-  truncated response. Only `lite` accepts `minimal`.
+  truncated response. Only `lite` accepts `minimal`; on other models
+  `invoking-gemini` sends `low` instead (a raw API call gets HTTP 400). `xhigh`
+  works on Hydrogen and Neon.
 - Credentials come from the CF AI Gateway config, BYOK. Requests route through
   the gateway rather than Google directly.
 
