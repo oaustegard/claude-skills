@@ -2,6 +2,11 @@
 
 Detailed information about available Gemini models (verified against Google's model, pricing and deprecation pages on 2026-11-20).
 
+"The client" is `scripts/gemini_client.py`. "The CF gateway" is the Cloudflare
+AI Gateway it sends requests through when `proxy.env` credentials exist
+(otherwise it calls Google directly). Google's pages: `ai.google.dev/gemini-api/docs/`
+`models`, `pricing`, `deprecations`, `choosing-a-model`.
+
 ## Model Comparison
 
 ### Gemini 4 — current generation (default: Hydrogen)
@@ -9,7 +14,7 @@ Detailed information about available Gemini models (verified against Google's mo
 All four share a 1M unified context window (input + output), 64K default
 output (up to 1M with long decode), text/image/audio/video/PDF input, text
 output, and the same request schema. Google's routing guide
-(`/docs/choosing-a-model`, fetched 2026-11-20): Hydrogen by default, Neon for
+(ai.google.dev/gemini-api/docs/choosing-a-model, fetched 2026-11-20): Hydrogen by default, Neon for
 complex high-frequency work, Carbon for the hardest problems, 3.5 Flash-Lite
 for high-volume text. Implicit caching only; explicit caching is not supported.
 
@@ -27,25 +32,24 @@ and Argon also reject `xhigh`. The client downgrades both and says so on stderr.
 
 - **Hydrogen** — everyday coding, interactive apps, tool-using agents,
   multimodal documents. Google reports >5x fewer fabricated claims than 3.8
-  Flash and parallel batching of read/search tool calls. Same sticker price as
-  3.8 Flash from 2027-01-01; 2x during 3.8's intro pricing.
+  Flash.
 - **Neon** — between Hydrogen and Carbon: deeper reasoning than Hydrogen, faster
   and fewer output tokens than Carbon. Multi-file coding, dense knowledge work.
 - **Carbon** — strongest reasoning; spends the most thinking tokens to verify
   edge cases. Architecture, multi-file debugging, proofs, security audits.
 - **Argon** — the efficient Gemini 4 reasoning model: faster, lower token spend
-  per turn than Carbon, same price. Listed on the models page but absent from
-  Google's choosing guide.
+  per turn than Carbon, same price.
 
-The Pro-tier stance (Oskar, 2026-09-03: Pareto efficiency) carries over:
-`pro` resolves to Hydrogen, and "maximum reasoning" means Hydrogen with
+No Gemini 4 model is called "Pro", and the old `gemini-3.1-pro-preview` costs
+several times as much as Hydrogen for less benefit on coding and agentic tasks.
+So `pro` resolves to Hydrogen, and "maximum reasoning" means Hydrogen with
 `thinking_level='xhigh'`. Neon and Carbon are opt-in by name.
 
-### Gemini 3.x — kept models
+### Gemini 3.x models still offered
 
 | Model | Alias | Input/1M | Output/1M | Notes |
 |---|---|---|---|---|
-| gemini-3.8-flash | `flash-3.8` | $0.75 → $1.50 | $3.75 → $7.50 | Previous-generation Flash (GA 2026-09-02); the one pinned fallback. Intro price through 2026-12-31. No `minimal`. Google's replacement target for 3.7 and 2.5 Pro. |
+| gemini-3.8-flash | `flash-3.8` | $0.75 → $1.50 | $3.75 → $7.50 | Previous-generation Flash (GA 2026-09-02), for callers that need to stay on it; nothing falls back to it automatically. Intro price through 2026-12-31. No `minimal`. |
 | gemini-3.5-flash-lite | `lite` | $0.30 | $2.50 | **Bulk tier.** GA 2026-07-21. Lowest-cost general model, 350 output tok/s, accepts `minimal` (the only text model here that does). Google's replacement for 2.5 Flash and 3.1 Flash-Lite. Free tier. |
 
 ### Speech Generation Models (TTS)
@@ -112,8 +116,8 @@ Also available and not yet wired into this client: `gemini-3.1-flash-lite-image`
 
 **API Model ID:** `gemini-nano-banana-2.1` (alias: `image`, default)
 
-Update to Nano Banana 2, released with the Gemini 4 line. Flash-level speed and
-cost with better visual quality, text rendering and infographic layout,
+Fast, low-cost image generation and conversational editing, released with the
+Gemini 4 line as the update to Nano Banana 2. Better visual quality, text rendering and infographic layout,
 multi-turn character consistency (up to 4 characters / 10 objects across 14
 reference images), no tiling artifacts on wide aspect ratios, grounding with
 Web and Image Search, and configurable thinking (`minimal`, `medium` default,
@@ -125,7 +129,7 @@ the CF gateway on 2026-11-20 (`generate_image(model="image")`).
 
 #### nano-banana-2
 
-**Status:** GA on Vertex; Developer API still serves it as `-preview` (this client's surface)
+**Status:** GA on Vertex AI. The Gemini Developer API, which this client calls, serves it under the `-preview` ID below.
 **API Model ID:** `gemini-3.1-flash-image-preview`
 **Alias:** `image`
 
@@ -151,7 +155,7 @@ image generation — don't route video here.
 **Alias:** `image-pro`
 
 High-fidelity generation on the Gemini 3 Pro Image platform — legible stylized
-text rendering and professional asset production via advanced "thinking."
+text rendering and professional asset production. The model always reasons before drawing.
 Capabilities:
 - Output resolutions: 1K, 2K generally available; 4K in preview.
 - Up to 14 reference images (up to 6 high-fidelity objects + up to 5 characters).
@@ -163,14 +167,13 @@ Capabilities:
 
 ```
 Default (everyday coding, agents, docs)?   → gemini-4-hydrogen (alias: flash)
-Maximum reasoning on a budget?             → gemini-4-hydrogen, thinking_level='xhigh' (alias: pro)
+Maximum reasoning, lowest cost?            → gemini-4-hydrogen, thinking_level='xhigh' (alias: pro)
 Harder / multi-file, still fast?           → gemini-4-neon (alias: neon)
 Hardest problems, verification-heavy?      → gemini-4-carbon (alias: carbon)
 Carbon-class, fewer tokens per turn?       → gemini-4-argon (alias: argon)
 Routine / bulk / cheap / fastest?          → gemini-3.5-flash-lite (alias: lite)
 True no-thinking pass (minimal)?           → gemini-3.5-flash-lite
 Pin to previous-generation Flash?          → gemini-3.8-flash (alias: flash-3.8)
-Label / route / score for code to branch on? → Gemini Decision 1 (Decisions API; not wired into this client)
 Image generation?                          → nano-banana-2.1 (alias: image)
 Image generation (high-fidelity)?          → nano-banana-pro (alias: image-pro)
 Speech?                                    → gemini-3.8-flash-tts (alias: tts)
@@ -181,7 +184,7 @@ Speech?                                    → gemini-3.8-flash-tts (alias: tts)
 Gemini 3.x and 4 models reason before responding, spending output tokens on
 thinking before the visible answer. The parameter is the string enum
 `thinking_level` ∈ {`minimal`, `low`, `medium`, `high`, `xhigh`}; the old
-integer `thinking_budget` is gone. Which levels each model takes (verified live
+integer `thinking_budget` is not supported. Which levels each model takes (verified live
 2026-11-20):
 
 | Model | `minimal` | `xhigh` | Default |
@@ -190,15 +193,15 @@ integer `thinking_budget` is gone. Which levels each model takes (verified live
 | gemini-4-neon | HTTP 400 → `low` | accepted | high |
 | gemini-4-carbon | HTTP 400 → `low` | HTTP 400 → `high` | medium |
 | gemini-4-argon | HTTP 400 → `low` | HTTP 400 → `high` | medium |
-| gemini-3.8-flash | HTTP 400 → `low` | not tested | medium |
-| gemini-3.5-flash-lite | accepted | not tested | minimal |
+| gemini-3.8-flash | HTTP 400 → `low` | untested; sent as-is, expect HTTP 400 | medium |
+| gemini-3.5-flash-lite | accepted | untested; sent as-is, expect HTTP 400 | minimal |
 
 `→` is the client's automatic downgrade; it prints a note to stderr.
 
 The Python client exposes this as `invoke_gemini(..., thinking_level="...")`.
 Pass `None` (default) to let the model use its built-in default.
 
-**When to set `thinking_level='minimal'`:**
+**When to set the lowest level (`minimal` on `lite`, `low` on every other model):**
 - Transcription, OCR, image-to-text
 - Classification, tagging, extraction with a fixed schema
 - Any task where the LLM doesn't need to reason — it just needs to emit
@@ -226,9 +229,10 @@ on Flash-tier models.
 
 ## Deprecated / Retired Models
 
-The client keeps every ID below callable by rewriting it to the replacement and
-printing a note to stderr (`RETIRED_MODELS`, `RETIRED_IMAGE_MODELS`). Retired
-2026-11-20 unless noted.
+"Google status" is what Google's deprecations page says. "Client routes to" is
+what `scripts/gemini_client.py` does: IDs with a target are rewritten to it and
+a note goes to stderr (`RETIRED_MODELS`, `RETIRED_IMAGE_MODELS`). IDs with "—"
+are not in those maps, so the client rejects them as an invalid model.
 
 | Model | Google status (2026-11-20) | Client routes to |
 |---|---|---|
@@ -242,18 +246,18 @@ printing a note to stderr (`RETIRED_MODELS`, `RETIRED_IMAGE_MODELS`). Retired
 | gemini-2.5-flash | Deprecated; auto-routes to 3.5 Flash-Lite on 2026-12-01 | gemini-3.5-flash-lite |
 | gemini-2.5-flash-lite | Not deprecated, but a 2025-era model | gemini-3.5-flash-lite |
 | `nano-banana` (gemini-2.5-flash-image) | Shutdown 2026-10-02 | nano-banana-2.1 |
-| gemini-3-pro-preview | Retired 2026-03-09 | gemini-3.1-pro-preview → gemini-4-neon |
-| gemini-3.1-flash-lite-preview | Retired 2026-05-25 | gemini-3.5-flash-lite |
-| gemini-2.0-flash(-lite)(-exp) | Retired 2026-06-01 | gemini-3.5-flash-lite |
+| gemini-3-pro-preview | Retired 2026-03-09 | — |
+| gemini-3.1-flash-lite-preview | Retired 2026-05-25 | — |
+| gemini-2.0-flash(-lite)(-exp) | Retired 2026-06-01 | — |
 | gemini-1.5-*, gemini-1.0-* | Retired (404) | — |
 
 Old aliases `flash-3.7`, `flash-3.6`, `flash-3.5`, `flash-3`, `stable-flash`
 and `stable-pro` reroute the same way. Speech previews
-`gemini-3.1-flash-tts-preview`, `gemini-2.5-*-preview-tts` shut down
+`gemini-3.1-flash-tts-preview` and `gemini-2.5-*-preview-tts` will shut down on
 2026-12-18 (replacement: `gemini-3.8-flash-tts` / `-lite-tts`).
 `gemini-3.1-flash-image-preview` and `gemini-3-pro-image-preview` (the
 `nano-banana-2` and `nano-banana-pro` IDs) are still served; Google's docs list
-GA IDs `gemini-3.1-flash-image` and `gemini-3-pro-image`, not yet probed here.
+GA IDs `gemini-3.1-flash-image` and `gemini-3-pro-image`; those have not been tested against this client.
 
 ## Cost Optimization Tips
 
