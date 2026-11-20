@@ -2,6 +2,12 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.15.0] - 2026-11-20
+
+### Other
+
+- declauding 0.15.0: Gemini reviewer gemini-3.6-flash -> gemini-4-hydrogen; API key in header, not URL
+
 ## [0.14.0] - 2026-11-10
 
 ### Other

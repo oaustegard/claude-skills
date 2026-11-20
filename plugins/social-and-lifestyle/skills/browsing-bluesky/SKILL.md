@@ -2,7 +2,7 @@
 name: browsing-bluesky
 description: Browse Bluesky content via API and firehose - search posts, fetch user activity, sample trending topics, read feeds and lists, analyze and categorize accounts. Supports authenticated access for personalized feeds. Use for Bluesky research, user monitoring, trend analysis, feed reading, firehose sampling, account categorization.
 metadata:
-  version: 0.7.1
+  version: 0.8.0
 ---
 
 # Browsing Bluesky
@@ -211,17 +211,13 @@ transcription via the `transcribe` parameter on any post-fetch function
 
 ```python
 # Routine/bulk work (zeitgeist, inbox review, news scans) —
-# gemini-2.5-flash-lite is the recommended default. Cheapest production
-# model anywhere ($0.10/$0.40 per 1M tokens), ~95% accuracy on dense
-# screenshots in May 2026 benchmarks:
+# gemini-lite (gemini-3.5-flash-lite) is the recommended default,
+# ~$0.0009 per image:
 posts = get_user_posts("ayourtch.bsky.social", limit=40, transcribe="gemini-lite")
 
-# Token-perfect transcription, still cheap:
+# Gemini 4 Hydrogen at thinking_level='low' — for images whose content needs
+# reasoning, not just reading (~8x lite):
 posts = get_user_posts(..., transcribe="gemini-flash")
-
-# Frontier model with thinking_level=minimal — for cases where the image
-# content needs reasoning, not just transcription:
-posts = get_user_posts(..., transcribe="gemini-3.5-flash")
 
 # Anthropic single-vendor option (note: empirically weaker prompt-following
 # than Gemini on dense transcription — Haiku tends to summarize rather
@@ -241,19 +237,21 @@ never transcribed (the author already described the image; trust it).
 Only images with missing or empty alt are sent to the model. Network or
 API failures leave `transcription` as `None`; callers degrade silently.
 
-**Cost/quality empirics** (May 2026, n=3 dense terminal screenshots, single
-run each — sample size is small, treat as directional):
+**Cost/quality empirics.** Gemini rows were re-measured 2026-11-20 on 3 synthetic
+terminal and table screenshots, one run each. Both Gemini models read every token
+(100% recall), so this set separates them on cost and speed, not accuracy. The
+`haiku` and `opus` rows are from May 2026, measured on Haiku 4.5 and Opus 4.7 with
+real dense screenshots; the aliases now resolve to `claude-haiku-5-5` and
+`claude-opus-5-5`, which have not been re-measured.
 
-| Alias | Latency | $/image | Chord-token recall |
-|---|---|---|---|
-| `gemini-lite` | ~8s | ~$0.001 | 95% |
-| `gemini-flash` | ~10s | ~$0.003 | 100% |
-| `gemini-3.5-flash` | ~10s | ~$0.014 | 100% |
-| `haiku` | ~7s | ~$0.008 | 18% (summarizes) |
-| `opus` | ~20s | ~$0.12 | 91% |
+| Alias | Model | Latency | $/image | Token recall |
+|---|---|---|---|---|
+| `gemini-lite` | gemini-3.5-flash-lite | ~2s | ~$0.0009 | 100% |
+| `gemini-flash` | gemini-4-hydrogen | ~6s | ~$0.007 | 100% |
+| `haiku` | claude-haiku-5-5 | ~7s | ~$0.008 | 18% (summarizes) |
+| `opus` | claude-opus-5-5 | ~20s | ~$0.12 | 91% |
 
-The `haiku` and `opus` rows were measured on Haiku 4.5 and Opus 4.7. The aliases now
-resolve to `claude-haiku-5-5` and `claude-opus-5-5`; those rows have not been re-measured.
+`gemini-3.5-flash` is accepted as an old name for `gemini-flash`.
 
 Requires either `ANTHROPIC_API_KEY` (or `API_KEY` in `/mnt/project/claude.env`)
 for the `haiku` / `opus` aliases, or CF AI Gateway credentials in

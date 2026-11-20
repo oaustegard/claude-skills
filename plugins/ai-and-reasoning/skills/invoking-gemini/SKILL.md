@@ -2,7 +2,7 @@
 name: invoking-gemini
 description: Invokes Google Gemini models for structured outputs, image generation, text-to-speech narration, multi-modal tasks, and Google-specific features. Use when users request Gemini, image generation, Gemini TTS or a synthesized voice, structured JSON output, Google API integration, or cost-effective parallel processing.
 metadata:
-  version: 0.10.0
+  version: 0.11.0
 ---
 
 # Invoking Gemini

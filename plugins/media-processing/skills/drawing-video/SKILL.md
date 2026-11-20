@@ -2,7 +2,7 @@
 name: drawing-video
 description: "Turn a short video into a narrated comic strip. Use when the user uploads a video (.mov/.mp4/etc.) and asks to make a comic from it, narrate it, draw it, Attenborough it, storyboard the clip, or otherwise wants a stills-plus-narration comic strip derived from footage. Covers probing and extracting frames, GROUNDING the actual storyline (native Gemini video parse or frame reading), composing narration in a chosen voice, generating comic panels with Gemini image models anchored to the real stills, QA-ing the panels, and compositing a titled strip. Do NOT use for plain video transcoding or trimming (that is processing-video) or for original illustration from a text prompt (that is invoking-gemini)."
 metadata:
-  version: 1.0.1
+  version: 1.1.0
 ---
 
 # drawing-video
@@ -33,9 +33,9 @@ For a subject hidden in clutter, pull a few full-res frames at specific timestam
 
 Two ways to ground. **Prefer Mode B** — it is the more reliable and reads the whole clip, not sampled stills.
 
-### Mode B (recommended): native video understanding via gemini-3.5-flash
+### Mode B (recommended): native video understanding via gemini-4-hydrogen
 
-`gemini-3.5-flash` parses video directly. Compress first, send as inline data.
+`gemini-4-hydrogen` parses video directly (verified 2026-11-20 on a 4 s test clip). Compress first, send as inline data.
 
 ```bash
 ffmpeg -v error -i in.mov -vf "scale=480:-2,fps=8" -c:v libx264 -crf 30 -preset veryfast -an small.mp4
@@ -50,13 +50,13 @@ b = base64.b64encode(Path("small.mp4").read_bytes()).decode()
 prompt = ("Watch this video and describe the actual storyline in 3-4 sentences: which "
           "subjects appear, what happens, the arc. Be literal — only what is visibly present.")
 contents = [{"parts": [{"inlineData": {"mimeType": "video/mp4", "data": b}}, {"text": prompt}]}]
-resp = _cf_request("gemini-3.5-flash", contents,
-                   {"temperature": 0.3, "thinkingConfig": {"thinkingLevel": "minimal"},
+resp = _cf_request("gemini-4-hydrogen", contents,
+                   {"temperature": 0.3, "thinkingConfig": {"thinkingLevel": "low"},
                     "maxOutputTokens": 600}, c)
 print("".join(p.get("text","") for p in resp["candidates"][0]["content"]["parts"]))
 ```
 
-Inline works for small files (verified: a 22s 4K clip compressed to 2.3 MB). For long clips, sample frames (below) or use the File API. `gemini-2.5-flash-image` is not a parser — this is `gemini-3.5-flash` (text/multimodal).
+Inline works for small files (verified: a 22s 4K clip compressed to 2.3 MB). For long clips, sample frames (below) or use the File API. `gemini-2.5-flash-image` is not a parser — this is `gemini-4-hydrogen` (text/multimodal). Gemini 4 rejects `thinkingLevel: "minimal"` with HTTP 400, so `low` is the floor; `_cf_request` sends it unchanged.
 
 ### Mode A: read the frames yourself
 
@@ -108,7 +108,7 @@ Run panels detached and adaptive-wait — `bash_tool` times out at ~50s and imag
 from gemini_client import invoke_gemini
 invoke_gemini(prompt=("QA this comic panel. JSON only: setting, subject, deer, "
    "deer_spotted_fawn (true only if white baby spots), caption (verbatim), palette."),
-   model="flash", image_path="panel_1.png", max_output_tokens=500, thinking_level="minimal")
+   model="flash", image_path="panel_1.png", max_output_tokens=500, thinking_level="low")
 ```
 
 Check per panel: subjects match the grounded storyline, setting/subject consistent across panels, captions verbatim with **no stray text and no doubled words** (Gemini has repeated a word, e.g. "and and"), creatures correct (adult vs fawn). Regenerate only the panels that fail — single-panel regen is cheap. For a one-shot page, QA the whole page the same way. (Note: the vision QA reports your own title/subtitle as "stray text" — that is expected, not a defect.)
