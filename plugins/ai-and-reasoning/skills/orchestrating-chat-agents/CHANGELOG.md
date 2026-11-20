@@ -2,6 +2,12 @@
 
 All notable changes to the `orchestrating-chat-agents` skill (formerly `orchestrating-agents`) are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.1.1] - 2026-11-20
+
+### Other
+
+- orchestrating-chat-agents 1.1.1: say what minimal and xhigh do on each Gemini model
+
 ## [1.1.0] - 2026-11-20
 
 ### Other

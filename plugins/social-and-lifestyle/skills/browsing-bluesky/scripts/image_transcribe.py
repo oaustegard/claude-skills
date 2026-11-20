@@ -19,7 +19,7 @@ and speed, not accuracy differences:
 
 Pick `'gemini-lite'` for routine work. Pick `'gemini-flash'` when the image needs
 interpretation as well as reading; it costs about 8x lite. `'gemini-3.5-flash'`
-is accepted as an old name for `'gemini-flash'`. `'opus'` is for interactive
+also runs gemini-4-hydrogen (that model is retired; the name is kept for callers). `'opus'` is for interactive
 contexts where conversation history matters, and `'haiku'` only for a
 single-vendor Anthropic deployment. The haiku and opus rows are from May 2026 on
 Haiku 4.5 and Opus 4.7 and have not been re-measured.

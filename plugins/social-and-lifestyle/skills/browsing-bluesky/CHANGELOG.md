@@ -25,6 +25,12 @@
 
 All notable changes to the `browsing-bluesky` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.1] - 2026-11-20
+
+### Other
+
+- browsing-bluesky 0.8.1: split transcription empirics by test set, define token recall, say what gemini-3.5-flash runs
+
 ## [0.8.0] - 2026-11-20
 
 ### Other

@@ -2,6 +2,12 @@
 
 All notable changes to the `transcribing-images` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.3.1] - 2026-11-20
+
+### Other
+
+- transcribing-images 0.3.1: describe the test set, clarify the gemini-3.5-flash name and when to escalate
+
 ## [0.3.0] - 2026-11-20
 
 ### Other
