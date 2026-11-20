@@ -156,11 +156,12 @@ def _load_env_file(name: str) -> dict:
     return {}
 
 
-# Adversary model. Was gemini-3.1-pro-preview until 2026-09-03; the Pro tier is
-# off routing (Oskar: its price/quality is dominated by the later Flash models).
-# Maximum reasoning on Flash is thinking_level='high', set in _gemini_raw.
-GEMINI_MODEL = 'gemini-3.8-flash'
-GEMINI_THINKING_LEVEL = 'high'
+# Adversary model. Gemini 4 Hydrogen since 2026-11-20 (was gemini-3.8-flash; before
+# 2026-09-03, gemini-3.1-pro-preview). The Pro tier stays off routing (Oskar: its
+# price/quality is dominated by the Flash line), so maximum reasoning is Hydrogen
+# at thinking_level='xhigh', set in _gemini_raw.
+GEMINI_MODEL = 'gemini-4-hydrogen'
+GEMINI_THINKING_LEVEL = 'xhigh'
 
 
 def _get_gemini_config() -> tuple:
@@ -177,8 +178,8 @@ def _get_gemini_config() -> tuple:
     # Direct Google API
     key = os.environ.get('GOOGLE_API_KEY')
     if key:
-        url = f'https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={key}'
-        return url, {'Content-Type': 'application/json'}
+        url = f'https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent'
+        return url, {'Content-Type': 'application/json', 'x-goog-api-key': key}
 
     raise ValueError('No Gemini credentials found. Set CF_ACCOUNT_ID/CF_GATEWAY_ID/CF_API_TOKEN or GOOGLE_API_KEY.')
 
