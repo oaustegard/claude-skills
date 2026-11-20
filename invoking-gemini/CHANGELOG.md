@@ -183,6 +183,15 @@ input, and got the pitch direction wrong both times.
 
 All notable changes to the `invoking-gemini` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.11.0] - 2026-11-20
+
+### Other
+
+- invoking-gemini 0.11.0: ship post-0.10.0 fixes (GA image ids, nano-banana-2-lite, doc corrections)
+- invoking-gemini: clarify image model choice, reconcile image tables, separate client routing from Google status
+- invoking-gemini: image models use GA IDs (verified live), add nano-banana-2-lite, correct image prices
+- invoking-gemini: fresh-eyes doc fixes (define client/gateway, explain Pro-alias reason, fix retired-table and thinking-level wording)
+
 ## [0.9.0] - 2026-09-24
 
 ### Other

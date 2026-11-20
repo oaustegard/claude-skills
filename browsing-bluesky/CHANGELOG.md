@@ -25,6 +25,12 @@
 
 All notable changes to the `browsing-bluesky` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.0] - 2026-11-20
+
+### Other
+
+- browsing-bluesky 0.8.0: transcription off retired Gemini models (gemini-lite -> 3.5-flash-lite, gemini-flash -> 4-hydrogen), re-measured
+
 ## [0.7.1] - 2026-10-11
 
 ### Other

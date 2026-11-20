@@ -2,6 +2,12 @@
 
 All notable changes to the `challenging` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.14.0] - 2026-11-20
+
+### Other
+
+- challenging 0.14.0: adversary gemini-3.8-flash -> gemini-4-hydrogen at xhigh; API key in header, not URL
+
 ## [0.13.0] - 2026-10-07
 
 ### Other
