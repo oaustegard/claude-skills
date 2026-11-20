@@ -2,7 +2,7 @@
 name: transcribing-images
 description: "Reads the visual content of slides, pages, and images the way a human would, not just their embedded text. Use when a PPTX or PDF has image slides, screenshots, charts, scanned figures, or flattened-to-image layouts that the built-in pptx/pdf skills read as empty; when asked to transcribe, describe, OCR, or extract what is shown in an image, slide deck, or document page; or when embedded-text extraction returned little or nothing from a visually rich file. Triggers on 'read this deck', 'what's on these slides', 'transcribe', 'OCR', 'extract text from image', 'describe this chart/diagram', .pptx/.pdf/.png/.jpg with visual content."
 metadata:
-  version: 0.2.1
+  version: 0.3.0
 ---
 
 # Transcribing Images
@@ -52,13 +52,12 @@ The transcription core and its empirical cost/recall data are reused from
 `browsing-bluesky/scripts/image_transcribe.py` — same registry, kept in sync.
 Pick with `--model`:
 
-- `gemini-lite` (default) — cheapest and fastest, ~95% token recall on dense
+- `gemini-lite` (default) — gemini-3.5-flash-lite. Cheapest and fastest,
+  ~$0.0009 and ~2s per page; read every token of the 2026-11-20 test
   screenshots. Right for routine deck reading.
-- `gemini-flash` — token-perfect, ~3x the cost. Use when exact text matters.
-- `gemini-3.5-flash` — heavier reasoning alongside transcription, ~19x cost.
-  Use when a page needs interpretation, not just reading. Check
-  `invoking-gemini`'s model table for the current frontier Flash before
-  assuming this is still the strongest reasoning tier available.
+- `gemini-flash` — gemini-4-hydrogen at thinking level `low`. About 8x the cost
+  and 3x the latency of lite. Use when a page needs interpretation, not just
+  reading. (`gemini-3.5-flash` is accepted as an old name for it.)
 - `opus` — for interactive sessions where you want the reading in your own
   context anyway.
 - `haiku` — only if constrained to single-vendor Anthropic; weak at dense

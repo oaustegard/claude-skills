@@ -178,9 +178,9 @@ def _transcribe_vision(path: str, model_alias: str, max_tokens: int,
         _MODEL_REGISTRY = {
             "haiku": ("anthropic", "claude-haiku-5-5"),
             "opus": ("anthropic", "claude-opus-5-5"),
-            "gemini-lite": ("gemini", "gemini-2.5-flash-lite"),
-            "gemini-flash": ("gemini", "gemini-2.5-flash"),
-            "gemini-3.5-flash": ("gemini", "gemini-3.5-flash"),
+            "gemini-lite": ("gemini", "gemini-3.5-flash-lite"),
+            "gemini-flash": ("gemini", "gemini-4-hydrogen"),
+            "gemini-3.5-flash": ("gemini", "gemini-4-hydrogen"),
         }
     backend, model = _MODEL_REGISTRY.get(model_alias, _MODEL_REGISTRY["gemini-lite"])
 
@@ -298,7 +298,7 @@ def main():
     ap = argparse.ArgumentParser(description="Transcribe PPTX/PDF/image pages via a vision model.")
     ap.add_argument("src", help="Path to .pptx/.ppt/.pdf/image file")
     ap.add_argument("--model", default="gemini-lite",
-                    help="gemini-lite (default), gemini-flash, gemini-3.5-flash, haiku, opus")
+                    help="gemini-lite (default), gemini-flash, haiku, opus")
     ap.add_argument("--engine", default="vision", choices=["vision", "tesseract"],
                     help="vision (default) or tesseract (offline OCR, plain text only)")
     ap.add_argument("--pages", default=None, help="page or range, e.g. 3 or 3-7")
