@@ -11,12 +11,13 @@ import sys
 sys.path.append('/mnt/skills/user/invoking-gemini/scripts')
 from gemini_client import generate_image
 
-result = generate_image("Your detailed prompt here", model="nano-banana-2",
+result = generate_image("Your detailed prompt here", model="image",
                         output_path="/mnt/user-data/outputs/image.png")
 ```
 
-- **nano-banana-2** (`gemini-3.1-flash-image-preview`) — default, fast
-- **nano-banana-pro** (`gemini-3-pro-image-preview`) — high fidelity, text rendering
+- **image** / **nano-banana-2.1** (`gemini-nano-banana-2.1`) — default, fast, ~$0.034 per 1K image
+- **image-pro** / **nano-banana-pro** (`gemini-3-pro-image`) — highest fidelity, ~$0.134 per image
+- **nano-banana-2-lite** (`gemini-3.1-flash-lite-image`) — lowest latency, high volume
 
 Gemini produces actual pixel images. SVG stick figures are not a substitute.
 
