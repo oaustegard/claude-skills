@@ -84,8 +84,9 @@ generate_image(
 | Alias | Model | Best For | Cost/image |
 |-------|-------|----------|------------|
 | `"nano-banana-2.1"` or `"image"` | gemini-nano-banana-2.1 | Fast iteration, drafts, text rendering (default) | $0.034 (1K) – $0.113 (4K) |
-| `"nano-banana-2"` | gemini-3.1-flash-image-preview | Older image model, kept for existing callers | $0.067 |
-| `"image-pro"` or `"nano-banana-pro"` | gemini-3-pro-image-preview | Highest fidelity, published content | $0.134 |
+| `"nano-banana-2"` | gemini-3.1-flash-image | Older image model, kept for existing callers | $0.067 (1K) |
+| `"nano-banana-2-lite"` | gemini-3.1-flash-lite-image | Lowest latency and cost, high volume | $0.034 (1K) |
+| `"image-pro"` or `"nano-banana-pro"` | gemini-3-pro-image | Highest fidelity, published content | $0.134 |
 
 ### Complete Blog Header Example
 
@@ -280,8 +281,9 @@ extends output to 1M tokens; this client exposes neither.
 | Model | Alias | Input/1M | Per Image |
 |-------|-------|----------|-----------|
 | gemini-nano-banana-2.1 | `image`, `nano-banana-2.1` | $1.50 (text/image input) | $0.034 (1K) / $0.050 (2K) / $0.113 (4K) |
-| gemini-3.1-flash-image-preview | `nano-banana-2` | $0.25 | $0.067 |
-| gemini-3-pro-image-preview | `image-pro`, `nano-banana-pro` | $2.00 | $0.134 |
+| gemini-3.1-flash-image | `nano-banana-2` | $0.50 | $0.067 (1K) |
+| gemini-3.1-flash-lite-image | `nano-banana-2-lite` | $0.25 | $0.034 (1K) |
+| gemini-3-pro-image | `image-pro`, `nano-banana-pro` | $2.00 | $0.134 (1K/2K) |
 
 ### Speech Models
 
