@@ -72,7 +72,7 @@ print(result["path"])  # /mnt/user-data/outputs/gemini_image_1740000000.png
 generate_image(
     prompt: str,                    # The image description
     output_path: str = None,        # Auto-generates if omitted
-    model: str = "nano-banana-2",   # Default: fast. Use "image-pro" for quality
+    model: str = "nano-banana-2.1",  # Default: fast. Use "image-pro" for quality
     temperature: float = 0.7,       # 0.5-0.7 for diagrams, 0.7-0.8 for illustrations
 ) -> dict | None
 # Returns: {"path": "/mnt/user-data/outputs/gemini_image_*.png", "caption": str|None}
@@ -84,9 +84,9 @@ generate_image(
 | Alias | Model | Best For | Cost/image |
 |-------|-------|----------|------------|
 | `"nano-banana-2.1"` or `"image"` | gemini-nano-banana-2.1 | Fast iteration, drafts, text rendering (default) | $0.034 (1K) – $0.113 (4K) |
-| `"nano-banana-2"` | gemini-3.1-flash-image | Older image model, kept for existing callers | $0.067 (1K) |
-| `"nano-banana-2-lite"` | gemini-3.1-flash-lite-image | Lowest latency and cost, high volume | $0.034 (1K) |
-| `"image-pro"` or `"nano-banana-pro"` | gemini-3-pro-image | Highest fidelity, published content | $0.134 |
+| `"nano-banana-2"` | gemini-3.1-flash-image | Previous version of the default; use only to reproduce earlier results | $0.067 (1K) |
+| `"nano-banana-2-lite"` | gemini-3.1-flash-lite-image | Lowest latency, and 6x cheaper than the default on text and reference-image input; same 1K image price | $0.034 (1K) |
+| `"image-pro"` or `"nano-banana-pro"` | gemini-3-pro-image | Highest fidelity, published content | $0.134 (1K/2K) |
 
 ### Complete Blog Header Example
 
@@ -284,6 +284,11 @@ extends output to 1M tokens; this client exposes neither.
 | gemini-3.1-flash-image | `nano-banana-2` | $0.50 | $0.067 (1K) |
 | gemini-3.1-flash-lite-image | `nano-banana-2-lite` | $0.25 | $0.034 (1K) |
 | gemini-3-pro-image | `image-pro`, `nano-banana-pro` | $2.00 | $0.134 (1K/2K) |
+
+"Input/1M" is the price of the prompt and any reference images. The per-image
+price is set by image output tokens ($30/M on the 2.1 and Lite models), so a
+model with a higher input price can still cost less per image. Both tables
+describe the same models; the first is for choosing, this one for pricing.
 
 ### Speech Models
 
