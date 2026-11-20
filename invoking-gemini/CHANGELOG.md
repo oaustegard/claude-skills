@@ -177,6 +177,12 @@ input, and got the pitch direction wrong both times.
 
 All notable changes to the `invoking-gemini` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.10.0] - 2026-11-20
+
+### Other
+
+- invoking-gemini: Gemini 4 (Hydrogen/Neon/Carbon/Argon) default; retire 3.5-3.7 Flash, 3.1 Pro, 2.5, nano-banana
+
 ## [0.9.0] - 2026-09-24
 
 ### Other
