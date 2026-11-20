@@ -1,5 +1,36 @@
 # invoking-gemini - Changelog
 
+## 2026-11-20
+
+### ⚠️ BREAKING — Gemini 4 becomes the default; older text models retired
+- `flash`, `pro` and `DEFAULT_MODEL` now resolve to `gemini-4-hydrogen`, Google's
+  stated default (Hydrogen 2026-11-12, $1.50 / $7.50). New aliases `neon`,
+  `carbon`, `argon`, `hydrogen` register `gemini-4-neon` (2026-11-18),
+  `gemini-4-carbon` (2026-11-10) and `gemini-4-argon` (2026-10-13). The Pro
+  tier stays off routing, so `pro` is Hydrogen and "maximum reasoning" is
+  `thinking_level='xhigh'`. Neon and Carbon are opt-in by name.
+- `MODELS` now holds the four Gemini 4 models, `gemini-3.8-flash` (alias
+  `flash-3.8`, the pinned fallback) and `gemini-3.5-flash-lite` (`lite`).
+  Retired: `gemini-3.7/3.6/3.5-flash`, `gemini-3-flash-preview`,
+  `gemini-3.1-pro-preview`, `gemini-2.5-flash`, `-flash-lite` and `-pro`, plus
+  the aliases `flash-3.7`, `flash-3.6`, `flash-3.5`, `flash-3`, `stable-flash`,
+  `stable-pro`. They are not a hard break: `RETIRED_MODELS` rewrites each to its
+  replacement and prints a note to stderr. Google already auto-routes 3.7 → 3.8
+  and 3.5 → 3.6, and routes 2.5 Pro → 3.8 Flash and 2.5 Flash → 3.5 Flash-Lite
+  on 2026-12-01.
+- Image: `image` now resolves to `gemini-nano-banana-2.1` (new). `nano-banana-2`
+  and `nano-banana-pro` keep their IDs. `nano-banana` (gemini-2.5-flash-image,
+  shut down 2026-10-02) reroutes to 2.1.
+- Thinking: Gemini 4 models and 3.8 Flash reject `minimal` (HTTP 400); Carbon
+  and Argon also reject `xhigh`. The client downgrades `minimal` to `low` and
+  `xhigh` to `high`, with a stderr note. `thinking_level` now applies to
+  `gemini-4*` as well as `gemini-3*`. All verified live through the CF gateway
+  on 2026-11-20.
+- Cost note: Carbon and Argon are $2 / $10 only through 2026-11-30, then
+  $4 / $20. 3.8 Flash is $0.75 / $3.75 through 2026-12-31, then $1.50 / $7.50.
+- Not changed: speech models (3.8 Flash TTS and Flash-Lite TTS are current).
+  Gemini Decision 1 (Decisions API), Omni (video) and Live are not wired in.
+
 ## 2026-09-24
 
 ### Added — speech generation (Gemini 3.8 Flash TTS, GA 2026-09-23)
@@ -145,6 +176,12 @@ input, and got the pitch direction wrong both times.
 
 
 All notable changes to the `invoking-gemini` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
+
+## [0.10.0] - 2026-11-20
+
+### Other
+
+- invoking-gemini: Gemini 4 (Hydrogen/Neon/Carbon/Argon) default; retire 3.5-3.7 Flash, 3.1 Pro, 2.5, nano-banana
 
 ## [0.9.0] - 2026-09-24
 

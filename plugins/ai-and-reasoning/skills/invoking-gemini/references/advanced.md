@@ -103,9 +103,9 @@ text = "Analyze the sentiment of this review: ..."
 
 with ThreadPoolExecutor(max_workers=3) as executor:
     futures = {
-        executor.submit(process_with_model, text, "gemini-3-flash-preview"): "3-flash",
-        executor.submit(process_with_model, text, "gemini-2.5-flash"): "2.5-flash",
-        executor.submit(process_with_model, text, "gemini-2.5-pro"): "2.5-pro",
+        executor.submit(process_with_model, text, "gemini-4-hydrogen"): "hydrogen",
+        executor.submit(process_with_model, text, "gemini-4-neon"): "neon",
+        executor.submit(process_with_model, text, "gemini-4-carbon"): "carbon",
     }
 
     for future in as_completed(futures):
@@ -321,7 +321,7 @@ balanced = invoke_gemini(
 ```python
 import google.generativeai as genai
 
-model = genai.GenerativeModel("gemini-3-flash-preview")
+model = genai.GenerativeModel("gemini-4-hydrogen")
 
 # Count tokens before sending
 token_count = model.count_tokens("Your prompt here")
