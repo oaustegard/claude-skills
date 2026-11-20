@@ -84,8 +84,8 @@ generate_image(
 | Alias | Model | Best For | Cost/image |
 |-------|-------|----------|------------|
 | `"nano-banana-2.1"` or `"image"` | gemini-nano-banana-2.1 | Fast iteration, drafts, text rendering (default) | $0.034 (1K) – $0.113 (4K) |
-| `"nano-banana-2"` | gemini-3.1-flash-image-preview | Pinned previous generation | $0.067 |
-| `"image-pro"` or `"nano-banana-pro"` | gemini-3-pro-image-preview | Published content, text rendering | $0.134 |
+| `"nano-banana-2"` | gemini-3.1-flash-image-preview | Older image model, kept for existing callers | $0.067 |
+| `"image-pro"` or `"nano-banana-pro"` | gemini-3-pro-image-preview | Highest fidelity, published content | $0.134 |
 
 ### Complete Blog Header Example
 
@@ -244,42 +244,42 @@ results = invoke_parallel(
 
 The current generation is **Gemini 4** (Argon 2026-10-13, Carbon 2026-11-10,
 Hydrogen 2026-11-12, Neon 2026-11-18). **gemini-4-hydrogen** is the default and
-the `flash` alias, following Google's own routing guide: Hydrogen for everyday
+the `flash` alias, following Google's routing guide (ai.google.dev/gemini-api/docs/choosing-a-model): Hydrogen for everyday
 work, Neon for harder high-frequency work, Carbon for the hardest problems,
 3.5 Flash-Lite for bulk text.
 
-The Pro tier stays off routing (Oskar, 2026-09-03: Pareto efficiency). `pro`
-resolves to Hydrogen, and "maximum reasoning" means `thinking_level='xhigh'` on
-Hydrogen. Neon costs 2x Hydrogen's output price; Carbon 1.3x through 2026-11-30 and
-2.7x from 2026-12-01. Ask for them by name when a task earns it.
+No Gemini 4 model is called "Pro", and this skill does not use the old
+`gemini-3.1-pro-preview`: it costs several times as much as Hydrogen for less
+benefit on coding and agentic tasks. The `pro` alias therefore resolves to
+Hydrogen, and "maximum reasoning" means `thinking_level='xhigh'` on Hydrogen. Neon and Carbon are not the default because they cost more (output price:
+Neon 2x Hydrogen; Carbon 1.3x, rising to 2.7x on 2026-12-01). Ask for them by
+name when a task needs the extra reasoning.
 
-Retired IDs (`gemini-3.7/3.6/3.5-flash`, `gemini-3-flash-preview`,
-`gemini-3.1-pro-preview`, `gemini-2.5-*`, `nano-banana`) and the aliases
-`flash-3.7`, `flash-3.6`, `flash-3.5`, `flash-3`, `stable-flash`, `stable-pro`
-still work: the client rewrites them to the replacement and prints a note to
-stderr. See the table in [references/models.md](references/models.md).
+Older model IDs and aliases (listed in [references/models.md](references/models.md))
+are rewritten to a current model, with a note on stderr.
 
 ### Text / Reasoning Models
 
 | Model | Alias | Input/1M | Output/1M | Thinking levels (default) | Notes |
 |-------|-------|----------|-----------|---------------------------|-------|
-| gemini-4-hydrogen | `flash`, `pro`, `hydrogen` | $1.50 | $7.50 | low, medium, high (default), xhigh | **Default.** Released 2026-11-12. Fast, free tier. Google reports >5x fewer fabricated claims than 3.8 Flash and parallel tool-call batching. |
+| gemini-4-hydrogen | `flash`, `pro`, `hydrogen` | $1.50 | $7.50 | low, medium, high (default), xhigh | **Default.** Released 2026-11-12. Fast, has a free tier. Google reports >5x fewer fabricated claims than 3.8 Flash. |
 | gemini-4-neon | `neon` | $3.00 | $15.00 | low, medium, high (default), xhigh | Released 2026-11-18. Between Hydrogen and Carbon: deeper reasoning than Hydrogen, faster than Carbon. Paid tier only. |
 | gemini-4-carbon | `carbon` | $2.00 → $4.00 | $10.00 → $20.00 | low, medium (default), high | Released 2026-11-10. Strongest reasoning; for hard debugging, architecture, proofs, security. Price doubles on 2026-12-01. Rejects `xhigh`. |
-| gemini-4-argon | `argon` | $2.00 → $4.00 | $10.00 → $20.00 | low, medium, high | Released 2026-10-13. Carbon-class with lower token spend per turn. Rejects `xhigh`. |
-| gemini-3.8-flash | `flash-3.8` | $0.75 → $1.50 | $3.75 → $7.50 | low, medium (default), high | Previous-generation Flash, the one pinned fallback. Intro price runs through 2026-12-31. |
+| gemini-4-argon | `argon` | $2.00 → $4.00 | $10.00 → $20.00 | low, medium, high | Released 2026-10-13. Reasoning close to Carbon with fewer tokens per turn, same price. Rejects `xhigh`. |
+| gemini-3.8-flash | `flash-3.8` | $0.75 → $1.50 | $3.75 → $7.50 | low, medium (default), high | Previous-generation Flash, for callers that need to stay on it. Nothing falls back to it automatically. Intro price runs through 2026-12-31. |
 | gemini-3.5-flash-lite | `lite` | $0.30 | $2.50 | minimal (default), low, medium, high | **Bulk tier.** Lowest-cost general model; only text model here that accepts `minimal`. |
 
 All Gemini 4 models: 1M unified context, 64K default output (up to 1M with long
 decode), implicit caching only. `→` marks Carbon/Argon's introductory price
 through 2026-11-30 and 3.8 Flash's through 2026-12-31. Output prices include
-thinking tokens; Batch is half of standard.
+thinking tokens. Google's Batch API is half of standard price and long decode
+extends output to 1M tokens; this client exposes neither.
 
 ### Image Models
 
 | Model | Alias | Input/1M | Per Image |
 |-------|-------|----------|-----------|
-| gemini-nano-banana-2.1 | `image`, `nano-banana-2.1` | $1.50 | $0.034 (1K) / $0.050 (2K) / $0.113 (4K) |
+| gemini-nano-banana-2.1 | `image`, `nano-banana-2.1` | $1.50 (text/image input) | $0.034 (1K) / $0.050 (2K) / $0.113 (4K) |
 | gemini-3.1-flash-image-preview | `nano-banana-2` | $0.25 | $0.067 |
 | gemini-3-pro-image-preview | `image-pro`, `nano-banana-pro` | $2.00 | $0.134 |
 
@@ -297,9 +297,9 @@ See [references/models.md](references/models.md) for full details.
 
 ### Thinking Budget (Gemini 3.x and 4)
 
-Gemini 3.x and 4 models reason before responding. Use the string
-`thinking_level` ∈ {`minimal`, `low`, `medium`, `high`, `xhigh`}; the integer
-`thinking_budget` is gone. Defaults: `high` on Hydrogen and Neon, `medium` on
+Gemini 3.x and 4 models reason before responding. Set it with the string
+`thinking_level` ∈ {`minimal`, `low`, `medium`, `high`, `xhigh`} (integer
+`thinking_budget` is not supported). Defaults: `high` on Hydrogen and Neon, `medium` on
 Carbon, Argon and 3.8 Flash, `minimal` on 3.5 Flash-Lite. A model that thinks
 by default will silently spend output tokens on reasoning (symptom: empty
 response with `finishReason=MAX_TOKENS`), so budget `max_output_tokens`
@@ -309,7 +309,7 @@ generously or lower the level.
 HTTP 400 (`Thinking level MINIMAL is not supported for this model`), so `low` is
 their floor. **Carbon and Argon also reject `xhigh`.** The client downgrades
 `minimal` to `low` and `xhigh` to `high` on those models and prints a note to
-stderr, so existing callers keep working (verified live 2026-11-20). For a true
+stderr, so a request never fails on this (verified live 2026-11-20). For a true
 no-thinking pass, use `lite`.
 
 ```python
@@ -347,7 +347,7 @@ response = invoke_gemini(
     temperature=0.9,
     max_output_tokens=200,
     top_p=0.95,
-    thinking_level="low",           # haiku is short; modest reasoning is fine
+    thinking_level="low",           # Hydrogen thinks at "high" by default; "low" keeps the 200-token budget for the answer
 )
 ```
 

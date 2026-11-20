@@ -98,7 +98,8 @@ from gemini_client import invoke_gemini
 def process_with_model(text: str, model: str) -> str:
     return invoke_gemini(text, model=model)
 
-# Compare outputs from different models
+# Compare outputs from different models (Neon and Carbon cost more than Hydrogen;
+# use them for a comparison like this only when the task warrants it)
 text = "Analyze the sentiment of this review: ..."
 
 with ThreadPoolExecutor(max_workers=3) as executor:
