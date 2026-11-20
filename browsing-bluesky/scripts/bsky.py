@@ -17,10 +17,10 @@ PDS_BASE = "https://bsky.social/xrpc"  # PDS for authenticated requests
 
 # Recognized values for the `transcribe` parameter on public read functions.
 # Default None disables transcription entirely. When set, see image_transcribe.py
-# for cost/quality empirics; the short version (as of May 2026):
-#   'gemini-lite'      — cheapest, fastest, ~95% accuracy. Best Pareto for routines.
-#   'gemini-flash'     — token-perfect, ~3x cost of lite.
-#   'gemini-3.5-flash' — frontier capability, ~19x cost of lite.
+# for cost/quality empirics; the short version (re-measured 2026-11-20):
+#   'gemini-lite'      — gemini-3.5-flash-lite: cheapest, fastest. Default choice.
+#   'gemini-flash'     — gemini-4-hydrogen: for images that need interpreting, ~8x lite.
+#   'gemini-3.5-flash' — old name for 'gemini-flash'.
 #   'haiku'            — Anthropic single-vendor option, weak prompt-following.
 #   'opus'             — Anthropic, for interactive use where conversation context matters.
 _TRANSCRIBE_ALIASES = {
@@ -282,8 +282,8 @@ def get_user_posts(
         limit: Max posts to return (default 20, max 100)
         transcribe: If set, transcribe images that have no alt text via
             the named model. One of 'gemini-lite' (default routine choice —
-            cheapest, ~95% accuracy), 'gemini-flash' (token-perfect, cheap),
-            'gemini-3.5-flash' (frontier, premium cost), 'haiku' (Anthropic
+            cheapest), 'gemini-flash' (Gemini 4 Hydrogen, ~8x lite, for images
+            that need interpreting), 'haiku' (Anthropic
             single-vendor), or 'opus' (Anthropic, interactive). Default None
             disables transcription. See image_transcribe.py for empirics.
 

@@ -5,24 +5,24 @@ Downloads an image from the bsky CDN (or any URL) and returns a text
 transcription via a chosen model. Used opportunistically by bsky.py when
 posts have images with missing or empty alt text.
 
-The model is chosen by the caller via `model_alias`. Empirical results on
-dense terminal screenshots (May 2026, n=3 images, single run each; the haiku and
-opus rows were measured on Haiku 4.5 and Opus 4.7, before the aliases moved to
-claude-haiku-5-5 and claude-opus-5-5, and have not been re-measured):
+The model is chosen by the caller via `model_alias`. Gemini rows re-measured
+2026-11-20 on 3 synthetic terminal/table screenshots (clean text, single run
+each). All three Gemini models scored 100% token recall, so this set shows cost
+and speed, not accuracy differences:
 
-    alias              latency   $/image   chord-token recall   notes
-    -------------------------------------------------------------------
-    'gemini-lite'         ~8s   ~$0.001   95%                  best Pareto for routine
-    'gemini-flash'       ~10s   ~$0.003   100%                 token-perfect, still cheap
-    'gemini-3.5-flash'   ~10s   ~$0.014   100%                 frontier, premium cost
-    'haiku'               ~7s   ~$0.008   18%                  weak prompt-following: summarizes
-    'opus'               ~20s   ~$0.12    91%                  use for interactive only
+    alias              model                  latency   $/image   recall
+    ----------------------------------------------------------------------
+    'gemini-lite'      gemini-3.5-flash-lite     ~2s   ~$0.0009   100%
+    'gemini-flash'     gemini-4-hydrogen         ~6s   ~$0.007    100%   thinks ~400-560 tokens at 'low'
+    'haiku'            claude-haiku-5-5          ~7s   ~$0.008     18%   summarizes (May 2026, Haiku 4.5)
+    'opus'             claude-opus-5-5          ~20s   ~$0.12      91%   interactive only (May 2026, Opus 4.7)
 
-Pick `'gemini-lite'` for routine work, `'gemini-flash'` if you need
-token-perfect transcription cheaply, `'gemini-3.5-flash'` if you need
-frontier-tier reasoning alongside the transcription, `'opus'` for
-interactive contexts where conversation history matters, `'haiku'` only
-if you're constrained to a single-vendor Anthropic deployment.
+Pick `'gemini-lite'` for routine work. Pick `'gemini-flash'` when the image needs
+interpretation as well as reading; it costs about 8x lite. `'gemini-3.5-flash'`
+is accepted as an old name for `'gemini-flash'`. `'opus'` is for interactive
+contexts where conversation history matters, and `'haiku'` only for a
+single-vendor Anthropic deployment. The haiku and opus rows are from May 2026 on
+Haiku 4.5 and Opus 4.7 and have not been re-measured.
 
 Failure policy: any error (download, encoding, API call) returns None
 rather than raising, so the caller can degrade gracefully.
@@ -43,11 +43,12 @@ _MODEL_REGISTRY = {
     # Anthropic
     "haiku": ("anthropic", "claude-haiku-5-5"),
     "opus":  ("anthropic", "claude-opus-5-5"),
-    # Gemini — recommended order: lite for routine, flash for token-perfect,
-    # 3.5-flash for premium reasoning alongside transcription.
-    "gemini-lite":       ("gemini", "gemini-2.5-flash-lite"),
-    "gemini-flash":      ("gemini", "gemini-2.5-flash"),
-    "gemini-3.5-flash":  ("gemini", "gemini-3.5-flash"),
+    # Gemini — lite for routine reading, flash when the image needs interpreting.
+    # `gemini-3.5-flash` is an old name kept for callers; it now means flash.
+    # Re-pointed 2026-11-20 off the retired 2.5 and 3.5 Flash models.
+    "gemini-lite":       ("gemini", "gemini-3.5-flash-lite"),
+    "gemini-flash":      ("gemini", "gemini-4-hydrogen"),
+    "gemini-3.5-flash":  ("gemini", "gemini-4-hydrogen"),
 }
 
 # Anthropic Messages API supported image media types.
@@ -128,9 +129,10 @@ def _call_gemini(model: str, data: bytes, ctype: str, max_tokens: int) -> str | 
 
     Writes the bytes to a temp file because invoke_gemini takes image_path,
     not raw bytes. (The download has already happened — this is just an
-    interface mismatch.) Uses thinking_level='minimal' since transcription
-    doesn't need reasoning; without this, Gemini 3.x silently spends output
-    tokens on thinking and truncates.
+    interface mismatch.) Uses the lowest thinking level each model accepts:
+    'minimal' on 3.5 Flash-Lite, 'low' on Gemini 4 (which rejects 'minimal').
+    Without this the model silently spends output tokens on thinking and
+    truncates.
     """
     if _GEMINI_CLIENT_PATH not in sys.path:
         sys.path.insert(0, _GEMINI_CLIENT_PATH)
@@ -152,7 +154,8 @@ def _call_gemini(model: str, data: bytes, ctype: str, max_tokens: int) -> str | 
             model=model,
             image_path=tmp.name,
             max_output_tokens=max_tokens,
-            thinking_level="minimal",  # transcription doesn't need reasoning
+            # transcription doesn't need reasoning; only lite accepts 'minimal'
+            thinking_level="minimal" if "flash-lite" in model else "low",
         )
         return out.strip() if out else None
     except Exception:
@@ -174,14 +177,15 @@ def transcribe_image(
 
     Args:
         url: Image URL (bsky CDN or otherwise). Must be reachable via HTTP(S).
-        model_alias: One of 'gemini-lite' (default — cheapest, fastest, ~95%
-            chord-token recall), 'gemini-flash' (token-perfect, ~3x cost),
-            'gemini-3.5-flash' (frontier reasoning, ~19x cost), 'haiku'
-            (Anthropic single-vendor option, weak prompt-following on dense
-            transcription), 'opus' (Anthropic, interactive use). Unrecognized
-            aliases default to 'gemini-lite' to avoid surprise costs.
+        model_alias: One of 'gemini-lite' (default — gemini-3.5-flash-lite,
+            cheapest, fastest), 'gemini-flash' (gemini-4-hydrogen, for images
+            that need interpreting, ~8x cost), 'gemini-3.5-flash' (old name for
+            'gemini-flash'), 'haiku' (Anthropic single-vendor option, weak
+            prompt-following on dense transcription), 'opus' (Anthropic,
+            interactive use). Unrecognized aliases default to 'gemini-lite' to
+            avoid surprise costs.
         max_tokens: Response cap. Bumped from 1000 → 4000 because dense
-            screenshots need it; Gemini thinking-level=minimal keeps cost
+            screenshots need it; the lowest Gemini thinking level keeps cost
             proportional to actual output.
         timeout: Download timeout in seconds.
 
