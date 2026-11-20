@@ -49,28 +49,36 @@ if not HAS_REQUESTS and not HAS_GENAI:
 
 # Text generation models
 MODELS = {
-    # Gemini 3.8 — current frontier Flash (GA 2026-09-02)
+    # Gemini 4 (GA 2026-10-13 .. 2026-11-18). Google's own routing guide:
+    # Hydrogen by default, Neon for harder high-frequency work, Carbon for the
+    # hardest problems. Argon is the cheaper-per-turn sibling of Carbon.
+    "gemini-4-hydrogen": "gemini-4-hydrogen",
+    "gemini-4-neon": "gemini-4-neon",
+    "gemini-4-carbon": "gemini-4-carbon",
+    "gemini-4-argon": "gemini-4-argon",
+    # Gemini 3.8 Flash — previous-generation Flash, kept as the one pinned
+    # fallback. No shutdown date announced.
     "gemini-3.8-flash": "gemini-3.8-flash",
-    # Gemini 3.7 — prior frontier Flash (GA 2026-08-13)
-    "gemini-3.7-flash": "gemini-3.7-flash",
-    # Gemini 3.6 — older Flash (GA 2026-07-21)
-    "gemini-3.6-flash": "gemini-3.6-flash",
-    # Gemini 3.5 — prior frontier Flash (GA May 2026)
-    "gemini-3.5-flash": "gemini-3.5-flash",
-    # Gemini 3.x — preview (still callable, kept for back compat)
-    "gemini-3-flash-preview": "gemini-3-flash-preview",
-    # Gemini 3.1 Pro — DEPRECATED from routing 2026-09-03 (Oskar): its
-    # price/quality is dominated by the 3.6+ Flash line. ID kept callable for
-    # pinned code; `pro` no longer points here.
-    "gemini-3.1-pro-preview": "gemini-3.1-pro-preview",
-    # Gemini 3.5 Flash-Lite — cheap/bulk tier (GA 2026-07-21)
+    # Gemini 3.5 Flash-Lite — cheap/bulk tier. Google still names it the
+    # lowest-cost general model.
     "gemini-3.5-flash-lite": "gemini-3.5-flash-lite",
-    # Gemini 2.5 — DEPRECATED 2026-07-21. A 2025-era generation; do NOT route
-    # here. IDs kept callable so pinned code does not hard-break, but they are
-    # no longer a recommended target and `lite` no longer points at 2.5.
-    "gemini-2.5-flash": "gemini-2.5-flash",
-    "gemini-2.5-flash-lite": "gemini-2.5-flash-lite",
-    "gemini-2.5-pro": "gemini-2.5-pro",
+}
+
+# Retired text models (2026-11-20 sweep). Each maps to Google's own replacement
+# (deprecations page) or, where Google names none, to the tier that took its
+# job. Requests still work: _resolve_model() rewrites them and warns on stderr.
+# Google itself reroutes gemini-2.5-pro -> 3.8-flash and gemini-2.5-flash ->
+# 3.5-flash-lite on 2026-12-01, and 3.7/3.5 Flash already route to 3.8/3.6.
+RETIRED_MODELS = {
+    "gemini-3.7-flash": "gemini-3.8-flash",
+    "gemini-3.6-flash": "gemini-4-hydrogen",
+    "gemini-3.5-flash": "gemini-4-hydrogen",
+    "gemini-3-flash-preview": "gemini-4-hydrogen",
+    "gemini-3.1-pro-preview": "gemini-4-neon",
+    "gemini-3.1-flash-lite": "gemini-3.5-flash-lite",
+    "gemini-2.5-pro": "gemini-4-neon",
+    "gemini-2.5-flash": "gemini-3.5-flash-lite",
+    "gemini-2.5-flash-lite": "gemini-3.5-flash-lite",
 }
 
 # Image generation models — display name -> actual API model ID.
@@ -80,36 +88,33 @@ MODELS = {
 # served under the -preview IDs below (verified against the live docs).
 # Do NOT drop -preview here — the GA IDs are Vertex-only and 404 on this surface.
 IMAGE_MODELS = {
+    "nano-banana-2.1": "gemini-nano-banana-2.1",
     "nano-banana-2": "gemini-3.1-flash-image-preview",
     "nano-banana-pro": "gemini-3-pro-image-preview",
-    "nano-banana": "gemini-2.5-flash-image",
 }
 
-# Convenience aliases. `flash` points to the current frontier Flash (3.8, GA
-# 2026-09-02); `flash-3.7`, `flash-3.6`, `flash-3.5` and `flash-3` keep stable
-# handles on the prior Flash generations for code that pinned to them. `lite`
-# repointed 2026-07-21 from gemini-2.5-flash-lite to gemini-3.5-flash-lite
-# (BREAKING: ~6x output cost, $0.40 -> $2.50/M, in exchange for a
-# current-generation model).
+# Retired image models. gemini-2.5-flash-image (`nano-banana`) shut down
+# 2026-10-02.
+RETIRED_IMAGE_MODELS = {"nano-banana": "nano-banana-2.1"}
+
+# Convenience aliases. `flash` and `pro` both point at Gemini 4 Hydrogen: the
+# Pro tier stays off routing (Oskar, 2026-09-03: Pareto efficiency), so
+# "maximum reasoning" is Hydrogen with thinking_level='xhigh'. Neon and Carbon
+# cost 2x and 1.3x (2.7x from 2026-12-01) Hydrogen on output; ask for them by name.
 MODEL_ALIASES = {
-    "flash": "gemini-3.8-flash",
-    "flash-3.7": "gemini-3.7-flash",
-    "flash-3.6": "gemini-3.6-flash",
-    "flash-3.5": "gemini-3.5-flash",
-    "flash-3": "gemini-3-flash-preview",
-    # `pro` repointed 2026-09-03 from gemini-3.1-pro-preview to the frontier
-    # Flash. The Pro tier is off routing (price/quality dominated by Flash);
-    # "maximum reasoning" is Flash with thinking_level='high'.
-    "pro": "gemini-3.8-flash",
+    "flash": "gemini-4-hydrogen",
+    "pro": "gemini-4-hydrogen",
+    "hydrogen": "gemini-4-hydrogen",
+    "neon": "gemini-4-neon",
+    "carbon": "gemini-4-carbon",
+    "argon": "gemini-4-argon",
+    "flash-3.8": "gemini-3.8-flash",
     "lite": "gemini-3.5-flash-lite",
-    # DEPRECATED aliases (Gemini 2.5). Retained for back compat only.
-    "stable-flash": "gemini-2.5-flash",
-    "stable-pro": "gemini-2.5-pro",
-    "image": "nano-banana-2",
+    "image": "nano-banana-2.1",
     "image-pro": "nano-banana-pro",
 }
 
-DEFAULT_MODEL = "gemini-3.8-flash"
+DEFAULT_MODEL = "gemini-4-hydrogen"
 
 # Speech (TTS) models — GA 2026-09-23. Kept out of MODEL_ALIASES on purpose:
 # they return audio, not text, so invoke_gemini() must never resolve to them.
@@ -119,10 +124,14 @@ SPEECH_MODELS = {
 }
 SPEECH_ALIASES = {"tts": "gemini-3.8-flash-tts", "tts-lite": "gemini-3.8-flash-lite-tts"}
 
-# Flash 3.7 and 3.8 reject thinking_level='minimal' with HTTP 400 ("Thinking
-# level MINIMAL is not supported for this model"); 3.6, 3.5 and 3.5-lite accept
-# it. All five verified live through the CF gateway on 2026-09-03.
-_MINIMAL_THINKING_UNSUPPORTED = frozenset({"gemini-3.7-flash", "gemini-3.8-flash"})
+# Verified live through the CF gateway on 2026-11-20: every Gemini 4 model and
+# 3.8 Flash reject thinking_level='minimal' with HTTP 400; Carbon and Argon also
+# reject 'xhigh' (Hydrogen and Neon accept it). 3.5 Flash-Lite accepts 'minimal'.
+_MINIMAL_THINKING_UNSUPPORTED = frozenset({
+    "gemini-3.8-flash", "gemini-4-hydrogen", "gemini-4-neon",
+    "gemini-4-carbon", "gemini-4-argon",
+})
+_XHIGH_THINKING_UNSUPPORTED = frozenset({"gemini-4-carbon", "gemini-4-argon"})
 
 # ---------------------------------------------------------------------------
 # Cloudflare AI Gateway constants
@@ -544,8 +553,23 @@ def _resolve_model(model: str) -> str:
     Raises:
         ValueError: If model is not recognized
     """
-    # Resolve alias first (e.g., "image" → "nano-banana-2")
+    # Resolve alias first (e.g., "image" → "nano-banana-2.1")
     resolved = MODEL_ALIASES.get(model, model)
+
+    # Retired IDs and old aliases (`flash-3.7`, `stable-pro`, ...) reroute with
+    # a warning rather than hard-breaking pinned callers.
+    old = {"flash-3.7": "gemini-3.7-flash", "flash-3.6": "gemini-3.6-flash",
+           "flash-3.5": "gemini-3.5-flash", "flash-3": "gemini-3-flash-preview",
+           "stable-flash": "gemini-2.5-flash", "stable-pro": "gemini-2.5-pro"}
+    resolved = old.get(resolved, resolved)
+    if resolved in RETIRED_MODELS:
+        new = RETIRED_MODELS[resolved]
+        print(f"Note: {resolved} is retired; using {new}.", file=sys.stderr)
+        resolved = new
+    elif resolved in RETIRED_IMAGE_MODELS:
+        new = RETIRED_IMAGE_MODELS[resolved]
+        print(f"Note: {resolved} is retired; using {new}.", file=sys.stderr)
+        resolved = new
 
     # Direct match in text models
     if resolved in MODELS:
@@ -577,7 +601,7 @@ def invoke_gemini(
 
     Args:
         prompt: The text prompt to send
-        model: Model name or alias (default: gemini-3.6-flash).
+        model: Model name or alias (default: gemini-4-hydrogen).
             Aliases: flash (3.6), flash-3.5 (prior Flash), flash-3 (prior
             preview), pro, lite, stable-flash, stable-pro
         temperature: Sampling temperature (0.0–1.0)
@@ -591,15 +615,14 @@ def invoke_gemini(
             Despite the name, accepts image, AUDIO, or video (audio verified
             2026-07-21). Requires the CF Gateway path for non-image media.
             Inline only — files >15MB need the Files API (not implemented).
-        thinking_level: Reasoning budget for thinking models (Gemini 3.x).
-            One of 'minimal', 'low', 'medium', 'high'. Default (None) lets
-            the model use its built-in default — 'medium' for 3.x Flash
-            (incl. 3.8), which silently eats output budget. Set 'minimal' for tasks that
-            don't need reasoning (transcription, classification, extraction).
-            Flash 3.7 and 3.8 do not accept 'minimal' (HTTP 400); on those the
-            client downgrades it to 'low', the cheapest level they take, and
-            says so on stderr. Ignored by 2.5 models (which use a different
-            parameter).
+        thinking_level: Reasoning budget for thinking models (Gemini 3.x/4).
+            One of 'minimal', 'low', 'medium', 'high', 'xhigh'. Default (None)
+            lets the model use its built-in default: 'high' for Hydrogen and
+            Neon, 'medium' for Carbon and 3.8 Flash, which silently eats output
+            budget. Only 3.5 Flash-Lite accepts 'minimal'; on every other model
+            the client downgrades it to 'low'. Carbon and Argon do not accept
+            'xhigh'; the client downgrades it to 'high'. Each downgrade says so
+            on stderr.
 
     Returns:
         Response text if successful, None if error
@@ -609,7 +632,7 @@ def invoke_gemini(
 
     # thinking_level is a Gemini 3.x feature. 2.5 (and earlier) models 400 on it.
     # Silently drop for non-3.x so callers can pass it uniformly without branching.
-    if thinking_level is not None and not model_id.startswith("gemini-3"):
+    if thinking_level is not None and not model_id.startswith(("gemini-3", "gemini-4")):
         thinking_level = None
     if thinking_level == "minimal" and model_id in _MINIMAL_THINKING_UNSUPPORTED:
         print(
@@ -617,6 +640,12 @@ def invoke_gemini(
             file=sys.stderr,
         )
         thinking_level = "low"
+    if thinking_level == "xhigh" and model_id in _XHIGH_THINKING_UNSUPPORTED:
+        print(
+            f"Note: {model_id} does not support thinking_level='xhigh'; using 'high'.",
+            file=sys.stderr,
+        )
+        thinking_level = "high"
 
     max_retries = 3
     for attempt in range(max_retries):
@@ -678,7 +707,7 @@ def invoke_gemini(
 def generate_image(
     prompt: str,
     output_path: str | None = None,
-    model: str = "nano-banana-2",
+    model: str = "nano-banana-2.1",
     temperature: float = 0.7,
 ) -> dict | None:
     """
@@ -691,7 +720,7 @@ def generate_image(
         prompt: Text prompt describing the desired image
         output_path: Where to save the PNG. If None, auto-generates under
             /mnt/user-data/outputs/ (or /tmp/ if that doesn't exist)
-        model: Image model name or alias (default: nano-banana-2).
+        model: Image model name or alias (default: nano-banana-2.1).
             Aliases: image, image-pro
         temperature: Sampling temperature (0.0–1.0)
 
@@ -702,9 +731,11 @@ def generate_image(
     import base64
 
     # Resolve model — must land in IMAGE_MODELS
-    resolved = model
-    if model in MODEL_ALIASES:
-        resolved = MODEL_ALIASES[model]
+    resolved = MODEL_ALIASES.get(model, model)
+    if resolved in RETIRED_IMAGE_MODELS:
+        new = RETIRED_IMAGE_MODELS[resolved]
+        print(f"Note: {resolved} is retired; using {new}.", file=sys.stderr)
+        resolved = new
     if resolved not in IMAGE_MODELS:
         raise ValueError(
             f"Model '{model}' is not an image model. "
@@ -992,7 +1023,7 @@ def invoke_with_structured_output(
     Args:
         prompt: The text prompt to send
         pydantic_model: Pydantic model class for response schema
-        model: Model name or alias (default: DEFAULT_MODEL, gemini-3.8-flash).
+        model: Model name or alias (default: DEFAULT_MODEL, gemini-4-hydrogen).
             Aliases: flash, pro, lite, stable-flash, stable-pro
         temperature: Sampling temperature (0.0–1.0)
         image_path: Optional path to a media file for multi-modal input.
@@ -1078,7 +1109,7 @@ def invoke_parallel(
 
     Args:
         prompts: List of text prompts to process
-        model: Model name or alias (default: DEFAULT_MODEL, gemini-3.8-flash).
+        model: Model name or alias (default: DEFAULT_MODEL, gemini-4-hydrogen).
             Aliases: flash, pro, lite, stable-flash, stable-pro
         temperature: Sampling temperature (0.0–1.0)
         max_workers: Maximum concurrent requests

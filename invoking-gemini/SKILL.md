@@ -2,7 +2,7 @@
 name: invoking-gemini
 description: Invokes Google Gemini models for structured outputs, image generation, text-to-speech narration, multi-modal tasks, and Google-specific features. Use when users request Gemini, image generation, Gemini TTS or a synthesized voice, structured JSON output, Google API integration, or cost-effective parallel processing.
 metadata:
-  version: 0.9.0
+  version: 0.10.0
 ---
 
 # Invoking Gemini
@@ -83,7 +83,8 @@ generate_image(
 
 | Alias | Model | Best For | Cost/image |
 |-------|-------|----------|------------|
-| `"nano-banana-2"` or `"image"` | gemini-3.1-flash-image-preview | Fast iteration, drafts | $0.067 |
+| `"nano-banana-2.1"` or `"image"` | gemini-nano-banana-2.1 | Fast iteration, drafts, text rendering (default) | $0.034 (1K) – $0.113 (4K) |
+| `"nano-banana-2"` | gemini-3.1-flash-image-preview | Pinned previous generation | $0.067 |
 | `"image-pro"` or `"nano-banana-pro"` | gemini-3-pro-image-preview | Published content, text rendering | $0.134 |
 
 ### Complete Blog Header Example
@@ -182,7 +183,7 @@ from gemini_client import invoke_gemini
 
 response = invoke_gemini(
     prompt="Explain quantum computing in 3 bullet points",
-    model="flash",  # gemini-3.8-flash (default)
+    model="flash",  # gemini-4-hydrogen (default)
 )
 print(response)
 ```
@@ -241,44 +242,45 @@ results = invoke_parallel(
 
 ## Available Models
 
-The current frontier Flash is **gemini-3.8-flash** (GA 2026-09-02), the
-default and the `flash` alias. Google shipped three Flash generations in six
-weeks: 3.6 (2026-07-21), 3.7 (2026-08-13), 3.8 (2026-09-02). Each stays
-callable under a pinned alias (`flash-3.7`, `flash-3.6`, `flash-3.5`,
-`flash-3`), and none has a shutdown date. `gemini-3.1-flash-lite-preview` from
-earlier docs is gone (shut down 2026-05-25).
+The current generation is **Gemini 4** (Argon 2026-10-13, Carbon 2026-11-10,
+Hydrogen 2026-11-12, Neon 2026-11-18). **gemini-4-hydrogen** is the default and
+the `flash` alias, following Google's own routing guide: Hydrogen for everyday
+work, Neon for harder high-frequency work, Carbon for the hardest problems,
+3.5 Flash-Lite for bulk text.
 
-The Pro tier is off routing. `gemini-3.1-pro-preview` costs 2.7× the input and
-3.2× the output of 3.8 Flash at today's rates and loses to the 3.5+ Flash line
-on the coding and agentic benchmarks that matter here. Do not target it; the
-`pro` alias now resolves to gemini-3.8-flash, and "maximum reasoning" means
-`thinking_level='high'` on Flash.
+The Pro tier stays off routing (Oskar, 2026-09-03: Pareto efficiency). `pro`
+resolves to Hydrogen, and "maximum reasoning" means `thinking_level='xhigh'` on
+Hydrogen. Neon costs 2x Hydrogen's output price; Carbon 1.3x through 2026-11-30 and
+2.7x from 2026-12-01. Ask for them by name when a task earns it.
+
+Retired IDs (`gemini-3.7/3.6/3.5-flash`, `gemini-3-flash-preview`,
+`gemini-3.1-pro-preview`, `gemini-2.5-*`, `nano-banana`) and the aliases
+`flash-3.7`, `flash-3.6`, `flash-3.5`, `flash-3`, `stable-flash`, `stable-pro`
+still work: the client rewrites them to the replacement and prints a note to
+stderr. See the table in [references/models.md](references/models.md).
 
 ### Text / Reasoning Models
 
-| Model | Alias | Input/1M | Output/1M | Context | Notes |
-|-------|-------|----------|-----------|---------|-------|
-| gemini-3.8-flash | `flash` | $0.75 → $1.50 | $3.75 → $7.50 | 1M in / 64K out | **Default.** GA 2026-09-02. Current frontier Flash. Vs 3.7: Terminal-Bench 2.1 90.8% vs 81.6%, SWE-Bench Pro 61.6% vs 60.4%, SWE-Atlas 51.9% vs 48.0%, HLE flat (45.4% vs 45.7%). Google says it "works harder" at higher effort, so expect more thinking tokens per task. `thinking_level` is low/medium/high only — `minimal` returns HTTP 400 and the client downgrades it to `low`. Default `medium` spent 79 thinking tokens on a one-word reply (measured 2026-09-03); pass `low` for non-reasoning tasks. |
-| gemini-3.7-flash | `flash-3.7` | $0.75 → $1.50 | $3.75 → $7.50 | 1M / 64K | GA 2026-08-13. DeepSWE v1.1 65.3% vs 49.0% on 3.6, Terminal-Bench 2.1 85.8%. Same `minimal` restriction as 3.8. Google keeps it "fully supported for efficiency-first workloads". |
-| gemini-3.6-flash | `flash-3.6` | $0.75 → $1.50 | $3.75 → $7.50 | 1M / 64K | GA 2026-07-21. ~17% fewer output tokens than 3.5 Flash. Last Flash that accepts `thinking_level='minimal'` (verified 2026-09-03). |
-| gemini-3.5-flash | `flash-3.5` | $1.50 | $9.00 | 1M | GA 2026-05-19. Google's model list now labels it "legacy". Accepts `minimal`. Costs more on output than 3.6–3.8. |
-| gemini-3-flash-preview | `flash-3` | $0.30 | $2.50 | 1M | Older preview Flash, kept for back compat. Google's listed migration target for it is gemini-3.6-flash; no shutdown date. |
-| ~~gemini-3.1-pro-preview~~ | — | $2.00 (≤200K) / $4.00 | $12.00 / $18.00 | 1M | **DEPRECATED from routing (2026-09-03).** Price/quality dominated by 3.6+ Flash; 3.5 Flash already beat it on most coding/agentic benchmarks. ID stays callable for pinned code. `pro` now resolves to gemini-3.8-flash. 3.5 Pro was announced at I/O 2026-05-19 for June and is still absent from the API as of 2026-09-03; it gets the same price/quality test before any alias points at it. |
-| gemini-3.5-flash-lite | `lite` | $0.30 | $2.50 | 1M | **Cheap/bulk tier.** GA 2026-07-21. Fastest 3.5-class (350 output tok/sec); beats gemini-3-flash on SWE-Bench Pro and OSWorld-Verified. |
-| ~~gemini-2.5-flash~~ | `stable-flash` | $0.30 | $2.50 | 1M | **DEPRECATED** — 2025-era generation, do not route here. |
-| ~~gemini-2.5-flash-lite~~ | — | $0.10 | $0.40 | 1M | **DEPRECATED** — cheaper, but a 2025-era generation. `lite` now resolves to gemini-3.5-flash-lite. |
-| ~~gemini-2.5-pro~~ | `stable-pro` | $1.25 (≤200K) / $2.50 | $10.00 / $20.00 | 1M | **DEPRECATED** — 2025-era generation, do not route here. |
+| Model | Alias | Input/1M | Output/1M | Thinking levels (default) | Notes |
+|-------|-------|----------|-----------|---------------------------|-------|
+| gemini-4-hydrogen | `flash`, `pro`, `hydrogen` | $1.50 | $7.50 | low, medium, high (default), xhigh | **Default.** Released 2026-11-12. Fast, free tier. Google reports >5x fewer fabricated claims than 3.8 Flash and parallel tool-call batching. |
+| gemini-4-neon | `neon` | $3.00 | $15.00 | low, medium, high (default), xhigh | Released 2026-11-18. Between Hydrogen and Carbon: deeper reasoning than Hydrogen, faster than Carbon. Paid tier only. |
+| gemini-4-carbon | `carbon` | $2.00 → $4.00 | $10.00 → $20.00 | low, medium (default), high | Released 2026-11-10. Strongest reasoning; for hard debugging, architecture, proofs, security. Price doubles on 2026-12-01. Rejects `xhigh`. |
+| gemini-4-argon | `argon` | $2.00 → $4.00 | $10.00 → $20.00 | low, medium, high | Released 2026-10-13. Carbon-class with lower token spend per turn. Rejects `xhigh`. |
+| gemini-3.8-flash | `flash-3.8` | $0.75 → $1.50 | $3.75 → $7.50 | low, medium (default), high | Previous-generation Flash, the one pinned fallback. Intro price runs through 2026-12-31. |
+| gemini-3.5-flash-lite | `lite` | $0.30 | $2.50 | minimal (default), low, medium, high | **Bulk tier.** Lowest-cost general model; only text model here that accepts `minimal`. |
 
-`$0.75 → $1.50` means introductory pricing: Google's pricing page (fetched
-2026-09-03) lists 3.6, 3.7 and 3.8 Flash at $0.75 in / $3.75 out through
-2026-12-31 and $1.50 / $7.50 from 2027-01-01. Context caching is $0.075 → $0.15;
-Batch is half of standard. Output prices include thinking tokens.
+All Gemini 4 models: 1M unified context, 64K default output (up to 1M with long
+decode), implicit caching only. `→` marks Carbon/Argon's introductory price
+through 2026-11-30 and 3.8 Flash's through 2026-12-31. Output prices include
+thinking tokens; Batch is half of standard.
 
 ### Image Models
 
 | Model | Alias | Input/1M | Per Image |
 |-------|-------|----------|-----------|
-| gemini-3.1-flash-image-preview | `image`, `nano-banana-2` | $0.25 | $0.067 |
+| gemini-nano-banana-2.1 | `image`, `nano-banana-2.1` | $1.50 | $0.034 (1K) / $0.050 (2K) / $0.113 (4K) |
+| gemini-3.1-flash-image-preview | `nano-banana-2` | $0.25 | $0.067 |
 | gemini-3-pro-image-preview | `image-pro`, `nano-banana-pro` | $2.00 | $0.134 |
 
 ### Speech Models
@@ -293,29 +295,27 @@ never resolve to an audio model.
 
 See [references/models.md](references/models.md) for full details.
 
-### Thinking Budget (Gemini 3.x)
+### Thinking Budget (Gemini 3.x and 4)
 
-Gemini 3.x models reason before responding. The parameter changed in
-2026: integer `thinking_budget` is gone; use string `thinking_level`
-∈ {`minimal`, `low`, `medium`, `high`}. Default for 3.5–3.8 Flash is
-`medium`. For transcription / classification / extraction tasks, pass
-`thinking_level='minimal'` or the model will silently spend output
-tokens on reasoning (symptom: empty response with
-`finishReason=MAX_TOKENS`).
+Gemini 3.x and 4 models reason before responding. Use the string
+`thinking_level` ∈ {`minimal`, `low`, `medium`, `high`, `xhigh`}; the integer
+`thinking_budget` is gone. Defaults: `high` on Hydrogen and Neon, `medium` on
+Carbon, Argon and 3.8 Flash, `minimal` on 3.5 Flash-Lite. A model that thinks
+by default will silently spend output tokens on reasoning (symptom: empty
+response with `finishReason=MAX_TOKENS`), so budget `max_output_tokens`
+generously or lower the level.
 
-**3.7 and 3.8 Flash reject `minimal`** with HTTP 400 (`Thinking level MINIMAL
-is not supported for this model`); `low` is their floor. The client downgrades
-`minimal` to `low` on those two models and prints a note to stderr, so existing
-callers keep working. Measured on 3.8 (2026-09-03): `low` spent 0 thinking
-tokens on a one-word reply, the default `medium` spent 79. On 3.7, `low` still
-spent 45–88, and a `max_output_tokens=50` call at `low` hit MAX_TOKENS and
-returned None, so budget output generously there. If a job needs a true
-no-thinking pass, pin `flash-3.6` or `lite`, which still accept `minimal`.
+**Only `lite` accepts `minimal`.** Every Gemini 4 model and 3.8 Flash return
+HTTP 400 (`Thinking level MINIMAL is not supported for this model`), so `low` is
+their floor. **Carbon and Argon also reject `xhigh`.** The client downgrades
+`minimal` to `low` and `xhigh` to `high` on those models and prints a note to
+stderr, so existing callers keep working (verified live 2026-11-20). For a true
+no-thinking pass, use `lite`.
 
 ```python
 response = invoke_gemini(
     prompt="Transcribe this image.",
-    model="flash",
+    model="lite",              # only lite takes 'minimal'
     image_path="/tmp/screenshot.png",
     max_output_tokens=4000,
     thinking_level="minimal",  # don't burn output budget on reasoning
@@ -343,7 +343,7 @@ Common issues: Missing API key → see Setup. Rate limit → auto-retries with b
 ```python
 response = invoke_gemini(
     prompt="Write a haiku",
-    model="flash",                  # gemini-3.8-flash
+    model="flash",                  # gemini-4-hydrogen
     temperature=0.9,
     max_output_tokens=200,
     top_p=0.95,
