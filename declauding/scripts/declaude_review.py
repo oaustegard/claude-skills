@@ -191,11 +191,14 @@ plainly descriptive label drawn from the slot itself."""
 
 
 def call_gemini(prompt: str, key: str) -> str:
+    # gemini-4-hydrogen since 2026-11-20 (was gemini-3.6-flash, now retired).
+    # The key goes in a header, not the URL, so it never lands in a traceback.
     url = ("https://generativelanguage.googleapis.com/v1beta/models/"
-           f"gemini-3.6-flash:generateContent?key={key}")
+           "gemini-4-hydrogen:generateContent")
     body = json.dumps({"contents": [{"parts": [{"text": prompt}]}],
                        "generationConfig": {"temperature": 0}}).encode()
-    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+    req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json",
+                                                          "x-goog-api-key": key})
     with urllib.request.urlopen(req, timeout=120) as r:
         data = json.load(r)
     return data["candidates"][0]["content"]["parts"][0]["text"]
