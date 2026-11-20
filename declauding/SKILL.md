@@ -2,7 +2,7 @@
 name: declauding
 description: Load it without being asked at the start of any task whose deliverable is prose that another person will read, such as a PR description, commit message, README, doc, postmortem, blog post, issue or review comment, report, release note or essay, and run it on the draft before the text is pushed, posted, published or saved. Draft first without this skill in context, from a positive writing brief if one exists. Also use it when someone says "de-claude", "de-slop", "humanize this", "this reads like AI" or "make it sound human", or asks for a voice, tone or register edit. It rewrites the constructions that mark prose as model-written into plain technical prose, and checks that the rewrite kept the draft's claims. The constructions include staged reveals, verdict headers, aphoristic closers, "it's not X, it's Y", em-dash drama, forced triads, flat-certainty adverbs, noun stacks and dropped 'that'. Do not use it on fiction, poetry, code or quoted text. For a full adversarial review of a deliverable, use challenging.
 metadata:
-  version: 0.15.0
+  version: 0.16.0
 ---
 
 # Declauding
@@ -232,7 +232,12 @@ what preceded it? delete it). On a README or other doc, check that it describes
 the thing as it is now. How a section or feature came to be, what an earlier
 version did and what was measured before a change belong in the changelog, or in
 the commit message when there is no changelog. Readers come to a README for the
-current snapshot and rarely open the history (entry 34).
+current snapshot and rarely open the history (entry 34). Two quieter forms of the
+same thing: a sentence or section announcing that the thing does what any reader
+would assume (a Tesseract page "using Tesseract's own layout", "its own word
+lists", "end to end"), which only reads as news to someone who knew an
+alternative was tried; and any mention of an approach that was tried and
+dropped. Delete both; history goes in the changelog or a Log section.
 
 **4a. Newcomer read, when the draft describes something that just changed.**
 Run this step on a README, doc, page or results section written or revised right

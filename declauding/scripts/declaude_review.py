@@ -173,6 +173,12 @@ disagree with is a verdict, however plainly it is worded — "Sales fell in Q3"
 asserts, "Q3 sales" labels. A comma joining parts of a proper name is fine; a
 comma introducing an appositive, participle or relative clause is not.
 
+Also ask of each header whether it announces something any reader would assume
+without being told (the tool using its own defaults, components or settings:
+"its own word lists", "end to end", "X finds the lines") or a fix to a version the
+reader never saw. Either names a changelog entry, not content; report it with tic
+"changelog header" and the fix "delete the section or fold it into its neighbour".
+
 For a closer, ask whether it paraphrases the subtext of what came before or
 compresses the piece into a contrast or a moral. Either is a button; cut it.
 

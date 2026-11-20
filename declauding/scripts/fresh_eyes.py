@@ -353,8 +353,12 @@ def reader_prompt(path: str, files: str) -> str:
             f"not look at git history, earlier versions or other files. For each section, list what a newcomer would "
             f"stumble on, quoting the phrase: a word or detail that refers to something you were never told (such as "
             f"'here', 'upright', 'still', 'instead', 'the fix'); a passage about what changed or was fixed where you "
-            f"needed what the thing is and does; a comparison with a version you never saw; a part given more space "
-            f"than it deserves for you; anything you would need to use or understand the thing that is missing. If a "
+            f"needed what the thing is and does; a comparison with a version you never saw; a sentence, header or "
+            f"section that announces the thing uses what you would have assumed it uses anyway (its own defaults, "
+            f"components or settings: 'its own X', 'end to end', 'only X', 'X finds the lines'), or that exists only "
+            f"because an earlier version lacked something; any mention of an approach that was tried and dropped; a "
+            f"part given more space than it deserves for you; anything you would need to use or understand the thing "
+            f"that is missing. If a "
             f"section reads cleanly to a newcomer, say so in one line. Report only; do not edit any file.")
 
 
