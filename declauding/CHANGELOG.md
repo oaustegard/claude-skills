@@ -2,6 +2,12 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.17.0] - 2026-11-22
+
+### Other
+
+- declauding 0.17.0: design register for HTML pages and artifacts
+
 ## [0.16.0] - 2026-11-20
 
 ### Other
