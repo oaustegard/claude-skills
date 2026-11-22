@@ -41,6 +41,18 @@ The staging entries that come up most often:
 | 15 | Fragment cadence | *Six legs. One GPU, one server build, one sampler, one question set.* |
 | 37 | Dressed metaphor | *That is information loss wearing the costume of a style fix.* |
 
+## The design register
+
+[`references/design.md`](references/design.md) does the same for HTML pages,
+artifacts and slide decks. It catalogues 18 visual devices that mark a page as
+model-built, drawn from Mike Lacher's parody kit
+[Slopstrap](https://slopstrap.mikelacher.com/agents/): purple-to-cyan
+gradients, frosted glass cards, pulsing status dots, italic serif emphasis
+words, emoji icon boxes, bento grids, logo marquees and the rest. Each entry
+says what the device is for, when it is worth using, and a budget for it, since
+most of them are fine once on a page and a tell when stacked. Invented content
+(a status dot wired to nothing, a made-up testimonial) has no budget.
+
 ## Workflow
 
 [`SKILL.md`](SKILL.md) has the full procedure. In short:

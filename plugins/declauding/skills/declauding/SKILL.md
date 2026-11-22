@@ -1,8 +1,8 @@
 ---
 name: declauding
-description: Load it without being asked at the start of any task whose deliverable is prose that another person will read, such as a PR description, commit message, README, doc, postmortem, blog post, issue or review comment, report, release note or essay, and run it on the draft before the text is pushed, posted, published or saved. Draft first without this skill in context, from a positive writing brief if one exists. Also use it when someone says "de-claude", "de-slop", "humanize this", "this reads like AI" or "make it sound human", or asks for a voice, tone or register edit. It rewrites the constructions that mark prose as model-written into plain technical prose, and checks that the rewrite kept the draft's claims. The constructions include staged reveals, verdict headers, aphoristic closers, "it's not X, it's Y", em-dash drama, forced triads, flat-certainty adverbs, noun stacks and dropped 'that'. Do not use it on fiction, poetry, code or quoted text. For a full adversarial review of a deliverable, use challenging.
+description: Load it unasked at the start of any task whose deliverable is prose another person will read (PR description, commit message, README, doc, postmortem, blog post, issue or review comment, report, release note, essay), and run it on the draft before it is pushed, posted, published or saved. Draft first without this skill in context, from a positive writing brief if one exists. Also use it for "de-claude", "de-slop", "humanize this", "this reads like AI", "make it sound human", or a voice, tone or register edit. It rewrites model-written constructions (staged reveals, verdict headers, aphoristic closers, "it's not X, it's Y", em-dash drama, forced triads, flat-certainty adverbs, noun stacks, dropped 'that') into plain technical prose and checks the rewrite kept the draft's claims. On an HTML page, artifact or slide deck it also budgets the visual clichés of model-built pages (gradients, glass cards, pulsing dots, fake logos). Not for fiction, poetry, code or quoted text; for adversarial review, use challenging.
 metadata:
-  version: 0.16.0
+  version: 0.17.0
 ---
 
 # Declauding
@@ -318,6 +318,9 @@ the rewrite for four failure modes, all of them common:
 found while editing. The author needs to know their draft disagreed with
 itself, and only they can say which version is true.
 
+**7. Design pass, when the deliverable is an HTML page, artifact, slide deck or
+UI mock.** See Design pass below.
+
 ## Overcorrection
 
 The failure mode of this skill is prose stripped of confidence, rhythm and
@@ -388,6 +391,22 @@ ranks nothing. "Simultaneously X, Y and Z" claims the three hold at once; "X, Y
 and Z" does not. Superlatives, rankings, simultaneity, scope words, and the
 condition attached to a hedge all live inside phrasings this skill cuts.
 
+## Design pass
+
+Run it on any HTML page, artifact, slide deck or UI mock that a person will
+look at, after the prose pass. Read `references/design.md`. It catalogues the
+visual devices that mark a page as model-built (D1 to D18), with what each is
+for, when it is worth using and a budget for it. Most of them became clichés
+through stacking and overuse, and each still works once, where it fits.
+
+The test mirrors the prose one: does an element tell the reader something about
+the content, or perform "polished product page"? Spend the page's strongest
+device on the one thing each screen must show, cut the rest to the budgets, and
+remove or label any device that claims a fact the page cannot back: a status
+dot wired to nothing, an unsourced counter, a logo or testimonial nobody gave.
+Invented social proof falls under "Do not invent specifics" and has no budget.
+Finish by rendering the page and looking at it.
+
 ## Annotated mode
 
 Read `references/annotating.md`. It specifies the artifact: markup for changed
@@ -416,7 +435,8 @@ elegant variation. Its sentence length follows what each sentence has to say.
 ## Scope
 
 Applies to: blog posts, READMEs, PR and commit descriptions, reports,
-documentation, essays, release notes, technical explainers.
+documentation, essays, release notes, technical explainers. The design pass
+applies to HTML pages, artifacts, slide decks and UI mocks.
 
 Do not apply to: fiction and poetry (different register entirely), direct
 quotations, other people's text being quoted, marketing copy where the client
