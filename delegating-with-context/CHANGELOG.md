@@ -50,6 +50,13 @@
   chunks the task needs. `scripts/preview.py` shows the selection before the
   prompt is written. Measured in `oaustegard/experiments/subagent-context-filter`.
 
+## [0.3.1] - 2026-11-27
+
+### Other
+
+- delegating-with-context 0.3.1: bisect windows over Jev's token limit
+- delegating-with-context: correct the Jev saving to the per-task median (31%)
+
 ## [0.3.0] - 2026-11-02
 
 ### Other
