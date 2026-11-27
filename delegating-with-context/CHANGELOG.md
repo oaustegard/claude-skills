@@ -1,5 +1,16 @@
 # delegating-with-context - Changelog
 
+## 0.3.1 — 2026-11-27
+- Fix: a window over Jev's token limit (HTTP 400 `max_tokens_exceeded`, on both
+  transports) was retried six times with backoff and then failed the whole
+  delegation after ~90 s, so the subagent got no context. Windows are packed by a
+  3.3 chars/token estimate that dense text such as hex or base64 beats. `_call` now
+  raises `Blocked`, so the window is bisected like a WAF block. On the delegation
+  that exposed it: 92.9 s and failure before, 2.2 s and a full 20k-token context
+  after, through the gateway and direct. Other 4xx responses except 408 and 429
+  now fail at once instead of after ~90 s, and `Retry-After` is capped at 30 s.
+  Found labelling 301 delegations for `oaustegard/experiments` `ane-context-filter`.
+
 ## 0.3.0 — 2026-11-02
 - Hierarchical selection is the default (`scripts/hierfilter.py`): Jev scores
   segments of the session from digests, keeps the top 40% (at least 3), then
