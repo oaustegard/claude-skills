@@ -44,8 +44,8 @@ Four rules follow from the test. They are what the entries below apply.
 
 ## The catalogue
 
-Each entry gives what the device is for, when it is worth using, a budget, and
-the slop form next to the restrained one. Numbers carry a `D` so they do not
+Each entry gives what the device is for (For), when it is worth using (Earned
+when), a budget (Budget), and the slop form next to the restrained one. Numbers carry a `D` so they do not
 collide with the prose register's.
 
 ### Color and surface
@@ -103,8 +103,8 @@ Restrained: a 2px border in the accent colour on the recommended card.
 ### Typography and emphasis
 
 **D6. Inter, plus JetBrains Mono, plus one italic serif word.**
-For: Inter is a well-made UI face; the mono marks code; the serif word adds
-warmth to a sans headline.
+For: a readable UI face (Inter is a well-made one), a mono that marks code,
+and a serif word that adds warmth to a sans headline.
 Earned when each face is chosen for the job and the serif belongs to the type
 system elsewhere on the page (pull quotes, a byline). The emphasized word must
 be the one a reader would stress when reading the sentence aloud.

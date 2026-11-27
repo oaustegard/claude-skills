@@ -43,8 +43,8 @@ The staging entries that come up most often:
 
 ## The design register
 
-[`references/design.md`](references/design.md) does the same for HTML pages,
-artifacts and slide decks. It catalogues 18 visual devices that mark a page as
+[`references/design.md`](references/design.md) catalogues the visual tells of
+model-built HTML pages, artifacts and slide decks. It catalogues 18 visual devices that mark a page as
 model-built, drawn from Mike Lacher's parody kit
 [Slopstrap](https://slopstrap.mikelacher.com/agents/): purple-to-cyan
 gradients, frosted glass cards, pulsing status dots, italic serif emphasis

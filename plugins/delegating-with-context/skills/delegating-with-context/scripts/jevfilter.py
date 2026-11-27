@@ -39,7 +39,10 @@ class Blocked(FilterError):
     """TypeSafe's edge WAF rejected the request content. Deterministic: retrying the
     same bytes never helps. Through the AI Gateway it arrives as HTTP 402 'Payment
     error from model using BYOK' wrapping a Cloudflare 'Sorry, you have been blocked'
-    page (diagnosed 2026-09-23 on a transcript full of shell commands)."""
+    page (diagnosed 2026-09-23 on a transcript full of shell commands).
+
+    Also raised for a window over Jev's token limit (HTTP 400 max_tokens_exceeded,
+    2026-11-27): just as deterministic, and bisecting it is just as much the fix."""
 
 
 def tokens(s: str) -> int:
@@ -144,9 +147,17 @@ def _call(state: dict, questions: dict, timeout: int = 60) -> tuple[dict, int]:
             body = e.read().decode(errors="replace")
             if "you have been blocked" in body or "Attention Required" in body:
                 raise Blocked(f"HTTP {e.code}: request content blocked by the provider's WAF")
+            # A window over Jev's token limit (both transports put max_tokens_exceeded in a
+            # 400 body). tokens() assumes 3.3 chars/token, which dense text such as hex or
+            # base64 beats. Retrying cannot help: raise Blocked so the caller bisects it.
+            if e.code == 400 and "max_tokens_exceeded" in body:
+                raise Blocked(f"HTTP {e.code}: window over Jev's token limit")
+            # Any other 4xx but timeout and rate limit is permanent: fail now, not after ~90 s.
+            if 400 <= e.code < 500 and e.code not in (408, 429):
+                raise FilterError(f"HTTP {e.code}: {body[:300]}")
             last = f"HTTP {e.code}: {body[:300]}"
-            # the gateway's own rate limit (code 2003) needs real backoff; honour Retry-After
-            wait = float(e.headers.get("Retry-After") or 0) or min(30, 2 * 2 ** attempt)
+            # the gateway's own rate limit (code 2003) needs real backoff; honour Retry-After, capped
+            wait = min(30.0, float(e.headers.get("Retry-After") or 0) or 2 * 2 ** attempt)
             time.sleep(wait)
         except (urllib.error.URLError, KeyError, ValueError, TimeoutError) as e:
             last = f"{type(e).__name__}: {str(e)[:200]}"
@@ -154,11 +165,11 @@ def _call(state: dict, questions: dict, timeout: int = 60) -> tuple[dict, int]:
     raise FilterError(f"Jev call failed after retries: {last}")
 
 
-BLOCKED_SCORE = 0.5          # a chunk the WAF will not let Jev see is ranked as a coin flip
+BLOCKED_SCORE = 0.5          # a chunk Jev cannot be shown (WAF block, or over the limit alone) ranks as a coin flip
 
 
 def _score_window(w: dict, depth: int = 0) -> tuple[dict, int, int, int]:
-    """Score one window; on a WAF block, bisect it until the offending chunks are isolated.
+    """Score one window; on a WAF block or token overflow, bisect it until the offending chunks are isolated.
 
     Returns (scores, jev_tokens, calls, blocked_chunks)."""
     try:
