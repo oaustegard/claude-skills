@@ -200,6 +200,9 @@ RULES: list[tuple[str, str, str]] = [
     ("aphorism", r",\s*so\s+(?:a|an|the|it|they|you)\s+[^.]{0,50}\bnever\b[^.]{0,40}\.", "welded epigram — second clause restates the first as a maxim"),
     ("aphorism", r",\s*and\s+(?:the|its)\s+(?:failure|error|cost|risk|difference|effect|result|damage|loss)\s+[^.]{0,40}\bis\b[^.]{0,30}\.", "welded epigram — second clause generalizes the first"),
     ("aphorism", r",\s*(?:so|and)\s+nothing\s+\w+s\b[^.]{0,40}\.", "welded epigram — 'and nothing X's' closer"),
+    # concrete join (entry 39): a second complete statement welded on with ", so" or ", and"
+    ("join", r",\s*so\s+(?!that\b)(?:a|an|the|it|it's|its|they|you|your|he|he's|she|his|her|nothing|no|every|each|staff|users?|people|visitors?)\s+\w+|,\s*so\s+\w+(?:\s+\w+)?\s+(?:can|could|will|won't|never|don't|doesn't|no\s+longer)\b", "concrete join — ', so' welds a second statement on; split it or use because/to/which"),
+    ("join", r",\s*and\s+(?:it|it's|its|he|he's|she|they|his|her|your|you|there|nothing|every|each)\s+(?!(?:is|are|was|were)\s+not\b)\w+", "concrete join — ', and' starts a second statement; split it unless both share a subject"),
 
     # --- spec-ese (entry 40) --------------------------------------------------
     ("spec-ese", r"(?:^|[.!?]\s+)That\s+(?:child|session|process|container|job|worker|request|instance|delegate)\b(?!'s)", "demonstrative subject for a thing already named — use 'it'"),
@@ -339,7 +342,7 @@ EMOJI_RE = re.compile(
 
 CATEGORY_ORDER = [
     "negation-first", "significance", "agency", "deferred-noun", "announce", "locator",
-    "staging", "triad", "em-dash", "aphorism", "rhetorical-q", "self-grading", "humility", "throat-clearing",
+    "staging", "triad", "em-dash", "aphorism", "join", "rhetorical-q", "self-grading", "humility", "throat-clearing",
     "rtfm", "dev-cliche", "slop", "editorializing", "time-inflation",
     "copula", "participle", "false-range", "list-shape", "chatbot", "filler",
     "gap-fill", "diff-anchored", "subjectless", "hyphenation", "spec-ese",

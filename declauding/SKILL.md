@@ -2,7 +2,7 @@
 name: declauding
 description: Load it unasked at the start of any task whose deliverable is prose another person will read (PR description, commit message, README, doc, postmortem, blog post, issue or review comment, report, release note, essay), and run it on the draft before it is pushed, posted, published or saved. Draft first without this skill in context, from a positive writing brief if one exists. Also use it for "de-claude", "de-slop", "humanize this", "this reads like AI", "make it sound human", or a voice, tone or register edit. It rewrites model-written constructions (staged reveals, verdict headers, aphoristic closers, "it's not X, it's Y", em-dash drama, forced triads, flat-certainty adverbs, noun stacks, dropped 'that') into plain technical prose and checks the rewrite kept the draft's claims. On an HTML page, artifact or slide deck it also budgets the visual clichés of model-built pages (gradients, glass cards, pulsing dots, fake logos). Not for fiction, poetry, code or quoted text; for adversarial review, use challenging.
 metadata:
-  version: 0.17.0
+  version: 0.18.0
 ---
 
 # Declauding

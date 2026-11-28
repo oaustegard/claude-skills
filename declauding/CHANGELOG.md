@@ -2,6 +2,17 @@
 
 All notable changes to the `declauding` skill are documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.18.0] - 2026-11-28
+
+### Added
+
+- Entry 39 covers the concrete join: a fact, then `, so` or `, and`, then a
+  second complete statement with its own subject ("The picker runs Gemma in the
+  visitor's browser, so nothing leaves the page."). Sonnet 5.5 used it in 10 of
+  30 short answers. `declaude_lint.py` reports it under a new `join` category.
+  It finds all 5 new specimens in `tests/sample-tics.md` and none in
+  `tests/sample-clean.md`.
+
 ## [0.17.0] - 2026-11-22
 
 ### Other

@@ -783,6 +783,41 @@ Distinct from entry 12, which is a whole sentence at the end of a paragraph.
 This one hides inside a single sentence, mid-paragraph, and survives a pass that
 is only checking closers.
 
+**Concrete join.** The same weld appears when the second clause is specific
+and true. A fact, then `, so` or `, and`, then a second complete statement with
+its own subject:
+
+> *The picker runs Gemma in the visitor's browser, so nothing leaves the page.*
+> *Your own rules run locally first, and it never sends a URL that carries a
+> token.*
+> *It stores patient data in the FHIR R4 standard, and its AI assistants wait
+> for staff to confirm before they write to a record.*
+
+No maxim is involved, and a reader still flags it. In short answers the shape
+repeats until every sentence is one fact plus a welded second fact, and that
+rhythm reads as model-written. Sonnet 5.5, answering 30 questions about a
+person's CV and projects at medium effort with no instruction about the shape,
+used it in 10 of 30 answers (10 of 110 sentences). The person whose portfolio
+it was named it as the main tell in the output.
+
+**Fix:** give each statement its own sentence, or state the relation with
+*because*, *to* or *which*.
+
+> was: *The picker runs Gemma in the visitor's browser, so nothing leaves the
+> page.*
+> now: *The picker runs Gemma in the visitor's browser to keep the visitor's
+> data on their device.*
+
+> was: *Your own rules run locally first, and it never sends a URL that carries
+> a token.*
+> now: *Your own rules run locally first. It never sends a URL that carries a
+> token.*
+
+**Earned:** *so* for one event that led to another (*The run kept failing, so
+he rewrote the DAG.*), *so that* for purpose, and *and* inside a list or between
+two verbs that share a subject (*He built the pipeline and wrote its tests.*).
+One instance in a long document is punctuation. Look for the shape repeating.
+
 ---
 
 ## 40. Spec-ese
