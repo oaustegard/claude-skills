@@ -158,6 +158,18 @@ Omit it and the child idles awaiting input.
 
 Entries the caller does not itself hold are dropped, so a child never carries a grant its parent lacks.
 
+## Entry 39 concrete joins (Sonnet 5.5, CV question answers)
+
+The picker runs Gemma in the visitor's browser, so nothing leaves the page.
+
+Your own rules run locally first, and it never sends a URL that carries a token.
+
+It outputs JSON and plain Markdown, so coding agents can use it as easily as people can.
+
+It stores patient data in the FHIR R4 standard, and its AI assistants wait for staff to confirm before they write to a record.
+
+The browser transcribes speech itself, so a child's voice never leaves the device.
+
 ## GitHub authorship in a sourced child
 
 ## Entries 43-47 specimens
